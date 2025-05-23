@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Camera, Plus, Trash2, Save, X } from 'lucide-react';
+import { Camera, Plus, Trash2 } from 'lucide-react';
 import { Camera as CameraType } from '@/types/security';
 import { useCameras } from '@/contexts/CameraContext';
 import { 
@@ -242,6 +242,7 @@ const CameraConfig = () => {
                   </Button>
                 </TableCell>
               )}
+            </TableRow>
           </TableBody>
         </Table>
       </div>

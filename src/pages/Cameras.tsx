@@ -3,64 +3,10 @@ import { Camera as CameraIcon, Play, Settings, MoreVertical } from 'lucide-react
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Camera } from '@/types/security';
-import { useState } from 'react';
+import { useCameras } from '@/contexts/CameraContext';
 
 const Cameras = () => {
-  const [cameras] = useState<Camera[]>([
-    {
-      id: 'cam1',
-      name: 'Front Door',
-      status: 'online',
-      streamUrl: '/stream/cam1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Main Entrance',
-      detectionEnabled: true,
-      sensitivity: 0.75,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam2',
-      name: 'Backyard',
-      status: 'online',
-      streamUrl: '/stream/cam2',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garden Area',
-      detectionEnabled: true,
-      sensitivity: 0.60,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam3',
-      name: 'Garage',
-      status: 'offline',
-      streamUrl: '/stream/cam3',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garage Entrance',
-      detectionEnabled: false,
-      sensitivity: 0.65,
-      lastSeen: new Date(Date.now() - 15 * 60 * 1000),
-      resolution: '1280x720',
-      fps: 15
-    },
-    {
-      id: 'cam4',
-      name: 'Driveway',
-      status: 'online',
-      streamUrl: '/stream/cam4',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Vehicle Area',
-      detectionEnabled: true,
-      sensitivity: 0.70,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 25
-    }
-  ]);
+  const { cameras } = useCameras();
 
   return (
     <div className="space-y-6">
@@ -110,6 +56,7 @@ const Cameras = () => {
                         </div>
                         <p className="text-white text-lg font-medium">Live Stream</p>
                         <p className="text-white/60 text-sm">{camera.resolution} • {camera.fps}fps</p>
+                        <p className="text-white/40 text-xs mt-1">RTSP: {camera.streamUrl.split('@')[1]?.split(':')[0] || 'N/A'}</p>
                       </div>
                     </div>
                   </div>

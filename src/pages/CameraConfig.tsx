@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Camera, Plus, Trash2, Save, X } from 'lucide-react';
 import { Camera as CameraType } from '@/types/security';
+import { useCameras } from '@/contexts/CameraContext';
 import { 
   Dialog, 
   DialogContent, 
@@ -35,48 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const CameraConfig = () => {
   const { toast } = useToast();
-  const [cameras, setCameras] = useState<CameraType[]>([
-    {
-      id: 'cam1',
-      name: 'Front Door',
-      status: 'online',
-      streamUrl: 'rtsp://username:password@192.168.1.100:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Main Entrance',
-      detectionEnabled: true,
-      sensitivity: 0.75,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam2',
-      name: 'Backyard',
-      status: 'online',
-      streamUrl: 'rtsp://username:password@192.168.1.101:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garden Area',
-      detectionEnabled: true,
-      sensitivity: 0.60,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam3',
-      name: 'Garage',
-      status: 'offline',
-      streamUrl: 'rtsp://username:password@192.168.1.102:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garage Entrance',
-      detectionEnabled: false,
-      sensitivity: 0.65,
-      lastSeen: new Date(Date.now() - 15 * 60 * 1000),
-      resolution: '1280x720',
-      fps: 15
-    }
-  ]);
-
+  const { cameras, addCamera, updateCamera, deleteCamera } = useCameras();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentCameraId, setCurrentCameraId] = useState<string | null>(null);
@@ -88,6 +48,8 @@ const CameraConfig = () => {
       streamUrl: '',
       detectionEnabled: true,
       sensitivity: 0.75,
+      resolution: '1920x1080',
+      fps: 30,
     }
   });
 
@@ -98,8 +60,11 @@ const CameraConfig = () => {
       streamUrl: '',
       detectionEnabled: true,
       sensitivity: 0.75,
+      resolution: '1920x1080',
+      fps: 30,
     });
     setIsEditing(false);
+    setCurrentCameraId(null);
     setDialogOpen(true);
   };
 
@@ -110,6 +75,8 @@ const CameraConfig = () => {
       streamUrl: camera.streamUrl,
       detectionEnabled: camera.detectionEnabled,
       sensitivity: camera.sensitivity,
+      resolution: camera.resolution,
+      fps: camera.fps,
     });
     setCurrentCameraId(camera.id);
     setIsEditing(true);
@@ -117,46 +84,36 @@ const CameraConfig = () => {
   };
 
   const handleAddCamera = (data: any) => {
-    const newCamera: CameraType = {
-      id: `cam${Date.now()}`,
+    addCamera({
       name: data.name,
       location: data.location,
-      status: 'offline',
       streamUrl: data.streamUrl,
-      thumbnail: '/placeholder-camera.jpg',
       detectionEnabled: data.detectionEnabled,
       sensitivity: data.sensitivity,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    };
+      resolution: data.resolution,
+      fps: data.fps,
+    });
 
-    setCameras([...cameras, newCamera]);
     setDialogOpen(false);
     toast({
       title: "Camera Added",
-      description: `${newCamera.name} has been added successfully.`,
+      description: `${data.name} has been added successfully.`,
     });
   };
 
   const handleUpdateCamera = (data: any) => {
     if (!currentCameraId) return;
     
-    const updatedCameras = cameras.map(camera => {
-      if (camera.id === currentCameraId) {
-        return {
-          ...camera,
-          name: data.name,
-          location: data.location,
-          streamUrl: data.streamUrl,
-          detectionEnabled: data.detectionEnabled,
-          sensitivity: data.sensitivity,
-        };
-      }
-      return camera;
+    updateCamera(currentCameraId, {
+      name: data.name,
+      location: data.location,
+      streamUrl: data.streamUrl,
+      detectionEnabled: data.detectionEnabled,
+      sensitivity: data.sensitivity,
+      resolution: data.resolution,
+      fps: data.fps,
     });
 
-    setCameras(updatedCameras);
     setDialogOpen(false);
     toast({
       title: "Camera Updated",
@@ -168,8 +125,7 @@ const CameraConfig = () => {
     const cameraToDelete = cameras.find(camera => camera.id === id);
     if (!cameraToDelete) return;
 
-    const updatedCameras = cameras.filter(camera => camera.id !== id);
-    setCameras(updatedCameras);
+    deleteCamera(id);
     
     toast({
       title: "Camera Removed",
@@ -177,10 +133,18 @@ const CameraConfig = () => {
     });
   };
 
-  const testConnection = (streamUrl: string) => {
-    // In a real application, this would test the RTSP connection
-    // For now, we'll simulate a successful connection 80% of the time
-    const isSuccessful = Math.random() > 0.2;
+  const testConnection = async (streamUrl: string) => {
+    if (!streamUrl) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid RTSP URL",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Simulate connection test - in real app, this would ping the RTSP stream
+    const isSuccessful = Math.random() > 0.3; // 70% success rate for demo
     
     toast({
       title: isSuccessful ? "Connection Successful" : "Connection Failed",
@@ -277,8 +241,7 @@ const CameraConfig = () => {
                     Add Your First Camera
                   </Button>
                 </TableCell>
-              </TableRow>
-            )}
+              )}
           </TableBody>
         </Table>
       </div>
@@ -357,6 +320,41 @@ const CameraConfig = () => {
                   </FormItem>
                 )}
               />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="resolution"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Resolution</FormLabel>
+                      <FormControl>
+                        <Input placeholder="1920x1080" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="fps"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>FPS</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="30" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <DialogFooter className="mt-6">
                 <Button 

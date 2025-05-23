@@ -241,8 +241,8 @@ const CameraConfig = () => {
                     Add Your First Camera
                   </Button>
                 </TableCell>
-              )}
-            </TableRow>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

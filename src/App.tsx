@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SecurityLayout } from "./components/layout/SecurityLayout";
 import Dashboard from "./pages/Dashboard";
 import Cameras from "./pages/Cameras";
+import CameraConfig from "./pages/CameraConfig";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<SecurityLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="cameras" element={<Cameras />} />
+            <Route path="camera-config" element={<CameraConfig />} />
             <Route path="events" element={<Dashboard />} />
             <Route path="history" element={<Dashboard />} />
             <Route path="settings" element={<Dashboard />} />

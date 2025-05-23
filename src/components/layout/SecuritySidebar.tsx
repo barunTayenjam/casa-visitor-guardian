@@ -1,103 +1,77 @@
 
-import { Shield, Camera, Activity, Calendar, Settings, Users, BarChart3 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-} from '@/components/ui/sidebar';
-
-const menuItems = [
-  {
-    title: 'Dashboard',
-    url: '/',
-    icon: BarChart3,
-  },
-  {
-    title: 'Live Cameras',
-    url: '/cameras',
-    icon: Camera,
-  },
-  {
-    title: 'Motion Events',
-    url: '/events',
-    icon: Activity,
-  },
-  {
-    title: 'Visitor History',
-    url: '/history',
-    icon: Calendar,
-  },
-  {
-    title: 'Settings',
-    url: '/settings',
-    icon: Settings,
-  },
-];
+import { Home, Camera, Bell, History, Settings, MonitorPlus } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { useSidebar } from '@/components/ui/sidebar';
 
 export const SecuritySidebar = () => {
-  const location = useLocation();
+  const { collapsed } = useSidebar();
+  
+  const links = [
+    {
+      title: 'Dashboard',
+      href: '/',
+      icon: Home,
+    },
+    {
+      title: 'Cameras',
+      href: '/cameras',
+      icon: Camera,
+    },
+    {
+      title: 'Camera Config',
+      href: '/camera-config',
+      icon: MonitorPlus,
+    },
+    {
+      title: 'Events',
+      href: '/events',
+      icon: Bell,
+    },
+    {
+      title: 'History',
+      href: '/history',
+      icon: History,
+    },
+    {
+      title: 'Settings',
+      href: '/settings',
+      icon: Settings,
+    },
+  ];
 
   return (
-    <Sidebar className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-4 py-6">
-          <div className="bg-primary rounded-lg p-2">
-            <Shield className="h-6 w-6 text-primary-foreground" />
+    <div className="h-screen border-r bg-background flex-shrink-0 w-[250px] data-[collapsed=true]:w-[80px] transition-all duration-300" data-collapsed={collapsed}>
+      <div className="py-4 flex h-16 items-center justify-center">
+        {collapsed ? (
+          <div className="flex w-full items-center justify-center">
+            <Camera className="h-6 w-6" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-sidebar-foreground">
-              HomeSecure
-            </h2>
-            <p className="text-sm text-sidebar-foreground/60">
-              Security System
-            </p>
+        ) : (
+          <div className="flex w-full items-center justify-center">
+            <Camera className="h-6 w-6 mr-2" />
+            <span className="text-xl font-semibold">Security</span>
           </div>
-        </div>
-      </SidebarHeader>
-      
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location.pathname === item.url}
-                    className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                  >
-                    <Link to={item.url} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      
-      <SidebarFooter className="border-t border-sidebar-border">
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-sidebar-foreground/60">
-            <div className="status-indicator online"></div>
-            <span>System Online</span>
-          </div>
-          <p className="text-xs text-sidebar-foreground/40 mt-1">
-            Uptime: 7d 14h 23m
-          </p>
-        </div>
-      </SidebarFooter>
-    </Sidebar>
+        )}
+      </div>
+      <div className="py-2">
+        <nav className="grid items-start px-2 gap-2">
+          {links.map((link, index) => (
+            <NavLink
+              key={index}
+              to={link.href}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:bg-accent ${
+                  isActive ? "bg-accent" : ""
+                } ${collapsed ? "justify-center" : ""}`
+              }
+              end={link.href === '/'}
+            >
+              <link.icon className="h-[1.2rem] w-[1.2rem]" />
+              {!collapsed && <span>{link.title}</span>}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </div>
   );
 };

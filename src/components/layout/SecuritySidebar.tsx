@@ -1,10 +1,12 @@
 
-import { Home, Camera, Bell, History, Settings, MonitorPlus } from 'lucide-react';
+import { Home, Camera, Bell, History, Settings, MonitorCog } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 
 export const SecuritySidebar = () => {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
+  // We use state === "collapsed" instead of collapsed property
+  const collapsed = state === "collapsed";
   
   const links = [
     {
@@ -20,7 +22,7 @@ export const SecuritySidebar = () => {
     {
       title: 'Camera Config',
       href: '/camera-config',
-      icon: MonitorPlus,
+      icon: MonitorCog,
     },
     {
       title: 'Events',

@@ -116,8 +116,6 @@ export class StreamManager {
         '-re', // Force reading input at the native frame rate
         // Input source
         '-i', rtspUrl,
-        // Use a reasonable input buffer size
-        '-bufsize', '2048k',
         // Output format as image pipe for streaming
         '-f', 'image2pipe',
         // Use yuvj420p pixel format which works well with mjpeg codec

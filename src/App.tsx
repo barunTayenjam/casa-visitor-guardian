@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SecurityLayout } from "./components/layout/SecurityLayout";
 import { CameraProvider } from "./contexts/CameraContext";
+import { EventsProvider } from "./contexts/EventsContext";
+import { SocketProvider } from "./contexts/SocketContext";
 import Dashboard from "./pages/Dashboard";
 import Cameras from "./pages/Cameras";
 import CameraConfig from "./pages/CameraConfig";
@@ -16,23 +18,27 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <CameraProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<SecurityLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="cameras" element={<Cameras />} />
-              <Route path="camera-config" element={<CameraConfig />} />
-              <Route path="events" element={<Dashboard />} />
-              <Route path="history" element={<Dashboard />} />
-              <Route path="settings" element={<Dashboard />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </CameraProvider>
+      <SocketProvider>
+        <CameraProvider>
+          <EventsProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<SecurityLayout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="cameras" element={<Cameras />} />
+                  <Route path="camera-config" element={<CameraConfig />} />
+                  <Route path="events" element={<Dashboard />} />
+                  <Route path="history" element={<Dashboard />} />
+                  <Route path="settings" element={<Dashboard />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </EventsProvider>
+        </CameraProvider>
+      </SocketProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

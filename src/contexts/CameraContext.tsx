@@ -1,13 +1,23 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Camera } from '@/types/security';
+import apiService from '@/services/ApiService';
+import socketService from '@/services/SocketService';
 
 interface CameraContextType {
   cameras: Camera[];
-  addCamera: (camera: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => void;
-  updateCamera: (id: string, updates: Partial<Camera>) => void;
-  deleteCamera: (id: string) => void;
+  loading: boolean;
+  error: string | null;
+  addCamera: (camera: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => Promise<string>;
+  updateCamera: (id: string, updates: Partial<Camera>) => Promise<void>;
+  deleteCamera: (id: string) => Promise<void>;
   getCameraById: (id: string) => Camera | undefined;
+  refreshCameras: () => Promise<void>;
+  startCameraStream: (id: string) => Promise<void>;
+  stopCameraStream: (id: string) => Promise<void>;
+  takeSnapshot: (id: string, resolution?: string) => Promise<string>;
+  toggleNightMode: (id: string, enabled: boolean) => Promise<void>;
+  toggleMotionDetection: (id: string, enabled: boolean) => Promise<void>;
 }
 
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
@@ -21,80 +31,197 @@ export const useCameras = () => {
 };
 
 export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cameras, setCameras] = useState<Camera[]>([
-    {
-      id: 'cam1',
-      name: 'Front Door',
-      status: 'online',
-      streamUrl: 'rtsp://username:password@192.168.1.100:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Main Entrance',
-      detectionEnabled: true,
-      sensitivity: 0.75,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam2',
-      name: 'Backyard',
-      status: 'online',
-      streamUrl: 'rtsp://username:password@192.168.1.101:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garden Area',
-      detectionEnabled: true,
-      sensitivity: 0.60,
-      lastSeen: new Date(),
-      resolution: '1920x1080',
-      fps: 30
-    },
-    {
-      id: 'cam3',
-      name: 'Garage',
-      status: 'offline',
-      streamUrl: 'rtsp://username:password@192.168.1.102:554/stream1',
-      thumbnail: '/placeholder-camera.jpg',
-      location: 'Garage Entrance',
-      detectionEnabled: false,
-      sensitivity: 0.65,
-      lastSeen: new Date(Date.now() - 15 * 60 * 1000),
-      resolution: '1280x720',
-      fps: 15
-    }
-  ]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const addCamera = (cameraData: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => {
-    const newCamera: Camera = {
-      id: `cam${Date.now()}`,
-      ...cameraData,
-      status: 'offline', // Start as offline until connection is verified
-      lastSeen: new Date(),
-      thumbnail: '/placeholder-camera.jpg',
+  // Fetch cameras from the backend on initial load
+  useEffect(() => {
+    refreshCameras();
+
+    // Connect to socket server
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
+
+    // Setup motion detection event listener
+    const handleMotionDetected = (event: any) => {
+      console.log('Motion detected:', event);
+      // Update camera status or trigger notification
+      if (event.cameraId) {
+        updateCameraLastSeen(event.cameraId);
+      }
     };
-    setCameras(prev => [...prev, newCamera]);
+
+    // Setup camera status change listener
+    const handleCameraStatusChange = (data: { cameraId: string; status: 'online' | 'offline' }) => {
+      updateCamera(data.cameraId, { status: data.status });
+    };
+
+    // Register socket event listeners
+    socketService.on('motionDetected', handleMotionDetected);
+    socketService.on('cameraStatus', handleCameraStatusChange);
+
+    // Cleanup on unmount
+    return () => {
+      socketService.off('motionDetected', handleMotionDetected);
+      socketService.off('cameraStatus', handleCameraStatusChange);
+    };
+  }, []);
+
+  // Refresh cameras from the backend
+  const refreshCameras = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedCameras = await apiService.getCameras();
+      setCameras(fetchedCameras);
+    } catch (err) {
+      console.error('Failed to fetch cameras:', err);
+      setError('Failed to load cameras from the server');
+      // Only show cameras that are actually configured in the backend
+      // No default cameras as fallback
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateCamera = (id: string, updates: Partial<Camera>) => {
+  // Update a camera's last seen timestamp
+  const updateCameraLastSeen = (id: string) => {
     setCameras(prev => prev.map(camera => 
-      camera.id === id ? { ...camera, ...updates } : camera
+      camera.id === id ? { ...camera, lastSeen: new Date() } : camera
     ));
   };
 
-  const deleteCamera = (id: string) => {
-    setCameras(prev => prev.filter(camera => camera.id !== id));
+  // Add a new camera
+  const addCamera = async (cameraData: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => {
+    try {
+      const cameraId = await apiService.addCamera(cameraData);
+      
+      // Add to local state
+      const newCamera: Camera = {
+        id: cameraId,
+        ...cameraData,
+        status: 'offline', // Start as offline until connection is verified
+        lastSeen: new Date(),
+        thumbnail: '/placeholder-camera.jpg',
+      };
+      
+      setCameras(prev => [...prev, newCamera]);
+      return cameraId;
+    } catch (err) {
+      console.error('Failed to add camera:', err);
+      throw err;
+    }
   };
 
+  // Update a camera
+  const updateCamera = async (id: string, updates: Partial<Camera>) => {
+    try {
+      // Update in backend
+      if (Object.keys(updates).some(key => [
+        'name', 'streamUrl', 'fps', 'resolution'
+      ].includes(key))) {
+        await apiService.updateCamera(id, updates);
+      }
+      
+      // Update in local state
+      setCameras(prev => prev.map(camera => 
+        camera.id === id ? { ...camera, ...updates } : camera
+      ));
+    } catch (err) {
+      console.error(`Failed to update camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Delete a camera
+  const deleteCamera = async (id: string) => {
+    try {
+      // Delete from backend
+      await apiService.deleteCamera(id);
+      
+      // Remove from local state
+      setCameras(prev => prev.filter(camera => camera.id !== id));
+    } catch (err) {
+      console.error(`Failed to delete camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Get a camera by ID
   const getCameraById = (id: string) => {
     return cameras.find(camera => camera.id === id);
+  };
+
+  // Start streaming from a camera
+  const startCameraStream = async (id: string) => {
+    try {
+      await apiService.startCameraStream(id);
+      updateCamera(id, { status: 'online' });
+    } catch (err) {
+      console.error(`Failed to start stream for camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Stop streaming from a camera
+  const stopCameraStream = async (id: string) => {
+    try {
+      await apiService.stopCameraStream(id);
+    } catch (err) {
+      console.error(`Failed to stop stream for camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Take a snapshot from a camera
+  const takeSnapshot = async (id: string, resolution?: string) => {
+    try {
+      return await apiService.takeSnapshot(id, resolution);
+    } catch (err) {
+      console.error(`Failed to take snapshot for camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Toggle night mode for a camera
+  const toggleNightMode = async (id: string, enabled: boolean) => {
+    try {
+      await apiService.toggleNightMode(id, enabled);
+    } catch (err) {
+      console.error(`Failed to toggle night mode for camera ${id}:`, err);
+      throw err;
+    }
+  };
+
+  // Toggle motion detection for a camera
+  const toggleMotionDetection = async (id: string, enabled: boolean) => {
+    try {
+      await apiService.updateMotionSettings(id, { enabled });
+      updateCamera(id, { detectionEnabled: enabled });
+    } catch (err) {
+      console.error(`Failed to toggle motion detection for camera ${id}:`, err);
+      throw err;
+    }
   };
 
   return (
     <CameraContext.Provider value={{
       cameras,
+      loading,
+      error,
       addCamera,
       updateCamera,
       deleteCamera,
-      getCameraById
+      getCameraById,
+      refreshCameras,
+      startCameraStream,
+      stopCameraStream,
+      takeSnapshot,
+      toggleNightMode,
+      toggleMotionDetection
     }}>
       {children}
     </CameraContext.Provider>

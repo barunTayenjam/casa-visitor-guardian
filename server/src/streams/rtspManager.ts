@@ -113,11 +113,11 @@ export class StreamManager {
         '-probesize', '64000',
         // Analyze shorter portions of the input to speed up startup
         '-analyzeduration', '1000000',
+        '-re', // Force reading input at the native frame rate
         // Input source
         '-i', rtspUrl,
         // Use a reasonable input buffer size
         '-bufsize', '2048k',
-        '-re', // Force reading input at the native frame rate
         // Output format as image pipe for streaming
         '-f', 'image2pipe',
         // Use yuvj420p pixel format which works well with mjpeg codec

@@ -20,7 +20,7 @@ export const AlertsPanel = ({ isOpen, onClose }: AlertsPanelProps) => {
       message: 'Motion detected at Front Door',
       timestamp: new Date(Date.now() - 5 * 60 * 1000),
       acknowledged: false,
-      cameraId: 'cam1'
+      cameraId: 'cam2'
     },
     {
       id: '2',

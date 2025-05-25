@@ -230,6 +230,9 @@ export class StreamManager {
       // Handle process exit with improved retry logic
       process.on('exit', (code: number) => {
         console.log(`FFMPEG process for camera ${cameraId} exited with code ${code}`);
+        if (code !== 0) {
+          console.error(`FFMPEG process for camera ${cameraId} exited with code ${code}. Error log: ${errorLog}`);
+        }
         if (camera.isActive) {
           camera.isActive = false;
           camera.process = null;

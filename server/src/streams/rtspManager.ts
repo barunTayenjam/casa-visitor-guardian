@@ -105,8 +105,6 @@ export class StreamManager {
         '-rtsp_transport', 'tcp',
         // Set a shorter timeout to detect connection issues quickly
         '-timeout', '3000000',
-        // Use a reasonable input buffer size
-        '-bufsize', '2048k',
         // More aggressive keyframe seeking to improve startup
         '-flags', 'low_delay',
         // Set maximum delay for better synchronization
@@ -117,6 +115,8 @@ export class StreamManager {
         '-analyzeduration', '1000000',
         // Input source
         '-i', rtspUrl,
+        // Use a reasonable input buffer size
+        '-bufsize', '2048k',
         '-re', // Force reading input at the native frame rate
         // Output format as image pipe for streaming
         '-f', 'image2pipe',

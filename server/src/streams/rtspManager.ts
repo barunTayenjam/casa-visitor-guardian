@@ -105,6 +105,11 @@ export class StreamManager {
         '-rtsp_transport', 'tcp',
         // Set a shorter timeout to detect connection issues quickly
         '-timeout', '3000000',
+        
+        // Error tolerance flags
+        '-err_detect', 'ignore_err',
+        '-fflags', '+discardcorrupt',
+        
         // More aggressive keyframe seeking to improve startup
         '-flags', 'low_delay',
         // Set maximum delay for better synchronization
@@ -228,15 +233,25 @@ export class StreamManager {
       // Handle process exit with improved retry logic
       process.on('exit', (code: number) => {
         console.log(`FFMPEG process for camera ${cameraId} exited with code ${code}`);
-        if (code !== 0) {
-          console.error(`FFMPEG process for camera ${cameraId} exited with code ${code}. Error log: ${errorLog}`);
-        }
-        if (camera.isActive) {
-          camera.isActive = false;
+        if (camera.isActive) { // Process was not intentionally stopped by our stopStream()
+          camera.isActive = false; // Mark as inactive as the process is gone
           camera.process = null;
           
-          // Auto-restart with exponential backoff
+          // Determine if a restart is needed
+          let shouldRestart = false;
           if (code !== 0) {
+            console.error(`FFMPEG process for camera ${cameraId} exited with error code ${code}. Error log: ${errorLog}`);
+            // The console.error above already includes the errorLog, so we just log the error code here for the specific message.
+            // console.log(`FFMPEG process for camera ${cameraId} exited with error code ${code}.`); // Redundant with the error log above
+            shouldRestart = true;
+          } else {
+            // code === 0, but camera.isActive was true, meaning it wasn't a clean manual stop.
+            // This is an unexpected exit, even if with code 0 (e.g. due to stream errors ending FFMPEG)
+            console.warn(`FFMPEG process for camera ${cameraId} exited unexpectedly with code 0 while still marked active. Error log: ${errorLog}`);
+            shouldRestart = true; 
+          }
+
+          if (shouldRestart) {
             // Calculate retry delay with exponential backoff (5-30 seconds)
             const retryCount = camera.retryCount || 0;
             const retryDelay = Math.min(5000 * Math.pow(1.5, retryCount), 30000);
@@ -244,15 +259,22 @@ export class StreamManager {
             
             console.log(`Attempting to restart stream for camera ${cameraId} in ${retryDelay/1000} seconds (retry #${camera.retryCount})`);
             
-            // Notify clients of reconnection attempt
             this.io.to(`camera-${cameraId}`).emit('camera-status', {
               cameraId,
               status: 'reconnecting',
-              message: `Connection lost. Retrying in ${Math.round(retryDelay/1000)} seconds...`,
+              message: `Connection lost (exit code ${code}). Retrying in ${Math.round(retryDelay/1000)} seconds...`,
               timestamp: new Date().toISOString()
             });
             
             setTimeout(() => this.startStream(cameraId), retryDelay);
+          }
+        } else {
+          // camera.isActive was false, meaning stopStream() was called. This is a clean manual stop.
+          // Also log the errorLog here if the exit was not clean (code !=0) even if manually stopped.
+          if (code !== 0) {
+             console.error(`FFMPEG process for camera ${cameraId} exited with code ${code} after being manually stopped. Error log: ${errorLog}`);
+          } else {
+             console.log(`FFMPEG process for camera ${cameraId} exited (code ${code}) after being manually stopped.`);
           }
         }
       });

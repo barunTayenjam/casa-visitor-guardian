@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MotionEvent } from '@/types/security';
+import { MotionEvent, Camera } from '@/types/security'; // Ensure Camera is imported if not already
 import { useSocketContext } from './SocketContext';
+import { useCameras } from './CameraContext';
 
 interface EventsContextType {
   events: MotionEvent[];
@@ -13,22 +14,31 @@ const EventsContext = createContext<EventsContextType | undefined>(undefined);
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const { socket } = useSocketContext();
+  const { cameras } = useCameras(); // Get cameras from CameraContext
 
   useEffect(() => {
     if (!socket) return;
 
     // Listen for motion detection events
     socket.on('motionDetected', (eventData: any) => {
+      // Ensure eventData and eventData.cameraId exist
+      if (!eventData || !eventData.cameraId) {
+        console.warn('Received motionDetected event with missing data:', eventData);
+        return; 
+      }
+      
+      const camera = cameras.find(c => c.id === eventData.cameraId);
+      
       const newEvent: MotionEvent = {
-        id: eventData.id,
+        id: eventData.id || `evt_${Date.now()}`, // Fallback for event ID
         cameraId: eventData.cameraId,
-        cameraName: 'Front Door',
-        timestamp: new Date(eventData.timestamp),
-        imageUrl: eventData.imagePath,
-        confidence: eventData.confidence / 100, // Convert from 0-100 to 0-1
-        labels: ['motion'],
-        location: 'Front Door',
-        duration: eventData.duration || 0,
+        cameraName: camera ? camera.name : eventData.cameraId || 'Unknown Camera',
+        timestamp: eventData.timestamp ? new Date(eventData.timestamp) : new Date(), // Fallback for timestamp
+        imageUrl: eventData.imagePath || null, // Fallback for imagePath
+        confidence: typeof eventData.confidence === 'number' ? eventData.confidence / 100 : 0, // Convert from 0-100 to 0-1, fallback
+        labels: Array.isArray(eventData.labels) && eventData.labels.length > 0 ? eventData.labels : ['motion'],
+        location: camera ? camera.location : 'Unknown Location',
+        duration: typeof eventData.duration === 'number' ? eventData.duration : 0, // Fallback for duration
         archived: false
       };
 
@@ -52,7 +62,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       socket.off('motionDetected');
       socket.off('motionSnapshot');
     };
-  }, [socket]);
+  }, [socket, cameras]); // Add cameras to dependency array
 
   const clearEvents = () => {
     setEvents([]);

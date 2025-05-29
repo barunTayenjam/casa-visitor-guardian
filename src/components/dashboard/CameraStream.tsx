@@ -8,23 +8,43 @@ import { Camera } from '@/types/security';
 interface CameraStreamProps {
   camera: Camera;
   fullscreen?: boolean;
+  autoStart?: boolean;
 }
 
-export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen = false }) => {
+export const CameraStream: React.FC<CameraStreamProps> = ({ 
+  camera, 
+  fullscreen = false, 
+  autoStart = true 
+}) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState<string | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const fpsRef = useRef<number>(0);
   const [displayFps, setDisplayFps] = useState<number>(0);
-
+  const retryTimeoutRef = useRef<NodeJS.Timeout>();
+  const retryCountRef = useRef<number>(0);
+  const maxRetries = 5;
+  
   // Function to start streaming
   const startStream = async () => {
     try {
       setIsLoading(true);
       setError(null);
+      setIsConnecting(true);
+      
+      // Reset retry count if this is a manual start
+      if (!autoStart) {
+        retryCountRef.current = 0;
+      }
+      
+      // Ensure socket is connected
+      if (!socketService.isConnected()) {
+        await socketService.connect();
+      }
       
       // Ensure backend stream is active
       await apiService.startCameraStream(camera.id);
@@ -38,18 +58,46 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
       lastFrameTimeRef.current = performance.now();
     } catch (err) {
       console.error('Failed to start stream:', err);
-      setError('Failed to connect to camera stream');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect to camera stream';
+      setError(errorMessage);
+      
+      // Auto retry with exponential backoff if enabled
+      if (autoStart && retryCountRef.current < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
+        retryCountRef.current++;
+        console.log(`Retrying stream in ${delay/1000} seconds (attempt ${retryCountRef.current}/${maxRetries})`);
+        retryTimeoutRef.current = setTimeout(startStream, delay);
+      }
     } finally {
       setIsLoading(false);
+      setIsConnecting(false);
     }
   };
 
   // Function to stop streaming
   const stopStream = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
     socketService.stopStream(camera.id);
+    apiService.stopCameraStream(camera.id).catch(console.error);
     setIsStreaming(false);
     setCurrentFrame(null);
+    setError(null);
+    retryCountRef.current = 0;
   };
+
+  // Auto-start streaming if enabled
+  useEffect(() => {
+    if (autoStart && camera.status === 'online' && !isStreaming && !isLoading && !error) {
+      startStream();
+    }
+    return () => {
+      if (isStreaming) {
+        stopStream();
+      }
+    };
+  }, [camera.status, autoStart]);
 
   // Handle frame reception from WebSocket with improved error handling
   useEffect(() => {
@@ -58,8 +106,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
     // Handle incoming video frames
     const handleFrame = (data: { cameraId: string; data: string; timestamp: string }) => {
       if (data.cameraId === camera.id) {
-        // Clear any previous error state
+        // Clear any previous error state since we're receiving frames
         if (error) setError(null);
+        if (retryCountRef.current > 0) retryCountRef.current = 0;
         
         try {
           // Update current frame with proper data URL format
@@ -67,6 +116,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
           
           // Calculate FPS
           frameCountRef.current++;
+          
           const now = performance.now();
           const elapsed = now - lastFrameTimeRef.current;
           
@@ -79,6 +129,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
           }
         } catch (err) {
           console.error('Error processing frame:', err);
+          setError('Error processing video frame');
         }
       }
     };
@@ -88,8 +139,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
       if (data.cameraId === camera.id) {
         if (data.status === 'offline' || data.status === 'error') {
           setError(data.message || 'Camera stream disconnected');
+          stopStream();
+          // Auto retry with delay if autoStart is enabled
+          if (autoStart && retryCountRef.current < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
+            retryCountRef.current++;
+            console.log(`Camera offline, retrying in ${delay/1000} seconds (attempt ${retryCountRef.current}/${maxRetries})`);
+            retryTimeoutRef.current = setTimeout(startStream, delay);
+          }
         } else if (data.status === 'reconnecting') {
           setError(data.message || 'Reconnecting to camera...');
+        } else if (data.status === 'online') {
+          setError(null);
+          retryCountRef.current = 0;
         }
       }
     };
@@ -98,6 +160,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
     const handleError = (data: { cameraId: string; error: string }) => {
       if (data.cameraId === camera.id) {
         setError(data.error);
+        // Auto retry with delay if autoStart is enabled
+        if (autoStart && retryCountRef.current < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
+          retryCountRef.current++;
+          console.log(`Stream error, retrying in ${delay/1000} seconds (attempt ${retryCountRef.current}/${maxRetries})`);
+          retryTimeoutRef.current = setTimeout(startStream, delay);
+        }
       }
     };
 
@@ -116,8 +185,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
       frameUnsubscribe();
       statusUnsubscribe();
       errorUnsubscribe();
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
     };
-  }, [camera.id, isStreaming, error]);
+  }, [camera.id, isStreaming, error, autoStart]);
 
   // Toggle stream on/off
   const toggleStream = () => {
@@ -128,85 +200,67 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, fullscreen =
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (isStreaming) {
-        socketService.stopStream(camera.id);
-      }
-    };
-  }, [camera.id, isStreaming]);
-
-  // Handle camera status
-  const isOffline = camera.status === 'offline';
-
   return (
-    <div 
-      className={`camera-stream relative overflow-hidden rounded-lg ${fullscreen ? 'h-full w-full' : 'h-48 sm:h-64'}`}
-    >
-      {isOffline ? (
-        // Offline state
-        <div className="h-full bg-slate-800 flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-            <p className="text-red-500 text-sm font-medium">Camera Offline</p>
-            <p className="text-muted-foreground text-xs">
-              Last seen: {camera.lastSeen.toLocaleTimeString()}
-            </p>
-          </div>
-        </div>
-      ) : isStreaming && currentFrame ? (
-        // Active stream
-        <div className="relative h-full">
-          <img 
-            src={currentFrame} 
-            alt={`${camera.name} stream`} 
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute bottom-2 right-2 flex items-center gap-2">
-            <div className="bg-black/50 text-white text-xs px-2 py-1 rounded-md">
-              {displayFps} FPS
+    <div className="relative w-full h-full">
+      <div className="absolute inset-0">
+        {camera.status === 'offline' ? (
+          <div className="h-full bg-slate-800 flex items-center justify-center">
+            <div className="text-center">
+              <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+              <p className="text-red-500 text-sm font-medium">Camera Offline</p>
+              {error && (
+                <p className="text-red-400 text-xs mt-1 max-w-[200px] text-center">{error}</p>
+              )}
             </div>
+          </div>
+        ) : isStreaming && currentFrame ? (
+          <div className="relative h-full">
+            <img 
+              src={currentFrame} 
+              alt={`${camera.name} stream`} 
+              className={`h-full w-full object-contain bg-black ${fullscreen ? 'object-contain' : 'object-cover'}`}
+            />
             <Button 
               variant="ghost" 
               size="icon"
-              className="bg-black/50 text-white hover:bg-black/70 h-8 w-8"
-              onClick={toggleStream}
+              className="absolute bottom-2 right-2 bg-black/50 text-white hover:bg-black/70 h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleStream();
+              }}
             >
               <PauseIcon className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
-      ) : (
-        // Inactive stream
-        <div 
-          className="relative h-full bg-slate-900 flex items-center justify-center cursor-pointer"
-          onClick={isLoading ? undefined : toggleStream}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20"></div>
-          <div className="text-center z-10">
-            {isLoading ? (
-              <div className="bg-black/50 rounded-full p-4 mb-2">
-                <Loader2 className="h-8 w-8 text-white animate-spin" />
-              </div>
-            ) : (
-              <div className="bg-black/50 rounded-full p-4 mb-2 hover:bg-black/70 transition-colors">
-                <Play className="h-8 w-8 text-white" />
+            {displayFps > 0 && (
+              <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                {displayFps} FPS
               </div>
             )}
-            
-            <p className="text-white text-sm font-medium">
-              {isLoading ? 'Connecting...' : 'Click to view live'}
-            </p>
-            
-            {error ? (
-              <p className="text-red-400 text-xs mt-1">{error}</p>
+          </div>
+        ) : (
+          <div 
+            className="h-full bg-slate-900 flex items-center justify-center cursor-pointer"
+            onClick={isLoading ? undefined : toggleStream}
+          >
+            {isLoading || isConnecting ? (
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 text-white/80 animate-spin mx-auto mb-2" />
+                <p className="text-white/60 text-sm">
+                  {isConnecting ? 'Connecting...' : 'Loading...'}
+                </p>
+              </div>
             ) : (
-              <p className="text-white/60 text-xs">{camera.resolution} • {camera.fps}fps</p>
+              <div className="text-center">
+                <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
+                <p className="text-white/60 text-sm">Click to Start Stream</p>
+              </div>
+            )}
+            {error && (
+              <p className="absolute bottom-4 left-0 right-0 text-center text-red-400 text-sm">{error}</p>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

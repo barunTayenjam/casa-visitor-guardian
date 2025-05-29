@@ -1,13 +1,11 @@
-
 import { Home, Camera, Bell, History, Settings, MonitorCog } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 
 export const SecuritySidebar = () => {
-  const { state } = useSidebar();
-  // We use state === "collapsed" instead of collapsed property
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
-  
+
   const links = [
     {
       title: 'Dashboard',

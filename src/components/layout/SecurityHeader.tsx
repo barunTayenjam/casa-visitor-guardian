@@ -1,24 +1,31 @@
-
-import { Bell, User, Search } from 'lucide-react';
+import { Bell, User, Search, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useState } from 'react';
 
 interface SecurityHeaderProps {
+  onToggleSidebar: () => void;
   onToggleAlerts: () => void;
 }
 
-export const SecurityHeader = ({ onToggleAlerts }: SecurityHeaderProps) => {
+export const SecurityHeader = ({ onToggleSidebar, onToggleAlerts }: SecurityHeaderProps) => {
   const [alertCount] = useState(3);
 
   return (
-    <header className="border-b border-border bg-card">
-      <div className="flex items-center justify-between px-6 py-4">
+    <header className="border-b border-border bg-card h-14 px-4">
+      <div className="flex items-center justify-between h-full">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={onToggleSidebar}
+          className="h-8 w-8"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
         <div className="flex items-center gap-4">
-          <SidebarTrigger />
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -26,9 +33,7 @@ export const SecurityHeader = ({ onToggleAlerts }: SecurityHeaderProps) => {
               className="pl-10 w-80"
             />
           </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
+
           <Button 
             variant="ghost" 
             size="icon" 

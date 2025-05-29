@@ -3,12 +3,10 @@ import { io, Socket } from 'socket.io-client';
 class SocketService {
   private socket: Socket | null = null;
   private callbacks: Map<string, Set<(...args: any[]) => void>> = new Map();
-  private serverUrl: string;
 
   constructor() {
-    // Get the actual backend port from the server - using the port from our recent terminal output (9754)
-    this.serverUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:9754';
-    console.log('Socket service connecting to:', this.serverUrl);
+    // In development, use relative URL so vite proxy handles it
+    console.log('Socket service initializing');
   }
 
   // Connect to the websocket server
@@ -17,11 +15,17 @@ class SocketService {
       return;
     }
 
-    this.socket = io(this.serverUrl, {
+    // In development, use relative URL so vite proxy handles it
+    // In production, use the BACKEND_URL from env
+    const socketUrl = import.meta.env.DEV ? '' : import.meta.env.VITE_BACKEND_URL;
+    console.log('Socket service connecting to:', socketUrl || 'relative URL');
+
+    this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: Infinity
+      reconnectionAttempts: 5,
+      path: '/socket.io'
     });
 
     this.socket.on('connect', () => {
@@ -32,8 +36,8 @@ class SocketService {
       console.log('Disconnected from server');
     });
 
-    this.socket.on('error', (error) => {
-      console.error('Socket error:', error);
+    this.socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
     });
 
     // Setup event listeners from our callback map
@@ -56,7 +60,7 @@ class SocketService {
 
   // Request a camera stream
   requestStream(cameraId: string) {
-    if (!this.socket) {
+    if (!this.socket?.connected) {
       this.connect();
     }
     this.socket?.emit('requestStream', cameraId);
@@ -85,18 +89,8 @@ class SocketService {
 
   // Remove event listener
   off(event: string, callback: (...args: any[]) => void) {
-    const listeners = this.callbacks.get(event);
-    if (listeners) {
-      listeners.delete(callback);
-      if (listeners.size === 0) {
-        this.callbacks.delete(event);
-      }
-    }
-
-    // Remove from socket if connected
-    if (this.socket) {
-      this.socket.off(event, callback);
-    }
+    this.callbacks.get(event)?.delete(callback);
+    this.socket?.off(event, callback);
   }
 
   // Check if connected

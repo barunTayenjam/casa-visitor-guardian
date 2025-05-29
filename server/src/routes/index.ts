@@ -44,11 +44,36 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get list of all cameras
   app.get('/api/cameras', (req: Request, res: Response) => {
     try {
+      if (!streamManager) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Camera system not initialized',
+          status: 'unavailable'
+        });
+      }
+
       const cameras = streamManager.getAllCameras();
-      res.json({ success: true, cameras });
+      
+      // Add additional camera state information
+      const enrichedCameras = cameras.map(camera => ({
+        ...camera,
+        status: camera.isActive ? 'online' : 'offline',
+        lastError: camera.lastError || undefined,
+        retryCount: camera.retryCount || 0
+      }));
+
+      res.json({ 
+        success: true, 
+        cameras: enrichedCameras,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error getting cameras:', error);
-      res.status(500).json({ success: false, error: 'Failed to get cameras' });
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get cameras',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -97,25 +122,81 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Update camera settings
   app.put('/api/cameras/:id', (req: Request, res: Response) => {
     try {
+      if (!streamManager) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Camera system not initialized',
+          status: 'unavailable'
+        });
+      }
+
       const { name, rtspUrl, username, password, frameRate, resolution, nightMode } = req.body;
-      const updated = streamManager.updateCamera(req.params.id, {
-        name,
-        rtspUrl,
-        username,
-        password,
-        frameRate,
-        resolution,
-        nightMode
-      });
       
+      // Validate required fields
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (rtspUrl !== undefined) updates.rtspUrl = rtspUrl;
+      if (username !== undefined) updates.username = username;
+      if (password !== undefined) updates.password = password;
+      if (frameRate !== undefined) {
+        if (frameRate < 1 || frameRate > 30) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid frame rate. Must be between 1 and 30.',
+            field: 'frameRate'
+          });
+        }
+        updates.frameRate = frameRate;
+      }
+      if (resolution !== undefined) {
+        if (!resolution.match(/^\d+x\d+$/)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid resolution format. Must be in format WIDTHxHEIGHT (e.g. 1280x720).',
+            field: 'resolution'
+          });
+        }
+        updates.resolution = resolution;
+      }
+      if (nightMode !== undefined) updates.nightMode = nightMode;
+
+      // Verify camera exists before update
+      const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      if (!camera) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Camera not found',
+          cameraId: req.params.id
+        });
+      }
+
+      const updated = streamManager.updateCamera(req.params.id, updates);
       if (!updated) {
-        return res.status(404).json({ success: false, error: 'Camera not found' });
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Failed to update camera',
+          cameraId: req.params.id
+        });
       }
       
-      res.json({ success: true });
+      // Get updated camera state
+      const updatedCamera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      res.json({ 
+        success: true,
+        camera: {
+          ...updatedCamera,
+          status: updatedCamera?.isActive ? 'online' : 'offline'
+        },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(`Error updating camera ${req.params.id}:`, error);
-      res.status(500).json({ success: false, error: 'Failed to update camera' });
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update camera',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        cameraId: req.params.id
+      });
     }
   });
 
@@ -136,14 +217,58 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Start streaming from a camera
   app.post('/api/cameras/:id/stream/start', (req: Request, res: Response) => {
     try {
+      if (!streamManager) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Camera system not initialized',
+          status: 'unavailable'
+        });
+      }
+      
+      const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      if (!camera) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Camera not found',
+          cameraId: req.params.id
+        });
+      }
+
+      if (camera.isActive) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Camera is already streaming',
+          status: 'streaming',
+          cameraId: req.params.id
+        });
+      }
+
       const started = streamManager.startStream(req.params.id);
       if (!started) {
-        return res.status(500).json({ success: false, error: 'Failed to start stream' });
+        // Get the last error from the camera object if available
+        const errorDetails = camera.lastError || 'Unknown error starting stream';
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Failed to start stream',
+          details: errorDetails,
+          cameraId: req.params.id
+        });
       }
-      res.json({ success: true });
+
+      res.json({ 
+        success: true, 
+        status: 'streaming',
+        cameraId: req.params.id,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(`Error starting stream for camera ${req.params.id}:`, error);
-      res.status(500).json({ success: false, error: 'Failed to start stream' });
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to start stream',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        cameraId: req.params.id
+      });
     }
   });
 
@@ -273,6 +398,42 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error(`Error simulating motion for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to simulate motion' });
+    }
+  });
+
+  // List event images
+  app.get('/api/events/list', (req: Request, res: Response) => {
+    try {
+      const eventsDir = path.join(__dirname, '../../public/events');
+      const files = fs.readdirSync(eventsDir)
+        .filter(file => file.endsWith('.jpg'))
+        .sort((a, b) => {
+          const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+          const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+          return timeB.getTime() - timeA.getTime();
+        });
+      res.json({ success: true, files });
+    } catch (error) {
+      console.error('Error listing events:', error);
+      res.status(500).json({ success: false, error: 'Failed to list events' });
+    }
+  });
+
+  // List snapshots
+  app.get('/api/snapshots/list', (req: Request, res: Response) => {
+    try {
+      const snapshotsDir = path.join(__dirname, '../../public/snapshots');
+      const files = fs.readdirSync(snapshotsDir)
+        .filter(file => file.endsWith('.jpg'))
+        .sort((a, b) => {
+          const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+          const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+          return timeB.getTime() - timeA.getTime();
+        });
+      res.json({ success: true, files });
+    } catch (error) {
+      console.error('Error listing snapshots:', error);
+      res.status(500).json({ success: false, error: 'Failed to list snapshots' });
     }
   });
 

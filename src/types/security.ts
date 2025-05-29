@@ -1,4 +1,3 @@
-
 export interface Camera {
   id: string;
   name: string;
@@ -11,6 +10,7 @@ export interface Camera {
   lastSeen: Date;
   resolution: string;
   fps: number;
+  error?: string;
 }
 
 export interface MotionEvent {

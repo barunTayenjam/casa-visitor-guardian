@@ -7,7 +7,33 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 8082,
+    cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:9753',
+        changeOrigin: true,
+        secure: false,
+        ws: true
+      },
+      '/events': {
+        target: 'http://localhost:9753',
+        changeOrigin: true,
+        secure: false
+      },
+      '/snapshots': {
+        target: 'http://localhost:9753',
+        changeOrigin: true,
+        secure: false
+      },
+      '/socket.io': {
+        target: 'http://localhost:9753',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/socket\.io/, '/socket.io')
+      }
+    }
   },
   plugins: [
     react(),

@@ -33,22 +33,67 @@ if (!fs.existsSync(eventsDir)) {
 // Load environment variables
 dotenv.config();
 
+// Allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:8080',
+  'http://localhost:8082',
+  'http://localhost:5173'
+];
+
+// If FRONTEND_URL is set and not already in the list, add it
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 // Initialize express app
 const app = express();
 const server = http.createServer(app);
+
+// Configure Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST']
-  }
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
 });
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173'
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    
+    // Check if the origin is allowed
+    if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'Content-Type']
 }));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Serve static files from public directory
+app.use('/events', express.static(path.join(__dirname, '../public/events')));
+app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')));
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
@@ -110,7 +155,7 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
     server.listen(PORT, async () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Socket.io running on port ${PORT}`);
-      console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+      console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
       
       // Update the PORT in the process environment so other components can use it
       process.env.PORT = PORT.toString();
@@ -122,23 +167,20 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         // Make streamManager available globally for routes
         (global as any).streamManager = streamManager;
         
-        // Setup simple motion detection
-        const motionDetector = setupSimpleMotionDetection(streamManager, io);
-        
-        // Configure API routes after streamManager is set up
+        // Configure routes
         configureRoutes(app, io);
         
-        // Start scheduled tasks (daily reports, etc.)
-        startCronJobs(io);
-      } catch (err: any) {
-        console.error('Error during server initialization:', err);
+        // Setup simple motion detection
+        await setupSimpleMotionDetection(streamManager);
+        
+        // Start cron jobs
+        startCronJobs(streamManager);
+      } catch (err) {
+        console.error('Failed to setup application:', err);
       }
     });
   } catch (err) {
     console.error('Failed to start server:', err);
-    process.exit(1);
   }
 })();
-
-export { io };
 

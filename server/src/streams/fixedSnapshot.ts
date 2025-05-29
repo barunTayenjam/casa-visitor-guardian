@@ -1,16 +1,13 @@
 import { spawn } from 'child_process';
+import type { Camera } from './rtspManager.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-
-// Get __dirname equivalent in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Import ffmpeg-static safely
 // @ts-ignore - Ignore type checking for ffmpeg-static import
 import ffmpegStatic from 'ffmpeg-static';
-const ffmpegPath = ffmpegStatic as unknown as string;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Ensure snapshots directory exists
 const snapshotsDir = path.join(__dirname, '../../public/snapshots');
@@ -19,40 +16,16 @@ if (!fs.existsSync(snapshotsDir)) {
   console.log(`Created snapshots directory: ${snapshotsDir}`);
 }
 
-/**
- * Takes a snapshot from a camera
- * @param camera The camera to take a snapshot from
- * @param preferredResolution Optional preferred resolution
- * @returns Promise that resolves to the snapshot URL or null if failed
- */
-export async function captureSnapshot(camera: any, preferredResolution = ''): Promise<string | null> {
+const ffmpegPath = ffmpegStatic as unknown as string;
+
+export async function captureSnapshot(camera: Camera, targetResolution?: string): Promise<string | null> {
   if (!camera) {
     console.error('Cannot take snapshot: Camera not provided');
     return null;
   }
 
-  const cameraId = camera.id;
-  
-  // If no resolution is specified, use the camera's native resolution or fall back to Full HD
-  const targetResolution = preferredResolution || camera.resolution || '1920x1080';
-  console.log(`Taking snapshot for camera ${cameraId} at resolution ${targetResolution}`);
-  
-  // For real cameras, take a snapshot using FFmpeg
   return new Promise((resolve, reject) => {
     try {
-      // Construct authentication part of URL if provided
-        
-        // Write the last frame to a file
-        fs.writeFileSync(filepath, camera.lastFrame);
-        console.log(`Test pattern snapshot saved: ${filepath}`);
-        return `/snapshots/${filename}`;
-      } catch (error) {
-        console.error('Error saving test pattern snapshot:', error);
-        return null;
-      }
-    }
-    return null;
-  }
       // Construct authentication part of URL if provided
       let rtspUrl = camera.rtspUrl;
       if (camera.username && camera.password) {
@@ -62,67 +35,44 @@ export async function captureSnapshot(camera: any, preferredResolution = ''): Pr
         }
       }
 
-      // Generate unique filename
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${cameraId}_${timestamp}.jpg`;
+      const filename = `snapshot_${camera.id}_${timestamp}.jpg`;
       const filepath = path.join(snapshotsDir, filename);
-      
-      console.log(`Saving snapshot to: ${filepath}`);
 
-      // Prepare ffmpeg arguments optimized for reliable snapshot capture
+      // Prepare ffmpeg arguments for snapshot
       const ffmpegArgs = [
-        // Use TCP for reliability
         '-rtsp_transport', 'tcp',
-        // Set a shorter timeout
-        '-timeout', '15000000',
-        // Use a smaller input buffer
-        '-bufsize', '1024k',
-        // Input URL
+        '-timeout', '5000000',
+        '-y', // Overwrite output file
         '-i', rtspUrl,
-        // Take a single frame
-        '-vframes', '1',
-        // Best quality
-        '-q:v', '1',
-        // Use Full HD resolution as per user preference
-        '-s', targetResolution,
-        // Apply night mode filter if needed
-        ...(camera.nightMode ? ['-vf', 'eq=gamma=1.5:contrast=1.2:brightness=0.2'] : []),
-        // Output to file
+        ...(targetResolution ? ['-s', targetResolution] : []),
+        '-frames:v', '1', // Capture single frame
+        '-q:v', '2', // High quality
         filepath
       ];
 
-      console.log(`FFmpeg snapshot command: ${ffmpegPath} ${ffmpegArgs.join(' ')}`);
-      
-      // Spawn ffmpeg process
+      console.log(`Taking snapshot for camera ${camera.id} to ${filepath}`);
       const process = spawn(ffmpegPath, ffmpegArgs);
-      
+
       let errorOutput = '';
-      
-      // Collect error output
-      process.stderr.on('data', (data) => {
-        const chunk = data.toString();
-        errorOutput += chunk;
-        console.log(`FFmpeg snapshot stderr: ${chunk}`);
+      process.stderr.on('data', (data: Buffer) => {
+        errorOutput += data.toString();
       });
-      
-      // Handle process completion
+
       process.on('close', (code) => {
-        if (code === 0) {
-          console.log(`Snapshot saved successfully: ${filepath}`);
+        if (code === 0 && fs.existsSync(filepath)) {
           resolve(`/snapshots/${filename}`);
         } else {
-          console.error(`Failed to take snapshot, exit code: ${code}`);
-          console.error(`Error output: ${errorOutput}`);
-          reject(new Error(`Snapshot failed with code ${code}`));
+          console.error(`FFmpeg snapshot failed with code ${code}. Error: ${errorOutput}`);
+          reject(new Error(`FFmpeg exited with code ${code}`));
         }
       });
-      
-      // Handle process error
+
       process.on('error', (err) => {
-        console.error(`Error taking snapshot:`, err);
+        console.error('Failed to start FFmpeg:', err);
         reject(err);
       });
-      
+
     } catch (error) {
       console.error('Error in snapshot capture:', error);
       reject(error);

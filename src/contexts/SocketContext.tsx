@@ -1,59 +1,47 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import socketService from '@/services/SocketService';
 
 interface SocketContextType {
-  socket: Socket | null;
   connected: boolean;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // Determine the socket URL based on environment
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = import.meta.env.DEV ? 'localhost:3000' : window.location.host;
-    const socketUrl = import.meta.env.DEV ? 'http://localhost:3000' : `${window.location.protocol}//${window.location.host}`;
-    
-    console.log(`Connecting to socket at ${socketUrl}`);
-    
-    // Create socket connection
-    const newSocket = io(socketUrl, {
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      transports: ['websocket', 'polling']
-    });
-    
-    // Setup event listeners
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-      setConnected(true);
-    });
-    
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    const handleConnect = () => setConnected(true);
+    const handleDisconnect = () => setConnected(false);
+    const handleError = (error: Error) => {
+      console.error('Socket error:', error);
       setConnected(false);
-    });
-    
-    newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
-      setConnected(false);
-    });
-    
-    // Save socket instance
-    setSocket(newSocket);
-    
+    };
+
+    // Add event listeners
+    socketService.on('connect', handleConnect);
+    socketService.on('disconnect', handleDisconnect);
+    socketService.on('error', handleError);
+
+    // Initial connection
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
+
     // Cleanup on unmount
     return () => {
-      newSocket.disconnect();
+      socketService.off('connect', handleConnect);
+      socketService.off('disconnect', handleDisconnect);
+      socketService.off('error', handleError);
     };
   }, []);
 
+  const value = {
+    connected
+  };
+
   return (
-    <SocketContext.Provider value={{ socket, connected }}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );

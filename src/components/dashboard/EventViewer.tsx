@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Camera as CameraIcon, Calendar, Clock } from 'lucide-react';
 import { MotionEvent } from '@/types/security';
-import Image from 'next/image';
 
 interface EventViewerProps {
   events: MotionEvent[];

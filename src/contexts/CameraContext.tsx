@@ -20,6 +20,15 @@ interface CameraContextType {
   toggleMotionDetection: (id: string, enabled: boolean) => Promise<void>;
 }
 
+interface MotionEvent {
+  id: string;
+  cameraId: string;
+  timestamp: string;
+  imagePath: string;
+  confidence: number;
+  duration: number;
+}
+
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
 
 export const useCameras = () => {
@@ -35,17 +44,33 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Update a camera's last seen timestamp
+  const updateCameraLastSeen = (id: string) => {
+    setCameras(prev => prev.map(camera => 
+      camera.id === id ? { ...camera, lastSeen: new Date() } : camera
+    ));
+  };
+
+  // Update camera status locally (for socket events)
+  const updateCameraStatus = (id: string, status: 'online' | 'offline') => {
+    setCameras(prev => prev.map(camera => 
+      camera.id === id ? { ...camera, status } : camera
+    ));
+  };
+
   // Fetch cameras from the backend on initial load
   useEffect(() => {
     refreshCameras();
 
     // Connect to socket server
     if (!socketService.isConnected()) {
-      socketService.connect();
+      socketService.connect().catch((error) => {
+        console.error('Failed to connect to socket server:', error);
+      });
     }
 
     // Setup motion detection event listener
-    const handleMotionDetected = (event: any) => {
+    const handleMotionDetected = (event: MotionEvent) => {
       console.log('Motion detected:', event);
       // Update camera status or trigger notification
       if (event.cameraId) {
@@ -55,7 +80,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Setup camera status change listener
     const handleCameraStatusChange = (data: { cameraId: string; status: 'online' | 'offline' }) => {
-      updateCamera(data.cameraId, { status: data.status });
+      updateCameraStatus(data.cameraId, data.status);
     };
 
     // Register socket event listeners
@@ -85,13 +110,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setLoading(false);
     }
-  };
-
-  // Update a camera's last seen timestamp
-  const updateCameraLastSeen = (id: string) => {
-    setCameras(prev => prev.map(camera => 
-      camera.id === id ? { ...camera, lastSeen: new Date() } : camera
-    ));
   };
 
   // Add a new camera

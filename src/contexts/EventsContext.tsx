@@ -9,6 +9,20 @@ interface EventsContextType {
   archiveEvent: (eventId: string) => void;
 }
 
+interface MotionEventData {
+  id: string;
+  cameraId: string;
+  timestamp: string;
+  imagePath: string;
+  confidence: number;
+  duration: number;
+}
+
+interface MotionSnapshotData {
+  eventId: string;
+  snapshotPath: string;
+}
+
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,7 +42,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       const camera = cameras.find(c => c.id === eventData.cameraId);
-      
       const newEvent: MotionEvent = {
         id: eventData.id || `evt_${Date.now()}`, // Fallback for event ID
         cameraId: eventData.cameraId,
@@ -46,7 +59,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     // Listen for snapshot updates
-    socket.on('motionSnapshot', (data: any) => {
+    socket.on('motionSnapshot', (data: MotionSnapshotData) => {
       if (data.eventId && data.snapshotPath) {
         setEvents(prev => 
           prev.map(event => 

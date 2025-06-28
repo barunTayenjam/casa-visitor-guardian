@@ -11,7 +11,7 @@ export class ApiError extends Error {
     message: string,
     public status?: number,
     public code?: string,
-    public details?: Record<string, any>
+    public details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ApiError';
@@ -73,12 +73,21 @@ class ApiService {
 
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`;
-        let errorDetails: Record<string, any> = {};
+        let errorDetails: Record<string, unknown> = {};
         
         try {
           const data = await response.json();
           errorMessage = data.error || errorMessage;
           errorDetails = data;
+          
+          // Special handling for "already streaming" case
+          if (data.error && data.error.includes('already streaming')) {
+            // Don't throw an error for already streaming - return the response
+            return new Response(JSON.stringify(data), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
         } catch {
           // If JSON parsing fails, use the status text
           errorMessage = response.statusText || errorMessage;
@@ -314,6 +323,11 @@ class ApiService {
       
       const data = await response.json();
       if (!data.success) {
+        // Check if it's already streaming - treat this as success
+        if (data.error && data.error.includes('already streaming')) {
+          console.log(`Camera ${id} is already streaming`);
+          return;
+        }
         throw new ApiError(
           data.error || `Failed to start camera stream ${id}`,
           response.status,

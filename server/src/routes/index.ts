@@ -3,7 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { StreamManager } from '../streams/rtspManager.js';
+import { StreamManager, Camera } from '../streams/rtspManager.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -25,11 +25,14 @@ const recentEvents: MotionEvent[] = [];
 // Routes configuration
 export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get instances from global scope
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const streamManager = (global as any).streamManager as StreamManager;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const motionDetector = (global as any).motionDetector;
   
   // Add motion event listener
-  io.on('motionDetected', (event: MotionEvent) => {
+  const handleMotionDetected = (event: MotionEvent) => {
+    console.log('Motion event received in routes:', event);
     // Add to recent events
     recentEvents.unshift(event);
     
@@ -37,7 +40,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     if (recentEvents.length > 100) {
       recentEvents.pop();
     }
-  });
+  };
+  
+  io.on('motionDetected', handleMotionDetected);
 
   // API endpoints
   
@@ -45,6 +50,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/cameras', (req: Request, res: Response) => {
     try {
       if (!streamManager) {
+        console.error('streamManager is not initialized');
         return res.status(503).json({ 
           success: false, 
           error: 'Camera system not initialized',
@@ -53,7 +59,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       }
 
       const cameras = streamManager.getAllCameras();
-      
+      console.log('Fetched cameras:', cameras);
       // Add additional camera state information
       const enrichedCameras = cameras.map(camera => ({
         ...camera,
@@ -61,6 +67,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         lastError: camera.lastError || undefined,
         retryCount: camera.retryCount || 0
       }));
+      console.log('Enriched cameras:', enrichedCameras);
 
       res.json({ 
         success: true, 
@@ -133,7 +140,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const { name, rtspUrl, username, password, frameRate, resolution, nightMode } = req.body;
       
       // Validate required fields
-      const updates: any = {};
+      const updates: Partial<Camera> = {};
       if (name !== undefined) updates.name = name;
       if (rtspUrl !== undefined) updates.rtspUrl = rtspUrl;
       if (username !== undefined) updates.username = username;
@@ -243,17 +250,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         });
       }
 
-      const started = streamManager.startStream(req.params.id);
-      if (!started) {
-        // Get the last error from the camera object if available
-        const errorDetails = camera.lastError || 'Unknown error starting stream';
-        return res.status(500).json({ 
-          success: false, 
-          error: 'Failed to start stream',
-          details: errorDetails,
-          cameraId: req.params.id
-        });
-      }
+      // Start real RTSP stream
+      streamManager.startStream(req.params.id);
 
       res.json({ 
         success: true, 
@@ -362,8 +360,39 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/motion/events', (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const events = recentEvents.slice(0, limit);
-      res.json({ success: true, events });
+      
+      // Always scan the events directory for now
+      if (true) {
+        const eventsDir = path.join(__dirname, '../../public/events');
+        console.log('Scanning events directory:', eventsDir);
+        const files = fs.readdirSync(eventsDir)
+          .filter(file => file.endsWith('.jpg'))
+          .sort((a, b) => {
+            const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+            const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
+            return timeB.getTime() - timeA.getTime();
+          })
+          .slice(0, limit);
+        
+        const eventsFromFiles = files.map((file, index) => {
+          const parts = file.split('_');
+          const cameraId = parts[1] || 'unknown';
+          
+          return {
+            id: `evt_${Date.now()}_${index}`,
+            cameraId,
+            timestamp: new Date().toISOString(),
+            imagePath: `/events/${file}`,
+            confidence: 75, // Default confidence
+            duration: 0
+          };
+        });
+        
+        res.json({ success: true, events: eventsFromFiles });
+      } else {
+        const events = recentEvents.slice(0, limit);
+        res.json({ success: true, events });
+      }
     } catch (error) {
       console.error('Error getting motion events:', error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });

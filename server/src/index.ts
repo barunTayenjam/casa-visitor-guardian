@@ -1,15 +1,20 @@
+console.log('*** SERVER STARTING - LOADING MODULES ***');
+
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+console.log('*** MODULES LOADED SUCCESSFULLY ***');
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
+import { AddressInfo } from 'net';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -129,7 +134,7 @@ const findAvailablePort = (startPort: number): Promise<number> => {
     
     testServer.once('listening', () => {
       // Found an available port
-      const port = (testServer.address() as any).port;
+      const port = (testServer.address() as AddressInfo).port;
       testServer.close(() => {
         resolve(port);
       });
@@ -153,7 +158,8 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
     }
     
     server.listen(PORT, async () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`*** SERVER STARTING ON PORT ${PORT} ***`);
+      console.log(`*** RTSP STREAMING ENABLED ***`);
       console.log(`Socket.io running on port ${PORT}`);
       console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
       
@@ -165,16 +171,17 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         const streamManager = await setupRTSPStreams(io);
         
         // Make streamManager available globally for routes
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any).streamManager = streamManager;
         
         // Configure routes
         configureRoutes(app, io);
         
         // Setup simple motion detection
-        await setupSimpleMotionDetection(streamManager);
+        await setupSimpleMotionDetection(streamManager, io);
         
         // Start cron jobs
-        startCronJobs(streamManager);
+        startCronJobs(io);
       } catch (err) {
         console.error('Failed to setup application:', err);
       }

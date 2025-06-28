@@ -34,6 +34,16 @@ import { useForm } from "react-hook-form";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 
+interface CameraFormData {
+  name: string;
+  location: string;
+  streamUrl: string;
+  detectionEnabled: boolean;
+  sensitivity: number;
+  resolution: string;
+  fps: number;
+}
+
 const CameraConfig = () => {
   const { toast } = useToast();
   const { cameras, addCamera, updateCamera, deleteCamera } = useCameras();
@@ -83,7 +93,7 @@ const CameraConfig = () => {
     setDialogOpen(true);
   };
 
-  const handleAddCamera = (data: any) => {
+  const handleAddCamera = (data: CameraFormData) => {
     addCamera({
       name: data.name,
       location: data.location,
@@ -101,7 +111,7 @@ const CameraConfig = () => {
     });
   };
 
-  const handleUpdateCamera = (data: any) => {
+  const handleUpdateCamera = (data: CameraFormData) => {
     if (!currentCameraId) return;
     
     updateCamera(currentCameraId, {
@@ -157,7 +167,7 @@ const CameraConfig = () => {
     return isSuccessful;
   };
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: CameraFormData) => {
     if (isEditing) {
       handleUpdateCamera(data);
     } else {

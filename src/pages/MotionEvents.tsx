@@ -16,9 +16,9 @@ const MotionEvents = () => {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [loadEvents]);
 
-  const loadEvents = async () => {
+  const loadEvents = React.useCallback(async () => {
     try {
       setLoading(true);
       const fetchedEvents = await apiService.getMotionEvents();
@@ -33,7 +33,7 @@ const MotionEvents = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const downloadImage = (event: MotionEvent) => {
     const link = document.createElement('a');

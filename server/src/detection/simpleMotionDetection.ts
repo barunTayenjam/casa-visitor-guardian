@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 
 // Import ffmpeg-static safely
-// @ts-ignore - Ignore type checking for ffmpeg-static import
+
 import ffmpegStatic from 'ffmpeg-static';
 const ffmpegPath = ffmpegStatic as unknown as string;
 
@@ -204,6 +204,7 @@ export function setupSimpleMotionDetection(streamManager: StreamManager, io: Soc
   motionDetector.start();
   
   // Make available globally
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).motionDetector = motionDetector;
   
   return motionDetector;

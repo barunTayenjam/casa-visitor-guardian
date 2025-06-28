@@ -11,7 +11,7 @@
     "build:dev": "vite build --mode development",
     "build:server": "cd server && npm run build",
     "build:full": "npm run build && npm run build:server",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern server/dist",
     "preview": "vite preview"
   },
   "dependencies": {

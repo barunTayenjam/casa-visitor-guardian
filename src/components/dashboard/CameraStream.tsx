@@ -30,7 +30,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const maxRetries = 5;
   
   // Function to start streaming
-  const startStream = async () => {
+  const startStream = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -56,10 +56,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       // Reset FPS counter
       frameCountRef.current = 0;
       lastFrameTimeRef.current = performance.now();
+      
+      console.log(`Stream started successfully for camera ${camera.id}`);
     } catch (err) {
       console.error('Failed to start stream:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect to camera stream';
       setError(errorMessage);
+      setIsStreaming(false);
       
       // Auto retry with exponential backoff if enabled
       if (autoStart && retryCountRef.current < maxRetries) {
@@ -72,10 +75,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       setIsLoading(false);
       setIsConnecting(false);
     }
-  };
+  }, [autoStart, camera.id]);
 
   // Function to stop streaming
-  const stopStream = () => {
+  const stopStream = React.useCallback(() => {
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
     }
@@ -85,11 +88,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     setCurrentFrame(null);
     setError(null);
     retryCountRef.current = 0;
-  };
+  }, [camera.id]);
 
   // Auto-start streaming if enabled
   useEffect(() => {
-    if (autoStart && camera.status === 'online' && !isStreaming && !isLoading && !error) {
+    if (autoStart && !isStreaming && !isLoading) {
       startStream();
     }
     return () => {
@@ -97,7 +100,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         stopStream();
       }
     };
-  }, [camera.status, autoStart]);
+  }, [camera.id, autoStart, isStreaming, isLoading, startStream, stopStream]);
 
   // Handle frame reception from WebSocket with improved error handling
   useEffect(() => {
@@ -111,8 +114,15 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         if (retryCountRef.current > 0) retryCountRef.current = 0;
         
         try {
-          // Update current frame with proper data URL format
-          setCurrentFrame(`data:image/jpeg;base64,${data.data}`);
+          // Validate frame data
+          if (!data.data || typeof data.data !== 'string') {
+            console.warn(`Camera ${data.cameraId}: Invalid frame data received`);
+            return;
+          }
+          
+          // Create image data URL
+          const imageDataUrl = `data:image/jpeg;base64,${data.data}`;
+          setCurrentFrame(imageDataUrl);
           
           // Calculate FPS
           frameCountRef.current++;
@@ -189,7 +199,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         clearTimeout(retryTimeoutRef.current);
       }
     };
-  }, [camera.id, isStreaming, error, autoStart]);
+  }, [camera.id, isStreaming, error, autoStart, startStream, stopStream]);
 
   // Toggle stream on/off
   const toggleStream = () => {
@@ -213,13 +223,31 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
               )}
             </div>
           </div>
-        ) : isStreaming && currentFrame ? (
-          <div className="relative h-full">
-            <img 
-              src={currentFrame} 
-              alt={`${camera.name} stream`} 
-              className={`h-full w-full object-contain bg-black ${fullscreen ? 'object-contain' : 'object-cover'}`}
-            />
+        ) : isStreaming ? (
+          <div className="relative h-full bg-black">
+            {currentFrame ? (
+              <img 
+                src={currentFrame} 
+                alt={`${camera.name} stream`} 
+                className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-contain'}`}
+                style={{ aspectRatio: '16/9' }}
+                onError={(e) => {
+                  console.error('Image load error:', e);
+                  setError('Failed to load video frame');
+                }}
+                onLoad={() => {
+                  // Image loaded successfully
+                  if (error) setError(null);
+                }}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-white">
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">Waiting for video...</p>
+                </div>
+              </div>
+            )}
             <Button 
               variant="ghost" 
               size="icon"

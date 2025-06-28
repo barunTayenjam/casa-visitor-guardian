@@ -15,6 +15,7 @@ import MotionEvents from "./pages/MotionEvents";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import SocketTest from "./pages/SocketTest";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
                   <Route path="events" element={<MotionEvents />} />
                   <Route path="history" element={<History />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="socket-test" element={<SocketTest />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

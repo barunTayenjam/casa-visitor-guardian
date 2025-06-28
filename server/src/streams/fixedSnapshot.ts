@@ -3,7 +3,7 @@ import type { Camera } from './rtspManager.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-// @ts-ignore - Ignore type checking for ffmpeg-static import
+
 import ffmpegStatic from 'ffmpeg-static';
 
 const __filename = fileURLToPath(import.meta.url);

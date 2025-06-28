@@ -6,9 +6,39 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useState } from 'react';
 
 export const CameraGrid = () => {
-  const { cameras } = useCameras();
+  const { cameras, loading, error } = useCameras();
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const currentCamera = cameras.find(c => c.id === selectedCamera);
+
+  console.log('CameraGrid render:', { cameras, loading, error });
+
+  if (loading) {
+    return (
+      <Card className="p-6 text-center">
+        <div className="mb-4 flex justify-center">
+          <CameraIcon className="h-12 w-12 text-muted-foreground animate-pulse" />
+        </div>
+        <h3 className="text-lg font-medium">Loading Cameras...</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Please wait while we load your camera configuration.
+        </p>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6 text-center">
+        <div className="mb-4 flex justify-center">
+          <CameraIcon className="h-12 w-12 text-red-500" />
+        </div>
+        <h3 className="text-lg font-medium text-red-600">Error Loading Cameras</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {error}
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -23,14 +53,15 @@ export const CameraGrid = () => {
           </p>
         </Card>
       ) : (
-        <div className="grid gap-2 auto-rows-fr h-[calc(100vh-4rem)]" 
+        <div className="grid gap-2 h-[calc(100vh-4rem)]" 
              style={{ 
                gridTemplateColumns: `repeat(${Math.min(cameras.length, 3)}, 1fr)`,
+               gridTemplateRows: `repeat(${Math.ceil(cameras.length / Math.min(cameras.length, 3))}, minmax(0, 1fr))`
              }}>
           {cameras.map((camera) => (
             <div
               key={camera.id}
-              className="relative bg-black rounded-lg overflow-hidden cursor-pointer"
+              className="relative bg-black rounded-lg overflow-hidden cursor-pointer aspect-video"
               onClick={() => setSelectedCamera(camera.id)}
             >
               <CameraStream camera={camera} />

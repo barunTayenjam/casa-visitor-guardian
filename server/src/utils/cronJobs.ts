@@ -28,6 +28,7 @@ async function generateDailyReport(io: SocketIOServer) {
   
   try {
     // Get the stream manager from global scope
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const streamManager = (global as any).streamManager;
     if (!streamManager) {
       console.error('Stream manager not found');
@@ -56,7 +57,7 @@ async function generateDailyReport(io: SocketIOServer) {
       }
       acc[event.cameraId].push(event);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, MotionEvent[]>);
     
     // Generate statistics
     const totalEvents = eventsLast24Hours.length;
@@ -69,7 +70,7 @@ async function generateDailyReport(io: SocketIOServer) {
     
     // Get camera names
     const cameras = streamManager.getAllCameras();
-    const cameraNames = cameras.reduce((acc: Record<string, string>, cam: any) => {
+    const cameraNames = cameras.reduce((acc: Record<string, string>, cam: { id: string; name: string }) => {
       acc[cam.id] = cam.name;
       return acc;
     }, {} as Record<string, string>);
@@ -172,6 +173,7 @@ function cleanupOldFiles() {
 // Check camera health and restart if needed
 function checkCameraHealth(io: SocketIOServer) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const streamManager = (global as any).streamManager;
     if (!streamManager) {
       console.error('Stream manager not found');
@@ -182,11 +184,12 @@ function checkCameraHealth(io: SocketIOServer) {
     console.log(`Checking health of ${cameras.length} cameras`);
     
     // Check each camera
-    cameras.forEach((camera: any) => {
+    cameras.forEach((camera: { id: string; name: string; isActive: boolean }) => {
+      console.log(`Camera health check: Camera ${camera.id} is active: ${camera.isActive}`); // Added logging
       if (camera.isActive) {
         console.log(`Camera ${camera.id} (${camera.name}) is active`);
       } else {
-        console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start stream`);
+        console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start test stream`);
         streamManager.startStream(camera.id);
       }
     });
@@ -196,7 +199,7 @@ function checkCameraHealth(io: SocketIOServer) {
       status: 'healthy',
       uptime: process.uptime(),
       totalCameras: cameras.length,
-      activeCameras: cameras.filter((c: any) => c.isActive).length,
+      activeCameras: cameras.filter((c: { isActive: boolean }) => c.isActive).length,
       timestamp: new Date().toISOString()
     });
   } catch (error) {

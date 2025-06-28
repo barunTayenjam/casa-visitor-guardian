@@ -3,6 +3,7 @@ import socketService from '@/services/SocketService';
 
 interface SocketContextType {
   connected: boolean;
+  socket: typeof socketService;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -25,7 +26,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Initial connection
     if (!socketService.isConnected()) {
-      socketService.connect();
+      socketService.connect().catch((error) => {
+        console.error('Failed to connect to socket server:', error);
+        setConnected(false);
+      });
     }
 
     // Cleanup on unmount
@@ -37,7 +41,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const value = {
-    connected
+    connected,
+    socket: socketService
   };
 
   return (

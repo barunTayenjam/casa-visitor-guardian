@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Connection Test</title>
+</head>
+<body>
+    <h1>Direct Connection Test</h1>
+    <div id="status"></div>
+    <button onclick="testAPI()">Test API</button>
+    <button onclick="testSocket()">Test Socket</button>
+    <div id="logs"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+        const logsDiv = document.getElementById('logs');
+        
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            logsDiv.innerHTML += `<div>${time}: ${message}</div>`;
+            console.log(message);
+        }
+        
+        async function testAPI() {
+            try {
+                log('Testing API...');
+                const response = await fetch('http://localhost:9753/api/health');
+                const data = await response.json();
+                log(`✅ API Success: ${JSON.stringify(data)}`);
+                statusDiv.innerHTML = '✅ API Working';
+            } catch (error) {
+                log(`❌ API Error: ${error.message}`);
+                statusDiv.innerHTML = '❌ API Failed';
+            }
+        }
+        
+        function testSocket() {
+            try {
+                log('Testing Socket...');
+                const socket = io('http://localhost:9753');
+                
+                socket.on('connect', () => {
+                    log('✅ Socket Connected');
+                    statusDiv.innerHTML = '✅ Socket Working';
+                    
+                    // Test stream request
+                    socket.emit('requestStream', 'cam1');
+                    log('📡 Requested stream for cam1');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log(`❌ Socket Error: ${error.message}`);
+                    statusDiv.innerHTML = '❌ Socket Failed';
+                });
+                
+                socket.on('streamRequested', (data) => {
+                    log(`✅ Stream confirmed: ${JSON.stringify(data)}`);
+                });
+                
+                socket.on('frame', (data) => {
+                    log(`📺 Frame received for ${data.cameraId}`);
+                });
+                
+            } catch (error) {
+                log(`❌ Socket Test Error: ${error.message}`);
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            testAPI();
+            setTimeout(testSocket, 1000);
+        };
+    </script>
+</body>
+</html>

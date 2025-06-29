@@ -180,10 +180,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       }
     };
 
+    // Handle stream request confirmation
+    const handleStreamRequested = (data: { cameraId: string; status: string }) => {
+      if (data.cameraId === camera.id) {
+        console.log(`Stream request confirmed for camera ${camera.id}:`, data.status);
+      }
+    };
+
     // Register handlers
     const frameUnsubscribe = socketService.on('frame', handleFrame);
     const statusUnsubscribe = socketService.on('camera-status', handleStatus);
     const errorUnsubscribe = socketService.on('camera-error', handleError);
+    const streamRequestedUnsubscribe = socketService.on('streamRequested', handleStreamRequested);
 
     // Ensure socket is connected
     if (!socketService.isConnected()) {
@@ -195,6 +203,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       frameUnsubscribe();
       statusUnsubscribe();
       errorUnsubscribe();
+      streamRequestedUnsubscribe();
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }

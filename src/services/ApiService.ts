@@ -59,7 +59,7 @@ class ApiService {
   // Fetch API with timeout and retry
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     try {
       const response = await fetch(url, {
@@ -110,8 +110,16 @@ class ApiService {
       }
 
       if (retries > 0 && error instanceof Error && !error.message.includes('aborted')) {
-        console.warn(`Request failed, retrying... (${retries} retries left)`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
+        
+        // Special handling for connection reset
+        if (error.message.includes('ECONNRESET') || error.message.includes('fetch')) {
+          console.log('Connection issue detected, waiting longer before retry...');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds for connection issues
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for other errors
+        }
+        
         return this.fetchWithRetry(url, options, retries - 1);
       }
 

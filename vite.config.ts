@@ -13,8 +13,7 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: 'http://localhost:9753',
         changeOrigin: true,
-        secure: false,
-        ws: true
+        secure: false
       },
       '/events': {
         target: 'http://localhost:9753',
@@ -30,8 +29,7 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:9753',
         changeOrigin: true,
         secure: false,
-        ws: true,
-        rewrite: (path) => path.replace(/^\/socket\.io/, '/socket.io')
+        ws: true
       }
     }
   },

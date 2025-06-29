@@ -31,17 +31,32 @@ class SocketService {
       });
 
       this.socket.on('connect', () => {
-        console.log('Connected to server');
+        console.log('Socket connected to server successfully');
+        
+        // Re-register all callbacks when socket connects
+        this.callbacks.forEach((listeners, event) => {
+          listeners.forEach(callback => {
+            this.socket?.on(event, callback);
+          });
+        });
+        
         resolve();
       });
 
       this.socket.on('disconnect', () => {
-        console.log('Disconnected from server');
+        console.log('Socket disconnected from server');
       });
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
+        if (error.message.includes('ECONNRESET')) {
+          console.log('Connection reset detected, will retry...');
+        }
         reject(error);
+      });
+
+      this.socket.on('error', (error) => {
+        console.error('Socket error:', error);
       });
 
       // Setup event listeners from our callback map
@@ -50,6 +65,7 @@ class SocketService {
           this.socket?.on(event, callback);
         });
       });
+
 
       // Set a timeout for connection
       setTimeout(() => {

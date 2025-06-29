@@ -588,14 +588,16 @@ export async function setupRTSPStreams(
   console.log("Setting up RTSP stream manager");
   const streamManager = new StreamManager(io);
 
-  // Auto-start real RTSP streams
+  // Auto-start real RTSP streams with a delay to ensure proper initialization
   console.log("Starting RTSP streams for all cameras");
-  streamManager.getAllCameras().forEach((camera) => {
-    console.log(
-      `Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`,
-    );
-    streamManager.startStream(camera.id);
-  });
+  setTimeout(() => {
+    streamManager.getAllCameras().forEach((camera) => {
+      console.log(
+        `Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`,
+      );
+      streamManager.startStream(camera.id);
+    });
+  }, 2000); // Wait 2 seconds before starting streams
 
   // Setup motion simulation
   setInterval(() => {

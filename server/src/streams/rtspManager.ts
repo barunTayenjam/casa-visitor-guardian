@@ -72,18 +72,6 @@ const defaultCameras: Omit<Camera, "process" | "isActive" | "lastFrame">[] = [
     nightMode: false,
     retryCount: 0, // Reset retry count
   },
-  {
-    id: "cam3",
-    name: "Third Camera",
-    // Adding the third camera - you'll need to provide the correct IP address
-    rtspUrl: "rtsp://192.168.31.63:554/stream1",
-    username: "barun.2009.tam@gmail.com",
-    password: "mezmu2-xewwyn-geJtiv",
-    frameRate: 15, // Slightly higher framerate for better quality
-    resolution: "2560x1440", // Using camera's native resolution without scaling down
-    nightMode: false,
-    retryCount: 0, // Reset retry count
-  },
 ];
 
 // Camera manager

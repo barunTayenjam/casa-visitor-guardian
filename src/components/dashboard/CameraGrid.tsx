@@ -55,8 +55,12 @@ export const CameraGrid = () => {
       ) : (
         <div className="grid gap-2 h-[calc(100vh-4rem)]" 
              style={{ 
-               gridTemplateColumns: `repeat(${Math.min(cameras.length, 3)}, 1fr)`,
-               gridTemplateRows: `repeat(${Math.ceil(cameras.length / Math.min(cameras.length, 3))}, minmax(0, 1fr))`
+               gridTemplateColumns: cameras.length === 1 ? '1fr' : 
+                                  cameras.length === 2 ? 'repeat(2, 1fr)' : 
+                                  'repeat(3, 1fr)',
+               gridTemplateRows: cameras.length <= 3 ? '1fr' : 
+                                cameras.length <= 6 ? 'repeat(2, 1fr)' : 
+                                'repeat(3, 1fr)'
              }}>
           {cameras.map((camera) => (
             <div

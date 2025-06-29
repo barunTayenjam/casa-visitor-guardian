@@ -42,7 +42,9 @@ dotenv.config();
 const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:8082',
-  'http://localhost:5173'
+  'http://localhost:5173',
+  'http://127.0.0.1:8082',
+  'http://127.0.0.1:5173'
 ];
 
 // If FRONTEND_URL is set and not already in the list, add it
@@ -104,19 +106,26 @@ app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
   
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log('Client disconnected:', socket.id, 'Reason:', reason);
+  });
+
+  socket.on('error', (error) => {
+    console.error('Socket error for client', socket.id, ':', error);
   });
 
   // Handle stream request from client
   socket.on('requestStream', (cameraId) => {
-    console.log(`Stream requested for camera ${cameraId}`);
+    console.log(`Stream requested for camera ${cameraId} from client ${socket.id}`);
     socket.join(`camera-${cameraId}`);
+    
+    // Emit a confirmation back to the client
+    socket.emit('streamRequested', { cameraId, status: 'joined' });
   });
 
   // Handle stop stream request
   socket.on('stopStream', (cameraId) => {
-    console.log(`Stream stopped for camera ${cameraId}`);
+    console.log(`Stream stopped for camera ${cameraId} from client ${socket.id}`);
     socket.leave(`camera-${cameraId}`);
   });
 });

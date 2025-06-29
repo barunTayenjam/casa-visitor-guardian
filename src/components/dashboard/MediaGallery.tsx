@@ -18,6 +18,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ className }) => {
 
   useEffect(() => {
     loadMedia();
+    
+    // Refresh media every 30 seconds
+    const interval = setInterval(loadMedia, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadMedia = async () => {
@@ -28,10 +32,13 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ className }) => {
         apiService.getSnapshots()
       ]);
 
-      setEvents(eventsResponse);
-      setSnapshots(snapshotsResponse);
+      setEvents(eventsResponse || []);
+      setSnapshots(snapshotsResponse || []);
     } catch (error) {
       console.error('Failed to load media:', error);
+      // Set empty arrays on error to prevent undefined issues
+      setEvents([]);
+      setSnapshots([]);
     } finally {
       setLoading(false);
     }
@@ -72,9 +79,26 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ className }) => {
     document.body.removeChild(link);
   };
 
-  const renderImageGrid = (images: string[], type: 'event' | 'snapshot') => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-4">
-      {images.map((image) => (
+  const renderImageGrid = (images: string[], type: 'event' | 'snapshot') => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+
+    if (images.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-32 text-muted-foreground">
+          No {type}s available
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-4">
+        {images.map((image) => (
         <Card key={image} className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all">
           <div 
             className="aspect-video relative"
@@ -114,9 +138,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ className }) => {
             </button>
           </div>
         </Card>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   return (
     <Card className={className}>

@@ -637,6 +637,193 @@ class ApiService {
     console.log('Generated snapshot image URL:', url);
     return url;
   }
+
+  // Get system storage information
+  async getSystemStorage(): Promise<{
+    used: number;
+    total: number;
+    eventsSize: number;
+    snapshotsSize: number;
+    percentage: number;
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/system/storage`);
+      const data = await response.json();
+      
+      if (!data.success || !data.storage) {
+        throw new ApiError(
+          data.error || 'Failed to fetch storage information',
+          response.status,
+          'GET_STORAGE_ERROR',
+          data
+        );
+      }
+      return data.storage;
+    } catch (error) {
+      console.error('Error fetching storage information:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch storage information',
+        500,
+        'GET_STORAGE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get system health information
+  async getSystemHealth(): Promise<{
+    status: string;
+    uptime: number;
+    issues: string[];
+    cameras: { total: number; online: number; offline: number };
+    memory: { used: number; total: number };
+    events: { recent: number; today: number };
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/system/health`);
+      const data = await response.json();
+      
+      if (!data.success || !data.health) {
+        throw new ApiError(
+          data.error || 'Failed to fetch system health',
+          response.status,
+          'GET_HEALTH_ERROR',
+          data
+        );
+      }
+      return data.health;
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch system health',
+        500,
+        'GET_HEALTH_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get hourly analytics data
+  async getHourlyAnalytics(): Promise<{ hour: number; count: number }[]> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/analytics/hourly`);
+      const data = await response.json();
+      
+      if (!data.success || !data.hourlyData) {
+        throw new ApiError(
+          data.error || 'Failed to fetch hourly analytics',
+          response.status,
+          'GET_HOURLY_ANALYTICS_ERROR',
+          data
+        );
+      }
+      return data.hourlyData;
+    } catch (error) {
+      console.error('Error fetching hourly analytics:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch hourly analytics',
+        500,
+        'GET_HOURLY_ANALYTICS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get weekly analytics data
+  async getWeeklyAnalytics(): Promise<{ totalEvents: number; dailyBreakdown: { date: string; count: number }[] }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/analytics/weekly`);
+      const data = await response.json();
+      
+      if (!data.success || !data.weeklyData) {
+        throw new ApiError(
+          data.error || 'Failed to fetch weekly analytics',
+          response.status,
+          'GET_WEEKLY_ANALYTICS_ERROR',
+          data
+        );
+      }
+      return data.weeklyData;
+    } catch (error) {
+      console.error('Error fetching weekly analytics:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch weekly analytics',
+        500,
+        'GET_WEEKLY_ANALYTICS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get monthly analytics data
+  async getMonthlyAnalytics(): Promise<{ totalEvents: number; weeklyBreakdown: { week: string; count: number }[] }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/analytics/monthly`);
+      const data = await response.json();
+      
+      if (!data.success || !data.monthlyData) {
+        throw new ApiError(
+          data.error || 'Failed to fetch monthly analytics',
+          response.status,
+          'GET_MONTHLY_ANALYTICS_ERROR',
+          data
+        );
+      }
+      return data.monthlyData;
+    } catch (error) {
+      console.error('Error fetching monthly analytics:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch monthly analytics',
+        500,
+        'GET_MONTHLY_ANALYTICS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get response time analytics
+  async getResponseTimeAnalytics(): Promise<{ average: number; recent: { timestamp: string; responseTime: number }[] }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/analytics/response-time`);
+      const data = await response.json();
+      
+      if (!data.success || !data.responseTime) {
+        throw new ApiError(
+          data.error || 'Failed to fetch response time analytics',
+          response.status,
+          'GET_RESPONSE_TIME_ERROR',
+          data
+        );
+      }
+      return data.responseTime;
+    } catch (error) {
+      console.error('Error fetching response time analytics:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch response time analytics',
+        500,
+        'GET_RESPONSE_TIME_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
 }
 
 // Create singleton instance

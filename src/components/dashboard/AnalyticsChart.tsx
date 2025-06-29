@@ -6,86 +6,87 @@ import { AnalyticsData, MotionEvent as RawMotionEvent } from '@/types/security';
 import { useState, useEffect } from 'react';
 import apiService from '@/services/ApiService'; // Corrected path
 
-const placeholderHourlyData = () => Array(24).fill(null).map((_, i) => ({ hour: i, count: 0 }));
-const requiresBackendIndicator = <span className="text-orange-500 ml-1 text-xs">*</span>;
 
 export const AnalyticsChart = () => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     eventsToday: 0,
-    eventsThisWeek: 0, // TODO: Backend API required for accurate weekly aggregates
-    eventsThisMonth: 0, // TODO: Backend API required for accurate monthly aggregates
-    hourlyData: placeholderHourlyData(),
+    eventsThisWeek: 0,
+    eventsThisMonth: 0,
+    hourlyData: Array(24).fill(null).map((_, i) => ({ hour: i, count: 0 })),
     cameraData: [],
-    averageResponseTime: 2.3, // TODO: Define and implement backend API for averageResponseTime
+    averageResponseTime: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rawEvents, setRawEvents] = useState<RawMotionEvent[]>([]);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      setIsLoading(true);
-      setError(null);
+    const loadAnalyticsData = async () => {
       try {
-        const fetchedEvents = await apiService.getMotionEvents(1000); // Fetch last 1000 events
-        setRawEvents(fetchedEvents);
+        setIsLoading(true);
+        setError(null);
+
+        // Load all analytics data in parallel
+        const [
+          motionEvents,
+          hourlyData,
+          weeklyData,
+          monthlyData,
+          responseTimeData
+        ] = await Promise.all([
+          apiService.getMotionEvents(100),
+          apiService.getHourlyAnalytics(),
+          apiService.getWeeklyAnalytics(),
+          apiService.getMonthlyAnalytics(),
+          apiService.getResponseTimeAnalytics()
+        ]);
+
+        setRawEvents(motionEvents);
+
+        // Calculate today's events from motion events
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const eventsToday = motionEvents.filter(event => {
+          const eventDate = new Date(event.timestamp);
+          return eventDate >= todayStart;
+        }).length;
+
+        // Generate camera data from motion events
+        const cameraMap = new Map<string, { name: string; count: number }>();
+        motionEvents.forEach(event => {
+          const existing = cameraMap.get(event.cameraId) || { name: event.cameraName || event.cameraId, count: 0 };
+          existing.count++;
+          cameraMap.set(event.cameraId, existing);
+        });
+
+        const cameraData = Array.from(cameraMap.entries()).map(([id, data]) => ({
+          camera: data.name,
+          count: data.count
+        })).sort((a, b) => b.count - a.count);
+
+        setAnalyticsData({
+          eventsToday,
+          eventsThisWeek: weeklyData.totalEvents,
+          eventsThisMonth: monthlyData.totalEvents,
+          hourlyData,
+          cameraData,
+          averageResponseTime: responseTimeData.average
+        });
+
       } catch (err) {
-        console.error("Failed to fetch motion events:", err);
-        setError("Failed to load event data. Please try again later.");
-        setRawEvents([]); // Ensure rawEvents is empty on error
+        console.error('Failed to load analytics data:', err);
+        setError('Failed to load analytics data');
+      } finally {
+        setIsLoading(false);
       }
-      // setIsLoading(false) will be handled in the processing useEffect
     };
-    fetchEvents();
+
+    loadAnalyticsData();
+    
+    // Refresh analytics data every 5 minutes
+    const interval = setInterval(loadAnalyticsData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (rawEvents.length > 0) {
-      const today = new Date();
-      const todayEventsCount = rawEvents.filter(event => {
-        const eventDate = new Date(event.timestamp);
-        return eventDate.toDateString() === today.toDateString();
-      }).length;
-
-      const newHourlyData = placeholderHourlyData();
-      rawEvents.forEach(event => {
-        const hour = new Date(event.timestamp).getHours();
-        if (hour >= 0 && hour < 24) { // Basic validation
-          newHourlyData[hour].count++;
-        }
-      });
-
-      const newCameraDataMap = new Map<string, number>();
-      rawEvents.forEach(event => {
-        const camName = event.cameraName || event.cameraId || 'Unknown Camera';
-        newCameraDataMap.set(camName, (newCameraDataMap.get(camName) || 0) + 1);
-      });
-      const newCameraData = Array.from(newCameraDataMap.entries())
-        .map(([camera, count]) => ({ camera, count }))
-        .sort((a, b) => b.count - a.count); // Sort by count descending
-
-      setAnalyticsData(prev => ({
-        ...prev,
-        eventsToday: todayEventsCount,
-        hourlyData: newHourlyData,
-        cameraData: newCameraData,
-        // eventsThisWeek and eventsThisMonth remain as placeholders
-        // averageResponseTime remains as a placeholder
-      }));
-    } else if (!isLoading && error === null) { // Only set if not loading and no prior error
-       // If rawEvents is empty after fetch (and not due to an error), ensure data is zeroed out
-       setAnalyticsData(prev => ({
-        ...prev,
-        eventsToday: 0,
-        hourlyData: placeholderHourlyData(),
-        cameraData: [],
-      }));
-    }
-    // This effect should also set loading to false after processing
-    if (isLoading) { // Check if it was loading before this effect ran
-      setIsLoading(false);
-    }
-  }, [rawEvents, isLoading, error]); // Added isLoading and error to dependency array
 
   const maxHourlyCount = Math.max(1, ...analyticsData.hourlyData.map(d => d.count)); // Ensure not 0 to prevent division by zero
   const maxCameraCount = Math.max(1, ...analyticsData.cameraData.map(d => d.count)); // Ensure not 0
@@ -147,14 +148,12 @@ export const AnalyticsChart = () => {
               <div>
                 <p className="text-2xl font-bold text-purple-500">
                   {analyticsData.eventsThisWeek}
-                  {analyticsData.eventsThisWeek === 0 && requiresBackendIndicator}
                 </p>
                 <p className="text-xs text-muted-foreground">This Week</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-green-500">
                   {analyticsData.eventsThisMonth}
-                  {analyticsData.eventsThisMonth === 0 && requiresBackendIndicator}
                 </p>
                 <p className="text-xs text-muted-foreground">This Month</p>
               </div>
@@ -202,8 +201,7 @@ export const AnalyticsChart = () => {
             <div className="flex items-center gap-2 text-sm">
               <TrendingUp className="h-4 w-4 text-green-500" />
               <span className="text-muted-foreground">
-                Avg response time: {analyticsData.averageResponseTime}s
-                {requiresBackendIndicator}
+                Avg response time: {analyticsData.averageResponseTime.toFixed(1)}s
               </span>
             </div>
             

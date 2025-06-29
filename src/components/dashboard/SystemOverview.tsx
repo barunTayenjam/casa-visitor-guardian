@@ -7,6 +7,7 @@ import { SystemStatus } from '@/types/security';
 import { useState, useEffect } from 'react';
 import { useCameras } from '@/contexts/CameraContext';
 import { useEvents } from '@/contexts/EventsContext';
+import apiService from '@/services/ApiService';
 
 export const SystemOverview = () => {
   const { cameras, loading: isLoadingCameras } = useCameras();
@@ -15,19 +16,16 @@ export const SystemOverview = () => {
   const [systemData, setSystemData] = useState<SystemStatus>({
     totalCameras: 0,
     onlineCameras: 0,
-    // Note: 'totalEvents' from EventsContext is a count of recent events (last 50).
-    // A separate API call would be needed for an all-time total.
     totalEvents: 0,
     todayEvents: 0,
-    // TODO: Backend API required for these values
     status: 'healthy',
-    // TODO: Backend API required for these values
-    uptime: 645600, // 7.5 days in seconds
-    // TODO: Backend API required for these values
-    storageUsed: 156.8,
-    // TODO: Backend API required for these values
-    storageTotal: 500,
+    uptime: 0,
+    storageUsed: 0,
+    storageTotal: 0,
   });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (cameras) {
@@ -47,8 +45,7 @@ export const SystemOverview = () => {
         const todayDate = new Date();
         return eventDate.toDateString() === todayDate.toDateString();
       }).length;
-      // Note: 'events.length' represents only recent events (last 50) 
-      // as per EventsContext implementation.
+      
       setSystemData(prev => ({
         ...prev,
         totalEvents: events.length,
@@ -57,6 +54,41 @@ export const SystemOverview = () => {
     }
   }, [events]);
 
+  // Load system data from backend
+  useEffect(() => {
+    const loadSystemData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Load storage and health data in parallel
+        const [storageData, healthData] = await Promise.all([
+          apiService.getSystemStorage(),
+          apiService.getSystemHealth()
+        ]);
+
+        setSystemData(prev => ({
+          ...prev,
+          status: healthData.status,
+          uptime: healthData.uptime,
+          storageUsed: storageData.used,
+          storageTotal: storageData.total,
+        }));
+      } catch (err) {
+        console.error('Failed to load system data:', err);
+        setError('Failed to load system information');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSystemData();
+    
+    // Refresh system data every 30 seconds
+    const interval = setInterval(loadSystemData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const formatUptime = (seconds: number) => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
@@ -64,28 +96,39 @@ export const SystemOverview = () => {
     return `${days}d ${hours}h ${minutes}m`;
   };
 
-  const storagePercentage = (systemData.storageUsed / systemData.storageTotal) * 100;
-  const requiresBackendIndicator = <span className="text-orange-500 ml-1">*</span>;
+  const storagePercentage = systemData.storageTotal > 0 ? (systemData.storageUsed / systemData.storageTotal) * 100 : 0;
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       <Card className="animate-fade-in">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            System Status {requiresBackendIndicator}
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">System Status</CardTitle>
           <Shield className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <div className={`status-indicator ${systemData.status === 'healthy' ? 'online' : 'warning'}`}></div>
-            <Badge variant={systemData.status === 'healthy' ? 'default' : 'destructive'}>
-              {systemData.status === 'healthy' ? 'Healthy' : 'Warning'}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Uptime: {formatUptime(systemData.uptime)}
-          </p>
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : error ? (
+            <div className="text-sm text-red-500">{error}</div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className={`status-indicator ${
+                  systemData.status === 'healthy' ? 'online' : 
+                  systemData.status === 'warning' ? 'warning' : 'offline'
+                }`}></div>
+                <Badge variant={
+                  systemData.status === 'healthy' ? 'default' : 
+                  systemData.status === 'warning' ? 'secondary' : 'destructive'
+                }>
+                  {systemData.status.charAt(0).toUpperCase() + systemData.status.slice(1)}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Uptime: {formatUptime(systemData.uptime)}
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -138,21 +181,27 @@ export const SystemOverview = () => {
 
       <Card className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Storage {requiresBackendIndicator}
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Storage</CardTitle>
           <HardDrive className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {systemData.storageUsed}GB
-          </div>
-          <div className="mt-2">
-            <Progress value={storagePercentage} className="h-2" />
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {storagePercentage.toFixed(1)}% of {systemData.storageTotal}GB used
-          </p>
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : error ? (
+            <div className="text-sm text-red-500">Storage info unavailable</div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">
+                {systemData.storageUsed.toFixed(1)}GB
+              </div>
+              <div className="mt-2">
+                <Progress value={storagePercentage} className="h-2" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {storagePercentage.toFixed(1)}% of {systemData.storageTotal}GB used
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

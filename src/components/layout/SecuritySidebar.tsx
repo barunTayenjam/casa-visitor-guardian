@@ -13,11 +13,6 @@ export const SecuritySidebar = () => {
       icon: Home,
     },
     {
-      title: 'Cameras',
-      href: '/cameras',
-      icon: Camera,
-    },
-    {
       title: 'Camera Config',
       href: '/camera-config',
       icon: MonitorCog,

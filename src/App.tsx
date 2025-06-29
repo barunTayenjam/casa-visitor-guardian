@@ -9,13 +9,11 @@ import { CameraProvider } from "./contexts/CameraContext";
 import { EventsProvider } from "./contexts/EventsContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import Dashboard from "./pages/Dashboard";
-import Cameras from "./pages/Cameras";
 import CameraConfig from "./pages/CameraConfig";
 import MotionEvents from "./pages/MotionEvents";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import SocketTest from "./pages/SocketTest";
 
 const queryClient = new QueryClient();
 
@@ -31,12 +29,10 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<SecurityLayout />}>
                   <Route index element={<Dashboard />} />
-                  <Route path="cameras" element={<Cameras />} />
                   <Route path="camera-config" element={<CameraConfig />} />
                   <Route path="events" element={<MotionEvents />} />
                   <Route path="history" element={<History />} />
                   <Route path="settings" element={<Settings />} />
-                  <Route path="socket-test" element={<SocketTest />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

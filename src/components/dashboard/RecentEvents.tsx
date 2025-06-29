@@ -5,11 +5,72 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MotionEvent } from '@/types/security';
 import { useEvents } from '@/contexts/EventsContext';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import apiService from '@/services/ApiService';
 
 export const RecentEvents = () => {
   const { events, archiveEvent, clearEvents } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [historicalEvents, setHistoricalEvents] = useState<MotionEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load historical events to supplement socket events
+  useEffect(() => {
+    const loadHistoricalEvents = async () => {
+      try {
+        setLoading(true);
+        const apiEvents = await apiService.getMotionEvents(50);
+        
+        // Convert API events to MotionEvent format
+        const convertedEvents: MotionEvent[] = apiEvents.map(event => ({
+          id: event.id,
+          cameraId: event.cameraId,
+          cameraName: event.cameraName || event.cameraId,
+          timestamp: new Date(event.timestamp),
+          imageUrl: event.imageUrl || null,
+          confidence: event.confidence || 0,
+          labels: event.labels || ['motion'],
+          location: event.location || 'Unknown',
+          duration: event.duration || 0,
+          archived: false
+        }));
+        
+        setHistoricalEvents(convertedEvents);
+      } catch (error) {
+        console.error('Failed to load historical events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistoricalEvents();
+    
+    // Refresh every 2 minutes
+    const interval = setInterval(loadHistoricalEvents, 120000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Combine socket events with historical events, removing duplicates
+  const allEvents = React.useMemo(() => {
+    const eventMap = new Map<string, MotionEvent>();
+    
+    // Add socket events first (they're more recent)
+    events.forEach(event => {
+      eventMap.set(event.id, event);
+    });
+    
+    // Add historical events if not already present
+    historicalEvents.forEach(event => {
+      if (!eventMap.has(event.id)) {
+        eventMap.set(event.id, event);
+      }
+    });
+    
+    // Convert back to array and sort by timestamp
+    return Array.from(eventMap.values()).sort((a, b) => 
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+  }, [events, historicalEvents]);
   
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
@@ -49,7 +110,7 @@ export const RecentEvents = () => {
     }
   };
 
-  const nonArchivedEvents = events.filter(event => !event.archived);
+  const nonArchivedEvents = allEvents.filter(event => !event.archived);
 
   return (
     <Card className="animate-fade-in">

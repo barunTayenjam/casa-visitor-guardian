@@ -25,8 +25,6 @@ const SocketTest = () => {
       socketService.requestStream('cam1');
       addLog('Requesting stream for cam2');
       socketService.requestStream('cam2');
-      addLog('Requesting stream for cam3');
-      socketService.requestStream('cam3');
     }).catch(err => {
       addLog(`Socket connection failed: ${err.message}`);
     });

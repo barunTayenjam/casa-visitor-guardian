@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -13,27 +13,45 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { 
+  Loader2, 
+  RefreshCw,
+  Download,
+  Trash2
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import apiService from '@/services/ApiService';
+
+// Interfaces for system data
+interface LogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  message: string;
+  source?: string;
+}
 
 const Settings = () => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
-  // System settings state
-  const [systemSettings, setSystemSettings] = useState({
-    retention: '30',
-    storageLimit: '500',
-    autoCleanup: true,
-    notificationsEnabled: true,
-    notificationTypes: ['motion', 'person', 'vehicle'],
+  // General settings state
+  const [generalSettings, setGeneralSettings] = useState({
+    systemName: 'Security System',
+    timezone: 'UTC',
+    language: 'en',
+    theme: 'system',
+    autoBackup: true,
+    backupFrequency: 'daily',
   });
 
   // Storage settings state
   const [storageSettings, setStorageSettings] = useState({
+    retentionDays: 30,
+    maxStorageGB: 100,
+    autoCleanup: true,
     compressionEnabled: true,
-    compressionQuality: '80',
-    backupEnabled: false,
-    backupPath: '/backups',
+    compressionQuality: 80,
   });
 
   // Notification settings state
@@ -47,10 +65,115 @@ const Settings = () => {
     quietHoursEnd: '07:00',
   });
 
+  // Logging and diagnostics state
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [autoRefreshLogs, setAutoRefreshLogs] = useState(false);
+  const [logLevel, setLogLevel] = useState<'all' | 'info' | 'warn' | 'error'>('all');
+
+
+  // Load logs
+  const loadLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const logs = await apiService.getSystemLogs(logLevel === 'all' ? undefined : logLevel, 50);
+      setLogs(logs);
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load system logs',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  // Clear logs
+  const clearLogs = async () => {
+    try {
+      await apiService.clearSystemLogs();
+      setLogs([]);
+      toast({
+        title: 'Logs cleared',
+        description: 'All system logs have been cleared.',
+      });
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
+      // Still clear local logs even if API fails
+      setLogs([]);
+      toast({
+        title: 'Warning',
+        description: 'Local logs cleared, but backend clear may have failed',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Download logs
+  const downloadLogs = () => {
+    const logText = logs.map(log => 
+      `[${log.timestamp}] [${log.level.toUpperCase()}] [${log.source || 'SYSTEM'}] ${log.message}`
+    ).join('\n');
+    
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `system-logs-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: 'Logs downloaded',
+      description: 'System logs have been downloaded successfully.',
+    });
+  };
+
+  // Filter logs based on level
+  const filteredLogs = logs.filter(log => 
+    logLevel === 'all' || log.level === logLevel
+  );
+
+
+  // Get log level badge color
+  const getLogLevelColor = (level: string) => {
+    switch (level) {
+      case 'error':
+        return 'destructive';
+      case 'warn':
+        return 'secondary';
+      case 'info':
+        return 'default';
+      case 'debug':
+        return 'outline';
+      default:
+        return 'default';
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadLogs();
+  }, []);
+
+  // Auto-refresh logs
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefreshLogs) {
+      interval = setInterval(loadLogs, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefreshLogs]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast({
@@ -69,11 +192,11 @@ const Settings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Configure your security system preferences
+        <p className="text-muted-foreground">
+          Configure your security system preferences and monitor system health.
         </p>
       </div>
 
@@ -82,52 +205,54 @@ const Settings = () => {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="logs">System Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>System Settings</CardTitle>
+              <CardTitle>General Settings</CardTitle>
               <CardDescription>
-                Configure general system settings and preferences
+                Configure basic system preferences and behavior.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="retention">Event Retention Period (days)</Label>
-                <Input
-                  id="retention"
-                  type="number"
-                  value={systemSettings.retention}
-                  onChange={(e) => setSystemSettings({
-                    ...systemSettings,
-                    retention: e.target.value
-                  })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="storageLimit">Storage Limit (GB)</Label>
-                <Input
-                  id="storageLimit"
-                  type="number"
-                  value={systemSettings.storageLimit}
-                  onChange={(e) => setSystemSettings({
-                    ...systemSettings,
-                    storageLimit: e.target.value
-                  })}
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="systemName">System Name</Label>
+                  <Input
+                    id="systemName"
+                    value={generalSettings.systemName}
+                    onChange={(e) => setGeneralSettings(prev => ({ ...prev, systemName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select value={generalSettings.timezone} onValueChange={(value) => setGeneralSettings(prev => ({ ...prev, timezone: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UTC">UTC</SelectItem>
+                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                      <SelectItem value="America/Chicago">Central Time</SelectItem>
+                      <SelectItem value="America/Denver">Mountain Time</SelectItem>
+                      <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <Label htmlFor="autoCleanup">Auto Cleanup</Label>
+                <div className="space-y-0.5">
+                  <Label>Auto Backup</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically backup system configuration and data
+                  </p>
+                </div>
                 <Switch
-                  id="autoCleanup"
-                  checked={systemSettings.autoCleanup}
-                  onCheckedChange={(checked) => setSystemSettings({
-                    ...systemSettings,
-                    autoCleanup: checked
-                  })}
+                  checked={generalSettings.autoBackup}
+                  onCheckedChange={(checked) => setGeneralSettings(prev => ({ ...prev, autoBackup: checked }))}
                 />
               </div>
             </CardContent>
@@ -137,66 +262,45 @@ const Settings = () => {
         <TabsContent value="storage" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Storage Settings</CardTitle>
+              <CardTitle>Storage Management</CardTitle>
               <CardDescription>
-                Configure image storage and backup settings
+                Configure data retention and storage optimization settings.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="compression">Image Compression</Label>
-                <Switch
-                  id="compression"
-                  checked={storageSettings.compressionEnabled}
-                  onCheckedChange={(checked) => setStorageSettings({
-                    ...storageSettings,
-                    compressionEnabled: checked
-                  })}
-                />
-              </div>
-
-              {storageSettings.compressionEnabled && (
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="quality">Compression Quality (%)</Label>
+                  <Label htmlFor="retentionDays">Data Retention (days)</Label>
                   <Input
-                    id="quality"
+                    id="retentionDays"
                     type="number"
-                    min="1"
-                    max="100"
-                    value={storageSettings.compressionQuality}
-                    onChange={(e) => setStorageSettings({
-                      ...storageSettings,
-                      compressionQuality: e.target.value
-                    })}
+                    value={storageSettings.retentionDays}
+                    onChange={(e) => setStorageSettings(prev => ({ ...prev, retentionDays: parseInt(e.target.value) }))}
                   />
                 </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="backup">Automatic Backup</Label>
-                <Switch
-                  id="backup"
-                  checked={storageSettings.backupEnabled}
-                  onCheckedChange={(checked) => setStorageSettings({
-                    ...storageSettings,
-                    backupEnabled: checked
-                  })}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="maxStorage">Max Storage (GB)</Label>
+                  <Input
+                    id="maxStorage"
+                    type="number"
+                    value={storageSettings.maxStorageGB}
+                    onChange={(e) => setStorageSettings(prev => ({ ...prev, maxStorageGB: parseInt(e.target.value) }))}
+                  />
+                </div>
               </div>
 
-              {storageSettings.backupEnabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="backupPath">Backup Location</Label>
-                  <Input
-                    id="backupPath"
-                    value={storageSettings.backupPath}
-                    onChange={(e) => setStorageSettings({
-                      ...storageSettings,
-                      backupPath: e.target.value
-                    })}
-                  />
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Auto Cleanup</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically delete old recordings when storage is full
+                  </p>
                 </div>
-              )}
+                <Switch
+                  checked={storageSettings.autoCleanup}
+                  onCheckedChange={(checked) => setStorageSettings(prev => ({ ...prev, autoCleanup: checked }))}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -206,19 +310,20 @@ const Settings = () => {
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
               <CardDescription>
-                Configure how and when you receive notifications
+                Configure how and when you receive alerts and notifications.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="emailNotifications">Email Notifications</Label>
+                <div className="space-y-0.5">
+                  <Label>Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive alerts via email
+                  </p>
+                </div>
                 <Switch
-                  id="emailNotifications"
                   checked={notificationSettings.emailEnabled}
-                  onCheckedChange={(checked) => setNotificationSettings({
-                    ...notificationSettings,
-                    emailEnabled: checked
-                  })}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, emailEnabled: checked }))}
                 />
               </div>
 
@@ -229,80 +334,106 @@ const Settings = () => {
                     id="emailAddress"
                     type="email"
                     value={notificationSettings.emailAddress}
-                    onChange={(e) => setNotificationSettings({
-                      ...notificationSettings,
-                      emailAddress: e.target.value
-                    })}
+                    onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailAddress: e.target.value }))}
                   />
                 </div>
               )}
 
               <div className="flex items-center justify-between">
-                <Label htmlFor="pushNotifications">Push Notifications</Label>
+                <div className="space-y-0.5">
+                  <Label>Push Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive browser push notifications
+                  </p>
+                </div>
                 <Switch
-                  id="pushNotifications"
                   checked={notificationSettings.pushEnabled}
-                  onCheckedChange={(checked) => setNotificationSettings({
-                    ...notificationSettings,
-                    pushEnabled: checked
-                  })}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, pushEnabled: checked }))}
                 />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {notificationSettings.pushEnabled && (
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="notificationSound">Notification Sound</Label>
-                  <Switch
-                    id="notificationSound"
-                    checked={notificationSettings.pushSoundEnabled}
-                    onCheckedChange={(checked) => setNotificationSettings({
-                      ...notificationSettings,
-                      pushSoundEnabled: checked
-                    })}
-                  />
-                </div>
-              )}
-
+        <TabsContent value="logs" className="space-y-4">
+          {/* System Logs */}
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <Label htmlFor="quietHours">Quiet Hours</Label>
-                <Switch
-                  id="quietHours"
-                  checked={notificationSettings.quietHoursEnabled}
-                  onCheckedChange={(checked) => setNotificationSettings({
-                    ...notificationSettings,
-                    quietHoursEnabled: checked
-                  })}
-                />
-              </div>
-
-              {notificationSettings.quietHoursEnabled && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quietStart">Start Time</Label>
-                    <Input
-                      id="quietStart"
-                      type="time"
-                      value={notificationSettings.quietHoursStart}
-                      onChange={(e) => setNotificationSettings({
-                        ...notificationSettings,
-                        quietHoursStart: e.target.value
-                      })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quietEnd">End Time</Label>
-                    <Input
-                      id="quietEnd"
-                      type="time"
-                      value={notificationSettings.quietHoursEnd}
-                      onChange={(e) => setNotificationSettings({
-                        ...notificationSettings,
-                        quietHoursEnd: e.target.value
-                      })}
-                    />
-                  </div>
+                <div>
+                  <CardTitle>System Logs</CardTitle>
+                  <CardDescription>
+                    Real-time system logs and activity monitoring
+                  </CardDescription>
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="autoRefresh" className="text-sm">Auto-refresh</Label>
+                    <Switch
+                      id="autoRefresh"
+                      checked={autoRefreshLogs}
+                      onCheckedChange={setAutoRefreshLogs}
+                    />
+                  </div>
+                  <Select value={logLevel} onValueChange={(value: any) => setLogLevel(value)}>
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="error">Error</SelectItem>
+                      <SelectItem value="warn">Warn</SelectItem>
+                      <SelectItem value="info">Info</SelectItem>
+                      <SelectItem value="debug">Debug</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={downloadLogs}>
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearLogs}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={loadLogs} disabled={isLoadingLogs}>
+                    {isLoadingLogs ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96 w-full border rounded-lg p-4">
+                {filteredLogs.length === 0 ? (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">
+                    No logs available
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredLogs.map((log, index) => (
+                      <div key={index} className="flex items-start gap-3 text-sm">
+                        <Badge variant={getLogLevelColor(log.level) as any} className="text-xs">
+                          {log.level.toUpperCase()}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                            {log.source && (
+                              <span className="text-muted-foreground text-xs">
+                                [{log.source}]
+                              </span>
+                            )}
+                          </div>
+                          <p className="break-words">{log.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
@@ -311,7 +442,7 @@ const Settings = () => {
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          Save Settings
         </Button>
       </div>
     </div>

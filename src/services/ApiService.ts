@@ -498,7 +498,7 @@ class ApiService {
   }
 
   // Get recent motion events
-  async getMotionEvents(limit = 20): Promise<MotionEvent[]> {
+  async getMotionEvents(limit = 100): Promise<MotionEvent[]> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/motion/events?limit=${limit}`);
       const data = await response.json();
@@ -511,7 +511,35 @@ class ApiService {
           data
         );
       }
-      return data.events;
+
+      // Get cameras to map camera names - but handle errors gracefully
+      let cameraMap = new Map<string, string>();
+      try {
+        const cameras = await this.getCameras();
+        cameraMap = new Map(cameras.map(c => [c.id, c.name]));
+      } catch (error) {
+        console.warn('Failed to fetch cameras for name mapping:', error);
+        // Continue without camera names
+      }
+
+      // Transform backend events to frontend format
+      const transformedEvents: MotionEvent[] = data.events.map((event: any) => {
+        const filename = event.imagePath?.replace('/events/', '') || '';
+        return {
+          id: event.id,
+          cameraId: event.cameraId,
+          cameraName: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
+          timestamp: new Date(event.timestamp),
+          imageUrl: filename ? this.getEventImageUrl(filename) : '',
+          confidence: event.confidence || 0,
+          labels: ['motion'], // Default label
+          location: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
+          duration: event.duration || 0,
+          archived: false
+        };
+      });
+
+      return transformedEvents;
     } catch (error) {
       console.error('Error fetching motion events:', error);
       if (error instanceof ApiError) {
@@ -825,6 +853,69 @@ class ApiService {
         'Failed to fetch response time analytics',
         500,
         'GET_RESPONSE_TIME_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get system logs
+  async getSystemLogs(level?: string, limit?: number): Promise<any[]> {
+    try {
+      const params = new URLSearchParams();
+      if (level) params.append('level', level);
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await this.fetchWithRetry(`${API_URL}/system/logs?${params}`);
+      const data = await response.json();
+      
+      if (!data.success || !data.logs) {
+        throw new ApiError(
+          data.error || 'Failed to fetch system logs',
+          response.status,
+          'GET_SYSTEM_LOGS_ERROR',
+          data
+        );
+      }
+      return data.logs;
+    } catch (error) {
+      console.error('Error fetching system logs:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch system logs',
+        500,
+        'GET_SYSTEM_LOGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Clear system logs
+  async clearSystemLogs(): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/system/logs`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to clear system logs',
+          response.status,
+          'CLEAR_SYSTEM_LOGS_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error('Error clearing system logs:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to clear system logs',
+        500,
+        'CLEAR_SYSTEM_LOGS_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

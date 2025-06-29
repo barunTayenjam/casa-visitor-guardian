@@ -391,10 +391,23 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const parts = file.split('_');
           const cameraId = parts[1] || 'unknown';
           
+          // Try to extract timestamp from filename
+          let timestamp = new Date().toISOString();
+          if (parts.length >= 3) {
+            const timestampPart = parts[2]?.split('.')[0];
+            if (timestampPart) {
+              // Convert filename timestamp format to ISO string
+              const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
+              if (!isNaN(parsedDate.getTime())) {
+                timestamp = parsedDate.toISOString();
+              }
+            }
+          }
+          
           return {
             id: `evt_${Date.now()}_${index}`,
             cameraId,
-            timestamp: new Date().toISOString(),
+            timestamp,
             imagePath: `/events/${file}`,
             confidence: 75, // Default confidence
             duration: 0
@@ -760,6 +773,104 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.status(500).json({ success: false, error: 'Failed to get response time analytics' });
     }
   });
+
+  // System logs storage
+  const systemLogs: Array<{
+    timestamp: string;
+    level: 'info' | 'warn' | 'error' | 'debug';
+    message: string;
+    source: string;
+  }> = [];
+
+  // Helper function to add system log
+  const addSystemLog = (level: 'info' | 'warn' | 'error' | 'debug', message: string, source: string = 'System') => {
+    systemLogs.unshift({
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      source
+    });
+    
+    // Keep only last 1000 logs
+    if (systemLogs.length > 1000) {
+      systemLogs.splice(1000);
+    }
+  };
+
+  // Add some initial system logs
+  addSystemLog('info', 'Security system started successfully', 'System');
+  addSystemLog('info', 'Camera manager initialized', 'Camera Manager');
+  addSystemLog('info', 'Motion detection service started', 'Motion Detection');
+
+  // Get system logs
+  app.get('/api/system/logs', (req: Request, res: Response) => {
+    try {
+      const level = req.query.level as string;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      let filteredLogs = systemLogs;
+      
+      // Filter by level if specified
+      if (level && level !== 'all') {
+        filteredLogs = systemLogs.filter(log => log.level === level);
+      }
+      
+      // Apply limit
+      const logs = filteredLogs.slice(0, limit);
+      
+      res.json({
+        success: true,
+        logs
+      });
+    } catch (error) {
+      console.error('Error getting system logs:', error);
+      res.status(500).json({ success: false, error: 'Failed to get system logs' });
+    }
+  });
+
+  // Clear system logs
+  app.delete('/api/system/logs', (req: Request, res: Response) => {
+    try {
+      systemLogs.length = 0; // Clear the array
+      addSystemLog('info', 'System logs cleared by user', 'System');
+      
+      res.json({
+        success: true,
+        message: 'System logs cleared successfully'
+      });
+    } catch (error) {
+      console.error('Error clearing system logs:', error);
+      res.status(500).json({ success: false, error: 'Failed to clear system logs' });
+    }
+  });
+
+  // Enhance existing endpoints to add logging
+  const originalCameraGet = app._router.stack.find((layer: any) => 
+    layer.route && layer.route.path === '/api/cameras'
+  );
+  
+  // Add logging to camera operations
+  app.use('/api/cameras', (req: Request, res: Response, next) => {
+    if (req.method === 'POST') {
+      addSystemLog('info', `New camera added: ${req.body.name}`, 'Camera Manager');
+    } else if (req.method === 'PUT') {
+      addSystemLog('info', `Camera updated: ${req.params.id}`, 'Camera Manager');
+    } else if (req.method === 'DELETE') {
+      addSystemLog('info', `Camera deleted: ${req.params.id}`, 'Camera Manager');
+    }
+    next();
+  });
+
+  // Add logging to motion events
+  const originalMotionHandler = handleMotionDetected;
+  const enhancedMotionHandler = (event: MotionEvent) => {
+    addSystemLog('info', `Motion detected on camera ${event.cameraId}`, 'Motion Detection');
+    originalMotionHandler(event);
+  };
+  
+  // Replace the motion handler
+  io.off('motionDetected', handleMotionDetected);
+  io.on('motionDetected', enhancedMotionHandler);
 
   console.log('API routes configured');
 }

@@ -53,6 +53,8 @@ interface BackendCamera {
   resolution: string;
   nightMode: boolean;
   lastError?: string;
+  status?: string; // Status field from backend
+  retryCount?: number;
 }
 
 class ApiService {
@@ -137,13 +139,16 @@ class ApiService {
 
   // Convert backend camera to frontend camera format
   private mapBackendToFrontendCamera(camera: BackendCamera): Camera {
+    // Use the status from backend if available, otherwise derive from isActive
+    const status = camera.status || (camera.isActive ? 'online' : 'offline');
+    
     return {
       id: camera.id,
       name: camera.name,
-      status: camera.isActive ? 'online' : 'offline',
+      status: status as 'online' | 'offline' | 'warning',
       streamUrl: camera.rtspUrl,
       thumbnail: '/placeholder-camera.jpg',
-      location: '', // Not provided by backend
+      location: camera.name, // Use camera name as location for now
       detectionEnabled: true, // Default, will be updated from motion settings
       sensitivity: 0.5, // Default, will be updated from motion settings
       lastSeen: new Date(),

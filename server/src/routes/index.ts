@@ -61,12 +61,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const cameras = streamManager.getAllCameras();
       console.log('Fetched cameras:', cameras);
       // Add additional camera state information
-      const enrichedCameras = cameras.map(camera => ({
-        ...camera,
-        status: camera.isActive ? 'online' : 'offline',
-        lastError: camera.lastError || undefined,
-        retryCount: camera.retryCount || 0
-      }));
+      const enrichedCameras = cameras.map(camera => {
+        let status = 'offline';
+        if (camera.isActive) {
+          status = 'online';
+        } else if (camera.retryCount && camera.retryCount > 0) {
+          status = 'warning'; // Camera is trying to reconnect
+        }
+        
+        return {
+          ...camera,
+          status,
+          lastError: camera.lastError || undefined,
+          retryCount: camera.retryCount || 0,
+          // Add more debugging info
+          connectionAttempts: camera.retryCount || 0,
+          hasProcess: !!camera.process,
+          lastFrameTime: camera.lastFrame ? 'Available' : 'None'
+        };
+      });
       console.log('Enriched cameras:', enrichedCameras);
 
       res.json({ 

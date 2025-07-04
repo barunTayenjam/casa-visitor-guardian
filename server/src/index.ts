@@ -3,10 +3,17 @@ console.log('*** SERVER STARTING - LOADING MODULES ***');
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import debug from 'debug';
+
+// Enable Socket.IO debugging
+debug('socket.io:*').enabled = true;
 import cors from 'cors';
 import dotenv from 'dotenv';
 
 console.log('*** MODULES LOADED SUCCESSFULLY ***');
+
+// Import logger early to capture all logs
+import { logger } from './utils/logger.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
@@ -44,13 +51,17 @@ const allowedOrigins = [
   'http://localhost:8082',
   'http://localhost:5173',
   'http://127.0.0.1:8082',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
 ];
 
 // If FRONTEND_URL is set and not already in the list, add it
 if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
+
+console.log('*** CORS ALLOWED ORIGINS:', allowedOrigins);
 
 // Initialize express app
 const app = express();
@@ -60,17 +71,26 @@ const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
     origin: (origin, callback) => {
+      console.log('*** SOCKET.IO CORS CHECK - Origin:', origin);
+      
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) {
+        console.log('*** SOCKET.IO CORS - No origin, allowing');
         callback(null, true);
         return;
       }
       
       // Check if the origin is allowed
       if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        console.log('*** SOCKET.IO CORS - Origin allowed:', origin);
+        callback(null, true);
+      } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000')) {
+        // Allow any origin with development ports for easier development
+        console.log('*** SOCKET.IO CORS - Development port detected, allowing:', origin);
         callback(null, true);
       } else {
-        console.warn(`Blocked socket request from origin: ${origin}`);
+        console.log('*** SOCKET.IO CORS - Origin blocked:', origin);
+        logger.corsBlock(origin, 'socket');
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -96,8 +116,11 @@ app.use(cors({
     // Check if the origin is allowed
     if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
       callback(null, true);
+    } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000')) {
+      // Allow any origin with development ports for easier development
+      callback(null, true);
     } else {
-      console.warn(`Blocked request from origin: ${origin}`);
+      logger.corsBlock(origin, 'http');
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -116,10 +139,19 @@ app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id, 'from:', socket.handshake.address, 'Total connected clients:', io.engine.clientsCount);
+  console.log('*** NEW SOCKET CONNECTION ***');
+  logger.socketConnect(socket.id, socket.handshake.address, io.engine.clientsCount);
+  
+  // Send a welcome message to confirm connection
+  socket.emit('connected', { 
+    message: 'Successfully connected to server',
+    socketId: socket.id,
+    timestamp: new Date().toISOString()
+  });
   
   socket.on('disconnect', (reason) => {
-    console.log('Client disconnected:', socket.id, 'Reason:', reason, 'Total connected clients:', io.engine.clientsCount);
+    console.log('*** SOCKET DISCONNECTED ***', socket.id, reason);
+    logger.socketDisconnect(socket.id, reason, io.engine.clientsCount);
     // Clean up any camera rooms this client was in
     socket.rooms.forEach(room => {
       if (room.startsWith('camera-')) {
@@ -129,24 +161,29 @@ io.on('connection', (socket) => {
   });
 
   socket.on('error', (error) => {
-    console.error('Socket error for client', socket.id, ':', error);
+    console.log('*** SOCKET ERROR ***', socket.id, error);
+    logger.socketError(socket.id, error);
     // Don't disconnect on error, let the client handle reconnection
   });
 
   socket.on('connect_error', (error) => {
-    console.error('Socket connect error for client', socket.id, ':', error);
+    console.log('*** SOCKET CONNECT ERROR ***', socket.id, error);
+    logger.socketError(socket.id, error);
   });
 
   // Handle stream request from client
   socket.on('requestStream', (cameraId) => {
     try {
-      console.log(`Stream requested for camera ${cameraId} from client ${socket.id}`);
+      console.log('*** STREAM REQUEST RECEIVED ***', cameraId, 'from', socket.id);
+      logger.streamRequest(cameraId, socket.id);
       socket.join(`camera-${cameraId}`);
       
       // Emit a confirmation back to the client
       socket.emit('streamRequested', { cameraId, status: 'joined' });
+      console.log('*** STREAM REQUEST CONFIRMED ***', cameraId);
     } catch (error) {
-      console.error('Error handling stream request:', error);
+      console.log('*** STREAM REQUEST ERROR ***', cameraId, error);
+      logger.error('Error handling stream request', 'STREAM', error);
       socket.emit('streamError', { cameraId, error: 'Failed to join stream' });
     }
   });
@@ -154,10 +191,12 @@ io.on('connection', (socket) => {
   // Handle stop stream request
   socket.on('stopStream', (cameraId) => {
     try {
-      console.log(`Stream stopped for camera ${cameraId} from client ${socket.id}`);
+      console.log('*** STOP STREAM REQUEST ***', cameraId, 'from', socket.id);
+      logger.streamStop(cameraId, socket.id);
       socket.leave(`camera-${cameraId}`);
     } catch (error) {
-      console.error('Error handling stop stream:', error);
+      console.log('*** STOP STREAM ERROR ***', cameraId, error);
+      logger.error('Error handling stop stream', 'STREAM', error);
     }
   });
 });
@@ -199,10 +238,10 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
     }
     
     server.listen(PORT, async () => {
-      console.log(`*** SERVER STARTING ON PORT ${PORT} ***`);
-      console.log(`*** RTSP STREAMING ENABLED ***`);
-      console.log(`Socket.io running on port ${PORT}`);
-      console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+      logger.serverStart(PORT);
+      logger.info(`*** RTSP STREAMING ENABLED ***`, 'SERVER');
+      logger.info(`Socket.io running on port ${PORT}`, 'SERVER');
+      logger.info(`Allowed origins: ${allowedOrigins.join(', ')}`, 'SERVER');
       
       // Update the PORT in the process environment so other components can use it
       process.env.PORT = PORT.toString();
@@ -223,11 +262,10 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         // Start cron jobs
         startCronJobs(io);
       } catch (err) {
-        console.error('Failed to setup application:', err);
+        logger.error('Failed to setup application', 'SERVER', err);
       }
     });
   } catch (err) {
-    console.error('Failed to start server:', err);
+    logger.error('Failed to start server', 'SERVER', err);
   }
 })();
-

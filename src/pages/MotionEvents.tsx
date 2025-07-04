@@ -19,6 +19,7 @@ const MotionEvents = () => {
   }, []);
 
   const loadEvents = React.useCallback(async () => {
+      console.log('Loading events for MotionEvents page...');
     try {
       setLoading(true);
       const fetchedEvents = await apiService.getMotionEvents();

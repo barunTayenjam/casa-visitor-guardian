@@ -1,126 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Camera, Calendar, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MotionEvent } from '@/types/security';
+import { useEvents } from '@/contexts/EventsContext';
 
 interface MediaViewerProps {
-  selectedCameraId?: string;
+  selectedEvent: MotionEvent | null;
+  onClose: () => void;
+  onSelectEvent: (event: MotionEvent) => void;
 }
 
-export const MediaViewer: React.FC<MediaViewerProps> = ({ selectedCameraId }) => {
-  const [events, setEvents] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+export const MediaViewer: React.FC<MediaViewerProps> = ({ selectedEvent, onClose, onSelectEvent }) => {
+  const { events } = useEvents(); // Get all events from context
 
-  const loadMedia = async () => {
-    try {
-      setLoading(true);
-      // In development mode, use relative URL; in production, use full URL from env
-      const url = import.meta.env.DEV 
-        ? '/api/events/list'
-        : `${import.meta.env.VITE_API_URL}/events/list`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.success && Array.isArray(data.files)) {
-        setEvents(data.files);
-      }
-    } catch (error) {
-      console.error('Failed to load media:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleDownload = (imageUrl: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = imageUrl.split('/').pop() || 'event.jpg';
+    document.body.appendChild(link);
+    link.removeChild(link);
   };
 
-  useEffect(() => {
-    loadMedia();
-    const interval = setInterval(loadMedia, 30000);
-    return () => clearInterval(interval);
-  }, [selectedCameraId]);
-
-  const formatTimestamp = (filename: string) => {
-    try {
-      const timestamp = filename.split('_')[2]?.split('.')[0];
-      if (!timestamp) return 'Unknown';
-      const date = new Date(timestamp.replace(/-/g, ':').replace('T', ' '));
-      return date.toLocaleTimeString();
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  if (loading && events.length === 0) return null;
-  if (!events.length) return null;
-
-  // In development, use relative URLs; in production, use the base URL from env
-  const baseUrl = import.meta.env.DEV ? '' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:9753');
+  // Filter out archived events and sort by timestamp (newest first)
+  const nonArchivedEvents = events
+    .filter(event => !event.archived)
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur border-t z-50 p-2">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Camera className="h-4 w-4" />
-          <span className="text-sm font-medium">Recent Events</span>
+    <>
+      {/* Media Gallery at the bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur border-t z-50 p-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Camera className="h-4 w-4" />
+            <span className="text-sm font-medium">Recent Motion Events</span>
+          </div>
+          {/* Refresh button removed as events are now from context */}
         </div>
-        <Button variant="ghost" size="sm" onClick={loadMedia}>
-          Refresh
-        </Button>
-      </div>
-      
-      <ScrollArea className="h-24">
-        <div className="flex gap-2 pb-2">
-          {events.map((event) => (
-            <button
-              key={event}
-              className="relative h-24 aspect-video bg-black rounded-lg cursor-pointer group"
-              onClick={() => setSelectedImage(`${baseUrl}/events/${event}`)}
-            >
-              <img
-                src={`${baseUrl}/events/${event}`}
-                alt={`Event at ${formatTimestamp(event)}`}
-                className="h-full w-full object-cover rounded-lg"
-              />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-end">
-                <div className="w-full p-2 text-white text-xs">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{formatTimestamp(event)}</span>
-                  </div>
-                </div>
+        
+        <ScrollArea className="h-24">
+          <div className="flex gap-2 pb-2">
+            {nonArchivedEvents.length === 0 ? (
+              <div className="flex items-center justify-center w-full h-full text-muted-foreground text-sm">
+                No recent events to display.
               </div>
-            </button>
-          ))}
-        </div>
-      </ScrollArea>
+            ) : (
+              nonArchivedEvents.map((event) => (
+                <button
+                  key={event.id}
+                  className="relative h-24 aspect-video bg-black rounded-lg cursor-pointer group"
+                  onClick={() => onSelectEvent(event)}
+                >
+                  <img
+                    src={event.imageUrl}
+                    alt={`Event at ${event.timestamp.toLocaleTimeString()}`}
+                    className="h-full w-full object-cover rounded-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-end">
+                    <div className="w-full p-2 text-white text-xs">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>{event.timestamp.toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
 
-      <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+      {/* Full-screen Media Viewer Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl">
-          {selectedImage && (
+          {selectedEvent && (
             <div className="relative">
               <img
-                src={selectedImage}
-                alt="Event"
+                src={selectedEvent.imageUrl}
+                alt={`Event from ${selectedEvent.cameraName} at ${selectedEvent.timestamp.toLocaleString()}`}
                 className="w-full h-auto"
               />
               <Button
                 size="sm"
                 className="absolute top-2 right-2"
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = selectedImage;
-                  link.download = selectedImage.split('/').pop() || 'event.jpg';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
+                onClick={() => handleDownload(selectedEvent.imageUrl)}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
+              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md">
+                {selectedEvent.cameraName} - {selectedEvent.timestamp.toLocaleString()}
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };

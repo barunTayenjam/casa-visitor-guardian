@@ -51,10 +51,14 @@ class SocketService {
           transports: ['websocket', 'polling'],
           reconnection: true,
           reconnectionDelay: 1000,
-          reconnectionAttempts: 5,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: 10,
+          maxReconnectionAttempts: 10,
           path: '/socket.io',
           timeout: 10000,
-          forceNew: true
+          forceNew: true,
+          autoConnect: true,
+          randomizationFactor: 0.5
         });
 
         this.socket.on('connect', () => {
@@ -79,11 +83,25 @@ class SocketService {
         this.socket.on('connect_error', (error) => {
           console.error('Socket connection error:', error.message);
           this.isConnecting = false;
+          
+          // Handle specific error types
+          if (error.message.includes('ECONNRESET')) {
+            console.log('Connection reset detected, will retry automatically...');
+          } else if (error.message.includes('ECONNREFUSED')) {
+            console.log('Connection refused - server may be down');
+          }
+          
           reject(error);
         });
 
         this.socket.on('error', (error) => {
           console.error('Socket error:', error);
+          
+          // Handle ECONNRESET specifically
+          if (error.message && error.message.includes('ECONNRESET')) {
+            console.log('Socket connection reset, attempting reconnection...');
+            // Don't reject here, let socket.io handle reconnection
+          }
         });
 
         // Set a timeout for connection

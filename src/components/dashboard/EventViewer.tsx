@@ -1,7 +1,6 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area'; // Re-import ScrollArea
 import { Camera as CameraIcon, Calendar, Clock } from 'lucide-react';
 import { MotionEvent } from '@/types/security';
 
@@ -11,13 +10,8 @@ interface EventViewerProps {
 }
 
 export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }) => {
-  // Sort events by timestamp descending (newest first)
-  const sortedEvents = [...events].sort((a, b) => 
-    b.timestamp.getTime() - a.timestamp.getTime()
-  );
-
   // Group events by date
-  const groupedEvents = sortedEvents.reduce((acc, event) => {
+  const groupedEvents = events.reduce((acc, event) => {
     const date = event.timestamp.toLocaleDateString();
     if (!acc[date]) {
       acc[date] = [];
@@ -27,19 +21,16 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
   }, {} as Record<string, MotionEvent[]>);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Motion Events</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px] pr-4">
+    <Card className="w-full"> {/* Re-add Card wrapper */}
+      <CardContent> {/* Re-add CardContent */}
+        <ScrollArea className="h-[600px]"> {/* Removed pr-4 */}
           {Object.entries(groupedEvents).map(([date, dateEvents]) => (
             <div key={date} className="mb-6">
               <h3 className="flex items-center gap-2 text-sm font-medium mb-3">
                 <Calendar className="h-4 w-4" />
                 {date}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {dateEvents.map((event) => (
                   <Card
                     key={event.id}
@@ -52,13 +43,17 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
                           src={event.imageUrl}
                           alt={`Motion event at ${event.timestamp.toLocaleString()}`}
                           className="object-cover w-full h-full"
+                          loading="lazy" // Add lazy loading
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
+                            target.onerror = null; // Prevent infinite loop if fallback also fails
+                            target.src = '/placeholder-camera.jpg'; // Fallback to a generic image
+                            target.alt = 'Image not available';
+                            target.style.display = 'block'; // Ensure it's visible
                           }}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
                           <CameraIcon className="h-8 w-8 text-muted-foreground" />
                         </div>
                       )}
@@ -78,7 +73,7 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
                       </div>
                       {event.confidence > 0 && (
                         <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                          {event.confidence}% confidence
+                          {Math.round(event.confidence * 100)}% confidence
                         </div>
                       )}
                     </div>
@@ -92,3 +87,4 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
     </Card>
   );
 };
+

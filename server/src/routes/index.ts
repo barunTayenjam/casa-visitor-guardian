@@ -601,14 +601,39 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const cameraId = parts[1] || 'unknown';
           let timestamp = new Date().toISOString();
           if (parts.length >= 3) {
-            const timestampPart = parts[2]?.split('.')[0];
-            if (timestampPart) {
-              const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
-              if (!isNaN(parsedDate.getTime())) {
-                timestamp = parsedDate.toISOString();
-              }
-            }
+        const timestampPart = parts[2]?.split('.')[0]; // e.g., "2025-06-29T07-24-23-640Z"
+        if (timestampPart) {
+          // Convert "YYYY-MM-DDTHH-mm-ss-msZ" to "YYYY-MM-DDTHH:mm:ss.msZ"
+          const datePart = timestampPart.substring(0, 10); // "YYYY-MM-DD"
+          const timePartWithHyphens = timestampPart.substring(11); // "HH-mm-ss-msZ"
+          const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "msZ"]
+          
+          let ms = 0;
+          let formattedTime = '';
+
+          if (timeParts.length === 4) {
+            // Has milliseconds
+            ms = parseInt(timeParts[3].replace('Z', ''), 10);
+            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
+          } else if (timeParts.length === 3) {
+            // No milliseconds
+            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
+          } else {
+            console.warn(`Unexpected time format in filename: ${timestampPart}`);
+            // Fallback to current time or handle error
+            formattedTime = new Date().toISOString().substring(11, 23) + 'Z'; // Just time part
           }
+
+          const isoTimestamp = `${datePart}T${formattedTime}`;
+          const parsedDate = new Date(isoTimestamp);
+
+          if (!isNaN(parsedDate.getTime())) {
+            timestamp = parsedDate.toISOString();
+          } else {
+            console.warn(`Failed to parse timestamp from filename: ${timestampPart}. Using current time.`);
+          }
+        }
+      }
           return {
             id: `evt_${file}`,
             cameraId,

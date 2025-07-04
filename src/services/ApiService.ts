@@ -579,19 +579,19 @@ class ApiService {
       }
 
       // Transform backend events to frontend format
-      const transformedEvents: MotionEvent[] = data.events.map((event: MotionEvent) => {
+      const transformedEvents: MotionEvent[] = data.events.map((event: any) => { // Use 'any' for incoming event to handle potential backend variations
         const filename = event.imagePath?.replace('/events/', '') || '';
         return {
           id: event.id,
           cameraId: event.cameraId,
           cameraName: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
           timestamp: new Date(event.timestamp),
-          imageUrl: filename ? this.getEventImageUrl(filename) : '',
+          imageUrl: filename ? this.getEventImageUrl(filename) : null, // Ensure null if no image
           confidence: event.confidence || 0,
-          labels: ['motion'], // Default label
+          labels: Array.isArray(event.labels) && event.labels.length > 0 ? event.labels : ['motion'], // Use backend labels if available
           location: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
           duration: event.duration || 0,
-          archived: false
+          archived: event.archived || false // Use backend archived status if available
         };
       });
 
@@ -1164,9 +1164,10 @@ class ApiService {
       }
 
       // Convert timestamp strings back to Date objects
-      const transformedEvents: MotionEvent[] = data.events.map((event: MotionEvent) => ({
+      const transformedEvents: MotionEvent[] = data.events.map((event: any) => ({
         ...event,
         timestamp: new Date(event.timestamp),
+        imageUrl: event.imagePath ? this.getEventImageUrl(event.imagePath.replace('/events/', '')) : null,
       }));
 
       return { events: transformedEvents, pagination: data.pagination };

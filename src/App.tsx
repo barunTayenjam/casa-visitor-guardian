@@ -12,7 +12,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import CameraConfig from "./pages/CameraConfig";
 import MotionEvents from "./pages/MotionEvents";
-import History from "./pages/History";
+
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -33,7 +33,6 @@ const App = () => (
                     <Route index element={<Dashboard />} />
                     <Route path="camera-config" element={<CameraConfig />} />
                     <Route path="events" element={<MotionEvents />} />
-                    <Route path="history" element={<History />} />
                     <Route path="settings" element={<Settings />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />

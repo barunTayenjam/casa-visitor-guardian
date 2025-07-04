@@ -12,7 +12,6 @@ import {
   Download,
   X,
   Search,
-  Filter,
   Calendar as CalendarIcon,
   Camera as CameraIcon,
   TrendingUp,
@@ -58,12 +57,13 @@ const MotionEvents = () => {
     try {
       const response = await apiService.getHistoricalEvents({
         page: currentPage,
-        pageSize: 10, // You can make this configurable
+        pageSize: 20, // Increased to show more events
         cameraId: selectedCamera === 'all' ? undefined : selectedCamera,
         searchQuery: searchQuery || undefined,
         startDate: selectedDate || undefined,
         endDate: selectedDate ? new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000 - 1) : undefined, // End of selected day
       });
+      console.log("Fetched motion events:", response.events); // Add logging
       setEvents(response.events);
       setTotalPages(response.pagination.totalPages);
       setTotalEvents(response.pagination.totalEvents);
@@ -224,12 +224,11 @@ const MotionEvents = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
             Filters & Search
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -241,7 +240,7 @@ const MotionEvents = () => {
             </div>
             
             <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="min-w-[160px]">
                 <SelectValue placeholder="Select camera" />
               </SelectTrigger>
               <SelectContent>
@@ -259,7 +258,7 @@ const MotionEvents = () => {
                 <Button
                   variant="outline"
                   className={cn(
-                    'w-[180px] justify-start text-left font-normal',
+                    'min-w-[160px] justify-start text-left font-normal',
                     !selectedDate && 'text-muted-foreground'
                   )}
                 >
@@ -278,7 +277,7 @@ const MotionEvents = () => {
             </Popover>
 
             <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="min-w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -312,36 +311,47 @@ const MotionEvents = () => {
       </Card>
 
       {/* Events Display */}
-      {loading ? (
-        <div className="flex items-center justify-center h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <EventViewer 
-          events={sortedEvents}
-          onImageClick={(event) => setSelectedEvent(event)}
-        />
-      )}
+      <Card>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center h-[400px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No events found matching your criteria.
+            </div>
+          ) : (
+            <EventViewer 
+              events={sortedEvents}
+              onImageClick={(event) => {
+                console.log("Image clicked for event:", event.id, "URL:", event.imageUrl); // Added log
+                setSelectedEvent(event);
+              }}
+            />
+          )}
 
-      {totalPages > 1 && (
-        <Pagination className="mt-4">
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-            </PaginationItem>
-            {[...Array(totalPages)].map((_, index) => (
-              <PaginationItem key={index}>
-                <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
-                  {index + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
+                </PaginationItem>
+                {[...Array(totalPages)].map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-4xl">
@@ -358,7 +368,7 @@ const MotionEvents = () => {
             {selectedEvent && (
               <>
                 <img
-                  src={selectedEvent.imageUrl}
+                  src={selectedEvent.imageUrl || ''}
                   alt={`Motion event at ${selectedEvent.timestamp.toLocaleString()}`}
                   className="w-full rounded-lg"
                 />

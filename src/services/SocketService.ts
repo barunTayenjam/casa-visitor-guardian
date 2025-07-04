@@ -6,7 +6,7 @@ class SocketService {
   private isConnecting: boolean = false;
 
   constructor() {
-    console.log('Socket service initializing');
+    console.log('*** SOCKET SERVICE INITIALIZING ***');
   }
 
   // Connect to the websocket server
@@ -42,27 +42,43 @@ class SocketService {
           this.socket.disconnect();
         }
 
-        // In development, use relative URL so vite proxy handles it
+        // In development, use localhost explicitly to avoid CORS issues
         // In production, use the BACKEND_URL from env
-        const socketUrl = import.meta.env.DEV ? '' : import.meta.env.VITE_BACKEND_URL;
-        console.log('Socket service connecting to:', socketUrl || 'relative URL (via proxy)');
+        let socketUrl: string;
+        if (import.meta.env.DEV) {
+          // Use localhost explicitly for development (proxy will handle it)
+          socketUrl = 'http://localhost:8082';
+        } else {
+          socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:9753';
+        }
+        
+        console.log('*** SOCKET SERVICE CONNECTING TO:', socketUrl, '***');
+        console.log('*** DEV MODE:', import.meta.env.DEV, '***');
+        console.log('*** BACKEND_URL:', import.meta.env.VITE_BACKEND_URL, '***');
+        console.log('*** WINDOW LOCATION:', window.location.href, '***');
 
+        // In development, prefer polling transport for better proxy compatibility
+        const transports = import.meta.env.DEV ? ['polling', 'websocket'] : ['websocket', 'polling'];
+        
         this.socket = io(socketUrl, {
-          transports: ['websocket', 'polling'],
+          transports,
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           reconnectionAttempts: 10,
           maxReconnectionAttempts: 10,
           path: '/socket.io',
-          timeout: 10000,
+          timeout: 20000, // Increased timeout
           forceNew: true,
           autoConnect: true,
-          randomizationFactor: 0.5
+          randomizationFactor: 0.5,
+          upgrade: true,
+          rememberUpgrade: false
         });
 
         this.socket.on('connect', () => {
-          console.log('Socket connected to server successfully');
+          console.log('*** SOCKET CONNECTED TO SERVER SUCCESSFULLY ***');
+          console.log('*** SOCKET ID:', this.socket?.id, '***');
           this.isConnecting = false;
           
           // Re-register all callbacks when socket connects
@@ -75,13 +91,31 @@ class SocketService {
           resolve();
         });
 
+        // Listen for server confirmation
+        this.socket.on('connected', (data) => {
+          console.log('*** SERVER CONFIRMED CONNECTION:', data, '***');
+        });
+
+        // Listen for stream events
+        this.socket.on('streamRequested', (data) => {
+          console.log('*** STREAM REQUEST CONFIRMED:', data, '***');
+        });
+
+        this.socket.on('streamError', (data) => {
+          console.error('*** STREAM ERROR:', data, '***');
+        });
+
         this.socket.on('disconnect', (reason) => {
           console.log('Socket disconnected from server:', reason);
           this.isConnecting = false;
         });
 
         this.socket.on('connect_error', (error) => {
-          console.error('Socket connection error:', error.message);
+          console.error('*** SOCKET CONNECTION ERROR ***');
+          console.error('Error message:', error.message);
+          console.error('Error type:', error.type);
+          console.error('Error description:', error.description);
+          console.error('Full error:', error);
           this.isConnecting = false;
           
           // Handle specific error types
@@ -89,6 +123,8 @@ class SocketService {
             console.log('Connection reset detected, will retry automatically...');
           } else if (error.message.includes('ECONNREFUSED')) {
             console.log('Connection refused - server may be down');
+          } else if (error.message.includes('websocket error')) {
+            console.log('WebSocket error detected, trying polling transport...');
           }
           
           reject(error);

@@ -1,24 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { EventViewer } from '@/components/dashboard/EventViewer';
-import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import apiService from '@/services/ApiService';
+import apiService, { ApiError } from '@/services/ApiService';
 import { MotionEvent } from '@/types/security';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Download, 
-  X, 
-  Search, 
-  Filter, 
+import {
+  Download,
+  X,
+  Search,
+  Filter,
   Calendar as CalendarIcon,
   Camera as CameraIcon,
   TrendingUp,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import {
   Select,
@@ -36,6 +36,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useCameras } from '@/contexts/CameraContext';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 
 const MotionEvents = () => {
   const { toast } = useToast();
@@ -47,52 +48,87 @@ const MotionEvents = () => {
   const [selectedCamera, setSelectedCamera] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'confidence'>('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEvents, setTotalEvents] = useState(0);
+
+  const loadEvents = useCallback(async () => {
+    console.log('Loading events for MotionEvents page...');
+    setLoading(true);
+    try {
+      const response = await apiService.getHistoricalEvents({
+        page: currentPage,
+        pageSize: 10, // You can make this configurable
+        cameraId: selectedCamera === 'all' ? undefined : selectedCamera,
+        searchQuery: searchQuery || undefined,
+        startDate: selectedDate || undefined,
+        endDate: selectedDate ? new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000 - 1) : undefined, // End of selected day
+      });
+      setEvents(response.events);
+      setTotalPages(response.pagination.totalPages);
+      setTotalEvents(response.pagination.totalEvents);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to load motion events: ${error instanceof ApiError ? error.message : String(error)}`,
+        variant: 'destructive',
+      });
+      setEvents([]);
+      setTotalPages(1);
+      setTotalEvents(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, selectedCamera, searchQuery, selectedDate, toast]);
 
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
 
-  const loadEvents = React.useCallback(async () => {
-      console.log('Loading events for MotionEvents page...');
-    try {
-      setLoading(true);
-      const fetchedEvents = await apiService.getMotionEvents();
-      setEvents(fetchedEvents);
-    } catch (error) {
-      console.error('Failed to load events:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load motion events',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleArchiveEvent = async (eventId: string) => {
+    if (window.confirm("Are you sure you want to archive this event?")) {
+      try {
+        await apiService.archiveEvent(eventId);
+        toast({
+          title: "Event Archived",
+          description: "The motion event has been archived.",
+        });
+        loadEvents(); // Refresh the list after archiving
+      } catch (error) {
+        console.error(`Failed to archive event ${eventId}:`, error);
+        toast({
+          title: "Error",
+          description: `Failed to archive event: ${error instanceof ApiError ? error.message : String(error)}`,
+          variant: "destructive",
+        });
+      }
     }
-  }, [toast]);
+  };
 
   const downloadImage = (event: MotionEvent) => {
+    if (!event.imageUrl) {
+      toast({
+        title: "Download Failed",
+        description: "No image available for this event",
+        variant: "destructive"
+      });
+      return;
+    }
     const link = document.createElement('a');
     link.href = event.imageUrl;
-    link.download = `motion_${event.cameraName}_${event.timestamp.toISOString()}.jpg`;
+    link.download = `motion_${event.cameraName || event.cameraId}_${format(event.timestamp, 'yyyy-MM-dd_HH-mm-ss')}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Filter and sort events
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.cameraName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.labels.some(label => label.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesCamera = selectedCamera === 'all' || event.cameraName === selectedCamera;
-    
-    const matchesDate = !selectedDate || 
-                       event.timestamp.toDateString() === selectedDate.toDateString();
-    
-    return matchesSearch && matchesCamera && matchesDate;
-  });
-
-  const sortedEvents = [...filteredEvents].sort((a, b) => {
+  // Filter and sort events (now done by backend, but keeping for client-side if needed)
+  const sortedEvents = [...events].sort((a, b) => {
     switch (sortBy) {
       case 'newest':
         return b.timestamp.getTime() - a.timestamp.getTime();
@@ -114,6 +150,8 @@ const MotionEvents = () => {
 
   const highConfidenceEvents = events.filter(event => event.confidence > 0.8).length;
   const uniqueCameras = new Set(events.map(event => event.cameraName)).size;
+
+  const uniqueCameraNames = [...new Set(cameras.map(cam => cam.name))];
 
   return (
     <div className="space-y-6">
@@ -138,7 +176,7 @@ const MotionEvents = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Events</p>
-                <p className="text-2xl font-bold">{events.length}</p>
+                <p className="text-2xl font-bold">{totalEvents}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -208,9 +246,9 @@ const MotionEvents = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Cameras</SelectItem>
-                {cameras.map(camera => (
-                  <SelectItem key={camera.id} value={camera.name}>
-                    {camera.name}
+                {uniqueCameraNames.map(cameraName => (
+                  <SelectItem key={cameraName} value={cameraName}>
+                    {cameraName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -265,8 +303,8 @@ const MotionEvents = () => {
           </div>
           
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Showing {sortedEvents.length} of {events.length} events</span>
-            {filteredEvents.length !== events.length && (
+            <span>Showing {events.length} of {totalEvents} events</span>
+            {events.length !== totalEvents && (
               <Badge variant="secondary">Filtered</Badge>
             )}
           </div>
@@ -283,6 +321,26 @@ const MotionEvents = () => {
           events={sortedEvents}
           onImageClick={(event) => setSelectedEvent(event)}
         />
+      )}
+
+      {totalPages > 1 && (
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
+            </PaginationItem>
+            {[...Array(totalPages)].map((_, index) => (
+              <PaginationItem key={index}>
+                <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
+                  {index + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
 
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
@@ -312,14 +370,24 @@ const MotionEvents = () => {
                         {selectedEvent.timestamp.toLocaleString()}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-white/20"
-                      onClick={() => selectedEvent && downloadImage(selectedEvent)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-white/20"
+                        onClick={() => selectedEvent && downloadImage(selectedEvent)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-white/20 text-red-400"
+                        onClick={() => selectedEvent && handleArchiveEvent(selectedEvent.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </>

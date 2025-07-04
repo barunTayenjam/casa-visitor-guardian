@@ -17,10 +17,104 @@ interface MotionEvent {
   imagePath: string;
   confidence: number;
   duration: number;
+  cameraName?: string; // Added for convenience
+  labels?: string[]; // Added for convenience
+  location?: string; // Added for convenience
+}
+
+// Define Alert interface
+interface Alert {
+  id: string;
+  type: 'motion' | 'camera' | 'system';
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  timestamp: Date;
+  acknowledged: boolean;
+  cameraId?: string;
 }
 
 // Store recent motion events in memory
 const recentEvents: MotionEvent[] = [];
+
+// Store alerts in memory
+const alerts: Alert[] = [];
+
+// Define Settings interfaces
+interface GeneralSettings {
+  systemName: string;
+  timezone: string;
+  language: string;
+  theme: string;
+  autoBackup: boolean;
+  backupFrequency: string;
+}
+
+interface StorageSettings {
+  retentionDays: number;
+  maxStorageGB: number;
+  autoCleanup: boolean;
+  compressionEnabled: boolean;
+  compressionQuality: number;
+}
+
+interface NotificationSettings {
+  emailEnabled: boolean;
+  emailAddress: string;
+  pushEnabled: boolean;
+  pushSoundEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+}
+
+interface SystemSettings {
+  general: GeneralSettings;
+  storage: StorageSettings;
+  notifications: NotificationSettings;
+}
+
+// Store system settings in memory
+let systemSettings: SystemSettings = {
+  general: {
+    systemName: 'Security System',
+    timezone: 'UTC',
+    language: 'en',
+    theme: 'system',
+    autoBackup: true,
+    backupFrequency: 'daily',
+  },
+  storage: {
+    retentionDays: 30,
+    maxStorageGB: 100,
+    autoCleanup: true,
+    compressionEnabled: true,
+    compressionQuality: 80,
+  },
+  notifications: {
+    emailEnabled: false,
+    emailAddress: '',
+    pushEnabled: true,
+    pushSoundEnabled: true,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+  },
+};
+
+// Helper to add alerts
+const addAlert = (alert: Omit<Alert, 'id' | 'timestamp' | 'acknowledged'>) => {
+  const newAlert: Alert = {
+    id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date(),
+    acknowledged: false,
+    ...alert,
+  };
+  alerts.unshift(newAlert); // Add to the beginning
+  // Keep only the latest 100 alerts
+  if (alerts.length > 100) {
+    alerts.pop();
+  }
+};
 
 // Helper function to parse timestamp from filename
 const parseTimestampFromFilename = (filename: string): number => {
@@ -30,12 +124,27 @@ const parseTimestampFromFilename = (filename: string): number => {
     if (timestampPart) {
       // Convert "YYYY-MM-DDTHH-mm-ss-msZ" to "YYYY-MM-DDTHH:mm:ss.msZ"
       const datePart = timestampPart.substring(0, 10); // "YYYY-MM-DD"
-      const timePartWithHyphens = timestampPart.substring(11, timestampPart.length - 1); // "HH-mm-ss-ms"
-      const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "ms"]
-      const formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${timeParts[3]}`;
-      const isoTimestamp = `${datePart}T${formattedTime}Z`;
+      const timePartWithHyphens = timestampPart.substring(11); // "HH-mm-ss-msZ"
+      const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "msZ"]
+      
+      let ms = 0;
+      let formattedTime = '';
 
+      if (timeParts.length === 4) {
+        // Has milliseconds
+        ms = parseInt(timeParts[3].replace('Z', ''), 10);
+        formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
+      } else if (timeParts.length === 3) {
+        // No milliseconds
+        formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
+      } else {
+        console.warn(`Unexpected time format in filename: ${timestampPart}`);
+        return 0;
+      }
+
+      const isoTimestamp = `${datePart}T${formattedTime}`;
       const parsedDate = new Date(isoTimestamp);
+
       if (!isNaN(parsedDate.getTime())) {
         return parsedDate.getTime();
       } else {
@@ -62,12 +171,95 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     if (recentEvents.length > 100) {
       recentEvents.pop();
     }
+
+    // Add an alert for motion detection
+    addAlert({
+      type: 'motion',
+      severity: 'warning',
+      message: `Motion detected on camera ${event.cameraName || event.cameraId}`,
+      cameraId: event.cameraId,
+    });
   };
   
   io.on('motionDetected', handleMotionDetected);
 
   // API endpoints
   
+  // Get all alerts
+  app.get('/api/alerts', (req: Request, res: Response) => {
+    try {
+      res.json({ success: true, alerts: alerts.map(alert => ({
+        ...alert,
+        timestamp: alert.timestamp.toISOString() // Convert Date to ISO string for API response
+      })) });
+    } catch (error) {
+      console.error('Error getting alerts:', error);
+      res.status(500).json({ success: false, error: 'Failed to get alerts' });
+    }
+  });
+
+  // Acknowledge an alert
+  app.post('/api/alerts/:id/acknowledge', (req: Request, res: Response) => {
+    try {
+      const alertId = req.params.id;
+      const alertIndex = alerts.findIndex(alert => alert.id === alertId);
+      if (alertIndex === -1) {
+        return res.status(404).json({ success: false, error: 'Alert not found' });
+      }
+      alerts[alertIndex].acknowledged = true;
+      res.json({ success: true, message: 'Alert acknowledged' });
+    } catch (error) {
+      console.error(`Error acknowledging alert ${req.params.id}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to acknowledge alert' });
+    }
+  });
+
+  // Delete an alert
+  app.delete('/api/alerts/:id', (req: Request, res: Response) => {
+    try {
+      const alertId = req.params.id;
+      const initialLength = alerts.length;
+      alerts = alerts.filter(alert => alert.id !== alertId);
+      if (alerts.length === initialLength) {
+        return res.status(404).json({ success: false, error: 'Alert not found' });
+      }
+      res.json({ success: true, message: 'Alert deleted' });
+    } catch (error) {
+      console.error(`Error deleting alert ${req.params.id}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to delete alert' });
+    }
+  });
+
+  // Get system settings
+  app.get('/api/settings', (req: Request, res: Response) => {
+    try {
+      res.json({ success: true, settings: systemSettings });
+    } catch (error) {
+      console.error('Error getting system settings:', error);
+      res.status(500).json({ success: false, error: 'Failed to get system settings' });
+    }
+  });
+
+  // Update system settings
+  app.put('/api/settings', (req: Request, res: Response) => {
+    try {
+      const { general, storage, notifications } = req.body;
+      if (general) {
+        systemSettings.general = { ...systemSettings.general, ...general };
+      }
+      if (storage) {
+        systemSettings.storage = { ...systemSettings.storage, ...storage };
+      }
+      if (notifications) {
+        systemSettings.notifications = { ...systemSettings.notifications, ...notifications };
+      }
+      res.json({ success: true, message: 'Settings updated successfully', settings: systemSettings });
+    } catch (error) {
+      console.error('Error updating system settings:', error);
+      res.status(500).json({ success: false, error: 'Failed to update system settings' });
+    }
+  });
+
   // Get list of all cameras
   app.get('/api/cameras', (req: Request, res: Response) => {
     try {
@@ -391,56 +583,110 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Get recent motion events
-  app.get('/api/motion/events', (req: Request, res: Response) => {
+  // Get historical motion events with pagination and filtering
+  app.get('/api/events/history', (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
-      
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const cameraIdFilter = req.query.cameraId as string;
+      const searchQuery = req.query.searchQuery as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+
       const eventsDir = path.join(__dirname, '../../public/events');
-      console.log('Scanning events directory:', eventsDir);
-      const files = fs.readdirSync(eventsDir)
+      const allFiles = fs.readdirSync(eventsDir)
         .filter(file => file.endsWith('.jpg'))
-        .sort((a, b) => {
-          const timeA = parseTimestampFromFilename(a);
-          const timeB = parseTimestampFromFilename(b);
-          return timeB - timeA;
-        })
-        .slice(0, limit);
-      
-      const eventsFromFiles = files.map((file, index) => {
-        const parts = file.split('_');
-        const cameraId = parts[1] || 'unknown';
-        
-        // Try to extract timestamp from filename
-        let timestamp = new Date().toISOString();
-        if (parts.length >= 3) {
-          const timestampPart = parts[2]?.split('.')[0];
-          if (timestampPart) {
-            // Convert filename timestamp format to ISO string
-            const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
-            if (!isNaN(parsedDate.getTime())) {
-              timestamp = parsedDate.toISOString();
+        .map(file => {
+          const parts = file.split('_');
+          const cameraId = parts[1] || 'unknown';
+          let timestamp = new Date().toISOString();
+          if (parts.length >= 3) {
+            const timestampPart = parts[2]?.split('.')[0];
+            if (timestampPart) {
+              const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
+              if (!isNaN(parsedDate.getTime())) {
+                timestamp = parsedDate.toISOString();
+              }
             }
           }
-        }
-        
-        return {
-          id: `evt_${Date.now()}_${index}`,
-          cameraId,
-          timestamp,
-          imagePath: `/events/${file}`,
-          confidence: 75, // Default confidence
-          labels: ['motion'],
-          location: 'Unknown',
-          duration: 0
-        };
+          return {
+            id: `evt_${file}`,
+            cameraId,
+            timestamp,
+            imagePath: `/events/${file}`,
+            confidence: 75, // Default confidence
+            labels: ['motion'],
+            location: 'Unknown',
+            duration: 0,
+            cameraName: cameraId // Assuming cameraName is same as cameraId for now
+          };
+        })
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Newest first
+
+      let filteredEvents = allFiles;
+
+      if (cameraIdFilter && cameraIdFilter !== 'all') {
+        filteredEvents = filteredEvents.filter(event => event.cameraId === cameraIdFilter);
+      }
+
+      if (searchQuery) {
+        const lowerCaseSearchQuery = searchQuery.toLowerCase();
+        filteredEvents = filteredEvents.filter(event =>
+          event.cameraId.toLowerCase().includes(lowerCaseSearchQuery) ||
+          event.labels.some(label => label.toLowerCase().includes(lowerCaseSearchQuery)) ||
+          event.location.toLowerCase().includes(lowerCaseSearchQuery)
+        );
+      }
+
+      if (startDate) {
+        filteredEvents = filteredEvents.filter(event => new Date(event.timestamp) >= startDate);
+      }
+
+      if (endDate) {
+        filteredEvents = filteredEvents.filter(event => new Date(event.timestamp) <= endDate);
+      }
+
+      const totalEvents = filteredEvents.length;
+      const totalPages = Math.ceil(totalEvents / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+
+      res.json({
+        success: true,
+        events: paginatedEvents,
+        pagination: {
+          totalEvents,
+          totalPages,
+          currentPage: page,
+          pageSize,
+        },
       });
-      
-      res.json({ success: true, events: eventsFromFiles });
     } catch (error) {
-      console.error('Error getting motion events:', error);
+      console.error('Error getting historical events:', error);
+      res.status(500).json({ success: false, error: 'Failed to get historical events' });
+    }
+  });
+
+  // Get motion events for a specific camera (still using recentEvents for real-time updates)
+  app.get('/api/motion/:cameraId/events', (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const events = recentEvents
+        .filter(event => event.cameraId === req.params.cameraId)
+        .slice(0, limit);
+      res.json({ success: true, events });
+    } catch (error) {
+      console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });
     }
+  });
+
+  // Search events (alias for history with search query)
+  app.get('/api/events/search', (req: Request, res: Response) => {
+    // This endpoint can simply call the history endpoint with the search query
+    req.url = '/api/events/history' + req.url.substring('/api/events/search'.length);
+    app.handle(req, res);
   });
 
   // Get motion events for a specific camera
@@ -454,6 +700,28 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });
+    }
+  });
+
+  // Archive an event
+  app.post('/api/events/:id/archive', (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.id;
+      // In a real application, you would move the event data to an archive storage
+      // For this in-memory example, we'll just remove it from recentEvents
+      const initialLength = recentEvents.length;
+      const eventIndex = recentEvents.findIndex(event => event.id === eventId);
+      if (eventIndex > -1) {
+        recentEvents.splice(eventIndex, 1);
+      }
+
+      if (recentEvents.length === initialLength) {
+        return res.status(404).json({ success: false, error: 'Event not found or already archived' });
+      }
+      res.json({ success: true, message: 'Event archived successfully' });
+    } catch (error) {
+      console.error(`Error archiving event ${req.params.id}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to archive event' });
     }
   });
 

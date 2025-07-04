@@ -22,6 +22,30 @@ interface MotionEvent {
 // Store recent motion events in memory
 const recentEvents: MotionEvent[] = [];
 
+// Helper function to parse timestamp from filename
+const parseTimestampFromFilename = (filename: string): number => {
+  const parts = filename.split('_');
+  if (parts.length >= 3) {
+    const timestampPart = parts[2]?.split('.')[0]; // e.g., "2025-06-29T07-24-23-640Z"
+    if (timestampPart) {
+      // Convert "YYYY-MM-DDTHH-mm-ss-msZ" to "YYYY-MM-DDTHH:mm:ss.msZ"
+      const datePart = timestampPart.substring(0, 10); // "YYYY-MM-DD"
+      const timePartWithHyphens = timestampPart.substring(11, timestampPart.length - 1); // "HH-mm-ss-ms"
+      const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "ms"]
+      const formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${timeParts[3]}`;
+      const isoTimestamp = `${datePart}T${formattedTime}Z`;
+
+      const parsedDate = new Date(isoTimestamp);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.getTime();
+      } else {
+        console.warn(`Failed to parse timestamp from filename: ${timestampPart}. Using current time.`);
+      }
+    }
+  }
+  return 0; // Return 0 or handle error appropriately
+};
+
 // Routes configuration
 export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get instances from global scope
@@ -244,7 +268,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           status: 'unavailable'
         });
       }
-      
+
       const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
       if (!camera) {
         return res.status(404).json({ 
@@ -374,51 +398,47 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       
-      // Always scan the events directory for now
-      if (true) {
-        const eventsDir = path.join(__dirname, '../../public/events');
-        console.log('Scanning events directory:', eventsDir);
-        const files = fs.readdirSync(eventsDir)
-          .filter(file => file.endsWith('.jpg'))
-          .sort((a, b) => {
-            const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-            const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-            return timeB.getTime() - timeA.getTime();
-          })
-          .slice(0, limit);
+      const eventsDir = path.join(__dirname, '../../public/events');
+      console.log('Scanning events directory:', eventsDir);
+      const files = fs.readdirSync(eventsDir)
+        .filter(file => file.endsWith('.jpg'))
+        .sort((a, b) => {
+          const timeA = parseTimestampFromFilename(a);
+          const timeB = parseTimestampFromFilename(b);
+          return timeB - timeA;
+        })
+        .slice(0, limit);
+      
+      const eventsFromFiles = files.map((file, index) => {
+        const parts = file.split('_');
+        const cameraId = parts[1] || 'unknown';
         
-        const eventsFromFiles = files.map((file, index) => {
-          const parts = file.split('_');
-          const cameraId = parts[1] || 'unknown';
-          
-          // Try to extract timestamp from filename
-          let timestamp = new Date().toISOString();
-          if (parts.length >= 3) {
-            const timestampPart = parts[2]?.split('.')[0];
-            if (timestampPart) {
-              // Convert filename timestamp format to ISO string
-              const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
-              if (!isNaN(parsedDate.getTime())) {
-                timestamp = parsedDate.toISOString();
-              }
+        // Try to extract timestamp from filename
+        let timestamp = new Date().toISOString();
+        if (parts.length >= 3) {
+          const timestampPart = parts[2]?.split('.')[0];
+          if (timestampPart) {
+            // Convert filename timestamp format to ISO string
+            const parsedDate = new Date(timestampPart.replace(/-/g, ':').replace('T', ' '));
+            if (!isNaN(parsedDate.getTime())) {
+              timestamp = parsedDate.toISOString();
             }
           }
-          
-          return {
-            id: `evt_${Date.now()}_${index}`,
-            cameraId,
-            timestamp,
-            imagePath: `/events/${file}`,
-            confidence: 75, // Default confidence
-            duration: 0
-          };
-        });
+        }
         
-        res.json({ success: true, events: eventsFromFiles });
-      } else {
-        const events = recentEvents.slice(0, limit);
-        res.json({ success: true, events });
-      }
+        return {
+          id: `evt_${Date.now()}_${index}`,
+          cameraId,
+          timestamp,
+          imagePath: `/events/${file}`,
+          confidence: 75, // Default confidence
+          labels: ['motion'],
+          location: 'Unknown',
+          duration: 0
+        };
+      });
+      
+      res.json({ success: true, events: eventsFromFiles });
     } catch (error) {
       console.error('Error getting motion events:', error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });
@@ -463,9 +483,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const files = fs.readdirSync(eventsDir)
         .filter(file => file.endsWith('.jpg'))
         .sort((a, b) => {
-          const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-          const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-          return timeB.getTime() - timeA.getTime();
+          const timeA = parseTimestampFromFilename(a);
+          const timeB = parseTimestampFromFilename(b);
+          return timeB - timeA;
         });
       res.json({ success: true, files });
     } catch (error) {
@@ -481,9 +501,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const files = fs.readdirSync(snapshotsDir)
         .filter(file => file.endsWith('.jpg'))
         .sort((a, b) => {
-          const timeA = new Date(a.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-          const timeB = new Date(b.split('_')[2]?.split('.')[0]?.replace(/-/g, ':')?.replace('T', ' ') || '');
-          return timeB.getTime() - timeA.getTime();
+          const timeA = parseTimestampFromFilename(a);
+          const timeB = parseTimestampFromFilename(b);
+          return timeB - timeA;
         });
       res.json({ success: true, files });
     } catch (error) {
@@ -515,14 +535,12 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const eventDate = new Date(e.timestamp);
           const today = new Date();
           return eventDate.getDate() === today.getDate() &&
-                 eventDate.getMonth() === today.getMonth() &&
-                 eventDate.getFullYear() === today.getFullYear();
-        }).length,
-        storageUsed: 0, // This would need a real implementation
-        storageTotal: 0 // This would need a real implementation
-      };
-      
-      res.json({ success: true, overview });
+                     eventDate.getMonth() === today.getMonth() &&
+                     eventDate.getFullYear() === today.getFullYear();
+            }).length,
+          },
+        };
+      });
     } catch (error) {
       console.error('Error getting system overview:', error);
       res.status(500).json({ success: false, error: 'Failed to get system overview' });
@@ -642,7 +660,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.status(500).json({ success: false, error: 'Failed to get system health' });
     }
   });
-  
+
   // Analytics endpoints
   
   // Get hourly analytics data

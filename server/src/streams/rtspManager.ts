@@ -507,7 +507,7 @@ export class StreamManager {
     return true;
   }
 
-  // Take a snapshot (returns test image)
+  // Take a snapshot from the current frame
   async takeSnapshot(
     cameraId: string,
     resolution?: string,
@@ -518,23 +518,24 @@ export class StreamManager {
       return null;
     }
 
+    const frame = camera.lastFrame;
+    if (!frame) {
+      console.warn(`No frame available for snapshot for camera ${cameraId}`);
+      return null;
+    }
+
     try {
-      // Generate a test snapshot
-      const testFrame = generateTestJpegFrame(cameraId);
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `snapshot_${cameraId}_${timestamp}.jpg`;
       const filepath = path.join(snapshotsDir, filename);
 
-      // Save the test image
-      fs.writeFileSync(filepath, testFrame);
-      console.log(`Test snapshot saved: ${filepath}`);
+      // Save the current frame as a snapshot
+      fs.writeFileSync(filepath, frame);
+      console.log(`Snapshot saved: ${filepath}`);
 
       return `/snapshots/${filename}`;
     } catch (error) {
-      console.error(
-        `Error taking test snapshot for camera ${cameraId}:`,
-        error,
-      );
+      console.error(`Error saving snapshot for camera ${cameraId}:`, error);
       return null;
     }
   }

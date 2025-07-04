@@ -500,6 +500,7 @@ class ApiService {
   // Get recent motion events
   async getMotionEvents(limit = 100): Promise<MotionEvent[]> {
     try {
+      console.log(`Fetching motion events from ${API_URL}/motion/events?limit=${limit}`);
       const response = await this.fetchWithRetry(`${API_URL}/motion/events?limit=${limit}`);
       const data = await response.json();
       
@@ -651,7 +652,9 @@ class ApiService {
         { filename }
       );
     }
-    const url = `${BACKEND_URL}/events/${filename}`;
+    // Ensure absolute URL for images, especially in development
+    const baseUrl = import.meta.env.DEV ? 'http://localhost:8082' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8082');
+    const url = `${baseUrl}/events/${filename}`;
     console.log('Generated event image URL:', url);
     return url;
   }

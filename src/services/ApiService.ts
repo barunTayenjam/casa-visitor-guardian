@@ -57,6 +57,61 @@ interface BackendCamera {
   retryCount?: number;
 }
 
+interface Alert {
+  id: string;
+  type: 'motion' | 'camera' | 'system';
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  timestamp: string; // Changed to string for API response
+  acknowledged: boolean;
+  cameraId?: string;
+}
+
+interface PaginationInfo {
+  totalEvents: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
+interface HistoricalEventsResponse {
+  events: MotionEvent[];
+  pagination: PaginationInfo;
+}
+
+interface GeneralSettings {
+  systemName: string;
+  timezone: string;
+  language: string;
+  theme: string;
+  autoBackup: boolean;
+  backupFrequency: string;
+}
+
+interface StorageSettings {
+  retentionDays: number;
+  maxStorageGB: number;
+  autoCleanup: boolean;
+  compressionEnabled: boolean;
+  compressionQuality: number;
+}
+
+interface NotificationSettings {
+  emailEnabled: boolean;
+  emailAddress: string;
+  pushEnabled: boolean;
+  pushSoundEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+}
+
+interface SystemSettings {
+  general: GeneralSettings;
+  storage: StorageSettings;
+  notifications: NotificationSettings;
+}
+
 class ApiService {
   // Fetch API with timeout and retry
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
@@ -919,6 +974,241 @@ class ApiService {
         'Failed to clear system logs',
         500,
         'CLEAR_SYSTEM_LOGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get system settings
+  async getSystemSettings(): Promise<SystemSettings> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/settings`);
+      const data = await response.json();
+
+      if (!data.success || !data.settings) {
+        throw new ApiError(
+          data.error || 'Failed to fetch system settings',
+          response.status,
+          'GET_SETTINGS_ERROR',
+          data
+        );
+      }
+      return data.settings;
+    } catch (error) {
+      console.error('Error fetching system settings:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch system settings',
+        500,
+        'GET_SETTINGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Update system settings
+  async updateSystemSettings(settings: Partial<SystemSettings>): Promise<SystemSettings> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/settings`, {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+
+      const data = await response.json();
+      if (!data.success || !data.settings) {
+        throw new ApiError(
+          data.error || 'Failed to update system settings',
+          response.status,
+          'UPDATE_SETTINGS_ERROR',
+          data
+        );
+      }
+      return data.settings;
+    } catch (error) {
+      console.error('Error updating system settings:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to update system settings',
+        500,
+        'UPDATE_SETTINGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get alerts
+  async getAlerts(): Promise<Alert[]> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/alerts`);
+      const data = await response.json();
+
+      if (!data.success || !data.alerts) {
+        throw new ApiError(
+          data.error || 'Failed to fetch alerts',
+          response.status,
+          'GET_ALERTS_ERROR',
+          data
+        );
+      }
+      // Convert timestamp strings back to Date objects
+      return data.alerts.map((alert: Alert) => ({
+        ...alert,
+        timestamp: new Date(alert.timestamp),
+      }));
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch alerts',
+        500,
+        'GET_ALERTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Acknowledge an alert
+  async acknowledgeAlert(id: string): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/alerts/${id}/acknowledge`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || `Failed to acknowledge alert ${id}`,
+          response.status,
+          'ACKNOWLEDGE_ALERT_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error(`Error acknowledging alert ${id}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        `Failed to acknowledge alert ${id}`,
+        500,
+        'ACKNOWLEDGE_ALERT_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Delete an alert
+  async deleteAlert(id: string): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/alerts/${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || `Failed to delete alert ${id}`,
+          response.status,
+          'DELETE_ALERT_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error(`Error deleting alert ${id}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        `Failed to delete alert ${id}`,
+        500,
+        'DELETE_ALERT_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get historical events
+  async getHistoricalEvents(options?: {
+    page?: number;
+    pageSize?: number;
+    cameraId?: string;
+    searchQuery?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<HistoricalEventsResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.page) params.append('page', options.page.toString());
+      if (options?.pageSize) params.append('pageSize', options.pageSize.toString());
+      if (options?.cameraId) params.append('cameraId', options.cameraId);
+      if (options?.searchQuery) params.append('searchQuery', options.searchQuery);
+      if (options?.startDate) params.append('startDate', options.startDate.toISOString());
+      if (options?.endDate) params.append('endDate', options.endDate.toISOString());
+
+      const response = await this.fetchWithRetry(`${API_URL}/events/history?${params.toString()}`);
+      const data = await response.json();
+
+      if (!data.success || !data.events || !data.pagination) {
+        throw new ApiError(
+          data.error || 'Failed to fetch historical events',
+          response.status,
+          'GET_HISTORICAL_EVENTS_ERROR',
+          data
+        );
+      }
+
+      // Convert timestamp strings back to Date objects
+      const transformedEvents: MotionEvent[] = data.events.map((event: MotionEvent) => ({
+        ...event,
+        timestamp: new Date(event.timestamp),
+      }));
+
+      return { events: transformedEvents, pagination: data.pagination };
+    } catch (error) {
+      console.error('Error fetching historical events:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch historical events',
+        500,
+        'GET_HISTORICAL_EVENTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Archive an event
+  async archiveEvent(id: string): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/events/${id}/archive`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || `Failed to archive event ${id}`,
+          response.status,
+          'ARCHIVE_EVENT_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error(`Error archiving event ${id}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        `Failed to archive event ${id}`,
+        500,
+        'ARCHIVE_EVENT_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

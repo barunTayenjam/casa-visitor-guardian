@@ -183,7 +183,7 @@ class SocketService {
       return;
     }
     console.log('Stopping stream for camera:', cameraId);
-this.socket.emit('stopStream', cameraId);
+    this.socket.emit('stopStream', cameraId);
   }
 
   // Add event listener

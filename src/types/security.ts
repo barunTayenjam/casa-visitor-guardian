@@ -18,7 +18,7 @@ export interface MotionEvent {
   cameraId: string;
   cameraName: string;
   timestamp: Date;
-  imageUrl: string;
+  imageUrl: string | null;
   confidence: number;
   labels: string[];
   location: string;

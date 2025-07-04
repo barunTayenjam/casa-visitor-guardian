@@ -4,6 +4,7 @@ import { SecuritySidebar } from './SecuritySidebar';
 import { SecurityHeader } from './SecurityHeader';
 import { useState, useEffect } from 'react';
 import { AlertsPanel } from './AlertsPanel';
+import DebugInfo from '@/components/debug/DebugInfo';
 
 const SecurityContent = () => {
   const { setOpen, toggleSidebar } = useSidebar();
@@ -33,6 +34,7 @@ const SecurityContent = () => {
           isOpen={showAlerts} 
           onClose={() => setShowAlerts(false)} 
         />
+        <DebugInfo />
       </div>
     </div>
   );

@@ -8,7 +8,12 @@ import { useEvents } from '@/contexts/EventsContext';
 import React, { useState, useEffect } from 'react';
 import apiService from '@/services/ApiService';
 
-export const RecentEvents = () => {
+interface RecentEventsProps {
+  onEventSelect?: (event: MotionEvent) => void;
+  limit?: number;
+}
+
+export const RecentEvents = ({ onEventSelect, limit = 10 }: RecentEventsProps) => {
   const { events, archiveEvent, clearEvents } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [historicalEvents, setHistoricalEvents] = useState<MotionEvent[]>([]);

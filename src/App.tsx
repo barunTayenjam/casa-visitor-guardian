@@ -8,6 +8,7 @@ import { SecurityLayout } from "./components/layout/SecurityLayout";
 import { CameraProvider } from "./contexts/CameraContext";
 import { EventsProvider } from "./contexts/EventsContext";
 import { SocketProvider } from "./contexts/SocketContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import CameraConfig from "./pages/CameraConfig";
 import MotionEvents from "./pages/MotionEvents";
@@ -18,30 +19,32 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <SocketProvider>
-        <CameraProvider>
-          <EventsProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<SecurityLayout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="camera-config" element={<CameraConfig />} />
-                  <Route path="events" element={<MotionEvents />} />
-                  <Route path="history" element={<History />} />
-                  <Route path="settings" element={<Settings />} />
-                </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </EventsProvider>
-        </CameraProvider>
-      </SocketProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <SocketProvider>
+          <CameraProvider>
+            <EventsProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<SecurityLayout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="camera-config" element={<CameraConfig />} />
+                    <Route path="events" element={<MotionEvents />} />
+                    <Route path="history" element={<History />} />
+                    <Route path="settings" element={<Settings />} />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </EventsProvider>
+          </CameraProvider>
+        </SocketProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

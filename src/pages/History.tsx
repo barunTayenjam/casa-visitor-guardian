@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calendar as CalendarIcon, Download, Filter, Search } from 'lucide-react';
 import { useEvents } from '@/contexts/EventsContext';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import { MotionEvent } from '@/types/security';
 
 const History = () => {
   const { events } = useEvents();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedCamera, setSelectedCamera] = useState<string>('all');
@@ -57,6 +59,15 @@ const History = () => {
   );
 
   const downloadEvent = (event: MotionEvent) => {
+    if (!event.imageUrl) {
+      toast({
+        title: "Download Failed",
+        description: "No image available for this event",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const link = document.createElement('a');
     link.href = event.imageUrl;
     link.download = `event_${event.cameraName}_${format(event.timestamp, 'yyyy-MM-dd_HH-mm-ss')}.jpg`;
@@ -175,6 +186,7 @@ const History = () => {
                       variant="ghost"
                       size="icon"
                       onClick={() => downloadEvent(event)}
+                      disabled={!event.imageUrl}
                     >
                       <Download className="h-4 w-4" />
                     </Button>

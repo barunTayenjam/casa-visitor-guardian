@@ -46,12 +46,22 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
                     className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                     onClick={() => onImageClick?.(event)}
                   >
-                    <div className="aspect-video relative">
-                      <img
-                        src={event.imageUrl}
-                        alt={`Motion event at ${event.timestamp.toLocaleString()}`}
-                        className="object-cover w-full h-full"
-                      />
+                    <div className="aspect-video relative bg-muted">
+                      {event.imageUrl ? (
+                        <img
+                          src={event.imageUrl}
+                          alt={`Motion event at ${event.timestamp.toLocaleString()}`}
+                          className="object-cover w-full h-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <CameraIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                         <div className="flex items-center justify-between text-white">
                           <div className="flex items-center gap-2">

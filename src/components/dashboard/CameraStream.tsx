@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, PauseIcon, Loader2, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
@@ -59,6 +59,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   useEffect(() => {
     if (autoStart && socketConnected && !isStreaming) {
       handleStreamStart();
+    } else if (!autoStart && isStreaming) {
+      handleStreamStop();
     }
     
     return () => {
@@ -173,7 +175,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           }}
           disabled={isLoading}
         >
-          {isStreaming ? <PauseIcon className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {isStreaming ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
       </div>
 

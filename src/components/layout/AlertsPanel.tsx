@@ -68,7 +68,7 @@ export const AlertsPanel = ({ isOpen, onClose }: AlertsPanelProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg z-50 animate-slide-in">
+    <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg z-50 transition-transform duration-300 ease-out">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h3 className="text-lg font-semibold">Alerts & Notifications</h3>
         <Button variant="ghost" size="icon" onClick={onClose}>

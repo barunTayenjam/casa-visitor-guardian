@@ -16,6 +16,7 @@ interface MotionEventData {
   imagePath: string;
   confidence: number;
   duration: number;
+  labels?: string[];
 }
 
 interface MotionSnapshotData {

@@ -20,14 +20,14 @@ const SecurityContent = () => {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <div className="min-h-screen flex w-full bg-background overflow-x-hidden max-w-full">
       <SecuritySidebar />
       <div className="flex-1 flex flex-col">
         <SecurityHeader 
           onToggleSidebar={handleToggleSidebar}
           onToggleAlerts={() => setShowAlerts(prev => !prev)}
         />
-        <main className="flex-1 p-2 overflow-hidden">
+        <main className="flex-1 p-2 overflow-hidden overflow-x-hidden">
           <Outlet />
         </main>
         <AlertsPanel 

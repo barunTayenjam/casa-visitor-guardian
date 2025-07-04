@@ -1,4 +1,4 @@
-import { Home, Camera, Bell, History, Settings, MonitorCog } from 'lucide-react';
+import { Home, Camera, Bell, Settings, MonitorCog } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
 
@@ -22,11 +22,7 @@ export const SecuritySidebar = () => {
       href: '/events',
       icon: Bell,
     },
-    {
-      title: 'History',
-      href: '/history',
-      icon: History,
-    },
+    
     {
       title: 'Settings',
       href: '/settings',

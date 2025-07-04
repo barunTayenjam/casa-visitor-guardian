@@ -169,7 +169,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Start streaming from a camera
   const startCameraStream = async (id: string) => {
     try {
-      await apiService.startCameraStream(id);
+      socketService.requestStream(id);
       updateCamera(id, { status: 'online' });
     } catch (err) {
       console.error(`Failed to start stream for camera ${id}:`, err);
@@ -180,7 +180,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Stop streaming from a camera
   const stopCameraStream = async (id: string) => {
     try {
-      await apiService.stopCameraStream(id);
+      socketService.stopStream(id);
     } catch (err) {
       console.error(`Failed to stop stream for camera ${id}:`, err);
       throw err;

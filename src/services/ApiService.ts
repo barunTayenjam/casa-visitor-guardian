@@ -524,7 +524,7 @@ class ApiService {
       }
 
       // Transform backend events to frontend format
-      const transformedEvents: MotionEvent[] = data.events.map((event: any) => {
+      const transformedEvents: MotionEvent[] = data.events.map((event: MotionEvent) => {
         const filename = event.imagePath?.replace('/events/', '') || '';
         return {
           id: event.id,
@@ -862,7 +862,7 @@ class ApiService {
   }
 
   // Get system logs
-  async getSystemLogs(level?: string, limit?: number): Promise<any[]> {
+  async getSystemLogs(level?: string, limit?: number): Promise<LogEntry[]> {
     try {
       const params = new URLSearchParams();
       if (level) params.append('level', level);

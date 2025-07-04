@@ -1,70 +1,57 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import socketService from '@/services/SocketService';
 
 interface SocketContextType {
   connected: boolean;
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
   socket: typeof socketService;
+  reconnect: () => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+
+  const connect = useCallback(async () => {
+    if (socketService.isConnected()) {
+      setConnectionStatus('connected');
+      return;
+    }
+    
+    setConnectionStatus('connecting');
+    try {
+      await socketService.connect();
+      setConnectionStatus('connected');
+    } catch (error) {
+      console.error('Socket connection failed:', error);
+      setConnectionStatus('error');
+    }
+  }, []);
 
   useEffect(() => {
-    const handleConnect = () => {
-      console.log('Socket context: Connected');
-      setConnected(true);
-    };
-    
-    const handleDisconnect = () => {
-      console.log('Socket context: Disconnected');
-      setConnected(false);
-    };
-    
-    const handleError = (error: Error) => {
-      console.error('Socket context error:', error);
-      setConnected(false);
-    };
+    const handleConnect = () => setConnectionStatus('connected');
+    const handleDisconnect = () => setConnectionStatus('disconnected');
+    const handleError = () => setConnectionStatus('error');
 
-    // Add event listeners
     socketService.on('connect', handleConnect);
     socketService.on('disconnect', handleDisconnect);
     socketService.on('error', handleError);
 
-    // Initial connection with retry
-    const connectWithRetry = async (retries = 3) => {
-      if (!socketService.isConnected()) {
-        try {
-          await socketService.connect();
-          console.log('Socket context: Initial connection successful');
-        } catch (error) {
-          console.error('Socket context: Failed to connect:', error);
-          setConnected(false);
-          
-          if (retries > 0) {
-            console.log(`Socket context: Retrying connection in 2 seconds... (${retries} retries left)`);
-            setTimeout(() => connectWithRetry(retries - 1), 2000);
-          }
-        }
-      } else {
-        setConnected(true);
-      }
-    };
+    connect();
 
-    connectWithRetry();
-
-    // Cleanup on unmount
     return () => {
       socketService.off('connect', handleConnect);
       socketService.off('disconnect', handleDisconnect);
       socketService.off('error', handleError);
     };
-  }, []);
+  }, [connect]);
 
   const value = {
-    connected,
-    socket: socketService
+    connected: connectionStatus === 'connected',
+    connectionStatus,
+    socket: socketService,
+    reconnect: connect
   };
 
   return (

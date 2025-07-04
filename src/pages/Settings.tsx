@@ -73,7 +73,7 @@ const Settings = () => {
 
 
   // Load logs
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setIsLoadingLogs(true);
     try {
       const logs = await apiService.getSystemLogs(logLevel === 'all' ? undefined : logLevel, 50);
@@ -88,7 +88,7 @@ const Settings = () => {
     } finally {
       setIsLoadingLogs(false);
     }
-  };
+  }, [logLevel, toast]);
 
   // Clear logs
   const clearLogs = async () => {
@@ -158,7 +158,7 @@ const Settings = () => {
   // Load data on component mount
   useEffect(() => {
     loadLogs();
-  }, []);
+  }, [loadLogs]);
 
   // Auto-refresh logs
   useEffect(() => {
@@ -169,7 +169,7 @@ const Settings = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefreshLogs]);
+  }, [autoRefreshLogs, loadLogs]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -375,7 +375,7 @@ const Settings = () => {
                       onCheckedChange={setAutoRefreshLogs}
                     />
                   </div>
-                  <Select value={logLevel} onValueChange={(value: any) => setLogLevel(value)}>
+                  <Select value={logLevel} onValueChange={(value: 'all' | 'info' | 'warn' | 'error') => setLogLevel(value)}>
                     <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>
@@ -413,7 +413,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     {filteredLogs.map((log, index) => (
                       <div key={index} className="flex items-start gap-3 text-sm">
-                        <Badge variant={getLogLevelColor(log.level) as any} className="text-xs">
+                        <Badge variant={getLogLevelColor(log.level)} className="text-xs">
                           {log.level.toUpperCase()}
                         </Badge>
                         <div className="flex-1 min-w-0">

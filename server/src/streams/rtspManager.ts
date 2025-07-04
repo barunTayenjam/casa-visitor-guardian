@@ -6,7 +6,7 @@ import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 
 // Import ffmpeg-static safely
-// @ts-ignore - Ignore type checking for ffmpeg-static import
+// @ts-expect-error - Ignore type checking for ffmpeg-static import
 import ffmpegStatic from "ffmpeg-static";
 const ffmpegPath = ffmpegStatic as unknown as string;
 
@@ -36,7 +36,7 @@ interface Camera {
   rtspUrl: string;
   username?: string;
   password?: string;
-  process: any; // Using any type to avoid TypeScript issues with process types
+  process: ChildProcessWithoutNullStreams | null; // Using any type to avoid TypeScript issues with process types
   isActive: boolean;
   lastFrame: Buffer | null;
   frameRate: number;

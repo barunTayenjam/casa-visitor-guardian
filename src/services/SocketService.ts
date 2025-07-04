@@ -133,12 +133,7 @@ class SocketService {
   // Request a camera stream
   requestStream(cameraId: string) {
     if (!this.socket?.connected) {
-      console.warn('Socket not connected, attempting to connect first...');
-      this.connect().then(() => {
-        this.socket?.emit('requestStream', cameraId);
-      }).catch(error => {
-        console.error('Failed to connect socket for stream request:', error);
-      });
+      console.warn('Socket not connected, cannot request stream.');
       return;
     }
     console.log('Requesting stream for camera:', cameraId);
@@ -147,10 +142,12 @@ class SocketService {
 
   // Stop streaming a camera
   stopStream(cameraId: string) {
-    if (this.socket?.connected) {
-      console.log('Stopping stream for camera:', cameraId);
-      this.socket.emit('stopStream', cameraId);
+    if (!this.socket?.connected) {
+      console.warn('Socket not connected, cannot stop stream.');
+      return;
     }
+    console.log('Stopping stream for camera:', cameraId);
+this.socket.emit('stopStream', cameraId);
   }
 
   // Add event listener

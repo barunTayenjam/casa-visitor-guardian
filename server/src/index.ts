@@ -60,16 +60,28 @@ const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      
+      // Check if the origin is allowed
+      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
         callback(null, true);
       } else {
+        console.warn(`Blocked socket request from origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
     methods: ['GET', 'POST'],
     credentials: true
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  allowEIO3: true
 });
 
 // Middleware
@@ -104,29 +116,49 @@ app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  console.log('New client connected:', socket.id, 'from:', socket.handshake.address);
   
   socket.on('disconnect', (reason) => {
     console.log('Client disconnected:', socket.id, 'Reason:', reason);
+    // Clean up any camera rooms this client was in
+    socket.rooms.forEach(room => {
+      if (room.startsWith('camera-')) {
+        socket.leave(room);
+      }
+    });
   });
 
   socket.on('error', (error) => {
     console.error('Socket error for client', socket.id, ':', error);
+    // Don't disconnect on error, let the client handle reconnection
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket connect error for client', socket.id, ':', error);
   });
 
   // Handle stream request from client
   socket.on('requestStream', (cameraId) => {
-    console.log(`Stream requested for camera ${cameraId} from client ${socket.id}`);
-    socket.join(`camera-${cameraId}`);
-    
-    // Emit a confirmation back to the client
-    socket.emit('streamRequested', { cameraId, status: 'joined' });
+    try {
+      console.log(`Stream requested for camera ${cameraId} from client ${socket.id}`);
+      socket.join(`camera-${cameraId}`);
+      
+      // Emit a confirmation back to the client
+      socket.emit('streamRequested', { cameraId, status: 'joined' });
+    } catch (error) {
+      console.error('Error handling stream request:', error);
+      socket.emit('streamError', { cameraId, error: 'Failed to join stream' });
+    }
   });
 
   // Handle stop stream request
   socket.on('stopStream', (cameraId) => {
-    console.log(`Stream stopped for camera ${cameraId} from client ${socket.id}`);
-    socket.leave(`camera-${cameraId}`);
+    try {
+      console.log(`Stream stopped for camera ${cameraId} from client ${socket.id}`);
+      socket.leave(`camera-${cameraId}`);
+    } catch (error) {
+      console.error('Error handling stop stream:', error);
+    }
   });
 });
 

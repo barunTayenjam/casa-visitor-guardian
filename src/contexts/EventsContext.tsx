@@ -34,7 +34,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!socket) return;
 
     // Listen for motion detection events
-    socket.on('motionDetected', (eventData: any) => {
+    socket.on('motionDetected', (eventData: MotionEventData) => {
       // Ensure eventData and eventData.cameraId exist
       if (!eventData || !eventData.cameraId) {
         console.warn('Received motionDetected event with missing data:', eventData);

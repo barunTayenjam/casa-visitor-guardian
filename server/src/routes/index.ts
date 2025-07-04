@@ -49,10 +49,8 @@ const parseTimestampFromFilename = (filename: string): number => {
 // Routes configuration
 export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get instances from global scope
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const streamManager = (global as any).streamManager as StreamManager;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const motionDetector = (global as any).motionDetector;
+  const streamManager = global.streamManager;
+  const motionDetector = global.motionDetector;
   
   // Add motion event listener
   const handleMotionDetected = (event: MotionEvent) => {
@@ -552,9 +550,6 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // System storage endpoint
   app.get('/api/system/storage', (req: Request, res: Response) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      
       // Calculate storage usage for events and snapshots
       const eventsDir = path.join(__dirname, '../../public/events');
       const snapshotsDir = path.join(__dirname, '../../public/snapshots');
@@ -865,7 +860,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Enhance existing endpoints to add logging
-  const originalCameraGet = app._router.stack.find((layer: any) => 
+  const originalCameraGet = app._router.stack.find((layer: { route: { path: string; }; }) => 
     layer.route && layer.route.path === '/api/cameras'
   );
   

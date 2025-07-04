@@ -16,7 +16,7 @@ const MotionEvents = () => {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [loadEvents]);
 
   const loadEvents = React.useCallback(async () => {
       console.log('Loading events for MotionEvents page...');

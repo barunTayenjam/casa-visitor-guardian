@@ -1,5 +1,7 @@
 # Frontend Components Status & To-Do List
 
+> **📋 Note**: This file contains legacy component-specific todos. For the comprehensive project roadmap, see [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md)
+
 ## 🟢 Working Components (Real Data)
 - **CameraStream.tsx** - ✅ Live streaming from real cameras
 - **CameraGrid.tsx** - ✅ Displays real cameras from backend

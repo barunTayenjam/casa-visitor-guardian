@@ -62,24 +62,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     refreshCameras();
 
-    // Connect to socket server with retry
-    const connectWithRetry = async (retries = 3) => {
-      if (!socketService.isConnected()) {
-        try {
-          await socketService.connect();
-          console.log('Socket connected successfully');
-        } catch (error) {
-          console.error('Failed to connect to socket server:', error);
-          if (retries > 0) {
-            console.log(`Retrying socket connection... (${retries} retries left)`);
-            setTimeout(() => connectWithRetry(retries - 1), 2000);
-          }
-        }
-      }
-    };
-    
-    connectWithRetry();
-
     // Setup motion detection event listener
     const handleMotionDetected = (event: MotionEvent) => {
       console.log('Motion detected:', event);

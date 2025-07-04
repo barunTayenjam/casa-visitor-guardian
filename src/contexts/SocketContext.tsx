@@ -12,10 +12,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
+    const handleConnect = () => {
+      console.log('Socket context: Connected');
+      setConnected(true);
+    };
+    
+    const handleDisconnect = () => {
+      console.log('Socket context: Disconnected');
+      setConnected(false);
+    };
+    
     const handleError = (error: Error) => {
-      console.error('Socket error:', error);
+      console.error('Socket context error:', error);
       setConnected(false);
     };
 
@@ -24,13 +32,27 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketService.on('disconnect', handleDisconnect);
     socketService.on('error', handleError);
 
-    // Initial connection
-    if (!socketService.isConnected()) {
-      socketService.connect().catch((error) => {
-        console.error('Failed to connect to socket server:', error);
-        setConnected(false);
-      });
-    }
+    // Initial connection with retry
+    const connectWithRetry = async (retries = 3) => {
+      if (!socketService.isConnected()) {
+        try {
+          await socketService.connect();
+          console.log('Socket context: Initial connection successful');
+        } catch (error) {
+          console.error('Socket context: Failed to connect:', error);
+          setConnected(false);
+          
+          if (retries > 0) {
+            console.log(`Socket context: Retrying connection in 2 seconds... (${retries} retries left)`);
+            setTimeout(() => connectWithRetry(retries - 1), 2000);
+          }
+        }
+      } else {
+        setConnected(true);
+      }
+    };
+
+    connectWithRetry();
 
     // Cleanup on unmount
     return () => {

@@ -537,10 +537,12 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           return eventDate.getDate() === today.getDate() &&
                      eventDate.getMonth() === today.getMonth() &&
                      eventDate.getFullYear() === today.getFullYear();
-            }).length,
-          },
-        };
-      });
+        }).length,
+        storageUsed: 0, // TODO: Calculate actual storage usage
+        storageTotal: 1000000000 // 1GB default
+      };
+      
+      res.json({ success: true, data: overview });
     } catch (error) {
       console.error('Error getting system overview:', error);
       res.status(500).json({ success: false, error: 'Failed to get system overview' });

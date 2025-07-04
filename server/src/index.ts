@@ -78,8 +78,8 @@ const io = new SocketIOServer(server, {
     credentials: true
   },
   transports: ['websocket', 'polling'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 120000, // 2 minutes
+  pingInterval: 45000, // 45 seconds
   upgradeTimeout: 30000,
   allowEIO3: true
 });
@@ -116,10 +116,10 @@ app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id, 'from:', socket.handshake.address);
+  console.log('New client connected:', socket.id, 'from:', socket.handshake.address, 'Total connected clients:', io.engine.clientsCount);
   
   socket.on('disconnect', (reason) => {
-    console.log('Client disconnected:', socket.id, 'Reason:', reason);
+    console.log('Client disconnected:', socket.id, 'Reason:', reason, 'Total connected clients:', io.engine.clientsCount);
     // Clean up any camera rooms this client was in
     socket.rooms.forEach(room => {
       if (room.startsWith('camera-')) {
@@ -212,8 +212,7 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         const streamManager = await setupRTSPStreams(io);
         
         // Make streamManager available globally for routes
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any).streamManager = streamManager;
+        global.streamManager = streamManager;
         
         // Configure routes
         configureRoutes(app, io);

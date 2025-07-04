@@ -139,6 +139,10 @@ export class StreamManager {
       // Prepare optimized ffmpeg arguments for the camera stream
       // These settings are tuned for better reliability and performance
       const ffmpegArgs = [
+        "-loglevel",
+        "debug", // Increased logging for debugging
+        "-loglevel",
+        "debug", // Increased logging for debugging
         // Use TCP for RTSP as it's much more reliable than UDP
         "-rtsp_transport",
         "tcp",
@@ -381,11 +385,17 @@ export class StreamManager {
     if (!camera || !camera.isActive) return false;
 
     if (camera.process) {
-      if (typeof camera.process.kill === "function") {
-        camera.process.kill("SIGKILL");
-      } else if (typeof camera.process === "function") {
-        camera.process(); // For intervals (test streams)
-      }
+      console.log(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`);
+      camera.process.kill('SIGTERM'); // Use SIGTERM for graceful shutdown
+      
+      // Set a timeout to forcefully kill if SIGTERM doesn't work
+      setTimeout(() => {
+        if (camera.process && !camera.process.killed) {
+          console.warn(`FFMPEG process for ${cameraId} did not terminate gracefully, sending SIGKILL`);
+          camera.process.kill('SIGKILL');
+        }
+      }, 5000); // 5 seconds to wait for graceful exit
+
       camera.isActive = false;
       camera.process = null;
       console.log(`Stopped streaming from camera ${cameraId}`);

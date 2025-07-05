@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { EventViewer } from '@/components/dashboard/EventViewer';
 import { useToast } from '@/hooks/use-toast';
 import apiService, { ApiError } from '@/services/ApiService';
 import { MotionEvent } from '@/types/security';
@@ -36,8 +35,9 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useCameras } from '@/contexts/CameraContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
+import { EventGrid } from '@/components/dashboard/EventGrid'; // Import the new EventGrid component
 
-const MotionEvents = () => {
+const EventsPage = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
   const [events, setEvents] = useState<MotionEvent[]>([]);
@@ -52,18 +52,18 @@ const MotionEvents = () => {
   const [totalEvents, setTotalEvents] = useState(0);
 
   const loadEvents = useCallback(async () => {
-    console.log('Loading events for MotionEvents page...');
+    console.log('Loading events for EventsPage...');
     setLoading(true);
     try {
       const response = await apiService.getHistoricalEvents({
         page: currentPage,
-        pageSize: 20, // Increased to show more events
+        pageSize: 12, // 12 items per page
         cameraId: selectedCamera === 'all' ? undefined : selectedCamera,
         searchQuery: searchQuery || undefined,
         startDate: selectedDate || undefined,
         endDate: selectedDate ? new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000 - 1) : undefined, // End of selected day
       });
-      console.log("Fetched motion events:", response.events); // Add logging
+      console.log("Fetched events:", response.events); // Add logging
       setEvents(response.events);
       setTotalPages(response.pagination.totalPages);
       setTotalEvents(response.pagination.totalEvents);
@@ -71,7 +71,7 @@ const MotionEvents = () => {
       console.error('Failed to load events:', error);
       toast({
         title: 'Error',
-        description: `Failed to load motion events: ${error instanceof ApiError ? error.message : String(error)}`,
+        description: `Failed to load events: ${error instanceof ApiError ? error.message : String(error)}`,
         variant: 'destructive',
       });
       setEvents([]);
@@ -96,7 +96,7 @@ const MotionEvents = () => {
         await apiService.archiveEvent(eventId);
         toast({
           title: "Event Archived",
-          description: "The motion event has been archived.",
+          description: "The event has been archived.",
         });
         loadEvents(); // Refresh the list after archiving
       } catch (error) {
@@ -121,7 +121,7 @@ const MotionEvents = () => {
     }
     const link = document.createElement('a');
     link.href = event.imageUrl;
-    link.download = `motion_${event.cameraName || event.cameraId}_${format(event.timestamp, 'yyyy-MM-dd_HH-mm-ss')}.jpg`;
+    link.download = `event_${event.cameraName || event.cameraId}_${format(event.timestamp, 'yyyy-MM-dd_HH-mm-ss')}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -158,9 +158,9 @@ const MotionEvents = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Motion Events</h1>
+          <h1 className="text-3xl font-bold">Events Log</h1>
           <p className="text-muted-foreground mt-2">
-            Review and analyze detected motion events from all cameras
+            Review and analyze all recorded events
           </p>
         </div>
         <Button onClick={() => loadEvents()} disabled={loading}>
@@ -170,7 +170,6 @@ const MotionEvents = () => {
       </div>
 
       {/* Statistics Cards */}
-      {/*
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -220,10 +219,8 @@ const MotionEvents = () => {
           </CardContent>
         </Card>
       </div>
-      */}
 
       {/* Filters */}
-      {/*
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -312,52 +309,50 @@ const MotionEvents = () => {
           </div>
         </CardContent>
       </Card>
-      */}
 
       {/* Events Display */}
-      {/*
-      <div className="w-full">
-        {loading ? (
-          <div className="flex items-center justify-center h-[400px]">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : events.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            No events found matching your criteria.
-          </div>
-        ) : (
-          <EventViewer 
-            events={sortedEvents}
-            onImageClick={(event) => {
-              console.log("Image clicked for event:", event.id, "URL:", event.imageUrl); // Added log
-              setSelectedEvent(event);
-            }}
-          />
-        )}
+      <Card>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center h-[400px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No events found matching your criteria.
+            </div>
+          ) : (
+            <EventGrid 
+              events={sortedEvents}
+              onImageClick={(event) => {
+                console.log("Image clicked for event:", event.id, "URL:", event.imageUrl); // Added log
+                setSelectedEvent(event);
+              }}
+            />
+          )}
 
-        {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-              </PaginationItem>
-              {[...Array(totalPages)].map((_, index) => (
-                <PaginationItem key={index}>
-                  <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
-                    {index + 1}
-                  </PaginationLink>
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
                 </PaginationItem>
-              )))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-      </div>
-      */}
+                {[...Array(totalPages)].map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </CardContent>
+      </Card>
 
-      {/*
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-4xl">
           <div className="relative">
@@ -410,9 +405,8 @@ const MotionEvents = () => {
           </div>
         </DialogContent>
       </Dialog>
-      */}
     </div>
   );
 };
 
-export default MotionEvents;
+export default EventsPage;

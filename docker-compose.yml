@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "9753:9753"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      # You can add environment variables here, e.g., for database connection
+      # - DB_HOST=db
+      - PORT=9753
+    # Optional: If your backend depends on other services (e.g., a database)
+    # depends_on:
+    #   - db
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      # Point the frontend to the backend service
+      - VITE_BACKEND_URL=http://backend:9753
+    depends_on:
+      - backend
+
+# Optional: If you have a database service
+# volumes:
+#   db_data:

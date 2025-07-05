@@ -13,11 +13,12 @@ import dotenv from 'dotenv';
 console.log('*** MODULES LOADED SUCCESSFULLY ***');
 
 // Import logger early to capture all logs
-import { logger } from './utils/logger.js';
+
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -90,7 +91,7 @@ const io = new SocketIOServer(server, {
         callback(null, true);
       } else {
         console.log('*** SOCKET.IO CORS - Origin blocked:', origin);
-        logger.corsBlock(origin, 'socket');
+        console.warn(`Blocked socket request from origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -120,7 +121,7 @@ app.use(cors({
       // Allow any origin with development ports for easier development
       callback(null, true);
     } else {
-      logger.corsBlock(origin, 'http');
+      console.warn(`Blocked http request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -140,7 +141,7 @@ app.use('/snapshots', express.static(path.join(__dirname, '../public/snapshots')
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log('*** NEW SOCKET CONNECTION ***');
-  logger.socketConnect(socket.id, socket.handshake.address, io.engine.clientsCount);
+  console.log(`New client connected: ${socket.id} from: ${socket.handshake.address} Total connected clients: ${io.engine.clientsCount}`);
   
   // Send a welcome message to confirm connection
   socket.emit('connected', { 
@@ -151,7 +152,7 @@ io.on('connection', (socket) => {
   
   socket.on('disconnect', (reason) => {
     console.log('*** SOCKET DISCONNECTED ***', socket.id, reason);
-    logger.socketDisconnect(socket.id, reason, io.engine.clientsCount);
+    console.log(`Client disconnected: ${socket.id} Reason: ${reason} Total connected clients: ${io.engine.clientsCount}`);
     // Clean up any camera rooms this client was in
     socket.rooms.forEach(room => {
       if (room.startsWith('camera-')) {
@@ -162,20 +163,20 @@ io.on('connection', (socket) => {
 
   socket.on('error', (error) => {
     console.log('*** SOCKET ERROR ***', socket.id, error);
-    logger.socketError(socket.id, error);
+    console.error(`Socket error for client ${socket.id}`, error);
     // Don't disconnect on error, let the client handle reconnection
   });
 
   socket.on('connect_error', (error) => {
     console.log('*** SOCKET CONNECT ERROR ***', socket.id, error);
-    logger.socketError(socket.id, error);
+    console.error(`Socket error for client ${socket.id}`, error);
   });
 
   // Handle stream request from client
   socket.on('requestStream', (cameraId) => {
     try {
       console.log('*** STREAM REQUEST RECEIVED ***', cameraId, 'from', socket.id);
-      logger.streamRequest(cameraId, socket.id);
+      console.log(`Stream requested for camera ${cameraId} from client ${socket.id}`);
       socket.join(`camera-${cameraId}`);
       
       // Emit a confirmation back to the client
@@ -183,7 +184,7 @@ io.on('connection', (socket) => {
       console.log('*** STREAM REQUEST CONFIRMED ***', cameraId);
     } catch (error) {
       console.log('*** STREAM REQUEST ERROR ***', cameraId, error);
-      logger.error('Error handling stream request', 'STREAM', error);
+      console.error('Error handling stream request', 'STREAM', error);
       socket.emit('streamError', { cameraId, error: 'Failed to join stream' });
     }
   });
@@ -192,11 +193,11 @@ io.on('connection', (socket) => {
   socket.on('stopStream', (cameraId) => {
     try {
       console.log('*** STOP STREAM REQUEST ***', cameraId, 'from', socket.id);
-      logger.streamStop(cameraId, socket.id);
+      console.log(`Stream stopped for camera ${cameraId} from client ${socket.id}`);
       socket.leave(`camera-${cameraId}`);
     } catch (error) {
       console.log('*** STOP STREAM ERROR ***', cameraId, error);
-      logger.error('Error handling stop stream', 'STREAM', error);
+      console.error('Error handling stop stream', 'STREAM', error);
     }
   });
 });
@@ -238,10 +239,10 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
     }
     
     server.listen(PORT, async () => {
-      logger.serverStart(PORT);
-      logger.info(`*** RTSP STREAMING ENABLED ***`, 'SERVER');
-      logger.info(`Socket.io running on port ${PORT}`, 'SERVER');
-      logger.info(`Allowed origins: ${allowedOrigins.join(', ')}`, 'SERVER');
+      console.log(`*** SERVER STARTED ON PORT ${PORT} ***`);
+      console.info(`*** RTSP STREAMING ENABLED ***`);
+      console.info(`Socket.io running on port ${PORT}`);
+      console.info(`Allowed origins: ${allowedOrigins.join(', ')}`);
       
       // Update the PORT in the process environment so other components can use it
       process.env.PORT = PORT.toString();
@@ -262,10 +263,10 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         // Start cron jobs
         startCronJobs(io);
       } catch (err) {
-        logger.error('Failed to setup application', 'SERVER', err);
+        console.error('Failed to setup application', 'SERVER', err);
       }
     });
   } catch (err) {
-    logger.error('Failed to start server', 'SERVER', err);
+    console.error('Failed to start server', 'SERVER', err);
   }
 })();

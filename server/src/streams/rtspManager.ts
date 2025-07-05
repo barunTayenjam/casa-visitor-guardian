@@ -7,7 +7,7 @@ import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
 
 // Import ffmpeg-static safely
-// @ts-expect-error - Ignore type checking for ffmpeg-static import
+
 import ffmpegStatic from "ffmpeg-static";
 const ffmpegPath = ffmpegStatic as unknown as string;
 
@@ -31,13 +31,13 @@ if (!fs.existsSync(eventsDir)) {
 }
 
 // Define camera interface
-interface Camera {
+export interface Camera {
   id: string;
   name: string;
   rtspUrl: string;
   username?: string;
   password?: string;
-  process: ChildProcessWithoutNullStreams | null; // Using any type to avoid TypeScript issues with process types
+  process: ChildProcessWithoutNullStreams | (() => void) | null; // Allow ChildProcess or a function for test streams
   isActive: boolean;
   lastFrame: Buffer | null;
   frameRate: number;
@@ -378,7 +378,7 @@ export class StreamManager {
 
       logger.info(`Started streaming from camera ${cameraId}`, 'StreamManager');
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error starting stream for camera ${cameraId}: ${error.message}`, 'StreamManager');
       camera.isActive = false;
       camera.process = null;
@@ -392,16 +392,18 @@ export class StreamManager {
     if (!camera || !camera.isActive) return false;
 
     if (camera.process) {
-      logger.info(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`, 'StreamManager');
-      camera.process.kill('SIGTERM'); // Use SIGTERM for graceful shutdown
-      
-      // Set a timeout to forcefully kill if SIGTERM doesn't work
-      setTimeout(() => {
-        if (camera.process && !camera.process.killed) {
-          logger.warn(`FFMPEG process for ${cameraId} did not terminate gracefully, sending SIGKILL`, 'StreamManager');
-          camera.process.kill('SIGKILL');
-        }
-      }, 5000); // 5 seconds to wait for graceful exit
+      if (typeof camera.process === 'object' && 'pid' in camera.process) {
+        logger.info(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`, 'StreamManager');
+        camera.process.kill('SIGTERM'); // Use SIGTERM for graceful shutdown
+        
+        // Set a timeout to forcefully kill if SIGTERM doesn't work
+        setTimeout(() => {
+          if (camera.process && typeof camera.process === 'object' && 'killed' in camera.process && !camera.process.killed) {
+            logger.warn(`FFMPEG process for ${cameraId} did not terminate gracefully, sending SIGKILL`, 'StreamManager');
+            (camera.process as ChildProcessWithoutNullStreams).kill('SIGKILL');
+          }
+        }, 5000); // 5 seconds to wait for graceful exit
+      }
 
       camera.isActive = false;
       camera.process = null;
@@ -449,8 +451,8 @@ export class StreamManager {
 
     // Stop any existing process
     if (camera.process) {
-      if (typeof camera.process.kill === "function") {
-        camera.process.kill();
+      if (typeof camera.process === 'object' && 'kill' in camera.process) {
+        (camera.process as ChildProcessWithoutNullStreams).kill();
       } else if (typeof camera.process === "function") {
         camera.process();
       }
@@ -477,9 +479,9 @@ export class StreamManager {
         logger.info(
           `Camera ${cameraId}: Emitted test frame of size ${testFrame.length} bytes`, 'StreamManager',
         );
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error(
-          `Error generating test frame for camera ${cameraId}: ${error.message}`, 'StreamManager',
+          `Error generating test frame for camera ${cameraId}: ${(error as Error).message}`, 'StreamManager',
         );
         clearInterval(interval);
         camera.isActive = false;
@@ -550,7 +552,7 @@ export class StreamManager {
       logger.info(`Snapshot saved: ${filepath}`, 'StreamManager');
 
       return `/snapshots/${filename}`;
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'StreamManager');
       return null;
     }

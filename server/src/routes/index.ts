@@ -37,7 +37,7 @@ interface Alert {
 const recentEvents: MotionEvent[] = [];
 
 // Store alerts in memory
-const alerts: Alert[] = [];
+let alerts: Alert[] = [];
 
 // Define Settings interfaces
 interface GeneralSettings {
@@ -275,7 +275,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const cameras = streamManager.getAllCameras();
       console.log('Fetched cameras:', cameras);
       // Add additional camera state information
-      const enrichedCameras = cameras.map(camera => {
+      const enrichedCameras = cameras.map((camera: Camera) => {
         let status = 'offline';
         if (camera.isActive) {
           status = 'online';
@@ -314,7 +314,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get details for a specific camera
   app.get('/api/cameras/:id', (req: Request, res: Response) => {
     try {
-      const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       if (!camera) {
         return res.status(404).json({ success: false, error: 'Camera not found' });
       }
@@ -395,7 +395,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       if (nightMode !== undefined) updates.nightMode = nightMode;
 
       // Verify camera exists before update
-      const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       if (!camera) {
         return res.status(404).json({ 
           success: false, 
@@ -414,7 +414,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       }
       
       // Get updated camera state
-      const updatedCamera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      const updatedCamera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       res.json({ 
         success: true,
         camera: {
@@ -459,7 +459,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         });
       }
 
-      const camera = streamManager.getAllCameras().find(c => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       if (!camera) {
         return res.status(404).json({ 
           success: false, 
@@ -646,7 +646,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             cameraName: cameraId // Assuming cameraName is same as cameraId for now
           };
         })
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Newest first
+        .sort((a: MotionEvent, b: MotionEvent) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       let filteredEvents = allFiles;
 
@@ -659,7 +659,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         filteredEvents = filteredEvents.filter(event =>
           event.cameraId.toLowerCase().includes(lowerCaseSearchQuery) ||
           event.labels.some(label => label.toLowerCase().includes(lowerCaseSearchQuery)) ||
-          event.location.toLowerCase().includes(lowerCaseSearchQuery)
+          event.location?.toLowerCase().includes(lowerCaseSearchQuery)
         );
       }
 
@@ -710,8 +710,113 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Search events (alias for history with search query)
   app.get('/api/events/search', (req: Request, res: Response) => {
     // This endpoint can simply call the history endpoint with the search query
-    req.url = '/api/events/history' + req.url.substring('/api/events/search'.length);
-    app.handle(req, res);
+    // Note: This is a simplified approach. For more complex scenarios, consider refactoring into a shared function.
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const cameraIdFilter = req.query.cameraId as string;
+      const searchQuery = req.query.searchQuery as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+
+      const eventsDir = path.join(__dirname, '../../public/events');
+      const allFiles = fs.readdirSync(eventsDir)
+        .filter((file: string) => file.endsWith('.jpg'))
+        .map((file: string) => {
+          const parts = file.split('_');
+          const cameraId = parts[1] || 'unknown';
+          let timestamp = new Date().toISOString();
+          if (parts.length >= 3) {
+        const timestampPart = parts[2]?.split('.')[0]; // e.g., "2025-06-29T07-24-23-640Z"
+        if (timestampPart) {
+          // Convert "YYYY-MM-DDTHH-mm-ss-msZ" to "YYYY-MM-DDTHH:mm:ss.msZ"
+          const datePart = timestampPart.substring(0, 10); // "YYYY-MM-DD"
+          const timePartWithHyphens = timestampPart.substring(11); // "HH-mm-ss-msZ"
+          const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "msZ"]
+          
+          let ms = 0;
+          let formattedTime = '';
+
+          if (timeParts.length === 4) {
+            // Has milliseconds
+            ms = parseInt(timeParts[3].replace('Z', ''), 10);
+            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
+          } else if (timeParts.length === 3) {
+            // No milliseconds
+            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
+          } else {
+            console.warn(`Unexpected time format in filename: ${timestampPart}`);
+            // Fallback to current time or handle error
+            formattedTime = new Date().toISOString().substring(11, 23) + 'Z'; // Just time part
+          }
+
+          const isoTimestamp = `${datePart}T${formattedTime}`;
+          const parsedDate = new Date(isoTimestamp);
+
+          if (!isNaN(parsedDate.getTime())) {
+            timestamp = parsedDate.toISOString();
+          } else {
+            console.warn(`Failed to parse timestamp from filename: ${timestampPart}. Using current time.`);
+          }
+        }
+      }
+          return {
+            id: `evt_${file}`,
+            cameraId,
+            timestamp,
+            imagePath: `/events/${file}`,
+            confidence: 75, // Default confidence
+            labels: ['motion'],
+            location: 'Unknown',
+            duration: 0,
+            cameraName: cameraId // Assuming cameraName is same as cameraId for now
+          };
+        })
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Newest first
+
+      let filteredEvents = allFiles;
+
+      if (cameraIdFilter && cameraIdFilter !== 'all') {
+        filteredEvents = filteredEvents.filter((event: MotionEvent) => event.cameraId === cameraIdFilter);
+      }
+
+      if (searchQuery) {
+        const lowerCaseSearchQuery = searchQuery.toLowerCase();
+        filteredEvents = filteredEvents.filter((event: MotionEvent) =>
+          event.cameraId.toLowerCase().includes(lowerCaseSearchQuery) ||
+          event.labels?.some(label => label.toLowerCase().includes(lowerCaseSearchQuery)) ||
+          event.location?.toLowerCase().includes(lowerCaseSearchQuery)
+        );
+      }
+
+      if (startDate) {
+        filteredEvents = filteredEvents.filter((event: MotionEvent) => new Date(event.timestamp) >= startDate);
+      }
+
+      if (endDate) {
+        filteredEvents = filteredEvents.filter((event: MotionEvent) => new Date(event.timestamp) <= endDate);
+      }
+
+      const totalEvents = filteredEvents.length;
+      const totalPages = Math.ceil(totalEvents / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+
+      res.json({
+        success: true,
+        events: paginatedEvents,
+        pagination: {
+          totalEvents,
+          totalPages,
+          currentPage: page,
+          pageSize,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting historical events:', error);
+      res.status(500).json({ success: false, error: 'Failed to get historical events' });
+    }
   });
 
   // Get motion events for a specific camera
@@ -753,7 +858,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Trigger a simulated motion event (for testing)
   app.post('/api/motion/:cameraId/simulate', (req: Request, res: Response) => {
     try {
-      const camera = streamManager.getAllCameras().find(c => c.id === req.params.cameraId);
+      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.cameraId);
       if (!camera) {
         return res.status(404).json({ success: false, error: 'Camera not found' });
       }
@@ -808,7 +913,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      activeCameras: streamManager.getAllCameras().filter(c => c.isActive).length
+      activeCameras: streamManager.getAllCameras().filter((c: any) => c.isActive).length
     });
   });
 
@@ -820,9 +925,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         status: 'healthy',
         uptime: process.uptime(),
         totalCameras: cameras.length,
-        onlineCameras: cameras.filter(c => c.isActive).length,
+        onlineCameras: cameras.filter((c: Camera) => c.isActive).length,
         totalEvents: recentEvents.length,
-        todayEvents: recentEvents.filter(e => {
+        todayEvents: recentEvents.filter((e: MotionEvent) => {
           const eventDate = new Date(e.timestamp);
           const today = new Date();
           return eventDate.getDate() === today.getDate() &&
@@ -895,8 +1000,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/system/health', (req: Request, res: Response) => {
     try {
       const cameras = streamManager.getAllCameras();
-      const onlineCameras = cameras.filter(c => c.isActive);
-      const offlineCameras = cameras.filter(c => !c.isActive);
+      const onlineCameras = cameras.filter((c: any) => c.isActive);
+      const offlineCameras = cameras.filter((c: any) => !c.isActive);
       
       // Determine overall health status
       let status = 'healthy';
@@ -1035,7 +1140,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             const weekStart = new Date(today.getTime() - (weekIndex + 1) * 7 * 24 * 60 * 60 * 1000);
             const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
             
-            const weekEvents = monthlyEvents.filter(event => {
+            const weekEvents = monthlyEvents.filter((event: MotionEvent) => {
               const eventDate = new Date(event.timestamp);
               return eventDate >= weekStart && eventDate < weekEnd;
             });
@@ -1082,103 +1187,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // System logs storage
-  const systemLogs: Array<{
-    timestamp: string;
-    level: 'info' | 'warn' | 'error' | 'debug';
-    message: string;
-    source: string;
-  }> = [];
-
-  // Helper function to add system log
-  const addSystemLog = (level: 'info' | 'warn' | 'error' | 'debug', message: string, source: string = 'System') => {
-    systemLogs.unshift({
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      source
-    });
-    
-    // Keep only last 1000 logs
-    if (systemLogs.length > 1000) {
-      systemLogs.splice(1000);
-    }
-  };
-
-  // Add some initial system logs
-  addSystemLog('info', 'Security system started successfully', 'System');
-  addSystemLog('info', 'Camera manager initialized', 'Camera Manager');
-  addSystemLog('info', 'Motion detection service started', 'Motion Detection');
-
-  // Get system logs
-  app.get('/api/system/logs', (req: Request, res: Response) => {
-    try {
-      const level = req.query.level as string;
-      const limit = parseInt(req.query.limit as string) || 50;
-      
-      let filteredLogs = systemLogs;
-      
-      // Filter by level if specified
-      if (level && level !== 'all') {
-        filteredLogs = systemLogs.filter(log => log.level === level);
-      }
-      
-      // Apply limit
-      const logs = filteredLogs.slice(0, limit);
-      
-      res.json({
-        success: true,
-        logs
-      });
-    } catch (error) {
-      console.error('Error getting system logs:', error);
-      res.status(500).json({ success: false, error: 'Failed to get system logs' });
-    }
-  });
-
-  // Clear system logs
-  app.delete('/api/system/logs', (req: Request, res: Response) => {
-    try {
-      systemLogs.length = 0; // Clear the array
-      addSystemLog('info', 'System logs cleared by user', 'System');
-      
-      res.json({
-        success: true,
-        message: 'System logs cleared successfully'
-      });
-    } catch (error) {
-      console.error('Error clearing system logs:', error);
-      res.status(500).json({ success: false, error: 'Failed to clear system logs' });
-    }
-  });
-
-  // Enhance existing endpoints to add logging
-  const originalCameraGet = app._router.stack.find((layer: { route: { path: string; }; }) => 
-    layer.route && layer.route.path === '/api/cameras'
-  );
   
-  // Add logging to camera operations
-  app.use('/api/cameras', (req: Request, res: Response, next) => {
-    if (req.method === 'POST') {
-      addSystemLog('info', `New camera added: ${req.body.name}`, 'Camera Manager');
-    } else if (req.method === 'PUT') {
-      addSystemLog('info', `Camera updated: ${req.params.id}`, 'Camera Manager');
-    } else if (req.method === 'DELETE') {
-      addSystemLog('info', `Camera deleted: ${req.params.id}`, 'Camera Manager');
-    }
-    next();
-  });
 
-  // Add logging to motion events
-  const originalMotionHandler = handleMotionDetected;
-  const enhancedMotionHandler = (event: MotionEvent) => {
-    addSystemLog('info', `Motion detected on camera ${event.cameraId}`, 'Motion Detection');
-    originalMotionHandler(event);
-  };
   
-  // Replace the motion handler
-  io.off('motionDetected', handleMotionDetected);
-  io.on('motionDetected', enhancedMotionHandler);
+
+  
+
+  
 
   console.log('API routes configured');
 }

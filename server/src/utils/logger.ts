@@ -1,26 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Create logs directory if it doesn't exist
-const logsDir = path.join(__dirname, '../../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
 
-const logFilePath = path.join(logsDir, 'server.log');
-const errorLogFilePath = path.join(logsDir, 'error.log');
-
-// Ensure log files exist
-if (!fs.existsSync(logFilePath)) {
-  fs.writeFileSync(logFilePath, '');
-}
-if (!fs.existsSync(errorLogFilePath)) {
-  fs.writeFileSync(errorLogFilePath, '');
-}
 
 // Store original console methods before overriding
 const originalConsoleLog = console.log;
@@ -32,72 +13,35 @@ const log = (level: string, message: string, source?: string, error?: any) => {
   const timestamp = new Date().toISOString();
   const sourceStr = source ? ` [${source}]` : '';
   const errorStr = error ? ` ERROR_DETAILS: ${JSON.stringify(error, null, 2)}` : '';
-  const logMessage = `[${timestamp}] [${level.toUpperCase()}]${sourceStr} ${message}${errorStr}\n`;
+  const logMessage = `[${timestamp}] [${level.toUpperCase()}]${sourceStr} ${message}${errorStr}`;
   
   // Write to console using original methods to avoid recursion
   if (level === 'error') {
-    originalConsoleError(logMessage.trim());
+    originalConsoleError(logMessage);
   } else if (level === 'warn') {
-    originalConsoleWarn(logMessage.trim());
+    originalConsoleWarn(logMessage);
   } else if (level === 'debug') {
-    originalConsoleDebug(logMessage.trim());
+    originalConsoleDebug(logMessage);
   } else {
-    originalConsoleLog(logMessage.trim());
-  }
-  
-  // Write to main log file
-  fs.appendFile(logFilePath, logMessage, (err) => {
-    if (err) {
-      originalConsoleError('Failed to write to main log file:', err);
-    }
-  });
-  
-  // Write errors to separate error log file
-  if (level === 'error') {
-    fs.appendFile(errorLogFilePath, logMessage, (err) => {
-      if (err) {
-        originalConsoleError('Failed to write to error log file:', err);
-      }
-    });
+    originalConsoleLog(logMessage);
   }
 };
 
 // Override console methods to also log to file
 
 console.log = (...args: any[]) => {
-  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  // Write directly to file to avoid recursion
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [INFO] [CONSOLE] ${message}\n`;
-  fs.appendFileSync(logFilePath, logMessage);
   originalConsoleLog(...args);
 };
 
 console.error = (...args: any[]) => {
-  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  // Write directly to file to avoid recursion
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [ERROR] [CONSOLE] ${message}\n`;
-  fs.appendFileSync(logFilePath, logMessage);
-  fs.appendFileSync(errorLogFilePath, logMessage);
   originalConsoleError(...args);
 };
 
 console.warn = (...args: any[]) => {
-  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  // Write directly to file to avoid recursion
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [WARN] [CONSOLE] ${message}\n`;
-  fs.appendFileSync(logFilePath, logMessage);
   originalConsoleWarn(...args);
 };
 
 console.debug = (...args: any[]) => {
-  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  // Write directly to file to avoid recursion
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [DEBUG] [CONSOLE] ${message}\n`;
-  fs.appendFileSync(logFilePath, logMessage);
   originalConsoleDebug(...args);
 };
 
@@ -136,3 +80,5 @@ export const logger = {
     log('warn', `Blocked ${type} request from origin: ${origin}`, 'CORS');
   }
 };
+
+

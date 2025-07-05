@@ -1,27 +1,46 @@
-# Use a Node.js 20 image
-FROM node:20-alpine
+# Multi-stage build for frontend
+FROM node:20-alpine AS builder
 
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (use npm install if no lock file)
+RUN npm install && npm cache clean --force
 
-# Copy the rest of the application code
-COPY . .
+# Copy source code and config files
+COPY src/ ./src/
+COPY public/ ./public/
+COPY index.html ./
+COPY vite.config.ts ./
+COPY tsconfig*.json ./
+COPY tailwind.config.ts ./
+COPY postcss.config.js ./
+COPY components.json ./
 
 # Build the React application
 RUN npm run build
 
-# Serve the React app with a simple HTTP server (e.g., serve)
-# Install serve globally
-RUN npm install -g serve
+# Production stage with nginx
+FROM nginx:alpine AS production
 
-# Expose the port the app runs on
-EXPOSE 5173
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Command to run the application
-CMD ["serve", "-s", "dist", "-l", "5173"]
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Nginx user already exists in nginx:alpine image
+# No need to create additional users
+
+# Expose the port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

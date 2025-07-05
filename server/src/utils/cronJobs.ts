@@ -24,7 +24,7 @@ interface MotionEvent {
 
 // Generate daily report with visitor statistics and snapshots
 async function generateDailyReport(io: SocketIOServer) {
-  console.log('Generating daily report...');
+  // Daily report log disabled - console.log('Generating daily report...');
   
   try {
     // Get the stream manager from global scope
@@ -96,13 +96,13 @@ async function generateDailyReport(io: SocketIOServer) {
     // Emit the report to connected clients
     io.emit('dailyReport', { success: true, report: reportData });
     
-    console.log('Daily report generated successfully');
+    // Daily report success log disabled - console.log('Daily report generated successfully');
     return {
       success: true,
       report: reportData
     };
   } catch (error) {
-    console.error('Error generating daily report:', error);
+    // Daily report error log disabled - console.error('Error generating daily report:', error);
     return {
       success: false,
       error: 'Failed to generate daily report'
@@ -114,23 +114,23 @@ async function generateDailyReport(io: SocketIOServer) {
 export function startCronJobs(io: SocketIOServer) {
   // Schedule daily report at 8:00 AM every day
   cron.schedule('0 8 * * *', async () => {
-    console.log('Running daily report job');
+    // Cron job log disabled - console.log('Running daily report job');
     await generateDailyReport(io);
   });
 
   // Schedule cleanup of old snapshots and events (keep last 30 days)
   cron.schedule('0 3 * * *', () => {
-    console.log('Running cleanup job');
+    // Cleanup job log disabled - console.log('Running cleanup job');
     cleanupOldFiles();
   });
 
   // Schedule periodic camera health check
   cron.schedule('*/30 * * * *', () => { // Every 30 minutes
-    console.log('Running camera health check');
+    // Health check log disabled - console.log('Running camera health check');
     checkCameraHealth(io);
   });
 
-  console.log('Scheduled tasks started');
+  // Scheduled tasks log disabled - console.log('Scheduled tasks started');
 }
 
 // Clean up old snapshots and event images
@@ -159,14 +159,14 @@ function cleanupOldFiles() {
         // Check if file is older than max age
         if (now - stats.mtime.getTime() > maxAge) {
           fs.unlinkSync(filePath);
-          console.log(`Deleted old file: ${filePath}`);
+          // File deletion log disabled - console.log(`Deleted old file: ${filePath}`);
         }
       }
     }
     
-    console.log('Cleanup completed');
+    // Cleanup completion log disabled - console.log('Cleanup completed');
   } catch (error) {
-    console.error('Error cleaning up old files:', error);
+    // Cleanup error log disabled - console.error('Error cleaning up old files:', error);
   }
 }
 
@@ -181,15 +181,15 @@ function checkCameraHealth(io: SocketIOServer) {
     }
     
     const cameras = streamManager.getAllCameras();
-    console.log(`Checking health of ${cameras.length} cameras`);
+    // Camera health check log disabled - console.log(`Checking health of ${cameras.length} cameras`);
     
     // Check each camera
     cameras.forEach((camera: { id: string; name: string; isActive: boolean }) => {
-      console.log(`Camera health check: Camera ${camera.id} is active: ${camera.isActive}`); // Added logging
+      // Camera status log disabled - console.log(`Camera health check: Camera ${camera.id} is active: ${camera.isActive}`); // Added logging
       if (camera.isActive) {
-        console.log(`Camera ${camera.id} (${camera.name}) is active`);
+        // Camera active log disabled - console.log(`Camera ${camera.id} (${camera.name}) is active`);
       } else {
-        console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start test stream`);
+        // Camera inactive log disabled - console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start test stream`);
         streamManager.startStream(camera.id);
       }
     });
@@ -203,6 +203,6 @@ function checkCameraHealth(io: SocketIOServer) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error checking camera health:', error);
+    // Health check error log disabled - console.error('Error checking camera health:', error);
   }
 }

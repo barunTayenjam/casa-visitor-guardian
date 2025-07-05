@@ -1,0 +1,58 @@
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: builder
+    ports:
+      - "9753:9753"
+    volumes:
+      # Mount source code for hot reloading in development
+      - ./server/src:/app/src
+      - ./server/package*.json:/app/
+      - backend_node_modules:/app/node_modules
+      # Persistent storage for media files
+      - backend_snapshots:/app/public/snapshots
+      - backend_events:/app/public/events
+    environment:
+      - NODE_ENV=development
+      - PORT=9753
+    command: ["npm", "run", "dev"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./package*.json:/app/
+      - frontend_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_BACKEND_URL=http://localhost:9753
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_snapshots:
+    driver: local
+  backend_events:
+    driver: local
+  backend_node_modules:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

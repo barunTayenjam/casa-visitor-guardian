@@ -1195,5 +1195,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   
 
+  // Health check endpoint for Docker
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
   // API routes config log disabled - console.log('API routes configured');
 }

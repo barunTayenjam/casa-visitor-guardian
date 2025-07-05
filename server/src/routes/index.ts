@@ -163,7 +163,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   
   // Add motion event listener
   const handleMotionDetected = (event: MotionEvent) => {
-    console.log('Motion event received in routes:', event);
+    // Motion event log disabled - console.log('Motion event received in routes:', event);
     // Add to recent events
     recentEvents.unshift(event);
     
@@ -1195,5 +1195,5 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   
 
-  console.log('API routes configured');
+  // API routes config log disabled - console.log('API routes configured');
 }

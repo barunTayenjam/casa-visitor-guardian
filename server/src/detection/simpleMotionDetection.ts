@@ -187,13 +187,13 @@ export class SimpleMotionDetector {
             });
           }
         } catch (error) {
-          console.error('Error taking snapshot:', error);
+          // Snapshot error log disabled - console.error('Error taking snapshot:', error);
         }
         
-        console.log(`Motion detected on camera ${cameraId} with confidence ${confidence}%`);
+        // Motion detection log disabled - console.log(`Motion detected on camera ${cameraId} with confidence ${confidence}%`);
       }
     } catch (error) {
-      console.error(`Error in motion detection for camera ${cameraId}:`, error);
+      // Motion detection error log disabled - console.error(`Error in motion detection for camera ${cameraId}:`, error);
     }
   }
 }

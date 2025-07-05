@@ -9,7 +9,37 @@ const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 const originalConsoleDebug = console.debug;
 
+// Configuration to control logging levels
+const LOGGING_CONFIG = {
+  enableInfo: false,      // Disable info logs
+  enableWarn: true,       // Keep warnings
+  enableError: true,      // Keep errors
+  enableDebug: false,     // Disable debug logs
+  enableServerStart: true, // Keep server start messages
+  enableMotionEvents: false, // Disable motion detection logs
+  enableStreamLogs: false,   // Disable stream logs
+  enableSocketLogs: false    // Disable socket logs
+};
+
 const log = (level: string, message: string, source?: string, error?: any) => {
+  // Check if this type of log should be shown
+  if (level === 'info' && !LOGGING_CONFIG.enableInfo) {
+    // Special cases for important info logs
+    if (source === 'SERVER' && LOGGING_CONFIG.enableServerStart) {
+      // Allow server start messages
+    } else if (source === 'STREAM' && !LOGGING_CONFIG.enableStreamLogs) {
+      return; // Skip stream logs
+    } else if (source === 'SOCKET' && !LOGGING_CONFIG.enableSocketLogs) {
+      return; // Skip socket logs
+    } else if (!LOGGING_CONFIG.enableInfo) {
+      return; // Skip other info logs
+    }
+  }
+  
+  if (level === 'warn' && !LOGGING_CONFIG.enableWarn) return;
+  if (level === 'error' && !LOGGING_CONFIG.enableError) return;
+  if (level === 'debug' && !LOGGING_CONFIG.enableDebug) return;
+  
   const timestamp = new Date().toISOString();
   const sourceStr = source ? ` [${source}]` : '';
   const errorStr = error ? ` ERROR_DETAILS: ${JSON.stringify(error, null, 2)}` : '';

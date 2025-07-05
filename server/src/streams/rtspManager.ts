@@ -22,12 +22,12 @@ const eventsDir = path.join(__dirname, "../../public/events");
 // Create directories if they don't exist
 if (!fs.existsSync(snapshotsDir)) {
   fs.mkdirSync(snapshotsDir, { recursive: true });
-  logger.info(`Created snapshots directory: ${snapshotsDir}`, 'StreamManager');
+  // Directory creation log disabled - logger.info(`Created snapshots directory: ${snapshotsDir}`, 'StreamManager');
 }
 
 if (!fs.existsSync(eventsDir)) {
   fs.mkdirSync(eventsDir, { recursive: true });
-  logger.info(`Created events directory: ${eventsDir}`, 'StreamManager');
+  // Directory creation log disabled - logger.info(`Created events directory: ${eventsDir}`, 'StreamManager');
 }
 
 // Define camera interface
@@ -103,7 +103,7 @@ export class StreamManager {
       lastFrame: null,
     };
     this.cameras.set(camera.id, camera);
-    logger.info(`Added camera: ${camera.id} (${camera.name})`, 'StreamManager');
+    // Camera addition log disabled - logger.info(`Added camera: ${camera.id} (${camera.name})`, 'StreamManager');
     return camera.id;
   }
 
@@ -123,7 +123,7 @@ export class StreamManager {
     if (!camera) return false;
 
     if (camera.isActive && camera.process) {
-      logger.info(`Camera ${cameraId} is already streaming`, 'StreamManager');
+      // Stream status log disabled - logger.info(`Camera ${cameraId} is already streaming`, 'StreamManager');
       return true;
     }
 
@@ -193,8 +193,8 @@ export class StreamManager {
         "pipe:1",
       ];
 
-      logger.info(`Starting stream for camera ${cameraId} with resolution ${camera.resolution}`, 'StreamManager');
-      logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
+      // Stream start log disabled - logger.info(`Starting stream for camera ${cameraId} with resolution ${camera.resolution}`, 'StreamManager');
+      // FFMPEG command log disabled - logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
 
       // Reset retry count if camera is restarting after being offline for a while
       if (camera.retryCount && camera.retryCount > 5) {
@@ -205,7 +205,7 @@ export class StreamManager {
       const process = spawn(ffmpegPath, ffmpegArgs, {
         stdio: ["pipe", "pipe", "pipe"],
       });
-      logger.info(`FFMPEG process for camera ${cameraId} spawned with PID: ${process.pid}`, 'StreamManager');
+      // FFMPEG process spawn log disabled - logger.info(`FFMPEG process for camera ${cameraId} spawned with PID: ${process.pid}`, 'StreamManager');
       camera.process = process;
       camera.isActive = true;
       camera.lastError = undefined; // Clear any previous errors
@@ -296,7 +296,7 @@ export class StreamManager {
           streamErrors++;
         } else {
           // For debugging purposes
-          logger.debug(`FFMPEG stderr (${cameraId}): ${errorMsg}`, 'FFMPEG');
+          // FFMPEG stderr logging disabled - logger.debug(`FFMPEG stderr (${cameraId}): ${errorMsg}`, 'FFMPEG');
         }
 
         // If we get too many errors, restart the stream
@@ -376,7 +376,7 @@ export class StreamManager {
       // Emit camera status change
       this.io.emit("cameraStatus", { cameraId, status: "online" });
 
-      logger.info(`Started streaming from camera ${cameraId}`, 'StreamManager');
+      // Stream started log disabled - logger.info(`Started streaming from camera ${cameraId}`, 'StreamManager');
       return true;
     } catch (error: any) {
       logger.error(`Error starting stream for camera ${cameraId}: ${error.message}`, 'StreamManager');
@@ -393,7 +393,7 @@ export class StreamManager {
 
     if (camera.process) {
       if (typeof camera.process === 'object' && 'pid' in camera.process) {
-        logger.info(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`, 'StreamManager');
+        // Process kill log disabled - logger.info(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`, 'StreamManager');
         camera.process.kill('SIGTERM'); // Use SIGTERM for graceful shutdown
         
         // Set a timeout to forcefully kill if SIGTERM doesn't work
@@ -407,7 +407,7 @@ export class StreamManager {
 
       camera.isActive = false;
       camera.process = null;
-      logger.info(`Stopped streaming from camera ${cameraId}`, 'StreamManager');
+      // Stream stopped log disabled - logger.info(`Stopped streaming from camera ${cameraId}`, 'StreamManager');
       return true;
     }
 
@@ -416,7 +416,7 @@ export class StreamManager {
 
   // Restart a camera stream - useful for recovering from errors
   restartStream(cameraId: string): boolean {
-    logger.info(`Attempting to restart stream for camera ${cameraId}`, 'StreamManager');
+    // Stream restart log disabled - logger.info(`Attempting to restart stream for camera ${cameraId}`, 'StreamManager');
 
     // First stop the stream
     this.stopStream(cameraId);
@@ -442,7 +442,7 @@ export class StreamManager {
 
   // Start a test stream that generates fake frames
   startTestStream(cameraId: string) {
-    logger.info(`*** STARTING TEST STREAM for camera ${cameraId} ***`, 'StreamManager');
+    // Test stream start log disabled - logger.info(`*** STARTING TEST STREAM for camera ${cameraId} ***`, 'StreamManager');
     const camera = this.cameras.get(cameraId);
     if (!camera) {
       logger.error(`Cannot start test stream: Camera ${cameraId} not found`, 'StreamManager');
@@ -459,7 +459,7 @@ export class StreamManager {
       camera.process = null;
     }
 
-    logger.info(`Starting test stream for camera ${cameraId}`, 'StreamManager');
+    // Test stream log disabled - logger.info(`Starting test stream for camera ${cameraId}`, 'StreamManager');
     camera.isActive = true;
     camera.lastError = "Using test stream - RTSP not available";
 
@@ -549,7 +549,7 @@ export class StreamManager {
 
       // Save the current frame as a snapshot
       fs.writeFileSync(filepath, frame);
-      logger.info(`Snapshot saved: ${filepath}`, 'StreamManager');
+      // Snapshot save log disabled - logger.info(`Snapshot saved: ${filepath}`, 'StreamManager');
 
       return `/snapshots/${filename}`;
     } catch (error: any) {
@@ -581,7 +581,7 @@ export class StreamManager {
     const camera = this.cameras.get(cameraId);
     if (!camera || !camera.isActive) return;
 
-    logger.info(`Simulating motion detection for camera ${cameraId}`, 'StreamManager');
+    // Motion simulation log disabled - logger.info(`Simulating motion detection for camera ${cameraId}`, 'StreamManager');
 
     // Emit motion detected event
     this.io.emit("motionDetected", {

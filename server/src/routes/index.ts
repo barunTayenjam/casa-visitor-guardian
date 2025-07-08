@@ -819,14 +819,176 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Get all motion events (what the frontend expects)
+  app.get('/api/motion/events', (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Get events from files in the events directory
+      const eventsDir = path.join(__dirname, '../../public/events');
+      let allEvents: MotionEvent[] = [];
+      
+      try {
+        if (fs.existsSync(eventsDir)) {
+          const files = fs.readdirSync(eventsDir)
+            .filter(file => file.endsWith('.jpg'))
+            .sort((a, b) => {
+              const timeA = parseTimestampFromFilename(a);
+              const timeB = parseTimestampFromFilename(b);
+              return timeB - timeA; // Newest first
+            })
+            .slice(0, limit);
+
+          allEvents = files.map(file => {
+            const parts = file.split('_');
+            const cameraId = parts[1] || 'unknown';
+            let timestamp = new Date().toISOString();
+            
+            if (parts.length >= 3) {
+              const timestampPart = parts[2]?.split('.')[0];
+              if (timestampPart) {
+                const datePart = timestampPart.substring(0, 10);
+                const timePartWithHyphens = timestampPart.substring(11);
+                const timeParts = timePartWithHyphens.split('-');
+                
+                let formattedTime = '';
+                if (timeParts.length === 4) {
+                  const ms = parseInt(timeParts[3].replace('Z', ''), 10);
+                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
+                } else if (timeParts.length === 3) {
+                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
+                }
+                
+                const isoTimestamp = `${datePart}T${formattedTime}`;
+                const parsedDate = new Date(isoTimestamp);
+                if (!isNaN(parsedDate.getTime())) {
+                  timestamp = parsedDate.toISOString();
+                }
+              }
+            }
+            
+            return {
+              id: `evt_${file}`,
+              cameraId,
+              timestamp,
+              imagePath: `/events/${file}`,
+              confidence: 75,
+              duration: 0,
+              cameraName: cameraId,
+              labels: ['motion'],
+              location: cameraId
+            };
+          });
+        }
+      } catch (error) {
+        console.warn('Error reading events directory:', error);
+      }
+      
+      // Filter in-memory events to only include those where the image file actually exists
+      const memoryEvents = recentEvents
+        .filter(event => {
+          if (!event.imagePath) return false;
+          const filename = event.imagePath.replace('/events/', '');
+          const filepath = path.join(eventsDir, filename);
+          return fs.existsSync(filepath);
+        })
+        .slice(0, limit);
+      
+      // Combine and deduplicate
+      const combinedEvents = [...allEvents, ...memoryEvents];
+      const uniqueEvents = combinedEvents.filter((event, index, self) => 
+        index === self.findIndex(e => e.id === event.id)
+      ).slice(0, limit);
+      
+      res.json({ success: true, events: uniqueEvents });
+    } catch (error) {
+      console.error('Error getting motion events:', error);
+      res.status(500).json({ success: false, error: 'Failed to get motion events' });
+    }
+  });
+
   // Get motion events for a specific camera
   app.get('/api/motion/:cameraId/events', (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const events = recentEvents
-        .filter(event => event.cameraId === req.params.cameraId)
+      const cameraId = req.params.cameraId;
+      const eventsDir = path.join(__dirname, '../../public/events');
+      
+      // Get events from files in the events directory for this camera
+      let fileEvents: MotionEvent[] = [];
+      try {
+        if (fs.existsSync(eventsDir)) {
+          const files = fs.readdirSync(eventsDir)
+            .filter(file => file.endsWith('.jpg') && file.includes(`_${cameraId}_`))
+            .sort((a, b) => {
+              const timeA = parseTimestampFromFilename(a);
+              const timeB = parseTimestampFromFilename(b);
+              return timeB - timeA; // Newest first
+            })
+            .slice(0, limit);
+
+          fileEvents = files.map(file => {
+            const parts = file.split('_');
+            let timestamp = new Date().toISOString();
+            
+            if (parts.length >= 3) {
+              const timestampPart = parts[2]?.split('.')[0];
+              if (timestampPart) {
+                const datePart = timestampPart.substring(0, 10);
+                const timePartWithHyphens = timestampPart.substring(11);
+                const timeParts = timePartWithHyphens.split('-');
+                
+                let formattedTime = '';
+                if (timeParts.length === 4) {
+                  const ms = parseInt(timeParts[3].replace('Z', ''), 10);
+                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
+                } else if (timeParts.length === 3) {
+                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
+                }
+                
+                const isoTimestamp = `${datePart}T${formattedTime}`;
+                const parsedDate = new Date(isoTimestamp);
+                if (!isNaN(parsedDate.getTime())) {
+                  timestamp = parsedDate.toISOString();
+                }
+              }
+            }
+            
+            return {
+              id: `evt_${file}`,
+              cameraId,
+              timestamp,
+              imagePath: `/events/${file}`,
+              confidence: 75,
+              duration: 0,
+              cameraName: cameraId,
+              labels: ['motion'],
+              location: cameraId
+            };
+          });
+        }
+      } catch (error) {
+        console.warn(`Error reading events directory for camera ${cameraId}:`, error);
+      }
+      
+      // Filter in-memory events to only include those where the image file actually exists
+      const memoryEvents = recentEvents
+        .filter(event => {
+          if (event.cameraId !== cameraId) return false;
+          if (!event.imagePath) return false;
+          const filename = event.imagePath.replace('/events/', '');
+          const filepath = path.join(eventsDir, filename);
+          return fs.existsSync(filepath);
+        })
         .slice(0, limit);
-      res.json({ success: true, events });
+      
+      // Combine and deduplicate
+      const combinedEvents = [...fileEvents, ...memoryEvents];
+      const uniqueEvents = combinedEvents.filter((event, index, self) => 
+        index === self.findIndex(e => e.id === event.id)
+      ).slice(0, limit);
+      
+      res.json({ success: true, events: uniqueEvents });
     } catch (error) {
       console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });

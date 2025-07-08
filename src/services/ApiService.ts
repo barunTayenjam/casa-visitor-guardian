@@ -2,8 +2,8 @@ import { Camera, MotionEvent } from '@/types/security';
 
 // API URLs are now relative in development mode since we use Vite's proxy
 const isDev = import.meta.env.DEV;
-const API_URL = isDev ? '/api' : import.meta.env.VITE_API_URL;
-const BACKEND_URL = isDev ? '' : import.meta.env.VITE_BACKEND_URL;
+const API_URL = isDev ? '/api' : '/api'; // Always use relative URLs, nginx will proxy
+const BACKEND_URL = isDev ? '' : ''; // Always use relative URLs in production
 
 // Custom error types
 export class ApiError extends Error {
@@ -202,7 +202,7 @@ class ApiService {
       name: camera.name,
       status: status as 'online' | 'offline' | 'warning',
       streamUrl: camera.rtspUrl,
-      thumbnail: '/placeholder-camera.jpg',
+      thumbnail: '/placeholder-camera.svg',
       location: camera.name, // Use camera name as location for now
       detectionEnabled: true, // Default, will be updated from motion settings
       sensitivity: 0.5, // Default, will be updated from motion settings
@@ -707,9 +707,9 @@ class ApiService {
         { filename }
       );
     }
-    // Ensure absolute URL for images, especially in development
-    const baseUrl = import.meta.env.DEV ? 'http://localhost:8082' : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:8082');
-    const url = `${baseUrl}/events/${filename}`;
+    // Use relative URLs in production so nginx can proxy them correctly
+    // In development, Vite's proxy will handle the routing
+    const url = `/events/${filename}`;
     console.log('Generated event image URL:', url);
     return url;
   }
@@ -724,7 +724,9 @@ class ApiService {
         { filename }
       );
     }
-    const url = `${BACKEND_URL}/snapshots/${filename}`;
+    // Use relative URLs in production so nginx can proxy them correctly
+    // In development, Vite's proxy will handle the routing
+    const url = `/snapshots/${filename}`;
     console.log('Generated snapshot image URL:', url);
     return url;
   }

@@ -10,14 +10,27 @@ interface EventGridProps {
 }
 
 export const EventGrid: React.FC<EventGridProps> = ({ events, onImageClick }) => {
+  console.log("EventGrid: Rendering", events.length, "events");
+  
+  if (events.length === 0) {
+    console.log("EventGrid: No events to display");
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No motion events found.
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {events.map((event) => (
-        <Card
-          key={event.id}
-          className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-          onClick={() => onImageClick?.(event)}
-        >
+      {events.map((event) => {
+        console.log("EventGrid: Processing event", event.id, "with imageUrl", event.imageUrl);
+        return (
+          <Card
+            key={event.id}
+            className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+            onClick={() => onImageClick?.(event)}
+          >
           <div className="aspect-video relative bg-muted w-full">
             {event.imageUrl ? (
               <img
@@ -26,11 +39,17 @@ export const EventGrid: React.FC<EventGridProps> = ({ events, onImageClick }) =>
                 className="object-cover w-full h-full"
                 loading="lazy"
                 onError={(e) => {
+                  console.error("Image failed to load:", event.imageUrl, e);
+                  console.error("Current window location:", window.location.href);
+                  console.error("Attempting to load from:", new URL(event.imageUrl, window.location.href).href);
                   const target = e.target as HTMLImageElement;
                   target.onerror = null;
                   target.src = '/placeholder-camera.jpg';
                   target.alt = 'Image not available';
                   target.style.display = 'block';
+                }}
+                onLoad={() => {
+                  console.log("Image loaded successfully:", event.imageUrl);
                 }}
               />
             ) : (
@@ -58,8 +77,9 @@ export const EventGrid: React.FC<EventGridProps> = ({ events, onImageClick }) =>
               </div>
             )}
           </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 };

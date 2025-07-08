@@ -54,7 +54,11 @@ const allowedOrigins = [
   'http://127.0.0.1:8082',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
-  'http://127.0.0.1:3000'
+  'http://127.0.0.1:3000',
+  // Add common IP ranges for Docker and local network
+  'http://192.168.31.99:3020',
+  'http://192.168.31.99:3000',
+  'http://192.168.31.99:80'
 ];
 
 // If FRONTEND_URL is set and not already in the list, add it
@@ -85,9 +89,13 @@ const io = new SocketIOServer(server, {
       if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
         // Origin allowed log disabled - console.log('*** SOCKET.IO CORS - Origin allowed:', origin);
         callback(null, true);
-      } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000')) {
-        // Allow any origin with development ports for easier development
+      } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000') || origin.includes(':3020') || origin.includes(':80')) {
+        // Allow any origin with development/production ports for easier development
         // Dev port log disabled - console.log('*** SOCKET.IO CORS - Development port detected, allowing:', origin);
+        callback(null, true);
+      } else if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)/)) {
+        // Allow local network IPs
+        // Local IP log disabled - console.log('*** SOCKET.IO CORS - Local network IP detected, allowing:', origin);
         callback(null, true);
       } else {
         // Origin blocked log disabled - console.log('*** SOCKET.IO CORS - Origin blocked:', origin);
@@ -98,7 +106,7 @@ const io = new SocketIOServer(server, {
     methods: ['GET', 'POST'],
     credentials: true
   },
-  transports: ['websocket', 'polling'],
+  transports: ['polling', 'websocket'],
   pingTimeout: 120000, // 2 minutes
   pingInterval: 45000, // 45 seconds
   upgradeTimeout: 30000,
@@ -117,8 +125,11 @@ app.use(cors({
     // Check if the origin is allowed
     if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
       callback(null, true);
-    } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000')) {
-      // Allow any origin with development ports for easier development
+    } else if (origin.includes(':8082') || origin.includes(':5173') || origin.includes(':3000') || origin.includes(':3020') || origin.includes(':80')) {
+      // Allow any origin with development/production ports for easier development
+      callback(null, true);
+    } else if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)/)) {
+      // Allow local network IPs
       callback(null, true);
     } else {
       // HTTP blocked log disabled - console.warn(`Blocked http request from origin: ${origin}`);

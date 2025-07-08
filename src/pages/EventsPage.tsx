@@ -65,6 +65,7 @@ const EventsPage = () => {
       });
       console.log("Fetched events:", response.events); // Add logging
       setEvents(response.events);
+      console.log("Events passed to EventGrid:", response.events); // New log to inspect data
       setTotalPages(response.pagination.totalPages);
       setTotalEvents(response.pagination.totalEvents);
     } catch (error) {

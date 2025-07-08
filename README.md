@@ -28,6 +28,7 @@ This project consists of two main components:
 
 - Node.js v16+ and npm/yarn installed
 - FFmpeg installed (for the backend streaming functionality)
+- Docker and Docker Compose (for containerized deployment)
 
 ### Installation
 
@@ -63,6 +64,37 @@ This project consists of two main components:
    ```
 
 3. Access the application at http://localhost:5173
+
+### Docker Deployment
+
+Simple Docker setup with fixed ports for easy deployment:
+
+#### Quick Start (Recommended)
+```sh
+# Run the startup script
+./start-docker.sh
+```
+
+#### Manual Docker Commands
+```sh
+# Standard deployment (port 3020)
+docker-compose up --build
+
+# Development mode (port 5173) - with hot reloading
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+#### Port Configuration
+The application uses these ports:
+- **Frontend**: `http://localhost:3020`
+- **Backend**: `http://localhost:9753`
+
+If you need different ports, edit the `.env` file:
+```bash
+FRONTEND_PORT=3020
+NGINX_PORT=3020
+BACKEND_PORT=9753
+```
 
 ## Configuration
 

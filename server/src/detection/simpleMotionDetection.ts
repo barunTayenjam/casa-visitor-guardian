@@ -158,14 +158,32 @@ export class SimpleMotionDetector {
         const filepath = path.join(eventsDir, filename);
         
         // Write the current frame to a file
-        fs.writeFileSync(filepath, currentFrame);
+        try {
+          // Validate that currentFrame is valid JPEG data
+          if (!currentFrame || currentFrame.length === 0) {
+            console.warn(`Motion detected for ${cameraId} but no valid frame data available`);
+            return;
+          }
+          
+          // Check if the frame starts with JPEG header (0xFF 0xD8)
+          if (currentFrame[0] !== 0xFF || currentFrame[1] !== 0xD8) {
+            console.warn(`Motion detected for ${cameraId} but frame data is not valid JPEG format`);
+            return;
+          }
+          
+          fs.writeFileSync(filepath, currentFrame);
+          console.log(`Motion event image saved: ${filepath} (${currentFrame.length} bytes)`);
+        } catch (error) {
+          console.error(`Failed to save motion event image for ${cameraId}:`, error);
+          return;
+        }
         
         // Calculate motion confidence based on size difference
         const confidence = Math.min(100, Math.round((sizeDiff / 10000) * 100));
         
-        // Create motion event
+        // Create motion event only if image was successfully saved
         const event = {
-          id: `evt_${Date.now()}`,
+          id: `evt_${filename}`,
           cameraId,
           timestamp: new Date().toISOString(),
           imagePath: `/events/${filename}`,

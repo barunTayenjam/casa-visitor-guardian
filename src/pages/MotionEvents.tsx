@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { EventViewer } from '@/components/dashboard/EventViewer';
+import { EventGrid } from '@/components/dashboard/EventGrid';
 import { useToast } from '@/hooks/use-toast';
 import apiService, { ApiError } from '@/services/ApiService';
 import { MotionEvent } from '@/types/security';
@@ -170,7 +170,6 @@ const MotionEvents = () => {
       </div>
 
       {/* Statistics Cards */}
-      {/*
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -220,10 +219,8 @@ const MotionEvents = () => {
           </CardContent>
         </Card>
       </div>
-      */}
 
       {/* Filters */}
-      {/*
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -312,52 +309,50 @@ const MotionEvents = () => {
           </div>
         </CardContent>
       </Card>
-      */}
 
       {/* Events Display */}
-      {/*
-      <div className="w-full">
-        {loading ? (
-          <div className="flex items-center justify-center h-[400px]">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : events.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            No events found matching your criteria.
-          </div>
-        ) : (
-          <EventViewer 
-            events={sortedEvents}
-            onImageClick={(event) => {
-              console.log("Image clicked for event:", event.id, "URL:", event.imageUrl); // Added log
-              setSelectedEvent(event);
-            }}
-          />
-        )}
+      <Card>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center h-[400px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No motion events found matching your criteria.
+            </div>
+          ) : (
+            <EventGrid 
+              events={sortedEvents}
+              onImageClick={(event) => {
+                console.log("Image clicked for event:", event.id, "URL:", event.imageUrl); // Added log
+                setSelectedEvent(event);
+              }}
+            />
+          )}
 
-        {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-              </PaginationItem>
-              {[...Array(totalPages)].map((_, index) => (
-                <PaginationItem key={index}>
-                  <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
-                    {index + 1}
-                  </PaginationLink>
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
                 </PaginationItem>
-              )))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-      </div>
-      */}
+                {[...Array(totalPages)].map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink href="#" isActive={index + 1 === currentPage} onClick={() => handlePageChange(index + 1)}>
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </CardContent>
+      </Card>
 
-      {/*
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-4xl">
           <div className="relative">
@@ -410,7 +405,6 @@ const MotionEvents = () => {
           </div>
         </DialogContent>
       </Dialog>
-      */}
     </div>
   );
 };

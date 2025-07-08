@@ -43,13 +43,14 @@ class SocketService {
         }
 
         // In development, use localhost explicitly to avoid CORS issues
-        // In production, use the BACKEND_URL from env
+        // In production, use relative URL (nginx will proxy to backend)
         let socketUrl: string;
         if (import.meta.env.DEV) {
-          // Use localhost explicitly for development (proxy will handle it)
-          socketUrl = 'http://localhost:8082';
+          // Use the Vite dev server port for development (proxy will handle it)
+          socketUrl = window.location.origin;
         } else {
-          socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:9753';
+          // In production (Docker), use relative URL - nginx will proxy to backend
+          socketUrl = window.location.origin;
         }
         
         console.log('*** SOCKET SERVICE CONNECTING TO:', socketUrl, '***');
@@ -57,8 +58,8 @@ class SocketService {
         console.log('*** BACKEND_URL:', import.meta.env.VITE_BACKEND_URL, '***');
         console.log('*** WINDOW LOCATION:', window.location.href, '***');
 
-        // In development, prefer polling transport for better proxy compatibility
-        const transports = import.meta.env.DEV ? ['polling', 'websocket'] : ['websocket', 'polling'];
+        // Prefer polling transport for better proxy compatibility in all environments
+        const transports = ['polling', 'websocket'];
         
         this.socket = io(socketUrl, {
           transports,

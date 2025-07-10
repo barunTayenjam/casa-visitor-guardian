@@ -37,14 +37,18 @@ const lastEventTimes = new Map<string, number>();
 const previousFrames = new Map<string, Buffer>();
 
 // Simple motion detection manager
+import { PersonDetector } from './personDetection.js';
+
 export class SimpleMotionDetector {
   private streamManager: StreamManager;
   private io: SocketIOServer;
+  private personDetector: PersonDetector;
   private detectionInterval: NodeJS.Timeout | null = null;
 
-  constructor(streamManager: StreamManager, io: SocketIOServer) {
-    this.streamManager = streamManager;
-    this.io = io;
+  constructor(streamManager: StreamManager, io: SocketIOServer, personDetector: PersonDetector) {
+     this.streamManager = streamManager;
+     this.io = io;
+     this.personDetector = personDetector;
     
     // Initialize default settings for all cameras
     this.streamManager.getAllCameras().forEach(camera => {
@@ -173,6 +177,19 @@ export class SimpleMotionDetector {
           
           fs.writeFileSync(filepath, currentFrame);
           console.log(`Motion event image saved: ${filepath} (${currentFrame.length} bytes)`);
+
+          // Trigger person detection on the saved image
+          this.personDetector.detectPersonsFromImage(cameraId, filepath)
+            .then(result => {
+              if (result && result.persons.length > 0) {
+                console.log(`Persons detected in motion event image for camera ${cameraId}:`, result.persons.length);
+                // You might want to emit a specific event for person detection in motion images
+                this.io.emit('personDetectedInMotion', { cameraId, imagePath: `/events/${filename}`, persons: result.persons });
+              }
+            })
+            .catch(error => {
+              console.error(`Error detecting persons in motion event image for camera ${cameraId}:`, error);
+            });
         } catch (error) {
           console.error(`Failed to save motion event image for ${cameraId}:`, error);
           return;
@@ -217,8 +234,8 @@ export class SimpleMotionDetector {
 }
 
 // Create and start motion detection
-export function setupSimpleMotionDetection(streamManager: StreamManager, io: SocketIOServer): SimpleMotionDetector {
-  const motionDetector = new SimpleMotionDetector(streamManager, io);
+export function setupSimpleMotionDetection(streamManager: StreamManager, io: SocketIOServer, personDetector: PersonDetector): SimpleMotionDetector {
+  const motionDetector = new SimpleMotionDetector(streamManager, io, personDetector);
   motionDetector.start();
   
   // Make available globally

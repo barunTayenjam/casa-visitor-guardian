@@ -17,7 +17,8 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
-  Trash2
+  Trash2,
+  ScanSearch // Added for the new button
 } from 'lucide-react';
 import {
   Select,
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { useCameras } from '@/contexts/CameraContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 
+
 const MotionEvents = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
@@ -50,6 +52,7 @@ const MotionEvents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [scanning, setScanning] = useState(false); // New state for scanning
 
   const loadEvents = useCallback(async () => {
     console.log('Loading events for MotionEvents page...');
@@ -127,6 +130,26 @@ const MotionEvents = () => {
     document.body.removeChild(link);
   };
 
+  const handleScanSnapshots = async () => {
+    setScanning(true);
+    try {
+      await apiService.scanSnapshotsForPersons();
+      toast({
+        title: "Scan Initiated",
+        description: "Scanning of past snapshots for persons has been initiated.",
+      });
+    } catch (error) {
+      console.error('Failed to scan snapshots for persons:', error);
+      toast({
+        title: "Error",
+        description: `Failed to scan snapshots for persons: ${error instanceof ApiError ? error.message : String(error)}`,
+        variant: "destructive",
+      });
+    } finally {
+      setScanning(false);
+    }
+  };
+
   // Filter and sort events (now done by backend, but keeping for client-side if needed)
   const sortedEvents = [...events].sort((a, b) => {
     switch (sortBy) {
@@ -166,6 +189,10 @@ const MotionEvents = () => {
         <Button onClick={() => loadEvents()} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
+        </Button>
+        <Button onClick={handleScanSnapshots} disabled={scanning || loading}>
+          <ScanSearch className={`h-4 w-4 mr-2 ${scanning ? 'animate-spin' : ''}`} />
+          {scanning ? 'Scanning...' : 'Scan Snapshots for Persons'}
         </Button>
       </div>
 

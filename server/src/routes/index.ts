@@ -4,6 +4,10 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { StreamManager, Camera } from '../streams/rtspManager.js';
+import { faceRecognition } from '../detection/faceRecognition.js'; // Keep .js extension for ESM
+// personDetection is made available globally by setupPersonDetection in index.ts
+declare const personDetection: import('../detection/personDetection.js').PersonDetector;
+import { UploadedFile } from 'express-fileupload';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -67,10 +71,18 @@ interface NotificationSettings {
   quietHoursEnd: string;
 }
 
+interface DetectionSettings {
+  personDetectionEnabled: boolean;
+  personDetectionConfidence: number;
+  motionDetectionEnabled: boolean;
+  motionDetectionSensitivity: number;
+}
+
 interface SystemSettings {
   general: GeneralSettings;
   storage: StorageSettings;
   notifications: NotificationSettings;
+  detection: DetectionSettings;
 }
 
 // Store system settings in memory
@@ -99,6 +111,12 @@ let systemSettings: SystemSettings = {
     quietHoursStart: '22:00',
     quietHoursEnd: '07:00',
   },
+  detection: {
+    personDetectionEnabled: true,
+    personDetectionConfidence: 0.6,
+    motionDetectionEnabled: true,
+    motionDetectionSensitivity: 0.5,
+  }
 };
 
 // Helper to add alerts
@@ -162,6 +180,37 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   const motionDetector = global.motionDetector;
   const personDetector = global.personDetector;
   
+  // API endpoint to scan all saved past snapshots for persons
+  app.post('/api/scan-snapshots-for-persons', async (req, res) => {
+    try {
+      const eventsDir = path.join(__dirname, '../../public/events');
+      const files = fs.readdirSync(eventsDir);
+      
+      // Filter for snapshot files (motion_*.jpg)
+      const snapshots = files.filter(file => file.startsWith('motion_') && file.endsWith('.jpg'));
+      
+      // Process each snapshot
+      for (const snapshot of snapshots) {
+        const snapshotPath = path.join(eventsDir, snapshot);
+        const result = await personDetector.detectPersonsFromImage(snapshotPath);
+        
+        if (result && result.persons.length > 0) {
+          // Create unique folder for each person
+          const personDir = path.join(eventsDir, `person_${Date.now()}`);
+          fs.mkdirSync(personDir, { recursive: true });
+          
+          // Copy/move snapshot to person directory
+          fs.copyFileSync(snapshotPath, path.join(personDir, snapshot));
+        }
+      }
+      
+      res.status(200).json({ message: 'Successfully scanned snapshots for persons', processed: snapshots.length });
+    } catch (error) {
+      console.error('Error scanning snapshots for persons:', error);
+      res.status(500).json({ error: 'Failed to scan snapshots for persons' });
+    }
+  });
+
   // Add motion event listener
   const handleMotionDetected = (event: MotionEvent) => {
     // Motion event log disabled - console.log('Motion event received in routes:', event);
@@ -244,7 +293,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Update system settings
   app.put('/api/settings', (req: Request, res: Response) => {
     try {
-      const { general, storage, notifications } = req.body;
+      const { general, storage, notifications, detection } = req.body;
       if (general) {
         systemSettings.general = { ...systemSettings.general, ...general };
       }
@@ -253,6 +302,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       }
       if (notifications) {
         systemSettings.notifications = { ...systemSettings.notifications, ...notifications };
+      }
+      if (detection) {
+        systemSettings.detection = { ...systemSettings.detection, ...detection };
       }
       res.json({ success: true, message: 'Settings updated successfully', settings: systemSettings });
     } catch (error) {
@@ -1385,18 +1437,62 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  
+  // Analyze images and organize into person folders
+  app.post('/api/analyze-persons', async (req: Request, res: Response) => {
+    try {
+      console.log('Starting person analysis of saved images...');
+      
+      // Process all images
+      const result = await faceRecognition.processAllImages();
+      
+      // Get all identified persons
+      const persons = faceRecognition.getIdentifiedPersons();
+      
+      res.json({
+        success: true,
+        result,
+        persons: persons.map(person => ({
+          personId: person.personId,
+          imageCount: person.images.length,
+          firstSeen: person.firstSeen,
+          lastSeen: person.lastSeen
+        }))
+      });
+    } catch (error) {
+      console.error('Error analyzing persons:', error);
+      res.status(500).json({ success: false, error: 'Failed to analyze persons' });
+    }
+  });
 
-  
+  // Endpoint to trigger person detection from an image file
+  app.post('/api/detect-person-from-image', async (req, res) => {
+    const { cameraId } = req.query;
+    if (!cameraId) {
+      return res.status(400).send('Camera ID is required.');
+    }
 
-  
+    if (!req.files || Object.keys(req.files).length === 0) {
+      return res.status(400).send('No files were uploaded.');
+    }
 
-  
+    const imageFile = req.files.image as UploadedFile;
+    if (!imageFile) {
+      return res.status(400).send('Image file not found in the request.');
+    }
+
+    try {
+      await personDetection.detectPersonsFromImage(cameraId as string, imageFile.data);
+      res.status(200).send('Person detection triggered successfully.');
+    } catch (error) {
+      console.error('Error triggering person detection from image:', error);
+      res.status(500).send('Failed to trigger person detection from image.');
+    }
+  });
 
   // Health check endpoint for Docker
   app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-      status: 'healthy', 
+    res.status(200).json({
+      status: 'healthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
     });

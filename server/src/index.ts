@@ -18,6 +18,7 @@ import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
+import { setupPersonDetection } from './detection/personDetection.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -270,6 +271,9 @@ const DEFAULT_PORT = parseInt(process.env.PORT || '9753', 10);
         
         // Setup simple motion detection
         await setupSimpleMotionDetection(streamManager, io);
+        
+        // Setup person detection
+        await setupPersonDetection(streamManager, io);
         
         // Start cron jobs
         startCronJobs(io);

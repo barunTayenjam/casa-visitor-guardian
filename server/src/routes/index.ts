@@ -160,6 +160,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get instances from global scope
   const streamManager = global.streamManager;
   const motionDetector = global.motionDetector;
+  const personDetector = global.personDetector;
   
   // Add motion event listener
   const handleMotionDetected = (event: MotionEvent) => {
@@ -580,6 +581,41 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error(`Error updating motion settings for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to update motion settings' });
+    }
+  });
+
+  // Get person detection settings for a camera
+  app.get('/api/person/:cameraId/settings', (req: Request, res: Response) => {
+    try {
+      const settings = personDetector.getSettings(req.params.cameraId);
+      if (!settings) {
+        return res.status(404).json({ success: false, error: 'Settings not found' });
+      }
+      res.json({ success: true, settings });
+    } catch (error) {
+      console.error(`Error getting person detection settings for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to get person detection settings' });
+    }
+  });
+
+  // Update person detection settings for a camera
+  app.put('/api/person/:cameraId/settings', (req: Request, res: Response) => {
+    try {
+      const { enabled, minConfidence, cooldownPeriod } = req.body;
+      const updated = personDetector.updateSettings(req.params.cameraId, {
+        enabled,
+        minConfidence,
+        cooldownPeriod
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`Error updating person detection settings for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to update person detection settings' });
     }
   });
 

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Camera, Plus, Trash2 } from 'lucide-react';
 import { Camera as CameraType } from '@/types/security';
 import { useCameras } from '@/contexts/CameraContext';
+import apiService from '@/services/ApiService';
 import { 
   Dialog, 
   DialogContent, 
@@ -42,6 +43,8 @@ interface CameraFormData {
   sensitivity: number;
   resolution: string;
   fps: number;
+  personDetectionEnabled: boolean;
+  personDetectionConfidence: number;
 }
 
 const CameraConfig = () => {
@@ -60,6 +63,8 @@ const CameraConfig = () => {
       sensitivity: 0.75,
       resolution: '1920x1080',
       fps: 30,
+      personDetectionEnabled: true,
+      personDetectionConfidence: 0.6,
     }
   });
 
@@ -72,6 +77,8 @@ const CameraConfig = () => {
       sensitivity: 0.75,
       resolution: '1920x1080',
       fps: 30,
+      personDetectionEnabled: true,
+      personDetectionConfidence: 0.6,
     });
     setIsEditing(false);
     setCurrentCameraId(null);
@@ -79,6 +86,8 @@ const CameraConfig = () => {
   };
 
   const openEditCameraDialog = (camera: CameraType) => {
+    // We need to get person detection settings from the API
+    // For now, we'll use default values
     form.reset({
       name: camera.name,
       location: camera.location,
@@ -87,48 +96,82 @@ const CameraConfig = () => {
       sensitivity: camera.sensitivity,
       resolution: camera.resolution,
       fps: camera.fps,
+      personDetectionEnabled: true, // This should be fetched from API in a real implementation
+      personDetectionConfidence: 0.6, // This should be fetched from API in a real implementation
     });
     setCurrentCameraId(camera.id);
     setIsEditing(true);
     setDialogOpen(true);
   };
 
-  const handleAddCamera = (data: CameraFormData) => {
-    addCamera({
-      name: data.name,
-      location: data.location,
-      streamUrl: data.streamUrl,
-      detectionEnabled: data.detectionEnabled,
-      sensitivity: data.sensitivity,
-      resolution: data.resolution,
-      fps: data.fps,
-    });
+  const handleAddCamera = async (data: CameraFormData) => {
+    try {
+      const cameraId = await addCamera({
+        name: data.name,
+        location: data.location,
+        streamUrl: data.streamUrl,
+        detectionEnabled: data.detectionEnabled,
+        sensitivity: data.sensitivity,
+        resolution: data.resolution,
+        fps: data.fps,
+      });
 
-    setDialogOpen(false);
-    toast({
-      title: "Camera Added",
-      description: `${data.name} has been added successfully.`,
-    });
+      // Update person detection settings
+      if (cameraId) {
+        await apiService.updatePersonDetectionSettings(cameraId, {
+          enabled: data.personDetectionEnabled,
+          minConfidence: data.personDetectionConfidence,
+        });
+      }
+
+      setDialogOpen(false);
+      toast({
+        title: "Camera Added",
+        description: `${data.name} has been added successfully.`,
+      });
+    } catch (err) {
+      console.error('Failed to add camera:', err);
+      toast({
+        title: "Error",
+        description: "Failed to add camera. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleUpdateCamera = (data: CameraFormData) => {
+  const handleUpdateCamera = async (data: CameraFormData) => {
     if (!currentCameraId) return;
     
-    updateCamera(currentCameraId, {
-      name: data.name,
-      location: data.location,
-      streamUrl: data.streamUrl,
-      detectionEnabled: data.detectionEnabled,
-      sensitivity: data.sensitivity,
-      resolution: data.resolution,
-      fps: data.fps,
-    });
+    try {
+      await updateCamera(currentCameraId, {
+        name: data.name,
+        location: data.location,
+        streamUrl: data.streamUrl,
+        detectionEnabled: data.detectionEnabled,
+        sensitivity: data.sensitivity,
+        resolution: data.resolution,
+        fps: data.fps,
+      });
 
-    setDialogOpen(false);
-    toast({
-      title: "Camera Updated",
-      description: `${data.name} has been updated successfully.`,
-    });
+      // Update person detection settings
+      await apiService.updatePersonDetectionSettings(currentCameraId, {
+        enabled: data.personDetectionEnabled,
+        minConfidence: data.personDetectionConfidence,
+      });
+
+      setDialogOpen(false);
+      toast({
+        title: "Camera Updated",
+        description: `${data.name} has been updated successfully.`,
+      });
+    } catch (err) {
+      console.error(`Failed to update camera ${currentCameraId}:`, err);
+      toast({
+        title: "Error",
+        description: "Failed to update camera. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteCamera = (id: string) => {
@@ -167,11 +210,15 @@ const CameraConfig = () => {
     return isSuccessful;
   };
 
-  const onSubmit = (data: CameraFormData) => {
-    if (isEditing) {
-      handleUpdateCamera(data);
-    } else {
-      handleAddCamera(data);
+  const onSubmit = async (data: CameraFormData) => {
+    try {
+      if (isEditing) {
+        await handleUpdateCamera(data);
+      } else {
+        await handleAddCamera(data);
+      }
+    } catch (err) {
+      console.error('Form submission error:', err);
     }
   };
 
@@ -365,6 +412,110 @@ const CameraConfig = () => {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Detection Settings</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="detectionEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Motion Detection</FormLabel>
+                          <FormDescription>
+                            Enable motion-based detection
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            className="ml-2"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="sensitivity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Motion Sensitivity</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0.75" 
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0.75)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Value between 0-1 (higher = more sensitive)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="personDetectionEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Person Detection</FormLabel>
+                          <FormDescription>
+                            Enable AI-based person detection
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            className="ml-2"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="personDetectionConfidence"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Person Detection Threshold</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0.6" 
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0.6)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Confidence threshold (0-1)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
               
               <DialogFooter className="mt-6">

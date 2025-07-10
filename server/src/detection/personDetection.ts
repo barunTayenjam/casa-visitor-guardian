@@ -3,7 +3,66 @@ import { StreamManager } from '../streams/rtspManager.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import * as tf from '@tensorflow/tfjs-node';
+
+interface PersonDetectionResult {
+  boxes: number[][];
+  scores: number[];
+  classes: number[];
+  personDetected: boolean;
+  eventImagePath?: string;
+}
+
+// Flag to track if person detection is available
+let personDetectionAvailable = false;
+
+// Define a type alias for the TensorFlow.js module
+type TensorFlowModule = typeof import('@tensorflow/tfjs-node');
+
+// Mock implementation for when TensorFlow isn't available
+const mockTf = {
+  ready: Promise.resolve(),
+  setBackend: () => {},
+  loadGraphModel: () => ({
+    predict: () => ({
+      dataSync: () => [],
+      dispose: () => {}
+    }),
+    executeAsync: async () => [{
+      dataSync: () => [],
+      dispose: () => {}
+    }],
+    dispose: () => {}
+  }),
+  decodeImage: () => { throw new Error('TensorFlow not available'); } // Added for type compatibility
+};
+
+// Declare variable to hold the module
+let tf: TensorFlowModule | typeof mockTf = mockTf;
+
+// Try to load the real module
+const loadModule = async () => {
+  try {
+    console.log('Attempting to load @tensorflow/tfjs-node...');
+    const tfModule = await import('@tensorflow/tfjs-node');
+    tf = tfModule;
+    console.log('TensorFlow.js-node module imported. Ensuring it is ready...');
+    await tf.ready(); // Ensure TensorFlow.js is ready
+    console.log('TensorFlow.js-node is ready. Setting backend to CPU...');
+    tf.setBackend('cpu'); // Explicitly set backend to CPU
+    console.log('tf object after loading module:', tf);
+    // tf.enableProdMode(); // Enable production mode for performance
+    // tf.ENV.set('WEBGL_PACK_DEPTHWISE', false); // Workaround for some WebGL issues
+    // tf.ENV.set('WEBGL_CONV_IM2COL', false); // Workaround for some WebGL issues
+    personDetectionAvailable = true;
+    console.log('Person detection module loaded successfully and backend set to CPU.');
+  } catch (error) {
+    console.error('Detailed error loading person detection module:', error);
+    console.log('Person detection will be disabled due to the above error.');
+  }
+};
+
+// Start loading module in the background
+loadModule();
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -32,7 +91,7 @@ const lastEventTimes = new Map<string, number>();
 export class PersonDetector {
   private streamManager: StreamManager;
   private io: SocketIOServer;
-  private model: tf.GraphModel | null = null;
+  private model: TensorFlowModule['GraphModel'] | null = null;
   private detectionInterval: NodeJS.Timeout | null = null;
   private isModelLoading = false;
 
@@ -53,9 +112,23 @@ export class PersonDetector {
   private async loadModel(): Promise<void> {
     if (this.model || this.isModelLoading) return;
     
+    // Check if person detection is available
+    if (!personDetectionAvailable) {
+      console.log('Person detection is disabled due to missing dependencies');
+      return;
+    }
+    
     try {
       this.isModelLoading = true;
       console.log('Loading COCO-SSD model for person detection...');
+      
+      // Set backend to CPU
+      await tf.setBackend('cpu');
+      await tf.ready();
+      // tf.enableProdMode(); // Enable production mode for performance
+      // tf.ENV.set('WEBGL_PACK_DEPTHWISE', false); // Workaround for some WebGL issues
+      // tf.ENV.set('WEBGL_CONV_IM2COL', false); // Workaround for some WebGL issues
+      
       this.model = await tf.loadGraphModel('https://tfhub.dev/tensorflow/tfjs-model/ssd_mobilenet_v2/1/default/1', {
         fromTFHub: true
       });
@@ -68,10 +141,14 @@ export class PersonDetector {
   }
 
   // Set default person detection settings for a camera
-  setDefaultSettings(cameraId: string): void {
+  setDefaultSettings(cameraId: string, systemSettings?: any): void {
+    // Use system settings if provided, otherwise use defaults
+    const personDetectionEnabled = systemSettings?.detection?.personDetectionEnabled ?? true;
+    const personDetectionConfidence = systemSettings?.detection?.personDetectionConfidence ?? 0.6;
+    
     cameraSettings.set(cameraId, {
-      enabled: true,
-      minConfidence: 0.6, // Default confidence threshold
+      enabled: personDetectionEnabled,
+      minConfidence: personDetectionConfidence, // Use system confidence threshold
       cooldownPeriod: 10000 // 10 seconds between events
     });
   }
@@ -116,8 +193,65 @@ export class PersonDetector {
     }
   }
 
+  // This method is for testing purposes only
+  public async detectPersonsFromImage(cameraId: string, imageData: string | Buffer): Promise<PersonDetectionResult | null> {
+    if (!personDetectionAvailable) {
+      console.warn('Person detection is not available. Skipping detection from image.');
+      return null;
+    }
+
+    if (!this.model) {
+      console.warn('Person detection model not loaded. Skipping detection from image.');
+      return null;
+    }
+
+    try {
+      console.log('tf object before decodeImage:', tf);
+      const imageTensor = tf.node.decodeImage(imageData as Uint8Array, 3);
+      const resizedImage = tf.image.resizeBilinear(imageTensor, [300, 300]).toInt();
+      const inputTensor = image.resizeNearestNeighbor([300, 300]).expandDims(0);
+
+      const predictions = await this.model.executeAsync(inputTensor) as TensorFlowModule['Tensor'][];
+      const [boxes, scores, classes] = predictions.map(p => p.dataSync());
+
+      inputTensor.dispose();
+      predictions.forEach(p => p.dispose());
+      image.dispose();
+
+      const detectionResult: PersonDetectionResult = {
+        boxes: [],
+        scores: [],
+        classes: [],
+        personDetected: false
+      };
+
+      for (let i = 0; i < scores.length; i++) {
+        const score = scores[i];
+        const classId = classes[i];
+
+        // COCO-SSD model class ID for 'person' is 1
+        if (classId === 1 && score > 0.5) { // Use a default confidence threshold
+          detectionResult.personDetected = true;
+          detectionResult.boxes.push(Array.from(boxes.slice(i * 4, i * 4 + 4)));
+          detectionResult.scores.push(score);
+          detectionResult.classes.push(classId);
+        }
+      }
+      return detectionResult;
+
+    } catch (error) {
+      console.error('Error during person detection from image:', error);
+      return null;
+    }
+  }  }
+
   // Process all active cameras for person detection
   private async detectPersonsOnAllCameras(): Promise<void> {
+    // Check if person detection is available
+    if (!personDetectionAvailable) {
+      return;
+    }
+    
     if (!this.model) {
       await this.loadModel();
       if (!this.model) return; // Still not loaded
@@ -132,14 +266,14 @@ export class PersonDetector {
   }
 
   // Process a single camera for person detection
-  private async detectPersonsOnCamera(cameraId: string): Promise<void> {
+  private async detectPersonsOnCamera(cameraId: string, imageBuffer?: Buffer): Promise<void> {
     const settings = cameraSettings.get(cameraId);
     if (!settings || !settings.enabled || !this.model) {
       return;
     }
 
     // Get the last frame for the camera
-    const currentFrame = this.streamManager.getLastFrame(cameraId);
+    const currentFrame = imageBuffer || this.streamManager.getLastFrame(cameraId);
     if (!currentFrame) {
       return;
     }
@@ -153,10 +287,10 @@ export class PersonDetector {
 
     try {
       // Convert the JPEG buffer to a tensor
-      const image = tf.node.decodeImage(currentFrame);
+      const image = tf.node.decodeImage(currentFrame as Uint8Array, 3);
       
       // Run detection
-      const predictions = await this.model.executeAsync(image.expandDims(0)) as tf.Tensor[];
+      const predictions = await this.model.executeAsync(image.expandDims(0)) as import('@tensorflow/tfjs').Tensor[];
       
       // Process predictions
       const [boxes, scores, classes, numDetections] = predictions;

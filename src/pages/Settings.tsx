@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import PersonAnalysis from '@/components/dashboard/PersonAnalysis';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -21,16 +22,11 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import apiService, { ApiError } from '@/services/ApiService';
+import apiService, { ApiError, LogEntry } from '@/services/ApiService';
 import { SystemSettings } from '@/types/security';
 
 // Interfaces for system data
-interface LogEntry {
-  timestamp: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  source?: string;
-}
+
 
 const Settings = () => {
   const { toast } = useToast();
@@ -62,6 +58,12 @@ const Settings = () => {
       quietHoursEnabled: false,
       quietHoursStart: '',
       quietHoursEnd: '',
+    },
+    detection: {
+      personDetectionEnabled: true,
+      personDetectionConfidence: 0.6,
+      motionDetectionEnabled: true,
+      motionDetectionSensitivity: 0.5,
     },
   });
 
@@ -230,6 +232,8 @@ const Settings = () => {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="storage">Storage</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="detection">Detection</TabsTrigger>
+            <TabsTrigger value="persons">Person Analysis</TabsTrigger>
             <TabsTrigger value="logs">System Logs</TabsTrigger>
           </TabsList>
 
@@ -330,6 +334,76 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="detection" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detection Settings</CardTitle>
+                <CardDescription>
+                  Configure motion and person detection settings for all cameras.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Person Detection</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Enable or disable person detection for all cameras
+                    </p>
+                  </div>
+                  <Switch
+                    checked={systemSettings.detection.personDetectionEnabled}
+                    onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, detection: { ...prev.detection, personDetectionEnabled: checked } }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="personConfidence">Person Detection Confidence (0.1-1.0)</Label>
+                  <Input
+                    id="personConfidence"
+                    type="number"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    value={systemSettings.detection.personDetectionConfidence}
+                    onChange={(e) => setSystemSettings(prev => ({ ...prev, detection: { ...prev.detection, personDetectionConfidence: parseFloat(e.target.value) } }))}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Higher values mean fewer false positives but may miss some people
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Motion Detection</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Enable or disable motion detection for all cameras
+                    </p>
+                  </div>
+                  <Switch
+                    checked={systemSettings.detection.motionDetectionEnabled}
+                    onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, detection: { ...prev.detection, motionDetectionEnabled: checked } }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="motionSensitivity">Motion Detection Sensitivity (0.1-1.0)</Label>
+                  <Input
+                    id="motionSensitivity"
+                    type="number"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    value={systemSettings.detection.motionDetectionSensitivity}
+                    onChange={(e) => setSystemSettings(prev => ({ ...prev, detection: { ...prev.detection, motionDetectionSensitivity: parseFloat(e.target.value) } }))}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Higher values detect smaller movements but may cause more false alarms
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="notifications" className="space-y-4">
             <Card>
               <CardHeader>
@@ -378,6 +452,10 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="persons" className="space-y-4">
+            <PersonAnalysis />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">

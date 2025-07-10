@@ -9,6 +9,7 @@ import debug from 'debug';
 // debug('socket.io:*').enabled = true;
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fileUpload from 'express-fileupload';
 
 // Modules loaded log disabled - console.log('*** MODULES LOADED SUCCESSFULLY ***');
 
@@ -19,6 +20,7 @@ import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
 import { setupPersonDetection } from './detection/personDetection.js';
+import { FaceRecognition, loadModules as loadFaceRecognitionModules } from './detection/faceRecognition.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -72,6 +74,9 @@ if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_UR
 // Initialize express app
 const app = express();
 const server = http.createServer(app);
+
+// Enable file uploads
+app.use(fileUpload());
 
 // Configure Socket.IO
 const io = new SocketIOServer(server, {
@@ -269,12 +274,18 @@ const DEFAULT_PORT = parseInt(process.env.PORT || '9753', 10);
         // Configure routes
         configureRoutes(app, io);
         
-        // Setup simple motion detection
-        await setupSimpleMotionDetection(streamManager, io);
-        
         // Setup person detection
-        await setupPersonDetection(streamManager, io);
+        const personDetector = await setupPersonDetection(streamManager, io);
         
+        // Setup simple motion detection
+        const motionDetector = await setupSimpleMotionDetection(streamManager, io, personDetector);
+        
+        // Load face recognition modules
+        await loadFaceRecognitionModules();
+
+        // Setup face recognition
+        const faceRecognition = new FaceRecognition();
+
         // Start cron jobs
         startCronJobs(io);
       } catch (err) {

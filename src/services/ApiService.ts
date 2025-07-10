@@ -41,6 +41,13 @@ interface MotionSettings {
   ignoredZones: { x: number; y: number; width: number; height: number }[];
 }
 
+// Type for person detection settings
+interface PersonDetectionSettings {
+  enabled: boolean;
+  minConfidence: number; // 0-1, threshold for person detection
+  cooldownPeriod: number; // milliseconds
+}
+
 // Type for the backend camera model
 interface BackendCamera {
   id: string;
@@ -106,13 +113,28 @@ interface NotificationSettings {
   quietHoursEnd: string;
 }
 
+interface DetectionSettings {
+  personDetectionEnabled: boolean;
+  personDetectionConfidence: number;
+  motionDetectionEnabled: boolean;
+  motionDetectionSensitivity: number;
+}
+
 interface SystemSettings {
   general: GeneralSettings;
   storage: StorageSettings;
   notifications: NotificationSettings;
+  detection: DetectionSettings;
 }
 
-class ApiService {
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  meta?: Record<string, any>;
+}
+
+export class ApiService {
   // Fetch API with timeout and retry
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
     const controller = new AbortController();
@@ -550,6 +572,121 @@ class ApiService {
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }
+  }
+
+  // Get person detection settings for a camera
+  async getPersonDetectionSettings(cameraId: string): Promise<PersonDetectionSettings> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/${cameraId}/settings`);
+      const data = await response.json();
+      
+      if (!data.success || !data.settings) {
+        throw new ApiError(
+          data.error || `Failed to get person detection settings for camera ${cameraId}`,
+          response.status,
+          'GET_PERSON_DETECTION_SETTINGS_ERROR',
+          data
+        );
+      }
+      return data.settings;
+    } catch (error) {
+      console.error(`Error fetching person detection settings for camera ${cameraId}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        `Failed to get person detection settings for camera ${cameraId}`,
+        500,
+        'GET_PERSON_DETECTION_SETTINGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Update person detection settings for a camera
+  async updatePersonDetectionSettings(cameraId: string, settings: Partial<PersonDetectionSettings>): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/${cameraId}/settings`, {
+        method: 'PUT',
+        body: JSON.stringify(settings)
+      });
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || `Failed to update person detection settings for camera ${cameraId}`,
+          response.status,
+          'UPDATE_PERSON_DETECTION_SETTINGS_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error(`Error updating person detection settings for camera ${cameraId}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        `Failed to update person detection settings for camera ${cameraId}`,
+        500,
+        'UPDATE_PERSON_DETECTION_SETTINGS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Analyze saved images and organize into person folders
+  async analyzePersons(): Promise<{
+    result: {
+      totalImages: number;
+      processedImages: number;
+      personsIdentified: number;
+    };
+    persons: {
+      personId: string;
+      imageCount: number;
+      firstSeen: string;
+      lastSeen: string;
+    }[];
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/analyze-persons`, {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to analyze persons',
+          response.status,
+          'ANALYZE_PERSONS_ERROR',
+          data
+        );
+      }
+      
+      return {
+        result: data.result,
+        persons: data.persons
+      };
+    } catch (error) {
+      console.error('Error analyzing persons:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to analyze persons',
+        500,
+        'ANALYZE_PERSONS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Scan snapshots for persons
+  async scanSnapshotsForPersons(): Promise<any> {
+    const response = await this.fetchWithRetry(`${API_URL}/scan-snapshots-for-persons`, {
+      method: 'POST'
+    });
+    return response.json();
   }
 
   // Get recent motion events

@@ -18,6 +18,7 @@ interface CameraContextType {
   takeSnapshot: (id: string, resolution?: string) => Promise<string>;
   toggleNightMode: (id: string, enabled: boolean) => Promise<void>;
   toggleMotionDetection: (id: string, enabled: boolean) => Promise<void>;
+  togglePersonDetection: (id: string, enabled: boolean) => Promise<void>;
 }
 
 interface MotionEvent {
@@ -218,6 +219,18 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Toggle person detection for a camera
+  const togglePersonDetection = async (id: string, enabled: boolean) => {
+    try {
+      await apiService.updatePersonDetectionSettings(id, { enabled });
+      // Note: We're using the same detectionEnabled property for now
+      // In a more advanced implementation, we might want to add a personDetectionEnabled property
+    } catch (err) {
+      console.error(`Failed to toggle person detection for camera ${id}:`, err);
+      throw err;
+    }
+  };
+
   return (
     <CameraContext.Provider value={{
       cameras,
@@ -232,7 +245,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       stopCameraStream,
       takeSnapshot,
       toggleNightMode,
-      toggleMotionDetection
+      toggleMotionDetection,
+      togglePersonDetection
     }}>
       {children}
     </CameraContext.Provider>

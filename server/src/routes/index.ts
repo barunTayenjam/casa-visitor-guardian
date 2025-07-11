@@ -184,27 +184,48 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.post('/api/scan-snapshots-for-persons', async (req, res) => {
     try {
       const eventsDir = path.join(__dirname, '../../public/events');
-      const files = fs.readdirSync(eventsDir);
-      
-      // Filter for snapshot files (motion_*.jpg)
-      const snapshots = files.filter(file => file.startsWith('motion_') && file.endsWith('.jpg'));
-      
-      // Process each snapshot
-      for (const snapshot of snapshots) {
-        const snapshotPath = path.join(eventsDir, snapshot);
-        const result = await personDetector.detectPersonsFromImage(snapshotPath);
-        
-        if (result && result.persons.length > 0) {
-          // Create unique folder for each person
-          const personDir = path.join(eventsDir, `person_${Date.now()}`);
-          fs.mkdirSync(personDir, { recursive: true });
-          
-          // Copy/move snapshot to person directory
-          fs.copyFileSync(snapshotPath, path.join(personDir, snapshot));
+      const snapshotsDir = path.join(__dirname, '../../public/snapshots');
+      const eventFiles = fs.existsSync(eventsDir) ? fs.readdirSync(eventsDir).filter((f: string) => f.endsWith('.jpg')) : [];
+      const snapshotFiles = fs.existsSync(snapshotsDir) ? fs.readdirSync(snapshotsDir).filter((f: string) => f.endsWith('.jpg')) : [];
+      const allFiles = [
+        ...eventFiles.map((f: string) => ({ file: f, dir: eventsDir })),
+        ...snapshotFiles.map((f: string) => ({ file: f, dir: snapshotsDir })),
+      ];
+      let processed = 0;
+      let detected = 0;
+      const detectedImages: string[] = [];
+      for (const { file, dir } of allFiles) {
+        const filePath = path.join(dir, file);
+        // Try to extract cameraId from filename: e.g., motion_cameraId_...
+        let cameraId = 'unknown';
+        const parts = file.split('_');
+        if (parts.length >= 2) cameraId = parts[1];
+        const result = await (personDetector as any).detectPersonsFromFile(cameraId, filePath);
+        processed++;
+        if (result && result.personDetected) {
+          detected++;
+          detectedImages.push(file);
+          // Emit event to clients (simulate a motion/person event)
+          io.emit('motionDetected', {
+            id: `evt_scan_${file}`,
+            cameraId,
+            timestamp: new Date().toISOString(),
+            imagePath: `/events/${file}`,
+            confidence: result.scores.length > 0 ? Math.round(Math.max(...result.scores) * 100) : 0,
+            duration: 0,
+            labels: ['person'],
+            personDetected: true,
+            personCount: result.boxes.length,
+            personBoxes: result.boxes.map((box: any, i: any) => ({ box, confidence: Math.round(result.scores[i] * 100) }))
+          });
         }
       }
-      
-      res.status(200).json({ message: 'Successfully scanned snapshots for persons', processed: snapshots.length });
+      res.status(200).json({ 
+        message: 'Scan complete', 
+        processed, 
+        detected, 
+        detectedImages 
+      });
     } catch (error) {
       console.error('Error scanning snapshots for persons:', error);
       res.status(500).json({ error: 'Failed to scan snapshots for persons' });
@@ -1481,7 +1502,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
 
     try {
-      await personDetection.detectPersonsFromImage(cameraId as string, imageFile.data);
+      await (personDetection as any).detectPersonsFromImage(cameraId as string, imageFile.data);
       res.status(200).send('Person detection triggered successfully.');
     } catch (error) {
       console.error('Error triggering person detection from image:', error);

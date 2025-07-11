@@ -15,7 +15,7 @@ import fileUpload from 'express-fileupload';
 
 // Import logger early to capture all logs
 
-import { setupRTSPStreams } from './streams/rtspManager.js';
+import { setupRTSPStreams } from './streams/rtspManager';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';

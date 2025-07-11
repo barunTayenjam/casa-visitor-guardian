@@ -100,7 +100,7 @@ export class PersonDetector {
     this.io = io;
     
     // Initialize default settings for all cameras
-    this.streamManager.getAllCameras().forEach(camera => {
+    this.streamManager.getAllCameras().forEach((camera: any) => {
       this.setDefaultSettings(camera.id);
     });
     
@@ -113,6 +113,7 @@ export class PersonDetector {
     if (this.model || this.isModelLoading) return;
     
     // Check if person detection is available
+    console.log(`personDetectionAvailable status: ${personDetectionAvailable}`);
     if (!personDetectionAvailable) {
       console.log('Person detection is disabled due to missing dependencies');
       return;
@@ -123,13 +124,15 @@ export class PersonDetector {
       console.log('Loading COCO-SSD model for person detection...');
       
       // Set backend to CPU
-      await tf.setBackend('cpu');
-      await tf.ready();
+      await (tf as any).setBackend('cpu');
+      if (typeof (tf as any).ready === 'function') {
+        await (tf as any).ready();
+      }
       // tf.enableProdMode(); // Enable production mode for performance
       // tf.ENV.set('WEBGL_PACK_DEPTHWISE', false); // Workaround for some WebGL issues
       // tf.ENV.set('WEBGL_CONV_IM2COL', false); // Workaround for some WebGL issues
       
-      this.model = await tf.loadGraphModel('https://tfhub.dev/tensorflow/tfjs-model/ssd_mobilenet_v2/1/default/1', {
+      this.model = await (tf as any).loadGraphModel('https://tfhub.dev/tensorflow/tfjs-model/ssd_mobilenet_v2/1/default/1', {
         fromTFHub: true
       });
       console.log('COCO-SSD model loaded successfully');
@@ -200,23 +203,27 @@ export class PersonDetector {
       return null;
     }
 
-    if (!this.model) {
+    if (!this.model || typeof (this.model as any).executeAsync !== 'function') {
       console.warn('Person detection model not loaded. Skipping detection from image.');
       return null;
     }
 
     try {
       console.log('tf object before decodeImage:', tf);
-      const imageTensor = tf.node.decodeImage(imageData as Uint8Array, 3);
-      const resizedImage = tf.image.resizeBilinear(imageTensor, [300, 300]).toInt();
-      const inputTensor = image.resizeNearestNeighbor([300, 300]).expandDims(0);
+      if (!(tf as any).node || !(tf as any).image) {
+        throw new Error('TensorFlow.js-node is not available');
+      }
+      const imageTensor = (tf as any).node.decodeImage(imageData as Uint8Array, 3);
+      const resizedImage = (tf as any).image.resizeBilinear(imageTensor, [300, 300]).toInt();
+      const inputTensor = resizedImage.expandDims(0);
 
-      const predictions = await this.model.executeAsync(inputTensor) as TensorFlowModule['Tensor'][];
-      const [boxes, scores, classes] = predictions.map(p => p.dataSync());
+      const predictions = await (this.model as any).executeAsync(inputTensor);
+      const [boxes, scores, classes] = predictions.map((p: any) => p.dataSync());
 
       inputTensor.dispose();
-      predictions.forEach(p => p.dispose());
-      image.dispose();
+      predictions.forEach((p: any) => p.dispose());
+      imageTensor.dispose();
+      resizedImage.dispose();
 
       const detectionResult: PersonDetectionResult = {
         boxes: [],
@@ -243,7 +250,22 @@ export class PersonDetector {
       console.error('Error during person detection from image:', error);
       return null;
     }
-  }  }
+  }
+
+  /**
+   * Detect persons from an image file path (helper for batch processing)
+   * @param cameraId Camera ID or 'unknown'
+   * @param filePath Path to the image file
+   */
+  public async detectPersonsFromFile(cameraId: string, filePath: string): Promise<PersonDetectionResult | null> {
+    try {
+      const imageBuffer = fs.readFileSync(filePath);
+      return await this.detectPersonsFromImage(cameraId, imageBuffer);
+    } catch (error) {
+      console.error(`Failed to read image file for person detection: ${filePath}`, error);
+      return null;
+    }
+  }
 
   // Process all active cameras for person detection
   private async detectPersonsOnAllCameras(): Promise<void> {
@@ -259,8 +281,8 @@ export class PersonDetector {
     
     const cameras = this.streamManager.getAllCameras();
     for (const camera of cameras) {
-      if (camera.isActive) {
-        await this.detectPersonsOnCamera(camera.id);
+      if ((camera as any).isActive) {
+        await this.detectPersonsOnCamera((camera as any).id);
       }
     }
   }
@@ -286,11 +308,15 @@ export class PersonDetector {
     }
 
     try {
-      // Convert the JPEG buffer to a tensor
-      const image = tf.node.decodeImage(currentFrame as Uint8Array, 3);
+      if (!(tf as any).node || !(tf as any).image) {
+        throw new Error('TensorFlow.js-node is not available');
+      }
+      const imageTensor = (tf as any).node.decodeImage(currentFrame as Uint8Array, 3);
+      const resizedImage = (tf as any).image.resizeBilinear(imageTensor, [300, 300]).toInt();
+      const inputTensor = resizedImage.expandDims(0);
       
       // Run detection
-      const predictions = await this.model.executeAsync(image.expandDims(0)) as import('@tensorflow/tfjs').Tensor[];
+      const predictions = await (this.model as any).executeAsync(inputTensor);
       
       // Process predictions
       const [boxes, scores, classes, numDetections] = predictions;
@@ -302,8 +328,10 @@ export class PersonDetector {
       const numDetectionsData = numDetections.arraySync() as number[];
       
       // Clean up tensors
-      image.dispose();
-      predictions.forEach(t => t.dispose());
+      imageTensor.dispose();
+      resizedImage.dispose();
+      inputTensor.dispose();
+      predictions.forEach((t: any) => t.dispose());
       
       // Check if any persons were detected (class 1 in COCO-SSD)
       const personDetections = [];
@@ -342,7 +370,7 @@ export class PersonDetector {
           }
           
           // Check if the frame starts with JPEG header (0xFF 0xD8)
-          if (currentFrame[0] !== 0xFF || currentFrame[1] !== 0xD8) {
+          if ((currentFrame as any)[0] !== 0xFF || (currentFrame as any)[1] !== 0xD8) {
             console.warn(`Person detected for ${cameraId} but frame data is not valid JPEG format`);
             return;
           }
@@ -356,7 +384,7 @@ export class PersonDetector {
         
         // Get the highest confidence score
         const highestConfidence = personDetections.reduce(
-          (max, detection) => Math.max(max, detection.score), 0
+          (max: number, detection: any) => Math.max(max, detection.score), 0
         );
         
         // Create person detection event
@@ -369,7 +397,7 @@ export class PersonDetector {
           duration: 0, // Will be updated when motion stops
           personDetected: true,
           personCount: personDetections.length,
-          personBoxes: personDetections.map(d => ({
+          personBoxes: personDetections.map((d: any) => ({
             box: d.box,
             confidence: Math.round(d.score * 100)
           }))

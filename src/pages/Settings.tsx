@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PersonAnalysis from '@/components/dashboard/PersonAnalysis';
+import BatchPersonDetection from '@/components/dashboard/BatchPersonDetection';
+import DetectedPersonsViewer from '@/components/dashboard/DetectedPersonsViewer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -402,6 +404,9 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Batch Person Detection */}
+            <BatchPersonDetection />
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-4">
@@ -456,6 +461,7 @@ const Settings = () => {
 
           <TabsContent value="persons" className="space-y-4">
             <PersonAnalysis />
+            <DetectedPersonsViewer />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">

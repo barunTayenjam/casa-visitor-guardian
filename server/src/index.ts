@@ -15,12 +15,14 @@ import fileUpload from 'express-fileupload';
 
 // Import logger early to capture all logs
 
-import { setupRTSPStreams } from './streams/rtspManager';
+import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
 import { setupPersonDetection } from './detection/personDetection.js';
-import { FaceRecognition, loadModules as loadFaceRecognitionModules } from './detection/faceRecognition.js';
+import { setupBatchPersonDetection } from './detection/batchPersonDetection.js';
+import { setupBatchScheduler } from './utils/batchScheduler.js';
+// import { FaceRecognition, loadModules as loadFaceRecognitionModules } from './detection/faceRecognition.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -277,14 +279,21 @@ const DEFAULT_PORT = parseInt(process.env.PORT || '9753', 10);
         // Setup person detection
         const personDetector = await setupPersonDetection(streamManager, io);
         
+        // Setup batch person detection
+        const batchPersonDetection = setupBatchPersonDetection(io);
+        
+        // Setup batch scheduler
+        const batchScheduler = setupBatchScheduler(io);
+        batchScheduler.start(); // Start the 12-hour schedule
+        
         // Setup simple motion detection
         const motionDetector = await setupSimpleMotionDetection(streamManager, io, personDetector);
         
         // Load face recognition modules
-        await loadFaceRecognitionModules();
+        // await loadFaceRecognitionModules();
 
         // Setup face recognition
-        const faceRecognition = new FaceRecognition();
+        // const faceRecognition = new FaceRecognition();
 
         // Start cron jobs
         startCronJobs(io);

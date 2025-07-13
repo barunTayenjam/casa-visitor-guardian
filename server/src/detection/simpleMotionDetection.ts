@@ -181,10 +181,15 @@ export class SimpleMotionDetector {
           // Trigger person detection on the saved image
           this.personDetector.detectPersonsFromImage(cameraId, filepath)
             .then(result => {
-              if (result && result.persons.length > 0) {
-                console.log(`Persons detected in motion event image for camera ${cameraId}:`, result.persons.length);
+              if (result && result.personDetected && result.personCount > 0) {
+                console.log(`Persons detected in motion event image for camera ${cameraId}:`, result.personCount);
                 // You might want to emit a specific event for person detection in motion images
-                this.io.emit('personDetectedInMotion', { cameraId, imagePath: `/events/${filename}`, persons: result.persons });
+                this.io.emit('personDetectedInMotion', { 
+                  cameraId, 
+                  imagePath: `/events/${filename}`, 
+                  personCount: result.personCount,
+                  confidence: result.highestConfidence 
+                });
               }
             })
             .catch(error => {

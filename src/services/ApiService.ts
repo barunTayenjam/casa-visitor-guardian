@@ -1272,6 +1272,166 @@ export class ApiService {
     }
   }
 
+  // ==================== BATCH PERSON DETECTION METHODS ====================
+
+  // Start batch person detection
+  async startBatchPersonDetection(options: {
+    minConfidence?: number;
+    maxDetections?: number;
+    timeFilter?: 'all' | 'hour' | 'day' | 'week' | 'month';
+    saveDetectedPersons?: boolean;
+    cropPersonImages?: boolean;
+    outputResults?: boolean;
+    includeSubdirectories?: boolean;
+    saveAnnotatedImages?: boolean;
+  }): Promise<{ jobId: string }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/batch/process`, {
+        method: 'POST',
+        body: JSON.stringify(options)
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to start batch person detection',
+          response.status,
+          'START_BATCH_DETECTION_ERROR',
+          data
+        );
+      }
+      return { jobId: data.jobId };
+    } catch (error) {
+      console.error('Error starting batch person detection:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to start batch person detection',
+        500,
+        'START_BATCH_DETECTION_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get batch person detection status
+  async getBatchPersonDetectionStatus(): Promise<{ isProcessing: boolean; jobId: string | null }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/batch/status`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to get batch detection status',
+          response.status,
+          'GET_BATCH_STATUS_ERROR',
+          data
+        );
+      }
+      return data.status;
+    } catch (error) {
+      console.error('Error getting batch detection status:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to get batch detection status',
+        500,
+        'GET_BATCH_STATUS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Cancel batch person detection
+  async cancelBatchPersonDetection(): Promise<void> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/batch/cancel`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to cancel batch detection',
+          response.status,
+          'CANCEL_BATCH_DETECTION_ERROR',
+          data
+        );
+      }
+    } catch (error) {
+      console.error('Error cancelling batch detection:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to cancel batch detection',
+        500,
+        'CANCEL_BATCH_DETECTION_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get batch detection results list
+  async getBatchDetectionResults(): Promise<Array<{ filename: string; timestamp: string; size: number }>> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/batch/results`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to get batch detection results',
+          response.status,
+          'GET_BATCH_RESULTS_ERROR',
+          data
+        );
+      }
+      return data.results;
+    } catch (error) {
+      console.error('Error getting batch detection results:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to get batch detection results',
+        500,
+        'GET_BATCH_RESULTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Get specific batch detection result
+  async getBatchDetectionResult(filename: string): Promise<any> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/person/batch/results/${filename}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to get batch detection result',
+          response.status,
+          'GET_BATCH_RESULT_ERROR',
+          data
+        );
+      }
+      return data.result;
+    } catch (error) {
+      console.error('Error getting batch detection result:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to get batch detection result',
+        500,
+        'GET_BATCH_RESULT_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
   // Get historical events
   async getHistoricalEvents(options?: {
     page?: number;

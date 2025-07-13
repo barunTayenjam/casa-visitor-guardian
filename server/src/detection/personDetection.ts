@@ -1,7 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { StreamManager } from '../streams/rtspManager.js';
-import path from 'path';
-import fs from 'fs';
+import * as path from 'path';
+import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 
 interface PersonDetectionResult {
@@ -10,6 +10,9 @@ interface PersonDetectionResult {
   classes: number[];
   personDetected: boolean;
   eventImagePath?: string;
+  personCount: number;
+  highestConfidence: number;
+  detectionTime: number;
 }
 
 // Flag to track if person detection is available
@@ -79,6 +82,18 @@ interface PersonDetectionSettings {
   enabled: boolean;
   minConfidence: number; // 0-1, threshold for person detection
   cooldownPeriod: number; // milliseconds
+  maxDetections: number; // Maximum number of persons to detect per frame
+  enableBoundingBoxes: boolean; // Whether to save images with bounding boxes
+  enableZoneDetection: boolean; // Whether to enable detection zones
+  detectionZones?: DetectionZone[]; // Specific zones to monitor
+}
+
+// Detection zone interface
+interface DetectionZone {
+  id: string;
+  name: string;
+  points: { x: number; y: number }[]; // Polygon points (normalized 0-1)
+  enabled: boolean;
 }
 
 // Store detection settings for each camera
@@ -86,6 +101,40 @@ const cameraSettings = new Map<string, PersonDetectionSettings>();
 
 // Store last event time for each camera
 const lastEventTimes = new Map<string, number>();
+
+// Store performance metrics
+const performanceMetrics = new Map<string, {
+  totalDetections: number;
+  averageDetectionTime: number;
+  lastDetectionTime: number;
+  errorCount: number;
+  lastError?: string;
+}>();
+
+// Utility function to check if a point is inside a polygon (detection zone)
+function isPointInPolygon(point: { x: number; y: number }, polygon: { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
+        (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Utility function to check if a bounding box intersects with any detection zone
+function isDetectionInZones(box: number[], zones: DetectionZone[]): boolean {
+  if (!zones || zones.length === 0) return true; // No zones means detect everywhere
+  
+  // Convert box coordinates to center point (normalized 0-1)
+  const centerX = (box[0] + box[2]) / 2;
+  const centerY = (box[1] + box[3]) / 2;
+  const centerPoint = { x: centerX, y: centerY };
+  
+  // Check if center point is in any enabled zone
+  return zones.some(zone => zone.enabled && isPointInPolygon(centerPoint, zone.points));
+}
 
 // Person detection class
 export class PersonDetector {
@@ -152,7 +201,11 @@ export class PersonDetector {
     cameraSettings.set(cameraId, {
       enabled: personDetectionEnabled,
       minConfidence: personDetectionConfidence, // Use system confidence threshold
-      cooldownPeriod: 10000 // 10 seconds between events
+      cooldownPeriod: 10000, // 10 seconds between events
+      maxDetections: 10, // Maximum 10 persons per frame
+      enableBoundingBoxes: true, // Save images with bounding boxes by default
+      enableZoneDetection: false, // Disabled by default
+      detectionZones: [] // No zones by default
     });
   }
 
@@ -208,6 +261,11 @@ export class PersonDetector {
       return null;
     }
 
+    const startTime = Date.now();
+    const settings = cameraSettings.get(cameraId);
+    const minConfidence = settings?.minConfidence || 0.5;
+    const maxDetections = settings?.maxDetections || 10;
+
     try {
       console.log('tf object before decodeImage:', tf);
       if (!(tf as any).node || !(tf as any).image) {
@@ -218,7 +276,7 @@ export class PersonDetector {
       const inputTensor = resizedImage.expandDims(0);
 
       const predictions = await (this.model as any).executeAsync(inputTensor);
-      const [boxes, scores, classes] = predictions.map((p: any) => p.dataSync());
+      const [boxes, scores, classes] = predictions.map((p: any) => p.dataSync() as number[]);
 
       inputTensor.dispose();
       predictions.forEach((p: any) => p.dispose());
@@ -229,25 +287,53 @@ export class PersonDetector {
         boxes: [],
         scores: [],
         classes: [],
-        personDetected: false
+        personDetected: false,
+        personCount: 0,
+        highestConfidence: 0,
+        detectionTime: Date.now() - startTime
       };
 
-      for (let i = 0; i < scores.length; i++) {
+      const validDetections = [];
+      for (let i = 0; i < Math.min(scores.length, maxDetections); i++) {
         const score = scores[i];
         const classId = classes[i];
 
         // COCO-SSD model class ID for 'person' is 1
-        if (classId === 1 && score > 0.5) { // Use a default confidence threshold
-          detectionResult.personDetected = true;
-          detectionResult.boxes.push(Array.from(boxes.slice(i * 4, i * 4 + 4)));
-          detectionResult.scores.push(score);
-          detectionResult.classes.push(classId);
+        if (classId === 1 && score >= minConfidence) {
+          const box = Array.from(boxes.slice(i * 4, i * 4 + 4)) as number[];
+          
+          // Check detection zones if enabled
+          if (settings?.enableZoneDetection && settings.detectionZones) {
+            if (!isDetectionInZones(box, settings.detectionZones)) {
+              continue; // Skip this detection as it's outside zones
+            }
+          }
+          
+          validDetections.push({
+            box,
+            score,
+            classId
+          });
         }
       }
+
+      if (validDetections.length > 0) {
+        detectionResult.personDetected = true;
+        detectionResult.personCount = validDetections.length;
+        detectionResult.boxes = validDetections.map(d => d.box) as number[][];
+        detectionResult.scores = validDetections.map(d => d.score) as number[];
+        detectionResult.classes = validDetections.map(d => d.classId) as number[];
+        detectionResult.highestConfidence = Math.max(...validDetections.map((d: any) => d.score));
+      }
+
+      // Update performance metrics
+      this.updatePerformanceMetrics(cameraId, detectionResult.detectionTime);
+      
       return detectionResult;
 
     } catch (error) {
       console.error('Error during person detection from image:', error);
+      this.updatePerformanceMetrics(cameraId, 0, error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -264,6 +350,183 @@ export class PersonDetector {
     } catch (error) {
       console.error(`Failed to read image file for person detection: ${filePath}`, error);
       return null;
+    }
+  }
+
+  /**
+   * Create an annotated image with bounding boxes (requires additional dependencies)
+   * This is a placeholder for future implementation with canvas or sharp
+   */
+  private async createAnnotatedImage(imageBuffer: Buffer, detections: any[], outputPath: string): Promise<boolean> {
+    try {
+      // For now, just copy the original image
+      // In the future, this could use canvas or sharp to draw bounding boxes
+      fs.writeFileSync(outputPath, imageBuffer);
+      
+      // TODO: Implement actual bounding box drawing
+      // This would require additional dependencies like canvas or sharp
+      // Example with sharp:
+      // const sharp = require('sharp');
+      // const image = sharp(imageBuffer);
+      // for (const detection of detections) {
+      //   // Draw rectangle for each detection
+      // }
+      
+      return true;
+    } catch (error) {
+      console.error('Error creating annotated image:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get detection statistics for a camera
+   */
+  public getDetectionStats(cameraId: string): any {
+    const settings = cameraSettings.get(cameraId);
+    const lastEventTime = lastEventTimes.get(cameraId);
+    const metrics = performanceMetrics.get(cameraId);
+    
+    return {
+      enabled: settings?.enabled || false,
+      minConfidence: settings?.minConfidence || 0.6,
+      cooldownPeriod: settings?.cooldownPeriod || 10000,
+      maxDetections: settings?.maxDetections || 10,
+      enableBoundingBoxes: settings?.enableBoundingBoxes || true,
+      enableZoneDetection: settings?.enableZoneDetection || false,
+      zoneCount: settings?.detectionZones?.length || 0,
+      lastEventTime: lastEventTime || null,
+      timeSinceLastEvent: lastEventTime ? Date.now() - lastEventTime : null,
+      modelLoaded: !!this.model,
+      tensorflowAvailable: personDetectionAvailable,
+      performance: {
+        totalDetections: metrics?.totalDetections || 0,
+        averageDetectionTime: metrics?.averageDetectionTime || 0,
+        lastDetectionTime: metrics?.lastDetectionTime || 0,
+        errorCount: metrics?.errorCount || 0,
+        lastError: metrics?.lastError || null
+      }
+    };
+  }
+
+  /**
+   * Update performance metrics for a camera
+   */
+  private updatePerformanceMetrics(cameraId: string, detectionTime: number, error?: string): void {
+    let metrics = performanceMetrics.get(cameraId);
+    
+    if (!metrics) {
+      metrics = {
+        totalDetections: 0,
+        averageDetectionTime: 0,
+        lastDetectionTime: 0,
+        errorCount: 0
+      };
+      performanceMetrics.set(cameraId, metrics);
+    }
+
+    if (error) {
+      metrics.errorCount++;
+      metrics.lastError = error;
+    } else {
+      metrics.totalDetections++;
+      metrics.lastDetectionTime = detectionTime;
+      
+      // Calculate rolling average
+      if (metrics.totalDetections === 1) {
+        metrics.averageDetectionTime = detectionTime;
+      } else {
+        metrics.averageDetectionTime = 
+          (metrics.averageDetectionTime * (metrics.totalDetections - 1) + detectionTime) / metrics.totalDetections;
+      }
+    }
+  }
+
+  /**
+   * Add or update detection zone for a camera
+   */
+  public addDetectionZone(cameraId: string, zone: DetectionZone): boolean {
+    const settings = cameraSettings.get(cameraId);
+    if (!settings) return false;
+
+    if (!settings.detectionZones) {
+      settings.detectionZones = [];
+    }
+
+    // Remove existing zone with same ID
+    settings.detectionZones = settings.detectionZones.filter(z => z.id !== zone.id);
+    
+    // Add new zone
+    settings.detectionZones.push(zone);
+    
+    return true;
+  }
+
+  /**
+   * Remove detection zone for a camera
+   */
+  public removeDetectionZone(cameraId: string, zoneId: string): boolean {
+    const settings = cameraSettings.get(cameraId);
+    if (!settings || !settings.detectionZones) return false;
+
+    const initialLength = settings.detectionZones.length;
+    settings.detectionZones = settings.detectionZones.filter(z => z.id !== zoneId);
+    
+    return settings.detectionZones.length < initialLength;
+  }
+
+  /**
+   * Get all detection zones for a camera
+   */
+  public getDetectionZones(cameraId: string): DetectionZone[] {
+    const settings = cameraSettings.get(cameraId);
+    return settings?.detectionZones || [];
+  }
+
+  /**
+   * Get overall system statistics for person detection
+   */
+  public getSystemStats(): any {
+    const allCameras = this.streamManager.getAllCameras();
+    const totalCameras = allCameras.length;
+    const enabledCameras = Array.from(cameraSettings.values()).filter(s => s.enabled).length;
+    
+    let totalDetections = 0;
+    let totalErrors = 0;
+    let averageDetectionTime = 0;
+    let detectionTimeCount = 0;
+
+    performanceMetrics.forEach((metrics) => {
+      totalDetections += metrics.totalDetections;
+      totalErrors += metrics.errorCount;
+      if (metrics.averageDetectionTime > 0) {
+        averageDetectionTime += metrics.averageDetectionTime;
+        detectionTimeCount++;
+      }
+    });
+
+    return {
+      modelLoaded: !!this.model,
+      tensorflowAvailable: personDetectionAvailable,
+      totalCameras,
+      enabledCameras,
+      disabledCameras: totalCameras - enabledCameras,
+      totalDetections,
+      totalErrors,
+      averageDetectionTime: detectionTimeCount > 0 ? averageDetectionTime / detectionTimeCount : 0,
+      uptime: Date.now() - (this.detectionInterval ? Date.now() - 1000 : Date.now()),
+      isRunning: !!this.detectionInterval
+    };
+  }
+
+  /**
+   * Reset performance metrics for a camera or all cameras
+   */
+  public resetMetrics(cameraId?: string): void {
+    if (cameraId) {
+      performanceMetrics.delete(cameraId);
+    } else {
+      performanceMetrics.clear();
     }
   }
 
@@ -289,6 +552,7 @@ export class PersonDetector {
 
   // Process a single camera for person detection
   private async detectPersonsOnCamera(cameraId: string, imageBuffer?: Buffer): Promise<void> {
+    const startTime = Date.now();
     const settings = cameraSettings.get(cameraId);
     if (!settings || !settings.enabled || !this.model) {
       return;
@@ -335,7 +599,7 @@ export class PersonDetector {
       
       // Check if any persons were detected (class 1 in COCO-SSD)
       const personDetections = [];
-      const numDetections1 = Math.min(20, numDetectionsData[0]); // Limit to 20 detections
+      const numDetections1 = Math.min(settings.maxDetections || 20, numDetectionsData[0]); // Limit detections
       
       for (let i = 0; i < numDetections1; i++) {
         const classId = classesData[0][i];
@@ -344,9 +608,19 @@ export class PersonDetector {
         // Class 1 is person in COCO-SSD
         if (classId === 1 && score >= settings.minConfidence) {
           const box = boxesData[0][i];
+          const normalizedBox = [box[1], box[0], box[3], box[2]]; // [x1, y1, x2, y2]
+          
+          // Check detection zones if enabled
+          if (settings.enableZoneDetection && settings.detectionZones) {
+            if (!isDetectionInZones(normalizedBox, settings.detectionZones)) {
+              continue; // Skip this detection as it's outside zones
+            }
+          }
+          
           personDetections.push({
-            box: [box[1], box[0], box[3], box[2]], // [x1, y1, x2, y2]
-            score
+            box: normalizedBox,
+            score,
+            id: `person_${i}_${Date.now()}` // Unique ID for tracking
           });
         }
       }
@@ -421,9 +695,16 @@ export class PersonDetector {
         }
         
         console.log(`Person detected on camera ${cameraId} with confidence ${Math.round(highestConfidence * 100)}%, count: ${personDetections.length}`);
+        
+        // Update performance metrics for successful detection
+        this.updatePerformanceMetrics(cameraId, Date.now() - startTime);
+      } else {
+        // Update performance metrics for detection with no results
+        this.updatePerformanceMetrics(cameraId, Date.now() - startTime);
       }
     } catch (error) {
       console.error(`Error in person detection for camera ${cameraId}:`, error);
+      this.updatePerformanceMetrics(cameraId, 0, error instanceof Error ? error.message : String(error));
     }
   }
 }

@@ -101,3 +101,38 @@ case $REPLY in
         exit 1
         ;;
 esac
+
+# Kill any process using port 9753
+PORT=9753
+echo "[INFO] Killing any process using port $PORT..."
+lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
+
+# Start backend server on port 9753
+# (You may need to adjust this command to match your backend start command)
+echo "[INFO] Starting backend server on port $PORT..."
+export PORT=$PORT
+# Example: node server/src/index.js &
+# If you use npm/yarn scripts, replace with your actual command:
+npm --prefix server run start &
+BACKEND_PID=$!
+
+# Wait a few seconds to ensure backend starts
+sleep 5
+
+# Print backend status
+if ps -p $BACKEND_PID > /dev/null; then
+  echo "[SUCCESS] Backend started on port $PORT (PID $BACKEND_PID)"
+else
+  echo "[ERROR] Backend failed to start. Check logs."
+  exit 1
+fi
+
+# Start frontend (optional, uncomment if you want to start it here)
+# echo "[INFO] Starting frontend (Vite)..."
+# npm run dev &
+# FRONTEND_PID=$!
+
+# echo "[SUCCESS] Frontend started (PID $FRONTEND_PID)"
+
+# Wait for background jobs (optional)
+# wait $BACKEND_PID $FRONTEND_PID

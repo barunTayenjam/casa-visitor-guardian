@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { StreamManager, Camera } from '../streams/rtspManager.js';
-import { faceRecognition } from '../detection/faceRecognition.js'; // Keep .js extension for ESM
+// import { faceRecognition } from '../detection/faceRecognition.js'; // Keep .js extension for ESM
 // personDetection is made available globally by setupPersonDetection in index.ts
 declare const personDetection: import('../detection/personDetection.js').PersonDetector;
 import { UploadedFile } from 'express-fileupload';
@@ -1463,21 +1463,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       console.log('Starting person analysis of saved images...');
       
-      // Process all images
-      const result = await faceRecognition.processAllImages();
-      
-      // Get all identified persons
-      const persons = faceRecognition.getIdentifiedPersons();
-      
+      // Face recognition temporarily disabled
       res.json({
-        success: true,
-        result,
-        persons: persons.map(person => ({
-          personId: person.personId,
-          imageCount: person.images.length,
-          firstSeen: person.firstSeen,
-          lastSeen: person.lastSeen
-        }))
+        success: false,
+        error: 'Face recognition feature is temporarily disabled'
       });
     } catch (error) {
       console.error('Error analyzing persons:', error);
@@ -1507,6 +1496,422 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error('Error triggering person detection from image:', error);
       res.status(500).send('Failed to trigger person detection from image.');
+    }
+  });
+
+  // ==================== BATCH PERSON DETECTION ENDPOINTS ====================
+
+  // Start batch person detection on all snapshots
+  app.post('/api/person/batch/process', async (req: Request, res: Response) => {
+    try {
+      const batchDetection = (global as any).batchPersonDetection;
+      if (!batchDetection) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch person detection service not available' 
+        });
+      }
+
+      // Check if already processing
+      const status = batchDetection.getStatus();
+      if (status.isProcessing) {
+        return res.status(409).json({ 
+          success: false, 
+          error: 'Batch processing is already running',
+          jobId: status.jobId
+        });
+      }
+
+      // Get options from request body
+      const {
+        minConfidence = 0.6,
+        maxDetections = 10,
+        timeFilter = 'all',
+        saveDetectedPersons = true,
+        cropPersonImages = true,
+        includeSubdirectories = false,
+        outputResults = true,
+        saveAnnotatedImages = false
+      } = req.body;
+
+      const options = {
+        minConfidence,
+        maxDetections,
+        timeFilter,
+        saveDetectedPersons,
+        cropPersonImages,
+        includeSubdirectories,
+        outputResults,
+        saveAnnotatedImages
+      };
+
+      // Start batch processing (async)
+      batchDetection.processAllSnapshots(options)
+        .then((result: any) => {
+          console.log('Batch processing completed successfully');
+        })
+        .catch((error: any) => {
+          console.error('Batch processing failed:', error);
+        });
+
+      // Return immediate response
+      res.json({ 
+        success: true, 
+        message: 'Batch person detection started',
+        jobId: batchDetection.getStatus().jobId,
+        options
+      });
+
+    } catch (error) {
+      console.error('Error starting batch person detection:', error);
+      res.status(500).json({ success: false, error: 'Failed to start batch processing' });
+    }
+  });
+
+  // Get batch processing status
+  app.get('/api/person/batch/status', (req: Request, res: Response) => {
+    try {
+      const batchDetection = (global as any).batchPersonDetection;
+      if (!batchDetection) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch person detection service not available' 
+        });
+      }
+
+      const status = batchDetection.getStatus();
+      res.json({ success: true, status });
+
+    } catch (error) {
+      console.error('Error getting batch processing status:', error);
+      res.status(500).json({ success: false, error: 'Failed to get status' });
+    }
+  });
+
+  // Cancel batch processing
+  app.post('/api/person/batch/cancel', (req: Request, res: Response) => {
+    try {
+      const batchDetection = (global as any).batchPersonDetection;
+      if (!batchDetection) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch person detection service not available' 
+        });
+      }
+
+      const cancelled = batchDetection.cancelProcessing();
+      
+      if (cancelled) {
+        res.json({ success: true, message: 'Batch processing cancelled' });
+      } else {
+        res.json({ success: false, message: 'No batch processing was running' });
+      }
+
+    } catch (error) {
+      console.error('Error cancelling batch processing:', error);
+      res.status(500).json({ success: false, error: 'Failed to cancel processing' });
+    }
+  });
+
+  // Get list of available batch results
+  app.get('/api/person/batch/results', (req: Request, res: Response) => {
+    try {
+      const batchDetection = (global as any).batchPersonDetection;
+      if (!batchDetection) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch person detection service not available' 
+        });
+      }
+
+      const results = batchDetection.getAvailableResults();
+      res.json({ success: true, results });
+
+    } catch (error) {
+      console.error('Error getting batch results list:', error);
+      res.status(500).json({ success: false, error: 'Failed to get results list' });
+    }
+  });
+
+  // Get specific batch result
+  app.get('/api/person/batch/results/:filename', (req: Request, res: Response) => {
+    try {
+      const batchDetection = (global as any).batchPersonDetection;
+      if (!batchDetection) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch person detection service not available' 
+        });
+      }
+
+      const { filename } = req.params;
+      const result = batchDetection.getBatchResult(filename);
+      res.json({ success: true, result });
+
+    } catch (error) {
+      console.error('Error getting batch result:', error);
+      if (error instanceof Error && error.message === 'Result file not found') {
+        res.status(404).json({ success: false, error: 'Result file not found' });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to get result' });
+      }
+    }
+  });
+
+  // ==================== BATCH SCHEDULER ENDPOINTS ====================
+
+  // Get scheduler status
+  app.get('/api/person/batch/scheduler/status', (req: Request, res: Response) => {
+    try {
+      const batchScheduler = (global as any).batchScheduler;
+      if (!batchScheduler) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch scheduler service not available' 
+        });
+      }
+
+      const status = batchScheduler.getStatus();
+      res.json({ success: true, status });
+
+    } catch (error) {
+      console.error('Error getting scheduler status:', error);
+      res.status(500).json({ success: false, error: 'Failed to get scheduler status' });
+    }
+  });
+
+  // Update scheduler configuration
+  app.put('/api/person/batch/scheduler/config', (req: Request, res: Response) => {
+    try {
+      const batchScheduler = (global as any).batchScheduler;
+      if (!batchScheduler) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch scheduler service not available' 
+        });
+      }
+
+      const { enabled, cronExpression, options } = req.body;
+      batchScheduler.updateConfig({ enabled, cronExpression, options });
+      
+      res.json({ success: true, message: 'Scheduler configuration updated' });
+
+    } catch (error) {
+      console.error('Error updating scheduler config:', error);
+      res.status(500).json({ success: false, error: 'Failed to update scheduler config' });
+    }
+  });
+
+  // Manually trigger scheduled run
+  app.post('/api/person/batch/scheduler/trigger', async (req: Request, res: Response) => {
+    try {
+      const batchScheduler = (global as any).batchScheduler;
+      if (!batchScheduler) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Batch scheduler service not available' 
+        });
+      }
+
+      // Trigger manual run (async)
+      batchScheduler.triggerManualRun()
+        .then(() => {
+          console.log('Manual scheduled run completed');
+        })
+        .catch((error: any) => {
+          console.error('Manual scheduled run failed:', error);
+        });
+
+      res.json({ success: true, message: 'Manual scheduled run triggered' });
+
+    } catch (error) {
+      console.error('Error triggering manual run:', error);
+      res.status(500).json({ success: false, error: 'Failed to trigger manual run' });
+    }
+  });
+
+  // ==================== DETECTED PERSONS VIEWER ENDPOINTS ====================
+
+  // Get list of detected person images
+  app.get('/api/detected-persons', (req: Request, res: Response) => {
+    try {
+      const detectedPersonsDir = path.join(__dirname, '../../public/detected-persons');
+      
+      if (!fs.existsSync(detectedPersonsDir)) {
+        return res.json({ success: true, persons: [] });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const cameraFilter = req.query.cameraId as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+      const minConfidence = parseInt(req.query.minConfidence as string) || 0;
+
+      // Get all person image files
+      const files = fs.readdirSync(detectedPersonsDir)
+        .filter(file => file.endsWith('.jpg') && file.startsWith('person_'))
+        .map(file => {
+          const filepath = path.join(detectedPersonsDir, file);
+          const stats = fs.statSync(filepath);
+          
+          // Parse filename: person_cameraId_timestamp_personIndex_confXX.jpg
+          const parts = file.replace('.jpg', '').split('_');
+          const cameraId = parts[1] || 'unknown';
+          const confidence = parseInt(parts[parts.length - 1].replace('conf', '')) || 0;
+          
+          // Try to read metadata
+          const metadataFile = file.replace('.jpg', '_metadata.json');
+          const metadataPath = path.join(detectedPersonsDir, metadataFile);
+          let metadata = null;
+          
+          if (fs.existsSync(metadataPath)) {
+            try {
+              metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+            } catch (error) {
+              console.warn(`Failed to read metadata for ${file}:`, error);
+            }
+          }
+
+          return {
+            filename: file,
+            imagePath: `/detected-persons/${file}`,
+            cameraId,
+            confidence,
+            timestamp: metadata?.timestamp || stats.mtime.toISOString(),
+            detectionDate: metadata?.detectionDate || stats.mtime.toISOString(),
+            boundingBox: metadata?.boundingBox || null,
+            personIndex: metadata?.personIndex || 0,
+            fileSize: stats.size,
+            metadata
+          };
+        })
+        .sort((a, b) => new Date(b.detectionDate).getTime() - new Date(a.detectionDate).getTime());
+
+      // Apply filters
+      let filteredPersons = files;
+
+      if (cameraFilter && cameraFilter !== 'all') {
+        filteredPersons = filteredPersons.filter(person => person.cameraId === cameraFilter);
+      }
+
+      if (minConfidence > 0) {
+        filteredPersons = filteredPersons.filter(person => person.confidence >= minConfidence);
+      }
+
+      if (startDate) {
+        filteredPersons = filteredPersons.filter(person => 
+          new Date(person.detectionDate) >= startDate
+        );
+      }
+
+      if (endDate) {
+        filteredPersons = filteredPersons.filter(person => 
+          new Date(person.detectionDate) <= endDate
+        );
+      }
+
+      // Pagination
+      const totalPersons = filteredPersons.length;
+      const totalPages = Math.ceil(totalPersons / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedPersons = filteredPersons.slice(startIndex, endIndex);
+
+      res.json({
+        success: true,
+        persons: paginatedPersons,
+        pagination: {
+          totalPersons,
+          totalPages,
+          currentPage: page,
+          pageSize
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting detected persons:', error);
+      res.status(500).json({ success: false, error: 'Failed to get detected persons' });
+    }
+  });
+
+  // Delete detected person image
+  app.delete('/api/detected-persons/:filename', (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const detectedPersonsDir = path.join(__dirname, '../../public/detected-persons');
+      
+      const imagePath = path.join(detectedPersonsDir, filename);
+      const metadataPath = path.join(detectedPersonsDir, filename.replace('.jpg', '_metadata.json'));
+
+      // Delete image file
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+
+      // Delete metadata file
+      if (fs.existsSync(metadataPath)) {
+        fs.unlinkSync(metadataPath);
+      }
+
+      res.json({ success: true, message: 'Person image deleted successfully' });
+
+    } catch (error) {
+      console.error('Error deleting person image:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete person image' });
+    }
+  });
+
+  // Get detected persons statistics
+  app.get('/api/detected-persons/stats', (req: Request, res: Response) => {
+    try {
+      const detectedPersonsDir = path.join(__dirname, '../../public/detected-persons');
+      
+      if (!fs.existsSync(detectedPersonsDir)) {
+        return res.json({ 
+          success: true, 
+          stats: { totalPersons: 0, totalSize: 0, cameras: [], confidenceDistribution: {} }
+        });
+      }
+
+      const files = fs.readdirSync(detectedPersonsDir)
+        .filter(file => file.endsWith('.jpg') && file.startsWith('person_'));
+
+      let totalSize = 0;
+      const cameras = new Set<string>();
+      const confidenceDistribution: { [key: string]: number } = {};
+
+      files.forEach(file => {
+        const filepath = path.join(detectedPersonsDir, file);
+        const stats = fs.statSync(filepath);
+        totalSize += stats.size;
+
+        // Parse camera ID and confidence
+        const parts = file.replace('.jpg', '').split('_');
+        const cameraId = parts[1] || 'unknown';
+        const confidence = parseInt(parts[parts.length - 1].replace('conf', '')) || 0;
+        
+        cameras.add(cameraId);
+        
+        // Group confidence into ranges
+        const confidenceRange = Math.floor(confidence / 10) * 10;
+        const rangeKey = `${confidenceRange}-${confidenceRange + 9}%`;
+        confidenceDistribution[rangeKey] = (confidenceDistribution[rangeKey] || 0) + 1;
+      });
+
+      res.json({
+        success: true,
+        stats: {
+          totalPersons: files.length,
+          totalSize,
+          cameras: Array.from(cameras),
+          confidenceDistribution
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting detected persons stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to get stats' });
     }
   });
 

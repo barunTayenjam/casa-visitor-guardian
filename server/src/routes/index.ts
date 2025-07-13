@@ -183,44 +183,116 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // API endpoint to scan all saved past snapshots for persons
   app.post('/api/scan-snapshots-for-persons', async (req, res) => {
     try {
+      console.log('*** SCAN SNAPSHOTS REQUEST RECEIVED ***');
+      
+      // Check if person detector is available
+      if (!personDetector) {
+        console.error('Person detector not available');
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Person detector not initialized' 
+        });
+      }
+      
+      console.log('Person detector available, scanning directories...');
+      
       const eventsDir = path.join(__dirname, '../../public/events');
       const snapshotsDir = path.join(__dirname, '../../public/snapshots');
+      
+      console.log('Events dir:', eventsDir, 'exists:', fs.existsSync(eventsDir));
+      console.log('Snapshots dir:', snapshotsDir, 'exists:', fs.existsSync(snapshotsDir));
+      
       const eventFiles = fs.existsSync(eventsDir) ? fs.readdirSync(eventsDir).filter((f: string) => f.endsWith('.jpg')) : [];
       const snapshotFiles = fs.existsSync(snapshotsDir) ? fs.readdirSync(snapshotsDir).filter((f: string) => f.endsWith('.jpg')) : [];
+      
+      console.log('Found files - Events:', eventFiles.length, 'Snapshots:', snapshotFiles.length);
+      
       const allFiles = [
         ...eventFiles.map((f: string) => ({ file: f, dir: eventsDir })),
         ...snapshotFiles.map((f: string) => ({ file: f, dir: snapshotsDir })),
       ];
+      
+      console.log('Total files to process:', allFiles.length);
+      
       let processed = 0;
       let detected = 0;
       const detectedImages: string[] = [];
+      
       for (const { file, dir } of allFiles) {
-        const filePath = path.join(dir, file);
-        // Try to extract cameraId from filename: e.g., motion_cameraId_...
-        let cameraId = 'unknown';
-        const parts = file.split('_');
-        if (parts.length >= 2) cameraId = parts[1];
-        const result = await (personDetector as any).detectPersonsFromFile(cameraId, filePath);
-        processed++;
-        if (result && result.personDetected) {
-          detected++;
-          detectedImages.push(file);
-          // Emit event to clients (simulate a motion/person event)
-          io.emit('motionDetected', {
-            id: `evt_scan_${file}`,
-            cameraId,
-            timestamp: new Date().toISOString(),
-            imagePath: `/events/${file}`,
-            confidence: result.scores.length > 0 ? Math.round(Math.max(...result.scores) * 100) : 0,
-            duration: 0,
-            labels: ['person'],
-            personDetected: true,
-            personCount: result.boxes.length,
-            personBoxes: result.boxes.map((box: any, i: any) => ({ box, confidence: Math.round(result.scores[i] * 100) }))
-          });
+        try {
+          const filePath = path.join(dir, file);
+          console.log(`Processing file ${processed + 1}/${allFiles.length}: ${file}`);
+          
+          // Try to extract cameraId from filename: e.g., motion_cameraId_...
+          let cameraId = 'unknown';
+          const parts = file.split('_');
+          if (parts.length >= 2) cameraId = parts[1];
+          
+          const result = await (personDetector as any).detectPersonsFromImage(cameraId, filePath);
+          processed++;
+          
+          // Debug logging for first few images
+          if (processed <= 3) {
+            console.log(`*** DEBUG: Image ${processed} result:`, {
+              file,
+              cameraId,
+              result: result ? {
+                personDetected: result.personDetected,
+                personCount: result.personCount,
+                highestConfidence: result.highestConfidence,
+                detectionTime: result.detectionTime
+              } : 'null'
+            });
+          }
+          
+          if (result && result.personDetected) {
+            detected++;
+            detectedImages.push(file);
+            console.log(`Person detected in ${file}, confidence: ${result.highestConfidence}`);
+            
+            // Save detected person image to detected-persons directory
+            try {
+              const personsDir = path.join(__dirname, '../../public/detected-persons');
+              if (!fs.existsSync(personsDir)) {
+                fs.mkdirSync(personsDir, { recursive: true });
+              }
+              
+              const confidence = Math.round((result.highestConfidence || 0) * 100);
+              const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+              const personFilename = `person_${cameraId}_${timestamp}_${confidence}.jpg`;
+              const personFilePath = path.join(personsDir, personFilename);
+              
+              // Copy the original image to detected-persons directory
+              fs.copyFileSync(filePath, personFilePath);
+              console.log(`Saved detected person image: ${personFilename}`);
+            } catch (saveError) {
+              console.error(`Failed to save detected person image for ${file}:`, saveError);
+            }
+            
+            // Emit event to clients (simulate a motion/person event)
+            io.emit('motionDetected', {
+              id: `evt_scan_${file}`,
+              cameraId,
+              timestamp: new Date().toISOString(),
+              imagePath: `/events/${file}`,
+              confidence: result.highestConfidence ? Math.round(result.highestConfidence * 100) : 0,
+              duration: 0,
+              labels: ['person'],
+              personDetected: true,
+              personCount: result.personCount || 0
+            });
+          }
+        } catch (fileError) {
+          console.error(`Error processing file ${file}:`, fileError);
+          processed++;
+          // Continue with next file
         }
       }
+      
+      console.log(`Scan complete - Processed: ${processed}, Detected: ${detected}`);
+      
       res.status(200).json({ 
+        success: true,
         message: 'Scan complete', 
         processed, 
         detected, 
@@ -228,7 +300,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       });
     } catch (error) {
       console.error('Error scanning snapshots for persons:', error);
-      res.status(500).json({ error: 'Failed to scan snapshots for persons' });
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to scan snapshots for persons',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -1923,6 +1999,189 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       uptime: process.uptime()
     });
   });
+
+  // Debug endpoint to check person detector status
+  app.get('/api/debug/person-detector', (req: Request, res: Response) => {
+    const personDetector = global.personDetector;
+    res.json({
+      success: true,
+      debug: {
+        personDetectorExists: !!personDetector,
+        personDetectorType: typeof personDetector,
+        globalKeys: Object.keys(global).filter(key => key.includes('person') || key.includes('detector')),
+        hasDetectPersonsFromImage: personDetector ? typeof personDetector.detectPersonsFromImage === 'function' : false,
+        streamManagerExists: !!global.streamManager,
+        timestamp: new Date().toISOString()
+      }
+    });
+  });
+
+  // ==================== DETECTED PERSONS VIEWER ENDPOINTS ====================
+
+  // Get detected persons with pagination and filters
+  app.get('/api/detected-persons', async (req: Request, res: Response) => {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        cameraId,
+        minConfidence,
+        startDate,
+        endDate
+      } = req.query;
+
+      const personsDir = path.join(__dirname, '../../public/detected-persons');
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(personsDir)) {
+        fs.mkdirSync(personsDir, { recursive: true });
+      }
+
+      // Get all person image files
+      const files = fs.existsSync(personsDir) ? 
+        fs.readdirSync(personsDir).filter(f => f.endsWith('.jpg') || f.endsWith('.png')) : [];
+
+      let persons = files.map(filename => {
+        const filePath = path.join(personsDir, filename);
+        const stats = fs.statSync(filePath);
+        
+        // Extract metadata from filename (format: person_cameraId_timestamp_confidence.jpg)
+        const parts = filename.replace(/\.(jpg|png)$/, '').split('_');
+        const cameraIdFromFile = parts.length >= 2 ? parts[1] : 'unknown';
+        const timestampFromFile = parts.length >= 3 ? parts[2] : '';
+        const confidenceFromFile = parts.length >= 4 ? parseInt(parts[3]) : 0;
+
+        return {
+          filename,
+          imagePath: `/detected-persons/${filename}`,
+          cameraId: cameraIdFromFile,
+          confidence: confidenceFromFile,
+          timestamp: timestampFromFile,
+          detectionDate: stats.mtime.toISOString(),
+          boundingBox: null,
+          personIndex: 0,
+          fileSize: stats.size,
+          metadata: {}
+        };
+      });
+
+      // Apply filters
+      if (cameraId && cameraId !== 'all') {
+        persons = persons.filter(p => p.cameraId === cameraId);
+      }
+      if (minConfidence) {
+        persons = persons.filter(p => p.confidence >= parseInt(minConfidence as string));
+      }
+      if (startDate) {
+        persons = persons.filter(p => new Date(p.detectionDate) >= new Date(startDate as string));
+      }
+      if (endDate) {
+        persons = persons.filter(p => new Date(p.detectionDate) <= new Date(endDate as string));
+      }
+
+      // Sort by detection date (newest first)
+      persons.sort((a, b) => new Date(b.detectionDate).getTime() - new Date(a.detectionDate).getTime());
+
+      // Pagination
+      const totalPersons = persons.length;
+      const totalPages = Math.ceil(totalPersons / parseInt(pageSize as string));
+      const startIndex = (parseInt(page as string) - 1) * parseInt(pageSize as string);
+      const endIndex = startIndex + parseInt(pageSize as string);
+      const paginatedPersons = persons.slice(startIndex, endIndex);
+
+      res.json({
+        success: true,
+        persons: paginatedPersons,
+        pagination: {
+          totalPersons,
+          totalPages,
+          currentPage: parseInt(page as string),
+          pageSize: parseInt(pageSize as string)
+        }
+      });
+    } catch (error) {
+      console.error('Error getting detected persons:', error);
+      res.status(500).json({ success: false, error: 'Failed to get detected persons' });
+    }
+  });
+
+  // Get detected persons statistics
+  app.get('/api/detected-persons/stats', async (req: Request, res: Response) => {
+    try {
+      const personsDir = path.join(__dirname, '../../public/detected-persons');
+      
+      if (!fs.existsSync(personsDir)) {
+        return res.json({
+          success: true,
+          stats: {
+            totalPersons: 0,
+            totalSize: 0,
+            cameras: [],
+            confidenceDistribution: {}
+          }
+        });
+      }
+
+      const files = fs.readdirSync(personsDir).filter(f => f.endsWith('.jpg') || f.endsWith('.png'));
+      
+      let totalSize = 0;
+      const cameras = new Set<string>();
+      const confidenceDistribution: { [key: string]: number } = {};
+
+      files.forEach(filename => {
+        const filePath = path.join(personsDir, filename);
+        const stats = fs.statSync(filePath);
+        totalSize += stats.size;
+
+        // Extract metadata from filename
+        const parts = filename.replace(/\.(jpg|png)$/, '').split('_');
+        const cameraId = parts.length >= 2 ? parts[1] : 'unknown';
+        const confidence = parts.length >= 4 ? parseInt(parts[3]) : 0;
+
+        cameras.add(cameraId);
+
+        // Group confidence into ranges
+        const confidenceRange = `${Math.floor(confidence / 10) * 10}-${Math.floor(confidence / 10) * 10 + 9}%`;
+        confidenceDistribution[confidenceRange] = (confidenceDistribution[confidenceRange] || 0) + 1;
+      });
+
+      res.json({
+        success: true,
+        stats: {
+          totalPersons: files.length,
+          totalSize,
+          cameras: Array.from(cameras),
+          confidenceDistribution
+        }
+      });
+    } catch (error) {
+      console.error('Error getting detected persons stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to get stats' });
+    }
+  });
+
+  // Delete detected person image
+  app.delete('/api/detected-persons/:filename', async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const personsDir = path.join(__dirname, '../../public/detected-persons');
+      const filePath = path.join(personsDir, filename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, error: 'File not found' });
+      }
+
+      fs.unlinkSync(filePath);
+      
+      res.json({ success: true, message: 'Person image deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting detected person:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete person image' });
+    }
+  });
+
+  // Serve detected persons images
+  app.use('/detected-persons', express.static(path.join(__dirname, '../../public/detected-persons')));
 
   // API routes config log disabled - console.log('API routes configured');
 }

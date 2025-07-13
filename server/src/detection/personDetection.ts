@@ -249,8 +249,8 @@ export class PersonDetector {
     }
   }
 
-  // This method is for testing purposes only
-  public async detectPersonsFromImage(cameraId: string, imageData: string | Buffer): Promise<PersonDetectionResult | null> {
+  // This method processes image data directly (Buffer)
+  private async detectPersonsFromImageData(cameraId: string, imageData: string | Buffer): Promise<PersonDetectionResult | null> {
     if (!personDetectionAvailable) {
       console.warn('Person detection is not available. Skipping detection from image.');
       return null;
@@ -263,7 +263,7 @@ export class PersonDetector {
 
     const startTime = Date.now();
     const settings = cameraSettings.get(cameraId);
-    const minConfidence = settings?.minConfidence || 0.5;
+    const minConfidence = settings?.minConfidence || 0.3; // Lowered from 0.5 to 0.3 for testing
     const maxDetections = settings?.maxDetections || 10;
 
     try {
@@ -339,14 +339,16 @@ export class PersonDetector {
   }
 
   /**
-   * Detect persons from an image file path (helper for batch processing)
+   * Public method for detecting persons from image file path (used by scan endpoint)
    * @param cameraId Camera ID or 'unknown'
    * @param filePath Path to the image file
    */
-  public async detectPersonsFromFile(cameraId: string, filePath: string): Promise<PersonDetectionResult | null> {
+  public async detectPersonsFromImage(cameraId: string, filePath: string): Promise<PersonDetectionResult | null> {
     try {
+      console.log(`Reading image file for person detection: ${filePath}`);
       const imageBuffer = fs.readFileSync(filePath);
-      return await this.detectPersonsFromImage(cameraId, imageBuffer);
+      console.log(`Image file read successfully, size: ${imageBuffer.length} bytes`);
+      return await this.detectPersonsFromImageData(cameraId, imageBuffer);
     } catch (error) {
       console.error(`Failed to read image file for person detection: ${filePath}`, error);
       return null;
@@ -710,13 +712,41 @@ export class PersonDetector {
 }
 
 // Create and start person detection
-export function setupPersonDetection(streamManager: StreamManager, io: SocketIOServer): PersonDetector {
+export async function setupPersonDetection(streamManager: StreamManager, io: SocketIOServer): Promise<PersonDetector> {
+  console.log('*** SETTING UP PERSON DETECTION ***');
+  
+  // Wait for TensorFlow to be ready before creating the detector
+  console.log('*** WAITING FOR TENSORFLOW TO BE READY ***');
+  let attempts = 0;
+  const maxAttempts = 30; // 30 seconds max wait
+  
+  while (!personDetectionAvailable && attempts < maxAttempts) {
+    console.log(`*** TENSORFLOW NOT READY YET, ATTEMPT ${attempts + 1}/${maxAttempts} ***`);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    attempts++;
+  }
+  
+  if (!personDetectionAvailable) {
+    console.warn('*** TENSORFLOW FAILED TO LOAD, PERSON DETECTION WILL BE LIMITED ***');
+  } else {
+    console.log('*** TENSORFLOW IS READY, CREATING PERSON DETECTOR ***');
+  }
+  
   const personDetector = new PersonDetector(streamManager, io);
   personDetector.start();
   
   // Make available globally
+  console.log('*** ASSIGNING PERSON DETECTOR TO GLOBAL ***');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).personDetector = personDetector;
+  
+  // Verify the assignment worked
+  const globalCheck = (global as any).personDetector;
+  console.log('*** GLOBAL ASSIGNMENT CHECK ***', {
+    assigned: !!globalCheck,
+    hasDetectMethod: globalCheck ? typeof globalCheck.detectPersonsFromImage === 'function' : false,
+    tensorflowReady: personDetectionAvailable
+  });
   
   return personDetector;
 }

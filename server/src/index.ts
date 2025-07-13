@@ -273,11 +273,15 @@ const DEFAULT_PORT = parseInt(process.env.PORT || '9753', 10);
         // Make streamManager available globally for routes
         global.streamManager = streamManager;
         
-        // Configure routes
-        configureRoutes(app, io);
-        
-        // Setup person detection
+        // Setup person detection (now async) - BEFORE configuring routes
+        console.log('*** STARTING PERSON DETECTION SETUP ***');
         const personDetector = await setupPersonDetection(streamManager, io);
+        console.log('*** PERSON DETECTION SETUP COMPLETE ***');
+        
+        // Configure routes AFTER person detector is ready
+        console.log('*** CONFIGURING ROUTES ***');
+        configureRoutes(app, io);
+        console.log('*** ROUTES CONFIGURED ***');
         
         // Setup batch person detection
         const batchPersonDetection = setupBatchPersonDetection(io);

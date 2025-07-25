@@ -137,6 +137,11 @@ export interface LogEntry {
 export class ApiService {
   // Fetch API with timeout and retry
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+    console.log(`🔍 API CALL ATTEMPT: ${url}`);
+    if (url.includes('system/logs')) {
+      console.error(`🚨 BLOCKED: system/logs API call attempted from:`, new Error().stack);
+      throw new Error('system/logs API calls are disabled');
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
@@ -172,6 +177,7 @@ export class ApiService {
           errorMessage = response.statusText || errorMessage;
         }
 
+        console.error(`API ERROR: ${errorMessage} for URL: ${url}`);
         throw new ApiError(
           errorMessage,
           response.status,
@@ -190,6 +196,7 @@ export class ApiService {
 
       if (retries > 0 && error instanceof Error && !error.message.includes('aborted')) {
         console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
+        console.warn(`Failed URL: ${url}`, error);
         
         // Special handling for connection reset
         if (error.message.includes('ECONNRESET') || error.message.includes('fetch')) {
@@ -1055,67 +1062,16 @@ export class ApiService {
     }
   }
 
-  // Get system logs
-  async getSystemLogs(level?: string, limit?: number): Promise<LogEntry[]> {
-    try {
-      const params = new URLSearchParams();
-      if (level) params.append('level', level);
-      if (limit) params.append('limit', limit.toString());
-      
-      const response = await this.fetchWithRetry(`${API_URL}/system/logs?${params}`);
-      const data = await response.json();
-      
-      if (!data.success || !data.logs) {
-        throw new ApiError(
-          data.error || 'Failed to fetch system logs',
-          response.status,
-          'GET_SYSTEM_LOGS_ERROR',
-          data
-        );
-      }
-      return data.logs;
-    } catch (error) {
-      console.error('Error fetching system logs:', error);
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(
-        'Failed to fetch system logs',
-        500,
-        'GET_SYSTEM_LOGS_ERROR',
-        { originalError: error instanceof Error ? error.message : String(error) }
-      );
-    }
+  // Get system logs - COMPLETELY DISABLED
+  getSystemLogs(level?: string, limit?: number): LogEntry[] {
+    console.error('🚨 getSystemLogs called from:', new Error().stack);
+    throw new Error('getSystemLogs is completely disabled - check stack trace above');
   }
 
-  // Clear system logs
+  // Clear system logs - TEMPORARILY DISABLED
   async clearSystemLogs(): Promise<void> {
-    try {
-      const response = await this.fetchWithRetry(`${API_URL}/system/logs`, {
-        method: 'DELETE',
-      });
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new ApiError(
-          data.error || 'Failed to clear system logs',
-          response.status,
-          'CLEAR_SYSTEM_LOGS_ERROR',
-          data
-        );
-      }
-    } catch (error) {
-      console.error('Error clearing system logs:', error);
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(
-        'Failed to clear system logs',
-        500,
-        'CLEAR_SYSTEM_LOGS_ERROR',
-        { originalError: error instanceof Error ? error.message : String(error) }
-      );
-    }
+    // Mock success response
+    console.log('System logs clear temporarily disabled');
   }
 
   // Get system settings

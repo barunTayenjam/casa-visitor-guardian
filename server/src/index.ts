@@ -273,25 +273,44 @@ const DEFAULT_PORT = parseInt(process.env.PORT || '9753', 10);
         // Make streamManager available globally for routes
         global.streamManager = streamManager;
         
-        // Setup person detection (now async) - BEFORE configuring routes
-        console.log('*** STARTING PERSON DETECTION SETUP ***');
-        const personDetector = await setupPersonDetection(streamManager, io);
-        console.log('*** PERSON DETECTION SETUP COMPLETE ***');
-        
-        // Configure routes AFTER person detector is ready
+        // Configure routes FIRST to get basic functionality working
         console.log('*** CONFIGURING ROUTES ***');
-        configureRoutes(app, io);
-        console.log('*** ROUTES CONFIGURED ***');
-        
-        // Setup batch person detection
-        const batchPersonDetection = setupBatchPersonDetection(io);
+        try {
+          const batchPersonDetectionInstance = setupBatchPersonDetection(io);
+          console.log('*** BATCH PERSON DETECTION INSTANCE CREATED ***');
+          configureRoutes(app, io);
+          console.log('*** ROUTES CONFIGURED SUCCESSFULLY ***');
+          
+          // Test route to verify configuration
+          app.get('/api/test', (req, res) => {
+            res.json({ status: 'ok', message: 'Routes are working', timestamp: new Date().toISOString() });
+          });
+          console.log('*** TEST ROUTE ADDED ***');
+          
+        } catch (routeError) {
+          console.error('*** ROUTE CONFIGURATION FAILED ***', routeError);
+          console.error('*** ROUTE ERROR STACK ***', (routeError as Error).stack);
+          // Add a basic health route as fallback
+          app.get('/api/health', (req, res) => {
+            res.json({ status: 'error', message: 'Server running but routes failed to configure', error: (routeError as Error).message });
+          });
+        }
+
+        // Setup person detection (now async) - AFTER routes are configured
+        console.log('*** STARTING PERSON DETECTION SETUP ***');
+        try {
+          const personDetector = await setupPersonDetection(streamManager, io);
+          console.log('*** PERSON DETECTION SETUP COMPLETE ***');
+        } catch (error) {
+          console.log('*** PERSON DETECTION SETUP FAILED, CONTINUING WITHOUT IT ***', (error as Error).message);
+        }
         
         // Setup batch scheduler
         const batchScheduler = setupBatchScheduler(io);
         batchScheduler.start(); // Start the 12-hour schedule
         
         // Setup simple motion detection
-        const motionDetector = await setupSimpleMotionDetection(streamManager, io, personDetector);
+        const motionDetector = await setupSimpleMotionDetection(streamManager, io, personDetector as any);
         
         // Load face recognition modules
         // await loadFaceRecognitionModules();

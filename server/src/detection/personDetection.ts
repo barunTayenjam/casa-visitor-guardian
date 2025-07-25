@@ -53,6 +53,8 @@ const loadModule = async () => {
     console.log('TensorFlow.js-node is ready. Setting backend to CPU...');
     tf.setBackend('cpu'); // Explicitly set backend to CPU
     console.log('tf object after loading module:', tf);
+    console.log('tf.node available:', !!(tf as any).node);
+    console.log('tf.image available:', !!(tf as any).image);
     // tf.enableProdMode(); // Enable production mode for performance
     // tf.ENV.set('WEBGL_PACK_DEPTHWISE', false); // Workaround for some WebGL issues
     // tf.ENV.set('WEBGL_CONV_IM2COL', false); // Workaround for some WebGL issues
@@ -63,9 +65,6 @@ const loadModule = async () => {
     console.log('Person detection will be disabled due to the above error.');
   }
 };
-
-// Start loading module in the background
-loadModule();
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -250,7 +249,7 @@ export class PersonDetector {
   }
 
   // This method processes image data directly (Buffer)
-  private async detectPersonsFromImageData(cameraId: string, imageData: string | Buffer): Promise<PersonDetectionResult | null> {
+  public async detectPersonsFromImageData(cameraId: string, imageData: string | Buffer): Promise<PersonDetectionResult | null> {
     if (!personDetectionAvailable) {
       console.warn('Person detection is not available. Skipping detection from image.');
       return null;
@@ -715,19 +714,13 @@ export class PersonDetector {
 export async function setupPersonDetection(streamManager: StreamManager, io: SocketIOServer): Promise<PersonDetector> {
   console.log('*** SETTING UP PERSON DETECTION ***');
   
-  // Wait for TensorFlow to be ready before creating the detector
-  console.log('*** WAITING FOR TENSORFLOW TO BE READY ***');
-  let attempts = 0;
-  const maxAttempts = 30; // 30 seconds max wait
-  
-  while (!personDetectionAvailable && attempts < maxAttempts) {
-    console.log(`*** TENSORFLOW NOT READY YET, ATTEMPT ${attempts + 1}/${maxAttempts} ***`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-    attempts++;
-  }
-  
+  // Ensure TensorFlow is loaded and ready before proceeding
+  await loadModule();
+
   if (!personDetectionAvailable) {
     console.warn('*** TENSORFLOW FAILED TO LOAD, PERSON DETECTION WILL BE LIMITED ***');
+    // Optionally, you might want to throw an error or handle this more gracefully
+    // if person detection is a critical component.
   } else {
     console.log('*** TENSORFLOW IS READY, CREATING PERSON DETECTOR ***');
   }

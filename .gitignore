@@ -44,3 +44,6 @@ dist-ssr
 *.svg
 server/test_output.mjpeg
 *.mjpeg
+/server/public/events/
+/server/public/persons/
+/server/public/snapshots/

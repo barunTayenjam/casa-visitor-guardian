@@ -1,4 +1,4 @@
-import { Express, Request, Response } from 'express';
+import express, { Express, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
@@ -1340,6 +1340,53 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error('Error getting storage info:', error);
       res.status(500).json({ success: false, error: 'Failed to get storage info' });
+    }
+  });
+
+  // Get system logs
+  app.get('/api/system/logs', (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const level = req.query.level as string;
+      
+      // Mock logs for now - in a real app, you'd read from actual log files
+      const mockLogs = Array.from({ length: Math.min(limit, 20) }, (_, i) => ({
+        timestamp: new Date(Date.now() - i * 60000).toISOString(),
+        level: ['info', 'warn', 'error'][Math.floor(Math.random() * 3)],
+        message: `System log entry ${i + 1}`,
+        meta: { component: 'system' }
+      }));
+      
+      const filteredLogs = level ? mockLogs.filter(log => log.level === level) : mockLogs;
+      
+      res.json({
+        success: true,
+        logs: filteredLogs,
+        total: filteredLogs.length
+      });
+    } catch (error) {
+      console.error('Error fetching system logs:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch system logs' 
+      });
+    }
+  });
+
+  // Clear system logs
+  app.delete('/api/system/logs', (req: Request, res: Response) => {
+    try {
+      // Mock implementation - in a real app, you'd clear actual log files
+      res.json({
+        success: true,
+        message: 'System logs cleared successfully'
+      });
+    } catch (error) {
+      console.error('Error clearing system logs:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to clear system logs' 
+      });
     }
   });
 

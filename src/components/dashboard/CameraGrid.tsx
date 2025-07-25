@@ -15,7 +15,11 @@ export const CameraGrid = ({ compact = false, singleView = false }: CameraGridPr
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const currentCamera = cameras.find(c => c.id === selectedCamera);
 
-  console.log('CameraGrid render:', { cameras, loading, error });
+  console.log('CameraGrid render:', { 
+    cameras: cameras?.length ? cameras.map(c => ({ id: c.id, name: c.name, status: c.status })) : 'no cameras', 
+    loading, 
+    error 
+  });
 
   if (loading) {
     return (

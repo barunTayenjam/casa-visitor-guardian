@@ -1,0 +1,5430 @@
+{
+  "startTime": "2025-07-22T02:35:53.607Z",
+  "totalImages": 443,
+  "processedImages": 442,
+  "personsDetected": 54,
+  "imagesWithPersons": 49,
+  "errors": 1,
+  "processingTime": 152741,
+  "averageDetectionTime": 346,
+  "confidenceDistribution": {
+    "60-69%": 14,
+    "50-59%": 21,
+    "80-89%": 7,
+    "70-79%": 9,
+    "90-99%": 3
+  },
+  "cameraStats": {
+    "cam1": {
+      "totalImages": 253,
+      "imagesWithPersons": 33,
+      "totalPersons": 36
+    },
+    "cam2": {
+      "totalImages": 189,
+      "imagesWithPersons": 16,
+      "totalPersons": 18
+    }
+  },
+  "detectionDetails": [
+    {
+      "filename": "snapshot_cam1_2025-07-05T15-20-10-648Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:20:10",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 1063,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T15-48-04-319Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:48:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 872,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T15-51-42-665Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:51:42",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 878,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T15-51-52-687Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:51:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 931,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-07-14-603Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:07:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 511,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-24-14-737Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:24:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 333,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-36-31-478Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:36:31",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 589,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-36-41-565Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:36:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 324,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-40-44-840Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:40:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 555,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-59-12-574Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:59:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 387,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-05T16-59-22-649Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:59:22",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 427,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-08T10-40-33-437Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:40:33",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 541,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-08T10-40-43-481Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:40:43",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 308,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-08T10-41-10-070Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:41:10",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 346,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-08T10-41-14-568Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:41:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 359,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-08T10-41-24-650Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:41:24",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 279,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T18-32-15-560Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T18:32:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 289,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T18-35-15-571Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T18:35:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 474,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T18-41-15-587Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T18:41:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 377,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T18-56-07-766Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T18:56:07",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 501,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T23-30-05-508Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T23:30:05",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 461,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-10T23-30-09-075Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T23:30:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 525,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T02-14-38-293Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T02:14:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 262,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T02-14-56-644Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T02:14:56",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 487,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T02-18-39-245Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T02:18:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 366,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T05-10-25-125Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T05:10:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 420,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-39-37-487Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 535,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-39-47-592Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:47",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 395,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-39-57-652Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 399,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-40-13-189Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 435,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-40-23-200Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:23",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.670279324054718,
+      "detectionTime": 329,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            515.7513303756714,
+            243.58091354370117,
+            136.50955963134766,
+            224.80270385742188
+          ],
+          "confidence": 0.670279324054718
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-40-54-767Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:54",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 240,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-41-04-797Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:41:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 393,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-43-11-747Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:11",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5830817222595215,
+      "detectionTime": 274,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            547.2006958723068,
+            132.8272247314453,
+            102.600337266922,
+            202.15876579284668
+          ],
+          "confidence": 0.5830817222595215
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-43-21-773Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 635,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-43-43-361Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:43",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.8421593904495239,
+      "detectionTime": 254,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            203.12308171391487,
+            189.57026481628418,
+            73.40728279948235,
+            133.212890625
+          ],
+          "confidence": 0.8421593904495239
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-43-53-379Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 375,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-44-39-532Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:44:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 450,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-44-52-051Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:44:52",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.601826012134552,
+      "detectionTime": 295,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            365.0800197124481,
+            84.38946962356567,
+            95.0300863981247,
+            223.31300497055054
+          ],
+          "confidence": 0.601826012134552
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-45-02-078Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:02",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 331,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-45-12-105Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 357,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-45-27-155Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 184,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T09-45-37-188Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 364,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-15-40-033Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:15:40",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 333,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-15-53-657Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:15:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 141,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-16-03-618Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:03",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 754,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-16-13-671Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 271,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-16-35-238Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:35",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 280,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-16-51-279Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:51",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 573,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-20-07-982Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:07",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 297,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-20-18-198Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:18",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7805984020233154,
+      "detectionTime": 193,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            510.3063042163849,
+            208.12162399291992,
+            89.06682324409485,
+            196.74493789672852
+          ],
+          "confidence": 0.7805984020233154
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-20-28-314Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 382,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-20-38-432Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 204,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-20-55-610Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 356,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-21-05-755Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:21:05",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5286016464233398,
+      "detectionTime": 232,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            98.99646879732609,
+            7.71032452583313,
+            24.82727937400341,
+            49.82726812362671
+          ],
+          "confidence": 0.5286016464233398
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-23-34-425Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:23:34",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 311,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-23-46-758Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:23:46",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5276790261268616,
+      "detectionTime": 151,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            96.8325010240078,
+            6.486563086509705,
+            26.65214830636978,
+            51.20060741901398
+          ],
+          "confidence": 0.5276790261268616
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-26-01-656Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:01",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 523,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-26-12-146Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 332,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-26-35-643Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:35",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 143,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-26-57-303Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 117,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-28-25-391Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:28:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 481,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-28-59-258Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:28:59",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7270169258117676,
+      "detectionTime": 352,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            524.8493648767471,
+            162.6753044128418,
+            96.61309909820557,
+            201.69084548950195
+          ],
+          "confidence": 0.7270169258117676
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-29-14-758Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:29:14",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.535369336605072,
+      "detectionTime": 377,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            303.6024318933487,
+            259.8983573913574,
+            62.003103852272034,
+            73.49601745605469
+          ],
+          "confidence": 0.535369336605072
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-29-27-449Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:29:27",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6801090240478516,
+      "detectionTime": 128,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            321.97123807668686,
+            179.06258583068848,
+            25.206241130828857,
+            61.8186092376709
+          ],
+          "confidence": 0.6801090240478516
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-30-41-223Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:30:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 162,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-31-07-240Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:31:07",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 150,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-31-20-399Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:31:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 241,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-32-15-805Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:32:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 161,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-32-26-104Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:32:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 364,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-33-00-119Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:00",
+      "personDetected": true,
+      "personCount": 2,
+      "highestConfidence": 0.598797619342804,
+      "detectionTime": 595,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            423.19036507606506,
+            327.3288059234619,
+            169.70146584510803,
+            156.6565990447998
+          ],
+          "confidence": 0.598797619342804
+        },
+        {
+          "bbox": [
+            54.24690663814545,
+            10.860060453414917,
+            19.38001987338066,
+            48.31068277359009
+          ],
+          "confidence": 0.5655845403671265
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-33-10-684Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:10",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.9147605299949646,
+      "detectionTime": 359,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            448.1201045513153,
+            158.53596210479736,
+            128.62549567222595,
+            203.84572505950928
+          ],
+          "confidence": 0.9147605299949646
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-33-20-923Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 182,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-33-27-532Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 322,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-34-14-368Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:34:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 142,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-35-20-503Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:35:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 203,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-11T10-35-53-603Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:35:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 201,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-52-53-798Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:52:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 292,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-53-03-816Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:53:03",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 174,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-55-27-958Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:55:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 90,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-55-37-983Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:55:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 93,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-56-36-522Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:56:36",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 212,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T05-56-46-671Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:56:46",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 462,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-01-06-766Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:06",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 434,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-01-19-414Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 300,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-01-29-443Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 279,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-01-49-710Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:49",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 340,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-01-59-850Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 280,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-02-18-566Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:18",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6722227334976196,
+      "detectionTime": 186,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            558.2667685747147,
+            93.01138401031494,
+            101.03437685966492,
+            172.99142360687256
+          ],
+          "confidence": 0.6722227334976196
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-02-28-611Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:28",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5530130863189697,
+      "detectionTime": 105,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            268.16417878866196,
+            122.49738693237305,
+            49.25969636440277,
+            134.46155548095703
+          ],
+          "confidence": 0.5530130863189697
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-02-38-666Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 102,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-02-48-743Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:48",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 86,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-03-09-384Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:03:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 93,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-03-19-578Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:03:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 420,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-18-19-502Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:18:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 424,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-18-29-719Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:18:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 409,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-19-30-777Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:19:30",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 310,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-19-40-912Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:19:40",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 429,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-38-38-475Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:38:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 177,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-44-38-507Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:44:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 126,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-48-08-507Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:48:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 283,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-50-08-510Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:50:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 352,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-51-08-594Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:51:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 352,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-53-08-602Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:53:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 163,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T06-57-08-613Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:57:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 114,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-00-38-623Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:00:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 231,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-03-38-632Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:03:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 139,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-23-08-473Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:23:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 367,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-33-38-513Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:33:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 438,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-48-08-681Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:48:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 306,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-51-08-686Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:51:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 352,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T07-55-08-686Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T07:55:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 141,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-15-08-681Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:15:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 240,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-19-38-684Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:19:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 179,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-30-08-699Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:30:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 285,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-41-08-713Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:41:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 258,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-44-08-909Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:44:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 200,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-48-09-067Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:48:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 281,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-49-39-063Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:49:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 533,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T08-56-09-342Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T08:56:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 170,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T09-13-39-535Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T09:13:39",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.584460973739624,
+      "detectionTime": 330,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            141.4364760518074,
+            10.744516253471375,
+            33.827524065971375,
+            49.27817165851593
+          ],
+          "confidence": 0.584460973739624
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T09-30-39-611Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T09:30:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 407,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T09-41-39-659Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T09:41:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 220,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T09-42-39-661Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T09:42:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 170,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T11-41-51-625Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T11:41:51",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 281,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T11-48-21-745Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T11:48:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 387,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T11-51-04-225Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T11:51:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 270,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T11-55-34-782Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T11:55:34",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 343,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T11-58-04-828Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T11:58:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 257,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T12-10-48-611Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T12:10:48",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5869452953338623,
+      "detectionTime": 238,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            288.043894469738,
+            0.946921706199646,
+            31.80323874950409,
+            31.36808216571808
+          ],
+          "confidence": 0.5869452953338623
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-13T13-05-15-845Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T13:05:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 151,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-05-25-568Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:05:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 293,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-15-55-555Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:15:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 151,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-17-25-554Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:17:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 256,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-18-55-555Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:18:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 205,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-24-55-638Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:24:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 144,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-31-25-646Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:31:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 125,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-35-55-674Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:35:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 235,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T05-59-27-740Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T05:59:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 161,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T06-02-56-415Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T06:02:56",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 482,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T06-03-26-424Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T06:03:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 246,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T06-06-26-431Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T06:06:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 180,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T06-07-26-433Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T06:07:26",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.8070412278175354,
+      "detectionTime": 365,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            343.6947647333145,
+            168.25658798217773,
+            144.18736720085144,
+            227.55254745483398
+          ],
+          "confidence": 0.8070412278175354
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T06-07-56-433Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T06:07:56",
+      "personDetected": true,
+      "personCount": 2,
+      "highestConfidence": 0.7514703273773193,
+      "detectionTime": 245,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            353.0353490114212,
+            166.18390560150146,
+            169.36184525489807,
+            293.2985544204712
+          ],
+          "confidence": 0.7514703273773193
+        },
+        {
+          "bbox": [
+            488.95622277259827,
+            345.8745002746582,
+            122.43139028549194,
+            131.06019973754883
+          ],
+          "confidence": 0.5168423652648926
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T08-12-09-029Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T08:12:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 161,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T08-17-10-836Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T08:17:10",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 140,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-17-27-164Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:17:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 112,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-33-27-575Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:33:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 118,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-34-27-576Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:34:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 688,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-46-57-823Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:46:57",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.9423056244850159,
+      "detectionTime": 175,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            336.3626860380173,
+            166.92599773406982,
+            212.31641817092896,
+            271.85993671417236
+          ],
+          "confidence": 0.9423056244850159
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-51-27-840Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:51:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 344,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T14-58-27-994Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T14:58:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 185,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T15-20-58-322Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T15:20:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 348,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T15-25-28-343Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T15:25:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 329,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T15-28-58-366Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T15:28:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 306,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T15-47-58-762Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T15:47:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 148,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T15-55-28-900Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T15:55:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 346,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-17-29-701Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:17:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 246,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-21-59-740Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:21:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 159,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-41-29-776Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:41:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 265,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-45-29-783Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:45:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 387,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-49-59-792Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:49:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 264,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T16-59-59-808Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T16:59:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 227,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-05-29-814Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:05:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 134,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-18-29-834Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:18:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 317,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-22-59-844Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:22:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 132,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-26-59-859Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:26:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 187,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-34-59-887Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:34:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 145,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-21T17-52-29-928Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:21T17:52:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 228,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-22T02-16-01-086Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:22T02:16:01",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5581895709037781,
+      "detectionTime": 371,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            523.5219838619232,
+            225.22931098937988,
+            140.72977304458618,
+            129.07150268554688
+          ],
+          "confidence": 0.5581895709037781
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam1_2025-07-22T02-19-00-078Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:22T02:19:00",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 291,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T15-58-04-530Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T15:58:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 135,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-07-35-152Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:07:35",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 244,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-10-14-609Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:10:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 334,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-19-44-723Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:19:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 206,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-20-14-725Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:20:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 157,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-25-44-752Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:25:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 116,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-28-17-855Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:28:17",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 248,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-28-28-171Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:28:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 226,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-28-44-752Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:28:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 290,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-37-11-229Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:37:11",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 137,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-37-21-294Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:37:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 208,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-38-44-832Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:38:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 443,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-05T16-48-44-864Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:48:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 290,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-08T10-40-36-932Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:40:36",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 128,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-08T10-40-46-989Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:40:46",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 160,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-08T10-41-15-567Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:41:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 154,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-08T10-41-25-671Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:41:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 174,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T18-34-45-567Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T18:34:45",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 565,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T18-41-45-588Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T18:41:45",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 278,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T18-42-15-589Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T18:42:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 152,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T19-07-05-913Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T19:07:05",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 380,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T19-13-53-341Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T19:13:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 175,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T23-30-10-056Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T23:30:10",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 143,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-10T23-30-20-419Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T23:30:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 108,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-14-58-359Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:14:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 109,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-15-08-586Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:15:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 123,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-15-18-993Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:15:18",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 546,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-15-39-125Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:15:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 182,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-16-52-127Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:16:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 203,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T02-18-09-240Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:18:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 542,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-40-48-261Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:40:48",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 262,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-40-58-278Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:40:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 183,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-43-13-752Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:13",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.8093641400337219,
+      "detectionTime": 119,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            90.86543928086758,
+            199.974946975708,
+            37.52567644417286,
+            87.63456344604492
+          ],
+          "confidence": 0.8093641400337219
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-43-23-772Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:23",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 524,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-43-33-810Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:33",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6170857548713684,
+      "detectionTime": 353,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            294.2981155514717,
+            187.3051643371582,
+            61.143821001052856,
+            154.58885192871094
+          ],
+          "confidence": 0.6170857548713684
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-43-43-861Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:43",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 244,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-44-15-475Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 272,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-44-25-503Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 379,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-44-52-554Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 387,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T09-45-27-157Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:45:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 1058,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-15-47-443Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:15:47",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6287131905555725,
+      "detectionTime": 669,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            53.16561311483383,
+            239.84314441680908,
+            84.91307559609413,
+            111.3861894607544
+          ],
+          "confidence": 0.6287131905555725
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-16-01-622Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:16:01",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 610,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-20-16-713Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:20:16",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 474,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-20-26-807Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:20:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 642,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-21-26-715Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:21:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 613,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-23-56-913Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:23:56",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 449,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-30-52-621Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:30:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 416,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-31-16-523Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:31:16",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.858349084854126,
+      "detectionTime": 302,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            91.18973825871944,
+            211.8372917175293,
+            35.49094341695309,
+            86.36432647705078
+          ],
+          "confidence": 0.858349084854126
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-11T10-32-27-464Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:32:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 303,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T05-57-47-080Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T05:57:47",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 314,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-01-47-109Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:01:47",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 493,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-02-02-813Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:02",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 605,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-02-13-028Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 483,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-02-23-081Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:23",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7390502095222473,
+      "detectionTime": 731,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            541.3663175106049,
+            171.81535720825195,
+            49.208844900131226,
+            123.39792251586914
+          ],
+          "confidence": 0.7390502095222473
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-02-33-149Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:33",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 427,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-03-08-396Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:03:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 378,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-03-18-662Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:03:18",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 556,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-04-08-801Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:04:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 325,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-06-08-828Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:06:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 778,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-17-31-300Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:17:31",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 428,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-27-16-514Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:27:16",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 278,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-29-39-201Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:29:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 289,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-39-38-474Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:39:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 959,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-43-08-483Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:43:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 153,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-46-38-499Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:46:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 147,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-55-08-607Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:55:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 255,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T06-59-38-620Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:59:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 105,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T07-35-38-513Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T07:35:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 625,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T07-38-08-567Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T07:38:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 639,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T07-56-08-689Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T07:56:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 271,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T08-24-38-693Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T08:24:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 357,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T08-26-08-694Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T08:26:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 403,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T08-27-38-697Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T08:27:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 517,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T08-33-08-703Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T08:33:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 347,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T08-59-39-384Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T08:59:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 555,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-09-39-524Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:09:39",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6803930997848511,
+      "detectionTime": 321,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            444.4226584434509,
+            181.0911226272583,
+            39.47437810897827,
+            61.38746738433838
+          ],
+          "confidence": 0.6803930997848511
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-15-09-536Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:15:09",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6557112336158752,
+      "detectionTime": 395,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            445.0099699497223,
+            165.11929035186768,
+            38.33833909034729,
+            57.25473403930664
+          ],
+          "confidence": 0.6557112336158752
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-22-39-588Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:22:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 776,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-24-39-601Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:24:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 672,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-25-09-595Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:25:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 571,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-30-09-612Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:30:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 526,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-31-39-614Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:31:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 483,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T09-36-09-634Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T09:36:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 366,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T10-42-28-294Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T10:42:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 580,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T10-44-58-292Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T10:44:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 472,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T10-51-28-313Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T10:51:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 293,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T10-57-41-626Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T10:57:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 448,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T11-40-21-601Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T11:40:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 438,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T11-40-51-603Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T11:40:51",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 490,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T11-43-21-632Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T11:43:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 352,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T11-45-21-663Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T11:45:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 205,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-13T11-56-04-782Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T11:56:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 318,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-04-25-559Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:04:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 269,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-08-25-570Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:08:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 432,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-11-55-579Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:11:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 409,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-15-25-557Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:15:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 327,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-22-25-637Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:22:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 481,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-22-55-637Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:22:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 294,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-32-25-655Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:32:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 331,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-34-25-672Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:34:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 254,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-50-27-359Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:50:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 439,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-58-57-740Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:58:57",
+      "personDetected": true,
+      "personCount": 2,
+      "highestConfidence": 0.5693678855895996,
+      "detectionTime": 277,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            345.20066034793854,
+            201.14971160888672,
+            18.93191361427307,
+            34.90802764892578
+          ],
+          "confidence": 0.5693678855895996
+        },
+        {
+          "bbox": [
+            375.80028718709946,
+            201.53843879699707,
+            16.464574098587036,
+            31.51782989501953
+          ],
+          "confidence": 0.5509872436523438
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T05-59-57-743Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T05:59:57",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7402809262275696,
+      "detectionTime": 625,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            418.06897616386414,
+            184.14673805236816,
+            29.522252798080444,
+            56.69780731201172
+          ],
+          "confidence": 0.7402809262275696
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T06-06-26-006Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T06:06:26",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7767634391784668,
+      "detectionTime": 438,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            414.4739456176758,
+            188.1138038635254,
+            32.806575298309326,
+            56.277122497558594
+          ],
+          "confidence": 0.7767634391784668
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T06-18-16-112Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T06:18:16",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 427,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T06-18-46-892Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T06:18:46",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 466,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T07-50-27-762Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T07:50:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 255,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T07-50-57-762Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T07:50:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 428,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T07-51-27-763Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T07:51:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 410,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T08-06-39-120Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T08:06:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 514,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T08-10-38-964Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T08:10:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 191,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T08-12-39-013Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T08:12:39",
+      "personDetected": true,
+      "personCount": 2,
+      "highestConfidence": 0.6925269365310669,
+      "detectionTime": 354,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            499.5027859210968,
+            13.542108535766602,
+            151.64955234527588,
+            372.60847091674805
+          ],
+          "confidence": 0.6925269365310669
+        },
+        {
+          "bbox": [
+            266.0207310318947,
+            112.43122816085815,
+            167.7825738787651,
+            201.0568928718567
+          ],
+          "confidence": 0.5078353881835938
+        }
+      ]
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T13-31-30-118Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T13:31:30",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 362,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T13-49-27-085Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T13:49:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 685,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T13-57-27-056Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T13:57:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 529,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T13-57-57-057Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T13:57:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 293,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T13-59-57-063Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T13:59:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 354,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-00-57-063Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:00:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 386,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-03-57-100Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:03:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 417,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-15-27-158Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:15:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 290,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-15-57-158Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:15:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 407,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-18-57-170Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:18:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 442,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-19-27-172Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:19:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 549,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-20-27-178Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:20:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 708,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-32-57-060Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:32:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 406,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-40-57-766Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:40:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 274,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-41-57-771Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:41:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 388,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T14-44-57-804Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T14:44:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 355,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T15-08-28-260Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T15:08:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 301,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T15-21-28-323Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T15:21:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 318,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T15-44-28-572Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T15:44:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 283,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T15-53-58-872Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T15:53:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 366,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T15-56-28-907Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T15:56:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 432,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T16-24-29-750Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T16:24:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 153,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T16-37-59-772Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T16:37:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 435,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T16-50-29-792Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T16:50:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 362,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T16-52-59-797Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T16:52:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 250,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T16-57-29-802Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T16:57:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 375,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-09-29-817Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:09:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 229,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-11-59-819Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:11:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 157,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-13-29-821Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:13:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 111,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-20-59-840Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:20:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 121,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-24-29-852Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:24:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 155,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-35-29-895Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:35:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 173,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-36-29-896Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:36:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 624,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-21T17-55-59-968Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:21T17:55:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 139,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-22T01-13-27-132Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:22T01:13:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 176,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-22T02-17-44-065Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:22T02:17:44",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 299,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-22T02-33-41-498Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:22T02:33:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 325,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-22T02-34-11-496Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:22T02:34:11",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 337,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "snapshot_cam2_2025-07-22T02-35-11-497Z.jpg",
+      "type": "snapshot",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:22T02:35:11",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 649,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T15-51-42-663Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:51:42",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 549,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T15-51-52-685Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T15:51:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 348,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T16-36-31-473Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:36:31",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 276,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T16-36-41-564Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:36:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 361,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T16-59-12-570Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:59:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 149,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-05T16-59-22-648Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:05T16:59:22",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 143,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-08T10-40-33-427Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:40:33",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 183,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-08T10-40-43-479Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:40:43",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 458,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-08T10-41-14-567Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:41:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 200,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-08T10-41-24-649Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:08T10:41:24",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 129,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-10T23-30-09-048Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:10T23:30:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 109,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T02-14-56-240Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T02:14:56",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 139,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-39-37-485Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 305,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-39-47-590Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:47",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 176,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-39-57-651Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:39:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 150,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-40-13-179Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 120,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-40-23-190Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:23",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.670279324054718,
+      "detectionTime": 430,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            515.7513303756714,
+            243.58091354370117,
+            136.50955963134766,
+            224.80270385742188
+          ],
+          "confidence": 0.670279324054718
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-40-54-762Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:40:54",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 356,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-41-04-793Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:41:04",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 297,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-43-11-742Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:11",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5830817222595215,
+      "detectionTime": 570,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            547.2006958723068,
+            132.8272247314453,
+            102.600337266922,
+            202.15876579284668
+          ],
+          "confidence": 0.5830817222595215
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-43-21-767Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 361,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-43-43-352Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:43",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.8421593904495239,
+      "detectionTime": 243,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            203.12308171391487,
+            189.57026481628418,
+            73.40728279948235,
+            133.212890625
+          ],
+          "confidence": 0.8421593904495239
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-43-53-375Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:43:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 365,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-44-39-522Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:44:39",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 464,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-44-52-047Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:44:52",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.601826012134552,
+      "detectionTime": 289,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            365.0800197124481,
+            84.38946962356567,
+            95.0300863981247,
+            223.31300497055054
+          ],
+          "confidence": 0.601826012134552
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-45-02-075Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:02",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 777,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-45-12-099Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 330,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-45-27-151Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 646,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T09-45-37-182Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T09:45:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 616,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-15-40-020Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:15:40",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 305,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-15-53-497Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:15:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 449,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-16-03-613Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:03",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 418,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-16-13-648Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 307,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-16-35-233Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:35",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 184,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-16-51-264Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:16:51",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 230,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-20-07-956Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:07",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 345,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-20-18-190Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:18",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7805984020233154,
+      "detectionTime": 162,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            510.3063042163849,
+            208.12162399291992,
+            89.06682324409485,
+            196.74493789672852
+          ],
+          "confidence": 0.7805984020233154
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-20-28-298Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 223,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-20-38-410Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 277,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-20-55-603Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:20:55",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 542,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-21-05-730Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:21:05",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5286016464233398,
+      "detectionTime": 143,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            98.99646879732609,
+            7.71032452583313,
+            24.82727937400341,
+            49.82726812362671
+          ],
+          "confidence": 0.5286016464233398
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-23-34-391Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:23:34",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 136,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-23-46-659Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:23:46",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5276790261268616,
+      "detectionTime": 481,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            96.8325010240078,
+            6.486563086509705,
+            26.65214830636978,
+            51.20060741901398
+          ],
+          "confidence": 0.5276790261268616
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-26-01-584Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:01",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 158,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-26-12-005Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:12",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 339,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-26-35-533Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:35",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 134,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-26-57-144Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:26:57",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 155,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-28-25-277Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:28:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 119,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-28-59-235Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:28:59",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7270169258117676,
+      "detectionTime": 111,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            524.8493648767471,
+            162.6753044128418,
+            96.61309909820557,
+            201.69084548950195
+          ],
+          "confidence": 0.7270169258117676
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-29-14-686Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:29:14",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.535369336605072,
+      "detectionTime": 119,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            303.6024318933487,
+            259.8983573913574,
+            62.003103852272034,
+            73.49601745605469
+          ],
+          "confidence": 0.535369336605072
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-30-41-189Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:30:41",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 130,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-31-07-216Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:31:07",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 312,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-31-20-370Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:31:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 317,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-32-15-794Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:32:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 277,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-32-25-984Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:32:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 285,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-33-00-100Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:00",
+      "personDetected": true,
+      "personCount": 2,
+      "highestConfidence": 0.598797619342804,
+      "detectionTime": 340,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            423.19036507606506,
+            327.3288059234619,
+            169.70146584510803,
+            156.6565990447998
+          ],
+          "confidence": 0.598797619342804
+        },
+        {
+          "bbox": [
+            54.24690663814545,
+            10.860060453414917,
+            19.38001987338066,
+            48.31068277359009
+          ],
+          "confidence": 0.5655845403671265
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-33-10-665Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:10",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.9147605299949646,
+      "detectionTime": 395,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            448.1201045513153,
+            158.53596210479736,
+            128.62549567222595,
+            203.84572505950928
+          ],
+          "confidence": 0.9147605299949646
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-33-20-906Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:33:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 381,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-34-14-166Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:34:14",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 568,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-35-20-413Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:35:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 309,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-11T10-35-53-571Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:11T10:35:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 513,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-52-53-796Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:52:53",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 573,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-53-03-814Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:53:03",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 293,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-55-27-956Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:55:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 415,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-55-37-981Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:55:37",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 162,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-56-36-472Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:56:36",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 442,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T05-56-46-664Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T05:56:46",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 344,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-01-06-756Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:06",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 238,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-01-19-412Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 338,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-01-29-441Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 228,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-01-49-707Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:49",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 376,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-01-59-797Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:01:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 276,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-02-18-558Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:18",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6722227334976196,
+      "detectionTime": 279,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            558.2667685747147,
+            93.01138401031494,
+            101.03437685966492,
+            172.99142360687256
+          ],
+          "confidence": 0.6722227334976196
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-02-28-609Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:28",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.5530130863189697,
+      "detectionTime": 282,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            268.16417878866196,
+            122.49738693237305,
+            49.25969636440277,
+            134.46155548095703
+          ],
+          "confidence": 0.5530130863189697
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-02-38-663Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:38",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 378,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-02-48-739Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:02:48",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 437,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-03-09-383Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:03:09",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 270,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-03-19-576Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:03:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 205,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-18-19-495Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:18:19",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 334,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-18-29-674Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:18:29",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 656,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-19-30-774Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:19:30",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 261,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam1_2025-07-13T06-19-40-910Z.jpg",
+      "type": "event",
+      "cameraId": "cam1",
+      "timestamp": "2025:07:13T06:19:40",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 362,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-05T16-28-17-799Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:28:17",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 380,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-05T16-28-28-109Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:28:28",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 308,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-05T16-37-11-226Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:37:11",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 299,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-05T16-37-21-292Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:05T16:37:21",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 609,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-08T09-00-59-786Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T09:00:59",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 627,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-08T10-40-36-931Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:40:36",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 409,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-08T10-40-46-987Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:40:46",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 492,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-08T10-41-15-567Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:41:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 328,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-08T10-41-25-668Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:08T10:41:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 438,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-10T19-07-05-909Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T19:07:05",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 375,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-10T23-30-10-050Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T23:30:10",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 496,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-10T23-30-20-370Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:10T23:30:20",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 259,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T02-14-58-358Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:14:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 395,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T02-15-08-585Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:15:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 382,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T02-15-18-992Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:15:18",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 281,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T02-16-52-120Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T02:16:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 231,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-40-48-252Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:40:48",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 513,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-40-58-270Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:40:58",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 463,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-43-13-746Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:13",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.8093641400337219,
+      "detectionTime": 398,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            90.86543928086758,
+            199.974946975708,
+            37.52567644417286,
+            87.63456344604492
+          ],
+          "confidence": 0.8093641400337219
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-43-23-768Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:23",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 411,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-43-33-800Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:33",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6170857548713684,
+      "detectionTime": 454,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            294.2981155514717,
+            187.3051643371582,
+            61.143821001052856,
+            154.58885192871094
+          ],
+          "confidence": 0.6170857548713684
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-43-43-855Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:43:43",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 296,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-44-15-469Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:15",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 724,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-44-25-494Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:25",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 462,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-44-52-549Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:44:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 405,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T09-45-27-155Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T09:45:27",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 385,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-15-47-438Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:15:47",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.6287131905555725,
+      "detectionTime": 537,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            53.16561311483383,
+            239.84314441680908,
+            84.91307559609413,
+            111.3861894607544
+          ],
+          "confidence": 0.6287131905555725
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-16-01-608Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:16:01",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 870,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-20-16-689Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:20:16",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 478,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-20-26-789Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:20:26",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 488,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-30-52-569Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:30:52",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 501,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-11T10-31-16-341Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:11T10:31:16",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.858349084854126,
+      "detectionTime": 662,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            91.18973825871944,
+            211.8372917175293,
+            35.49094341695309,
+            86.36432647705078
+          ],
+          "confidence": 0.858349084854126
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-02-02-812Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:02",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 883,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-02-13-017Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:13",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 451,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-02-23-079Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:23",
+      "personDetected": true,
+      "personCount": 1,
+      "highestConfidence": 0.7390502095222473,
+      "detectionTime": 500,
+      "boundingBoxes": [
+        {
+          "bbox": [
+            541.3663175106049,
+            171.81535720825195,
+            49.208844900131226,
+            123.39792251586914
+          ],
+          "confidence": 0.7390502095222473
+        }
+      ]
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-02-33-148Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:02:33",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 583,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-03-08-382Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:03:08",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 594,
+      "boundingBoxes": []
+    },
+    {
+      "filename": "motion_cam2_2025-07-13T06-03-18-566Z.jpg",
+      "type": "event",
+      "cameraId": "cam2",
+      "timestamp": "2025:07:13T06:03:18",
+      "personDetected": false,
+      "personCount": 0,
+      "highestConfidence": 0,
+      "detectionTime": 522,
+      "boundingBoxes": []
+    }
+  ],
+  "endTime": "2025-07-22T02:38:27.034Z",
+  "totalProcessingTime": 172947
+}

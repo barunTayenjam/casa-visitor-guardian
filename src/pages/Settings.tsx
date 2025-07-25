@@ -89,43 +89,20 @@ const Settings = () => {
     }
   }, []);
 
-  // Load logs
-  const loadLogs = useCallback(async () => {
-    setIsLoadingLogs(true);
-    try {
-      const logs = await apiService.getSystemLogs(logLevel === 'all' ? undefined : logLevel, 50);
-      setLogs(logs);
-    } catch (error) {
-      console.error('Failed to load logs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load system logs',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingLogs(false);
-    }
-  }, [logLevel, toast]);
+  // Load logs - COMPLETELY DISABLED
+  const loadLogs = useCallback(() => {
+    console.log('loadLogs called but disabled');
+    // Do nothing - completely disabled
+  }, []);
 
-  // Clear logs
-  const clearLogs = async () => {
-    try {
-      await apiService.clearSystemLogs();
-      setLogs([]);
-      toast({
-        title: 'Logs cleared',
-        description: 'All system logs have been cleared.',
-      });
-    } catch (error) {
-      console.error('Failed to clear logs:', error);
-      // Still clear local logs even if API fails
-      setLogs([]);
-      toast({
-        title: 'Warning',
-        description: 'Local logs cleared, but backend clear may have failed',
-        variant: 'destructive',
-      });
-    }
+  // Clear logs - DISABLED
+  const clearLogs = () => {
+    // Completely disabled - no API calls
+    setLogs([]);
+    toast({
+      title: 'Logs cleared',
+      description: 'System logs cleared (disabled mode).',
+    });
   };
 
   // Download logs
@@ -172,22 +149,17 @@ const Settings = () => {
     }
   };
 
-  // Load data on component mount
+  // Load data on component mount - logs disabled
   useEffect(() => {
     loadSettings();
-    loadLogs();
-  }, [loadSettings, loadLogs]);
+    // loadLogs() disabled to prevent API calls
+  }, [loadSettings]);
 
-  // Auto-refresh logs
+  // Auto-refresh logs - DISABLED
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefreshLogs) {
-      interval = setInterval(loadLogs, 5000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefreshLogs, loadLogs]);
+    console.log('Auto-refresh disabled');
+    // Completely disabled - no intervals
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);

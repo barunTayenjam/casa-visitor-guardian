@@ -57,7 +57,7 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
             size="lg"
             onClick={() => {
               console.log('Settings button clicked, navigating to /settings');
-              navigate('/settings');
+              window.location.href = '/settings';
             }}
             className="h-12 px-6"
           >

@@ -688,12 +688,23 @@ export class ApiService {
     }
   }
 
-  // Scan snapshots for persons
-  async scanSnapshotsForPersons(): Promise<any> {
-    const response = await this.fetchWithRetry(`${API_URL}/scan-snapshots-for-persons`, {
-      method: 'POST'
+  // Scan snapshots for persons (updated to use new batch endpoint)
+  async scanSnapshotsForPersons(options = {}): Promise<{ jobId: string }> {
+    const response = await this.fetchWithRetry(`${API_URL}/person/batch/process`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+      headers: { 'Content-Type': 'application/json' }
     });
-    return response.json();
+    const data = await response.json();
+    if (!data.success) {
+      throw new ApiError(
+        data.error || 'Failed to start batch person detection',
+        response.status,
+        'START_BATCH_DETECTION_ERROR',
+        data
+      );
+    }
+    return { jobId: data.jobId };
   }
 
   // Get recent motion events

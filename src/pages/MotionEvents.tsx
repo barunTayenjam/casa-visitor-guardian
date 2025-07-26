@@ -133,10 +133,11 @@ const MotionEvents = () => {
   const handleScanSnapshots = async () => {
     setScanning(true);
     try {
-      await apiService.scanSnapshotsForPersons();
+      // You can pass options here if you want to customize batch detection
+      const { jobId } = await apiService.scanSnapshotsForPersons({});
       toast({
         title: "Scan Initiated",
-        description: "Scanning of past snapshots for persons has been initiated.",
+        description: `Scanning of past snapshots for persons has been initiated. Job ID: ${jobId}`,
       });
     } catch (error) {
       console.error('Failed to scan snapshots for persons:', error);

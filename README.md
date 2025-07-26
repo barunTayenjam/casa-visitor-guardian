@@ -1,26 +1,84 @@
 # Casa Visitor Guardian - Home Security Camera System
 
+## 🎯 Project Status (Current State)
+
+**Last Updated:** January 2025  
+**Overall Status:** ✅ **FUNCTIONAL** - Core features working, some advanced features in development
+
+### ✅ **WORKING FEATURES**
+- ✅ **Live RTSP Streaming** - Multiple camera feeds with real-time display
+- ✅ **Frontend Dashboard** - React-based UI with responsive design  
+- ✅ **Backend API** - Express server with REST endpoints
+- ✅ **WebSocket Communication** - Real-time updates via Socket.IO
+- ✅ **Camera Management** - Add/edit/delete cameras via web interface
+- ✅ **Motion Detection** - Basic motion detection with snapshot capture
+- ✅ **Event History** - View and browse historical motion events
+- ✅ **Docker Deployment** - Containerized setup with nginx proxy
+- ✅ **File Storage** - Automatic snapshot and event image storage
+
+### ⚠️ **PARTIALLY WORKING / ISSUES**
+- ⚠️ **Person Detection** - TensorFlow.js integration has native library issues on macOS
+- ⚠️ **Batch Person Detection** - Frontend button exists but backend processing disabled
+- ⚠️ **Face Recognition** - Module exists but not fully integrated
+- ⚠️ **Email Notifications** - Configuration exists but needs SMTP setup
+
+### ❌ **NOT IMPLEMENTED / BROKEN**
+- ❌ **AI Person Recognition** - TensorFlow native binaries failing to load
+- ❌ **Advanced Analytics** - Person counting and identification features
+- ❌ **Mobile Push Notifications** - Only web notifications working
+- ❌ **Cloud Storage Integration** - Only local file storage available
+
 ## Overview
 
-Casa Visitor Guardian is a comprehensive home security camera system that allows you to monitor and manage RTSP camera feeds with advanced features:
+Casa Visitor Guardian is a home security camera system that allows you to monitor and manage RTSP camera feeds with the following capabilities:
 
-📹 **Live Streaming:** View real-time video feeds from multiple RTSP cameras with minimal latency  
-🚨 **Motion Detection:** Intelligent detection of movement and visitors  
-📸 **Automatic Capture:** Save high-quality snapshots when motion is detected  
-📊 **Dashboard:** Web-based interface to monitor and review activity with customizable layouts  
-📧 **Daily Reports:** Email summaries with visitor timestamps, images, and motion analytics  
-🔍 **Searchable History:** Easily review past visitor events with advanced filtering options  
-🔔 **Real-time Notifications:** Instant alerts when motion is detected  
-📱 **Mobile Responsive:** Access your security system from any device with a responsive design  
-🌙 **Night Mode:** Enhanced visibility in low-light conditions with automatic day/night mode switching  
-🔄 **Auto-Recovery:** System auto-restarts stream connections if cameras disconnect
+📹 **Live Streaming:** View real-time video feeds from multiple RTSP cameras  
+🚨 **Motion Detection:** Basic movement detection with snapshot capture  
+📸 **Automatic Capture:** Save snapshots when motion is detected  
+📊 **Dashboard:** Web-based interface to monitor camera feeds  
+🔍 **Event History:** Review past motion events with filtering  
+🔔 **Real-time Updates:** Live notifications via WebSocket  
+📱 **Mobile Responsive:** Access from any device  
+🔄 **Auto-Recovery:** Automatic stream reconnection
 
-## Project Structure
+## 🏗️ Project Architecture
 
-This project consists of two main components:
+### **Frontend** (`/`)
+- **Framework:** React 18 + TypeScript + Vite
+- **UI Library:** shadcn-ui components + Tailwind CSS  
+- **State Management:** React Context + TanStack Query
+- **Real-time:** Socket.IO client for live updates
+- **Routing:** React Router for navigation
+- **Port:** 5173 (dev) / 3020 (production)
 
-1. **Frontend**: A React application built with TypeScript, Vite, shadcn-ui, and Tailwind CSS
-2. **Backend**: A Node.js server that handles RTSP camera streams and provides a WebSocket API for real-time communication
+### **Backend** (`/server`)
+- **Runtime:** Node.js + Express + TypeScript
+- **Streaming:** FFmpeg for RTSP processing
+- **Real-time:** Socket.IO server for WebSocket communication  
+- **Storage:** Local file system for images/events
+- **AI/ML:** TensorFlow.js (currently disabled due to native library issues)
+- **Port:** 9753
+
+### **Key Components**
+```
+├── Frontend (React + TypeScript)
+│   ├── Dashboard - Camera grid and controls
+│   ├── Events - Motion event history
+│   ├── Settings - Camera and system configuration
+│   └── Components - Reusable UI components
+│
+├── Backend (Node.js + Express)
+│   ├── RTSP Manager - Camera stream handling
+│   ├── Motion Detection - Basic movement detection
+│   ├── Person Detection - AI detection (disabled)
+│   ├── API Routes - REST endpoints
+│   └── Socket.IO - Real-time communication
+│
+└── Docker Setup
+    ├── nginx - Reverse proxy
+    ├── Frontend container
+    └── Backend container
+```
 
 ## Getting Started
 
@@ -170,9 +228,98 @@ The backend provides various REST API endpoints for managing cameras and retriev
 - `GET /api/motion/events`: Get recent motion events
 - `GET /api/system/overview`: Get system overview and statistics
 
+## 🔧 Current Issues & Troubleshooting
+
+### **Known Issues**
+
+#### 1. TensorFlow.js Person Detection (macOS)
+**Problem:** `dlopen failed: Library not loaded: libtensorflow.2.dylib`
+**Status:** ❌ Blocking AI features
+**Workaround:** Person detection is disabled, basic motion detection still works
+**Solution:** Need to rebuild TensorFlow native binaries or use alternative AI library
+
+#### 2. Batch Person Detection Button
+**Problem:** Frontend button exists but backend processing fails
+**Status:** ⚠️ UI works, processing doesn't
+**Cause:** Depends on TensorFlow.js which is currently broken
+**Workaround:** Manual image analysis via API endpoints
+
+#### 3. Email Notifications
+**Problem:** SMTP configuration required
+**Status:** ⚠️ Feature exists but not configured
+**Solution:** Set up SMTP credentials in server/.env file
+
+### **Development Status**
+
+#### ✅ Stable Components
+- RTSP streaming pipeline
+- React frontend with shadcn-ui
+- Express API server
+- Docker containerization
+- Basic motion detection
+- File storage system
+
+#### 🚧 In Development
+- AI-powered person detection
+- Advanced analytics dashboard
+- Email notification system
+- Face recognition features
+
+#### 📋 TODO List
+- [ ] Fix TensorFlow.js native library issues
+- [ ] Implement alternative AI detection (OpenCV?)
+- [ ] Add cloud storage integration
+- [ ] Mobile app development
+- [ ] Advanced alert system
+- [ ] User authentication system
+
+## 🚀 Quick Start
+
+### **Recommended: Docker Deployment**
+```bash
+# Clone and start
+git clone <repository-url>
+cd casa-visitor-guardian
+./start-docker.sh
+```
+Access at: http://localhost:3020
+
+### **Development Mode**
+```bash
+# Frontend (Terminal 1)
+npm install
+npm run dev
+
+# Backend (Terminal 2)  
+cd server
+npm install
+npm run dev
+```
+Access at: http://localhost:5173
+
+## 📊 Feature Matrix
+
+| Feature | Status | Frontend | Backend | Notes |
+|---------|--------|----------|---------|-------|
+| Live Streaming | ✅ Working | ✅ | ✅ | RTSP via FFmpeg |
+| Camera Management | ✅ Working | ✅ | ✅ | Add/Edit/Delete |
+| Motion Detection | ✅ Working | ✅ | ✅ | Basic pixel diff |
+| Event History | ✅ Working | ✅ | ✅ | File-based storage |
+| Person Detection | ❌ Broken | ✅ | ❌ | TensorFlow issues |
+| Face Recognition | ❌ Disabled | ⚠️ | ⚠️ | Module exists |
+| Email Alerts | ⚠️ Partial | ✅ | ⚠️ | Needs SMTP config |
+| Mobile App | ❌ None | ❌ | ❌ | Web responsive only |
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### **Priority Areas for Contribution**
+1. Fix TensorFlow.js native library issues on macOS
+2. Implement alternative AI detection methods
+3. Add comprehensive test coverage
+4. Improve error handling and logging
+5. Mobile app development
 
 ## License
 

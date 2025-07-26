@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Camera, Bell, BarChart3, Settings, LucideIcon } from 'lucide-react';
+import { Camera, Calendar, BarChart3, Settings, LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -24,8 +24,7 @@ const tabs: Tab[] = [
     id: 'events',
     label: 'Events',
     href: '/events',
-    icon: Bell,
-    badge: 12,
+    icon: Calendar,
   },
   {
     id: 'analytics',

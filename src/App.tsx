@@ -35,7 +35,6 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<TabletSecurityLayout />}>
                     <Route index element={<Dashboard />} />
-                    <Route path="camera-config" element={<CameraConfig />} />
                     <Route path="events" element={<MotionEvents />} />
                     <Route path="analytics" element={<TabletAnalytics />} />
                     <Route path="settings" element={<TabletSystemMonitor />} />

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { useCameras } from '@/contexts/CameraContext';
 import { AlertsPanel } from './AlertsPanel';
+import { useNavigate } from 'react-router-dom';
 
 interface TabletLayoutProps {
   children?: React.ReactNode;
@@ -15,6 +16,7 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
   const [showAlerts, setShowAlerts] = useState(false);
   const { connected, connectionStatus } = useSocketContext();
   const { cameras } = useCameras();
+  const navigate = useNavigate();
   
   const activeCameras = cameras.filter(c => c.status === 'online').length;
   const totalCameras = cameras.length;
@@ -66,6 +68,7 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
           <Button
             variant="outline"
             size="lg"
+            onClick={() => navigate('/settings')}
             className="h-12 px-6"
           >
             <Settings className="h-5 w-5 mr-2" />

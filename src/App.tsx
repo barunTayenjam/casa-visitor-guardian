@@ -9,7 +9,7 @@ import { TabletSecurityLayout } from "./components/layout/TabletSecurityLayout";
 import { CameraProvider } from "./contexts/CameraContext";
 import { EventsProvider } from "./contexts/EventsContext";
 import { SocketProvider } from "./contexts/SocketContext";
-import { DebugProvider } from "./contexts/DebugContext";
+// import { DebugProvider } from "./contexts/DebugContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import CameraConfig from "./pages/CameraConfig";
@@ -24,10 +24,9 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <DebugProvider>
-          <SocketProvider>
-            <CameraProvider>
-              <EventsProvider>
+        <SocketProvider>
+          <CameraProvider>
+            <EventsProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
@@ -41,10 +40,9 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
-              </EventsProvider>
-            </CameraProvider>
-          </SocketProvider>
-        </DebugProvider>
+            </EventsProvider>
+          </CameraProvider>
+        </SocketProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ErrorBoundary>

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Camera, Settings, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';

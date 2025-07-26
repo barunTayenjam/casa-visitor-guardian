@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Events Page</title>
+</head>
+<body>
+    <h1>Debug Info</h1>
+    <p>Testing if events page loads...</p>
+    <script>
+        console.log('Debug page loaded');
+        // Try to access the events route
+        fetch('/events')
+            .then(response => {
+                console.log('Events route status:', response.status);
+                return response.text();
+            })
+            .then(html => {
+                console.log('Events route HTML length:', html.length);
+                document.body.innerHTML += '<pre>' + html.substring(0, 500) + '</pre>';
+            })
+            .catch(err => {
+                console.error('Events route error:', err);
+                document.body.innerHTML += '<p>Error: ' + err.message + '</p>';
+            });
+    </script>
+</body>
+</html>

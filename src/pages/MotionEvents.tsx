@@ -36,20 +36,10 @@ const MotionEvents = () => {
   }
   
   return (
-    <div className="h-full overflow-auto">
-      {debugEnabled && (
-        <>
-          <div className="p-4 bg-blue-100 text-blue-800 text-sm">
-            Debug: Events page loaded with {events.length} events
-          </div>
-          
-          {/* Detailed Events Debug */}
-          <EventsDataDebug />
-        </>
-      )}
-      
-      {/* Main Events Viewer */}
-      <TabletEventViewer />
+    <div className="h-full p-4">
+      <div className="bg-green-50 text-green-800 p-4 rounded">
+        Events Page - {events.length} events loaded
+      </div>
     </div>
   );
 };

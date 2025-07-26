@@ -15,8 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import CameraConfig from "./pages/CameraConfig";
 import MotionEvents from "./pages/MotionEvents";
 import TabletAnalytics from "./pages/TabletAnalytics";
-import { TabletSystemMonitor } from "./components/dashboard/TabletSystemMonitor";
-import Settings from "./pages/Settings";
+import SimpleSettings from "./pages/SimpleSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,7 +36,7 @@ const App = () => (
                     <Route index element={<Dashboard />} />
                     <Route path="events" element={<MotionEvents />} />
                     <Route path="analytics" element={<TabletAnalytics />} />
-                    <Route path="settings" element={<TabletSystemMonitor />} />
+                    <Route path="settings" element={<SimpleSettings />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

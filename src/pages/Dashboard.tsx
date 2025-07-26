@@ -21,8 +21,9 @@ const Dashboard = () => {
 
   return (
     <div className="h-full">
-      <SimpleTest />
-      <TabletCameraGrid />
+      <div className="p-4 bg-blue-50 text-blue-800">
+        Dashboard Loading...
+      </div>
     </div>
   );
 };

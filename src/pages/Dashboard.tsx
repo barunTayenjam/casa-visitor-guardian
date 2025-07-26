@@ -1,5 +1,6 @@
 import { CameraGrid } from '@/components/dashboard/CameraGrid';
 import { TabletCameraGrid } from '@/components/dashboard/TabletCameraGrid';
+import { SimpleTest } from '@/components/debug/SimpleTest';
 import { RecentEvents } from '@/components/dashboard/RecentEvents';
 import { SystemOverview } from '@/components/dashboard/SystemOverview';
 import { useState } from 'react';
@@ -20,6 +21,7 @@ const Dashboard = () => {
 
   return (
     <div className="h-full">
+      <SimpleTest />
       <TabletCameraGrid />
     </div>
   );

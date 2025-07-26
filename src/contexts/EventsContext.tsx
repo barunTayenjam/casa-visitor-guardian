@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { MotionEvent, Camera } from '@/types/security'; // Ensure Camera is imported if not already
 import { useSocketContext } from './SocketContext';
 import { useCameras } from './CameraContext';
+import apiService from '@/services/ApiService';
 
 interface EventsContextType {
   events: MotionEvent[];
@@ -31,76 +32,37 @@ interface MotionSnapshotData {
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize with some mock events for testing
-  const mockEvents: MotionEvent[] = [
-    {
-      id: 'evt1',
-      cameraId: 'cam1',
-      cameraName: 'Front Door',
-      timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-      imageUrl: 'https://picsum.photos/400/300?random=1',
-      confidence: 0.85,
-      labels: ['motion', 'person'],
-      location: 'Front Entrance',
-      duration: 5000,
-      archived: false
-    },
-    {
-      id: 'evt2',
-      cameraId: 'cam2',
-      cameraName: 'Back Yard',
-      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-      imageUrl: 'https://picsum.photos/400/300?random=2',
-      confidence: 0.72,
-      labels: ['motion'],
-      location: 'Back Garden',
-      duration: 3000,
-      archived: false
-    },
-    {
-      id: 'evt3',
-      cameraId: 'cam1',
-      cameraName: 'Front Door',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      imageUrl: 'https://picsum.photos/400/300?random=3',
-      confidence: 0.91,
-      labels: ['motion', 'person', 'vehicle'],
-      location: 'Front Entrance',
-      duration: 8000,
-      archived: false
-    },
-    {
-      id: 'evt4',
-      cameraId: 'cam3',
-      cameraName: 'Side Gate',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-      imageUrl: 'https://picsum.photos/400/300?random=4',
-      confidence: 0.68,
-      labels: ['motion'],
-      location: 'Side Entrance',
-      duration: 2000,
-      archived: false
-    },
-    {
-      id: 'evt5',
-      cameraId: 'cam2',
-      cameraName: 'Back Yard',
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      imageUrl: 'https://picsum.photos/400/300?random=5',
-      confidence: 0.79,
-      labels: ['motion', 'animal'],
-      location: 'Back Garden',
-      duration: 6000,
-      archived: false
-    }
-  ];
-
-  const [events, setEvents] = useState<MotionEvent[]>(mockEvents);
-  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<MotionEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const { socket } = useSocketContext();
   const { cameras } = useCameras(); // Get cameras from CameraContext
+
+  // Load real events from API
+  const loadEvents = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.getHistoricalEvents({
+        page: 1,
+        pageSize: 50
+      });
+      setEvents(response.events);
+      setHasMore(response.pagination.currentPage < response.pagination.totalPages);
+    } catch (err) {
+      console.error('Failed to load events:', err);
+      setError('Failed to load motion events');
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load events on mount
+  useEffect(() => {
+    loadEvents();
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -163,13 +125,19 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const loadMoreEvents = () => {
-    // Mock implementation - in real app this would load more from API
+  const loadMoreEvents = async () => {
+    // Load real events from API
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // This would normally load more events from the API
+      // For now, we'll just set hasMore to false
+      setHasMore(false);
+    } catch (error) {
+      console.error('Error loading more events:', error);
+      setError('Failed to load more events');
+    } finally {
       setLoading(false);
-      setHasMore(false); // No more events to load
-    }, 1000);
+    }
   };
 
   return (

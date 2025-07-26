@@ -2,11 +2,12 @@ import { TabletEventViewer } from '@/components/dashboard/TabletEventViewer';
 import { useEvents } from '@/contexts/EventsContext';
 import { Card } from '@/components/ui/card';
 import { EventsDataDebug } from '@/components/debug/EventsDataDebug';
-import { useDebug } from '@/contexts/DebugContext';
+// import { useDebug } from '@/contexts/DebugContext';
 
 const MotionEvents = () => {
   const { events, loading, error } = useEvents();
-  const { debugEnabled } = useDebug();
+  // const { debugEnabled } = useDebug();
+  const debugEnabled = false;
   
   if (debugEnabled) {
     console.log('MotionEvents rendering:', { events: events.length, loading, error });

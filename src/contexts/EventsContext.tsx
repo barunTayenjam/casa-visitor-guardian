@@ -5,8 +5,12 @@ import { useCameras } from './CameraContext';
 
 interface EventsContextType {
   events: MotionEvent[];
+  loading: boolean;
+  error: string | null;
   clearEvents: () => void;
   archiveEvent: (eventId: string) => void;
+  loadMoreEvents: () => void;
+  hasMore: boolean;
 }
 
 interface MotionEventData {
@@ -28,6 +32,9 @@ const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [events, setEvents] = useState<MotionEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const { socket } = useSocketContext();
   const { cameras } = useCameras(); // Get cameras from CameraContext
 
@@ -92,8 +99,25 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  const loadMoreEvents = () => {
+    // Mock implementation - in real app this would load more from API
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setHasMore(false); // No more events to load
+    }, 1000);
+  };
+
   return (
-    <EventsContext.Provider value={{ events, clearEvents, archiveEvent }}>
+    <EventsContext.Provider value={{ 
+      events, 
+      loading, 
+      error, 
+      clearEvents, 
+      archiveEvent, 
+      loadMoreEvents, 
+      hasMore 
+    }}>
       {children}
     </EventsContext.Provider>
   );

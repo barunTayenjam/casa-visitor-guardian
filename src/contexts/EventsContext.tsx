@@ -31,7 +31,71 @@ interface MotionSnapshotData {
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [events, setEvents] = useState<MotionEvent[]>([]);
+  // Initialize with some mock events for testing
+  const mockEvents: MotionEvent[] = [
+    {
+      id: 'evt1',
+      cameraId: 'cam1',
+      cameraName: 'Front Door',
+      timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
+      imageUrl: '/events/mock1.jpg',
+      confidence: 0.85,
+      labels: ['motion', 'person'],
+      location: 'Front Entrance',
+      duration: 5000,
+      archived: false
+    },
+    {
+      id: 'evt2',
+      cameraId: 'cam2',
+      cameraName: 'Back Yard',
+      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      imageUrl: '/events/mock2.jpg',
+      confidence: 0.72,
+      labels: ['motion'],
+      location: 'Back Garden',
+      duration: 3000,
+      archived: false
+    },
+    {
+      id: 'evt3',
+      cameraId: 'cam1',
+      cameraName: 'Front Door',
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      imageUrl: '/events/mock3.jpg',
+      confidence: 0.91,
+      labels: ['motion', 'person', 'vehicle'],
+      location: 'Front Entrance',
+      duration: 8000,
+      archived: false
+    },
+    {
+      id: 'evt4',
+      cameraId: 'cam3',
+      cameraName: 'Side Gate',
+      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+      imageUrl: '/events/mock4.jpg',
+      confidence: 0.68,
+      labels: ['motion'],
+      location: 'Side Entrance',
+      duration: 2000,
+      archived: false
+    },
+    {
+      id: 'evt5',
+      cameraId: 'cam2',
+      cameraName: 'Back Yard',
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+      imageUrl: '/events/mock5.jpg',
+      confidence: 0.79,
+      labels: ['motion', 'animal'],
+      location: 'Back Garden',
+      duration: 6000,
+      archived: false
+    }
+  ];
+
+  const [events, setEvents] = useState<MotionEvent[]>(mockEvents);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);

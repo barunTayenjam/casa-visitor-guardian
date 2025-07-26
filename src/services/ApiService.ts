@@ -143,7 +143,7 @@ export class ApiService {
       throw new Error('system/logs API calls are disabled');
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout for person detection
 
     try {
       const response = await fetch(url, {

@@ -39,6 +39,8 @@ import { useCameras } from '@/contexts/CameraContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 
 
+import { TabletEventViewer } from '@/components/dashboard/TabletEventViewer';
+
 const MotionEvents = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
@@ -178,24 +180,10 @@ const MotionEvents = () => {
   const uniqueCameraNames = [...new Set(cameras.map(cam => cam.name))];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Motion Events</h1>
-          <p className="text-muted-foreground mt-2">
-            Review and analyze detected motion events from all cameras
-          </p>
-        </div>
-        <Button onClick={() => loadEvents()} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-        <Button onClick={handleScanSnapshots} disabled={scanning || loading}>
-          <ScanSearch className={`h-4 w-4 mr-2 ${scanning ? 'animate-spin' : ''}`} />
-          {scanning ? 'Scanning...' : 'Scan Snapshots for Persons'}
-        </Button>
-      </div>
+    <div className="h-full">
+      <TabletEventViewer />
+    </div>
+  );
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

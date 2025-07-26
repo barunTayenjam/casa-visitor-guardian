@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Camera, Bell, BarChart3, Settings, Wifi, WifiOff } from 'lucide-react';
+import { Camera, Settings, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { useCameras } from '@/contexts/CameraContext';
-import { AlertsPanel } from './AlertsPanel';
 import { useNavigate } from 'react-router-dom';
 import { TabletDebug } from '../debug/TabletDebug';
 import { useDebug } from '@/contexts/DebugContext';
@@ -15,7 +13,6 @@ interface TabletLayoutProps {
 }
 
 export const TabletLayout = ({ children }: TabletLayoutProps) => {
-  const [showAlerts, setShowAlerts] = useState(false);
   const { connected, connectionStatus } = useSocketContext();
   const { cameras } = useCameras();
   const navigate = useNavigate();
@@ -58,19 +55,6 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
           <Button
             variant="outline"
             size="lg"
-            onClick={() => setShowAlerts(true)}
-            className="h-12 px-6"
-          >
-            <Bell className="h-5 w-5 mr-2" />
-            Alerts
-            <Badge variant="destructive" className="ml-2">
-              3
-            </Badge>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="lg"
             onClick={() => {
               console.log('Settings button clicked, navigating to /settings');
               navigate('/settings');
@@ -88,12 +72,6 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
         {children || <Outlet />}
       </main>
 
-      {/* Alerts Panel */}
-      <AlertsPanel 
-        isOpen={showAlerts} 
-        onClose={() => setShowAlerts(false)} 
-      />
-      
       {/* Debug Panel */}
       {debugEnabled && <TabletDebug />}
     </div>

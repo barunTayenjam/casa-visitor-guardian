@@ -37,10 +37,8 @@ const MotionEvents = () => {
   }
   
   return (
-    <div className="h-full p-4">
-      <div className="bg-green-50 text-green-800 p-4 rounded">
-        Events Page - {events.length} events loaded
-      </div>
+    <div className="h-full">
+      <TabletEventViewer />
     </div>
   );
 };

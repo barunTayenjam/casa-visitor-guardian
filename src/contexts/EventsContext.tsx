@@ -38,7 +38,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cameraId: 'cam1',
       cameraName: 'Front Door',
       timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-      imageUrl: '/events/mock1.jpg',
+      imageUrl: 'https://picsum.photos/400/300?random=1',
       confidence: 0.85,
       labels: ['motion', 'person'],
       location: 'Front Entrance',
@@ -50,7 +50,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cameraId: 'cam2',
       cameraName: 'Back Yard',
       timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-      imageUrl: '/events/mock2.jpg',
+      imageUrl: 'https://picsum.photos/400/300?random=2',
       confidence: 0.72,
       labels: ['motion'],
       location: 'Back Garden',
@@ -62,7 +62,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cameraId: 'cam1',
       cameraName: 'Front Door',
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      imageUrl: '/events/mock3.jpg',
+      imageUrl: 'https://picsum.photos/400/300?random=3',
       confidence: 0.91,
       labels: ['motion', 'person', 'vehicle'],
       location: 'Front Entrance',
@@ -74,7 +74,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cameraId: 'cam3',
       cameraName: 'Side Gate',
       timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-      imageUrl: '/events/mock4.jpg',
+      imageUrl: 'https://picsum.photos/400/300?random=4',
       confidence: 0.68,
       labels: ['motion'],
       location: 'Side Entrance',
@@ -86,7 +86,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cameraId: 'cam2',
       cameraName: 'Back Yard',
       timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      imageUrl: '/events/mock5.jpg',
+      imageUrl: 'https://picsum.photos/400/300?random=5',
       confidence: 0.79,
       labels: ['motion', 'animal'],
       location: 'Back Garden',

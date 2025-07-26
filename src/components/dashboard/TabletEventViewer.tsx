@@ -26,18 +26,9 @@ export const TabletEventViewer = ({ onEventSelect }: TabletEventViewerProps) => 
   const { events, loading, error, loadMoreEvents, hasMore } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState<MotionEvent | null>(null);
   
-  // Debug logging
-  console.log('TabletEventViewer received:', { 
-    eventsCount: events.length, 
-    loading, 
-    error, 
-    hasMore,
-    firstEvent: events[0] ? {
-      id: events[0].id,
-      cameraName: events[0].cameraName,
-      timestamp: events[0].timestamp.toISOString()
-    } : null
-  });
+  // Debug logging (only when debug is enabled)
+  // Note: We can't use useDebug here as it would cause circular dependency
+  // Debug logging will be controlled by the parent component
   const [filter, setFilter] = useState<FilterType>('all');
   const [page, setPage] = useState(1);
   const observerRef = useRef<IntersectionObserver>();

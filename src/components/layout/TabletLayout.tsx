@@ -8,6 +8,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { AlertsPanel } from './AlertsPanel';
 import { useNavigate } from 'react-router-dom';
 import { TabletDebug } from '../debug/TabletDebug';
+import { useDebug } from '@/contexts/DebugContext';
 
 interface TabletLayoutProps {
   children?: React.ReactNode;
@@ -18,6 +19,7 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
   const { connected, connectionStatus } = useSocketContext();
   const { cameras } = useCameras();
   const navigate = useNavigate();
+  const { debugEnabled } = useDebug();
   
   const activeCameras = cameras.filter(c => c.status === 'online').length;
   const totalCameras = cameras.length;
@@ -90,7 +92,7 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
       />
       
       {/* Debug Panel */}
-      <TabletDebug />
+      {debugEnabled && <TabletDebug />}
     </div>
   );
 };

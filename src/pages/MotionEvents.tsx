@@ -2,11 +2,15 @@ import { TabletEventViewer } from '@/components/dashboard/TabletEventViewer';
 import { useEvents } from '@/contexts/EventsContext';
 import { Card } from '@/components/ui/card';
 import { EventsDataDebug } from '@/components/debug/EventsDataDebug';
+import { useDebug } from '@/contexts/DebugContext';
 
 const MotionEvents = () => {
   const { events, loading, error } = useEvents();
+  const { debugEnabled } = useDebug();
   
-  console.log('MotionEvents rendering:', { events: events.length, loading, error });
+  if (debugEnabled) {
+    console.log('MotionEvents rendering:', { events: events.length, loading, error });
+  }
   
   // Fallback rendering for debugging
   if (error) {
@@ -33,12 +37,16 @@ const MotionEvents = () => {
   
   return (
     <div className="h-full overflow-auto">
-      <div className="p-4 bg-blue-100 text-blue-800 text-sm">
-        Debug: Events page loaded with {events.length} events
-      </div>
-      
-      {/* Detailed Events Debug */}
-      <EventsDataDebug />
+      {debugEnabled && (
+        <>
+          <div className="p-4 bg-blue-100 text-blue-800 text-sm">
+            Debug: Events page loaded with {events.length} events
+          </div>
+          
+          {/* Detailed Events Debug */}
+          <EventsDataDebug />
+        </>
+      )}
       
       {/* Main Events Viewer */}
       <TabletEventViewer />

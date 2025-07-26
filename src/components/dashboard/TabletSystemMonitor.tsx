@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import apiService from '@/services/ApiService';
 import { useCameras } from '@/contexts/CameraContext';
+import { useDebug } from '@/contexts/DebugContext';
 
 interface SystemHealth {
   status: string;
@@ -42,6 +43,7 @@ export const TabletSystemMonitor = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const { cameras } = useCameras();
+  const { debugEnabled, toggleDebug } = useDebug();
 
   const loadSystemData = async () => {
     try {
@@ -297,6 +299,34 @@ export const TabletSystemMonitor = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Debug Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-6 w-6" />
+            Debug Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Debug Mode</h4>
+              <p className="text-sm text-muted-foreground">
+                Show debug information and data panels throughout the app
+              </p>
+            </div>
+            <Button
+              onClick={toggleDebug}
+              variant={debugEnabled ? "default" : "outline"}
+              size="lg"
+              className="h-12 px-6"
+            >
+              {debugEnabled ? "Disable" : "Enable"} Debug
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Camera Status Grid */}
       <Card>

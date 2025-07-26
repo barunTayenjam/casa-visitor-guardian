@@ -71,7 +71,10 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
           <Button
             variant="outline"
             size="lg"
-            onClick={() => navigate('/settings')}
+            onClick={() => {
+              console.log('Settings button clicked, navigating to /settings');
+              navigate('/settings');
+            }}
             className="h-12 px-6"
           >
             <Settings className="h-5 w-5 mr-2" />

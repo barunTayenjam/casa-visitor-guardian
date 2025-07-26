@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import apiService from '@/services/ApiService';
 import { useCameras } from '@/contexts/CameraContext';
-import { useDebug } from '@/contexts/DebugContext';
+// import { useDebug } from '@/contexts/DebugContext';
 
 interface SystemHealth {
   status: string;
@@ -43,7 +43,9 @@ export const TabletSystemMonitor = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const { cameras } = useCameras();
-  const { debugEnabled, toggleDebug } = useDebug();
+  // const { debugEnabled, toggleDebug } = useDebug();
+  const debugEnabled = false;
+  const toggleDebug = () => console.log('Debug toggle clicked');
 
   const loadSystemData = async () => {
     try {

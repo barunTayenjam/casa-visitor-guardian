@@ -13,7 +13,8 @@ import { SocketProvider } from "./contexts/SocketContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import MotionEvents from "./pages/MotionEvents";
-import SimpleSettings from "./pages/SimpleSettings";
+import TabletAnalytics from "./pages/TabletAnalytics";
+import { TabletSystemMonitor } from "./components/dashboard/TabletSystemMonitor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,8 +33,8 @@ const App = () => (
                   <Route path="/" element={<TabletSecurityLayout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="events" element={<MotionEvents />} />
-                    <Route path="analytics" element={<SimpleSettings />} />
-                    <Route path="settings" element={<SimpleSettings />} />
+                    <Route path="analytics" element={<TabletAnalytics />} />
+                    <Route path="settings" element={<TabletSystemMonitor />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

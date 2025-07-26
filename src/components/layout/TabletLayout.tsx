@@ -7,6 +7,7 @@ import { useSocketContext } from '@/contexts/SocketContext';
 import { useCameras } from '@/contexts/CameraContext';
 import { AlertsPanel } from './AlertsPanel';
 import { useNavigate } from 'react-router-dom';
+import { TabletDebug } from '../debug/TabletDebug';
 
 interface TabletLayoutProps {
   children?: React.ReactNode;
@@ -87,6 +88,9 @@ export const TabletLayout = ({ children }: TabletLayoutProps) => {
         isOpen={showAlerts} 
         onClose={() => setShowAlerts(false)} 
       />
+      
+      {/* Debug Panel */}
+      <TabletDebug />
     </div>
   );
 };

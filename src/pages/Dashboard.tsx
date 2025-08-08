@@ -16,11 +16,11 @@ const Dashboard = () => {
       
       <SystemOverview />
       
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <CameraGrid />
         </div>
-        <div>
+        <div className="md:col-span-1 lg:col-span-1">
           <RecentEvents />
         </div>
       </div>

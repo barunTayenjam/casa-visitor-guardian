@@ -13,17 +13,19 @@ export interface Camera {
   fps: number;
 }
 
-export interface MotionEvent {
-  id: string;
+export interface DetectionEvent {
+  id:string;
   cameraId: string;
   cameraName: string;
   timestamp: Date;
   imageUrl: string;
   confidence: number;
-  labels: string[];
+  labels: ('motion' | 'person')[];
   location: string;
   duration: number;
   archived: boolean;
+  type: 'motion' | 'person';
+  boundingBoxes?: { x: number; y: number; width: number; height: number }[];
 }
 
 export interface SystemStatus {

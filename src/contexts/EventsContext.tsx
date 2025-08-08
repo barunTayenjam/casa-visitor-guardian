@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MotionEvent } from '@/types/security';
+import { DetectionEvent } from '@/types/security';
 import { useSocketContext } from './SocketContext';
 
 interface EventsContextType {
-  events: MotionEvent[];
+  events: DetectionEvent[];
   clearEvents: () => void;
   archiveEvent: (eventId: string) => void;
 }
@@ -11,32 +11,37 @@ interface EventsContextType {
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [events, setEvents] = useState<MotionEvent[]>([]);
+  const [events, setEvents] = useState<DetectionEvent[]>([]);
   const { socket } = useSocketContext();
 
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for motion detection events
-    socket.on('motionDetected', (eventData: any) => {
-      const newEvent: MotionEvent = {
+    const handleDetectionEvent = (eventData: any) => {
+      const newEvent: DetectionEvent = {
         id: eventData.id,
         cameraId: eventData.cameraId,
-        cameraName: 'Front Door',
+        cameraName: 'Front Door', // This should probably be dynamic
         timestamp: new Date(eventData.timestamp),
         imageUrl: eventData.imagePath,
-        confidence: eventData.confidence / 100, // Convert from 0-100 to 0-1
-        labels: ['motion'],
+        confidence: eventData.confidence / 100,
+        labels: [eventData.type],
         location: 'Front Door',
         duration: eventData.duration || 0,
-        archived: false
+        archived: false,
+        type: eventData.type,
+        boundingBoxes: eventData.boundingBoxes
       };
 
       setEvents(prev => [newEvent, ...prev].slice(0, 50)); // Keep last 50 events only
-    });
+    };
+
+    // Listen for motion and person detection events
+    socket.on('motionDetected', handleDetectionEvent);
+    socket.on('personDetected', handleDetectionEvent);
 
     // Listen for snapshot updates
-    socket.on('motionSnapshot', (data: any) => {
+    socket.on('eventSnapshot', (data: any) => {
       if (data.eventId && data.snapshotPath) {
         setEvents(prev => 
           prev.map(event => 
@@ -49,8 +54,9 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     return () => {
-      socket.off('motionDetected');
-      socket.off('motionSnapshot');
+      socket.off('motionDetected', handleDetectionEvent);
+      socket.off('personDetected', handleDetectionEvent);
+      socket.off('eventSnapshot');
     };
   }, [socket]);
 

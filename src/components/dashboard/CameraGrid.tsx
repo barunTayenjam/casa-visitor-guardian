@@ -91,7 +91,7 @@ export const CameraGrid = () => {
 
       {/* Fullscreen camera dialog */}
       <Dialog open={!!selectedCamera} onOpenChange={(open) => !open && setSelectedCamera(null)}>
-        <DialogContent className="max-w-5xl h-[80vh]">
+        <DialogContent className="w-full max-w-5xl h-[50vh] sm:h-[80vh]">
           <DialogHeader>
             <DialogTitle>{currentCamera?.name || 'Camera Feed'}</DialogTitle>
           </DialogHeader>

@@ -1,4 +1,4 @@
-import { Calendar, Camera as CameraIcon, MapPin, Clock, Trash2, AlertCircle } from 'lucide-react';
+import { Calendar, Camera as CameraIcon, MapPin, Clock, Trash2, AlertCircle, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DetectionEvent } from '@/types/security';
 import { useEvents } from '@/contexts/EventsContext';
 import { useState } from 'react';
+import { useToast } from '../ui/use-toast';
 
 export const RecentEvents = () => {
   const { events, archiveEvent, clearEvents } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  
+  const [isScanning, setIsScanning] = useState(false);
+  const { toast } = useToast();
+
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -26,16 +29,10 @@ export const RecentEvents = () => {
     }
   };
 
-  const getLabelColor = (label: string) => {
+  const getLabelColor = (label: 'motion' | 'person') => {
     switch (label.toLowerCase()) {
       case 'person':
         return 'bg-blue-500/20 text-blue-500 border-blue-500/50';
-      case 'vehicle':
-        return 'bg-purple-500/20 text-purple-500 border-purple-500/50';
-      case 'animal':
-        return 'bg-green-500/20 text-green-500 border-green-500/50';
-      case 'package':
-        return 'bg-orange-500/20 text-orange-500 border-orange-500/50';
       case 'motion':
         return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50';
       default:
@@ -49,6 +46,37 @@ export const RecentEvents = () => {
     }
   };
 
+  const handleScanSnapshots = async () => {
+    setIsScanning(true);
+    toast({
+      title: 'Scanning Snapshots',
+      description: 'Searching for people in all saved snapshots...',
+    });
+    try {
+      const response = await fetch('/api/events/scan-snapshots', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Scan Complete',
+          description: data.message,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to scan snapshots');
+      }
+    } catch (error) {
+      console.error('Error scanning snapshots:', error);
+      toast({
+        title: 'Scan Failed',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const nonArchivedEvents = events.filter(event => !event.archived);
 
   return (
@@ -57,6 +85,10 @@ export const RecentEvents = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Recent Events</CardTitle>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleScanSnapshots} disabled={isScanning}>
+              <Search className="h-4 w-4 mr-2" />
+              {isScanning ? 'Scanning...' : 'Scan Snapshots'}
+            </Button>
             {nonArchivedEvents.length > 0 && (
               <Button variant="outline" size="sm" onClick={handleClear}>
                 <Trash2 className="h-4 w-4 mr-2" />

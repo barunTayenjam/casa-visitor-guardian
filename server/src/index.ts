@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { startCronJobs } from './utils/cronJobs.js';
-import { setupSimpleMotionDetection } from './detection/simpleMotionDetection.js';
+import { setupMotionDetection } from './detection/motionDetection.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -122,8 +122,8 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         // Make streamManager available globally for routes
         (global as any).streamManager = streamManager;
         
-        // Setup simple motion detection
-        const motionDetector = setupSimpleMotionDetection(streamManager, io);
+        // Setup motion and person detection
+        const motionDetector = setupMotionDetection(streamManager, io);
         
         // Configure API routes after streamManager is set up
         configureRoutes(app, io);

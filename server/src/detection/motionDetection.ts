@@ -24,6 +24,7 @@ interface MotionEvent {
   confidence: number;
   duration: number;
   boundingBoxes?: { x: number; y: number; width: number; height: number }[];
+  type: 'motion' | 'person';
 }
 
 // Motion detection settings
@@ -44,6 +45,7 @@ class MotionDetector {
   lastEvents: Map<string, number>; // Last event timestamp per camera
   events: MotionEvent[]; // Store recent events
   detectionInterval: NodeJS.Timeout | null;
+  hog: cv.HOGDescriptor;
 
   constructor(streamManager: StreamManager, io: SocketIOServer) {
     this.streamManager = streamManager;
@@ -53,6 +55,10 @@ class MotionDetector {
     this.lastEvents = new Map();
     this.events = [];
     this.detectionInterval = null;
+
+    // Initialize HOG descriptor for person detection
+    this.hog = new cv.HOGDescriptor();
+    this.hog.setSVMDetector(cv.HOGDescriptor.getDefaultPeopleDetector());
 
     // Initialize default settings for all cameras
     this.streamManager.getAllCameras().forEach(camera => {
@@ -75,9 +81,9 @@ class MotionDetector {
     // Run motion detection every 500ms
     this.detectionInterval = setInterval(() => {
       this.detectMotionOnAllCameras();
-    }, 500);
+    }, 2000);
 
-    console.log('Motion detection started');
+    console.log('Motion and person detection started');
   }
 
   // Stop motion detection
@@ -85,7 +91,7 @@ class MotionDetector {
     if (this.detectionInterval) {
       clearInterval(this.detectionInterval);
       this.detectionInterval = null;
-      console.log('Motion detection stopped');
+      console.log('Motion and person detection stopped');
     }
   }
 
@@ -104,6 +110,8 @@ class MotionDetector {
     try {
       // Convert buffer to OpenCV Mat
       const img = cv.imdecode(currentFrame);
+      const visualizationImg = img.copy();
+      let motionDetected = false;
       
       // Convert to grayscale for motion detection
       const gray = img.cvtColor(cv.COLOR_BGR2GRAY);
@@ -174,6 +182,7 @@ class MotionDetector {
       
       // If we have significant motion, trigger an event
       if (significantContours.length > 0) {
+        motionDetected = true;
         // Update last event time
         this.lastEvents.set(cameraId, now);
         
@@ -189,22 +198,13 @@ class MotionDetector {
         });
         
         // Draw bounding boxes on the image for visualization
-        const visualizationImg = img.copy();
         for (const box of boundingBoxes) {
           visualizationImg.drawRectangle(
             new cv.Rect(box.x, box.y, box.width, box.height),
-            new cv.Vec3(0, 255, 0), // Green color
+            new cv.Vec3(0, 255, 0), // Green color for motion
             2 // Line thickness
           );
         }
-        
-        // Save the event image
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `motion_${cameraId}_${timestamp}.jpg`;
-        const filepath = path.join(eventsDir, filename);
-        
-        // Save the visualization image
-        cv.imwrite(filepath, visualizationImg);
         
         // Calculate motion confidence based on contour areas
         const totalArea = significantContours.reduce((sum, contour) => sum + contour.area, 0);
@@ -213,43 +213,103 @@ class MotionDetector {
         
         // Create motion event
         const event: MotionEvent = {
-          id: `evt_${Date.now()}`,
+          id: `evt_motion_${Date.now()}`,
           cameraId,
           timestamp: new Date().toISOString(),
-          imagePath: `/events/${filename}`,
+          imagePath: '', // Will be set later
           confidence,
-          duration: 0, // Will be updated when motion stops
-          boundingBoxes
+          duration: 0,
+          boundingBoxes,
+          type: 'motion'
         };
         
-        // Add to recent events
-        this.events.unshift(event);
-        if (this.events.length > 100) {
-          this.events.pop(); // Keep only the 100 most recent events
-        }
-        
-        // Emit event to clients
         this.io.emit('motionDetected', event);
-        
-        // Take a high-resolution snapshot
-        try {
-          const snapshotPath = await this.streamManager.takeSnapshot(cameraId);
-          if (snapshotPath) {
-            // Update event with snapshot path
-            event.imagePath = snapshotPath;
-            this.io.emit('motionSnapshot', {
-              eventId: event.id,
-              snapshotPath
-            });
-          }
-        } catch (error) {
-          console.error('Error taking snapshot:', error);
-        }
-        
         console.log(`Motion detected on camera ${cameraId} with confidence ${confidence}%`);
       }
+
+      // Person detection
+      const { foundLocations, weights } = await this.hog.detectMultiScale(
+        img,
+        0,
+        new cv.Size(8, 8),
+        new cv.Size(32, 32),
+        1.05,
+        2
+      );
+
+      if (foundLocations.length > 0) {
+        // Update last event time to avoid quick succession of events
+        this.lastEvents.set(cameraId, now);
+
+        // Create bounding boxes for visualization
+        const personBoundingBoxes = foundLocations.map((rect: cv.Rect) => ({
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height
+        }));
+
+        // Draw red bounding boxes for people
+        for (const box of personBoundingBoxes) {
+          visualizationImg.drawRectangle(
+            new cv.Rect(box.x, box.y, box.width, box.height),
+            new cv.Vec3(0, 0, 255), // Red color for person
+            2 // Line thickness
+          );
+        }
+
+        // Calculate confidence based on detection weights
+        const confidence = Math.round(Math.max(...weights) * 100);
+
+        // Create person detected event
+        const event: MotionEvent = {
+          id: `evt_person_${Date.now()}`,
+          cameraId,
+          timestamp: new Date().toISOString(),
+          imagePath: '', // Will be set later
+          confidence,
+          duration: 0,
+          boundingBoxes: personBoundingBoxes,
+          type: 'person'
+        };
+
+        this.events.unshift(event);
+        if (this.events.length > 100) {
+          this.events.pop();
+        }
+
+        this.io.emit('personDetected', event);
+        console.log(`Person detected on camera ${cameraId} with confidence ${confidence}%`);
+
+        // If either motion or person is detected, save image and snapshot
+        if (motionDetected || foundLocations.length > 0) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `event_${cameraId}_${timestamp}.jpg`;
+          const filepath = path.join(eventsDir, filename);
+
+          cv.imwrite(filepath, visualizationImg);
+
+          const eventToUpdate = this.events.find(e => e.id === event.id);
+          if (eventToUpdate) {
+            eventToUpdate.imagePath = `/events/${filename}`;
+          }
+
+          try {
+            const snapshotPath = await this.streamManager.takeSnapshot(cameraId);
+            if (snapshotPath && eventToUpdate) {
+              eventToUpdate.imagePath = snapshotPath;
+              this.io.emit('eventSnapshot', {
+                eventId: event.id,
+                snapshotPath
+              });
+            }
+          } catch (error) {
+            console.error('Error taking snapshot:', error);
+          }
+        }
+      }
     } catch (error) {
-      console.error(`Error in motion detection for camera ${cameraId}:`, error);
+      console.error(`Error in detection for camera ${cameraId}:`, error);
     }
   }
 

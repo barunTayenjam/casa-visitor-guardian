@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MotionEvent } from '@/types/security';
+import { DetectionEvent } from '@/types/security';
 import { useEvents } from '@/contexts/EventsContext';
 import { useState } from 'react';
 
@@ -55,7 +55,7 @@ export const RecentEvents = () => {
     <Card className="animate-fade-in">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Recent Motion Events</CardTitle>
+          <CardTitle className="text-lg">Recent Events</CardTitle>
           <div className="flex gap-2">
             {nonArchivedEvents.length > 0 && (
               <Button variant="outline" size="sm" onClick={handleClear}>
@@ -76,8 +76,8 @@ export const RecentEvents = () => {
           {nonArchivedEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
               <AlertCircle className="h-12 w-12 mb-4" />
-              <h3 className="text-lg font-medium">No motion events</h3>
-              <p className="text-sm">Motion events will appear here when detected by your cameras.</p>
+              <h3 className="text-lg font-medium">No recent events</h3>
+              <p className="text-sm">Events will appear here when detected by your cameras.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -111,7 +111,7 @@ export const RecentEvents = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <h4 className="text-sm font-medium truncate">
-                        Motion Detected
+                        {event.type === 'person' ? 'Person Detected' : 'Motion Detected'}
                       </h4>
                       <span className="text-xs text-muted-foreground">
                         {formatTimeAgo(event.timestamp)}

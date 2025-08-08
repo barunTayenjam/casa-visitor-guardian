@@ -124,6 +124,7 @@ console.log(`Attempting to start server on port ${DEFAULT_PORT}`);
         
         // Setup motion and person detection
         const motionDetector = setupMotionDetection(streamManager, io);
+        (global as any).motionDetector = motionDetector;
         
         // Configure API routes after streamManager is set up
         configureRoutes(app, io);

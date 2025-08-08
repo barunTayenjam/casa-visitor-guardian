@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { StreamManager } from '../streams/rtspManager.js';
+import cv from 'opencv4nodejs';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -313,5 +314,59 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
   
+  // Scan all snapshots for people
+  app.post('/api/events/scan-snapshots', async (req: Request, res: Response) => {
+    try {
+      const snapshotsDir = path.join(__dirname, '../../public/snapshots');
+      const files = fs.readdirSync(snapshotsDir);
+      let peopleFound = 0;
+
+      for (const file of files) {
+        if (file.endsWith('.jpg') || file.endsWith('.png')) {
+          const imagePath = path.join(snapshotsDir, file);
+          const image = fs.readFileSync(imagePath);
+          const img = cv.imdecode(image);
+
+          const { foundLocations, weights } = await motionDetector.hog.detectMultiScale(
+            img,
+            0,
+            new cv.Size(8, 8),
+            new cv.Size(32, 32),
+            1.05,
+            2
+          );
+
+          if (foundLocations.length > 0) {
+            peopleFound += foundLocations.length;
+            const personBoundingBoxes = foundLocations.map((rect: cv.Rect) => ({
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height
+            }));
+
+            const confidence = Math.round(Math.max(...weights) * 100);
+            const event = {
+              id: `evt_person_${Date.now()}_${file}`,
+              cameraId: 'manual_scan',
+              timestamp: new Date().toISOString(),
+              imagePath: `/snapshots/${file}`,
+              confidence,
+              duration: 0,
+              boundingBoxes: personBoundingBoxes,
+              type: 'person'
+            };
+            io.emit('personDetected', event);
+          }
+        }
+      }
+
+      res.json({ success: true, message: `Scan complete. Found ${peopleFound} people.` });
+    } catch (error) {
+      console.error('Error scanning snapshots:', error);
+      res.status(500).json({ success: false, error: 'Failed to scan snapshots' });
+    }
+  });
+
   console.log('API routes configured');
 }

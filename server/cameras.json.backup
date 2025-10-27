@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cam1",
+    "name": "Front Door",
+    "rtspUrl": "rtsp://192.168.31.62:554/stream1",
+    "frameRate": 15,
+    "resolution": "2560x1440",
+    "nightMode": false,
+    "credentialId": "camera_cam1"
+  },
+  {
+    "id": "cam2",
+    "name": "Back Door",
+    "rtspUrl": "rtsp://192.168.31.61:554/stream1",
+    "frameRate": 15,
+    "resolution": "2560x1440",
+    "nightMode": false,
+    "credentialId": "camera_cam2"
+  }
+]

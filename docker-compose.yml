@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "${BACKEND_PORT}:9753"
+    environment:
+      - NODE_ENV=production
+      - PORT=9753
+    volumes:
+      # Persistent storage for media files
+      - backend_snapshots:/app/public/snapshots
+      - backend_events:/app/public/events
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9753/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "${FRONTEND_PORT}:${NGINX_PORT}"
+    environment:
+      - NODE_ENV=production
+      - NGINX_PORT=${NGINX_PORT}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  backend_snapshots:
+    driver: local
+  backend_events:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

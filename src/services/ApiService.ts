@@ -1248,6 +1248,7 @@ class ApiService {
     startDate?: Date;
     endDate?: Date;
     sortBy?: string;
+    detectionType?: 'all' | 'face' | 'person' | 'motion';
   }): Promise<HistoricalEventsResponse> {
     try {
       const params = new URLSearchParams();
@@ -1258,6 +1259,7 @@ class ApiService {
       if (options?.startDate) params.append('startDate', options.startDate.toISOString());
       if (options?.endDate) params.append('endDate', options.endDate.toISOString());
       if (options?.sortBy) params.append('sortBy', options.sortBy);
+      if (options?.detectionType && options.detectionType !== 'all') params.append('detectionType', options.detectionType);
 
       const response = await this.fetchWithRetry(`${API_URL}/events/history?${params.toString()}`);
       const data = await response.json();

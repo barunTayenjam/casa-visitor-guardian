@@ -51,6 +51,7 @@ const MotionEvents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [selectedDetectionType, setSelectedDetectionType] = useState<'all' | 'face' | 'person' | 'motion'>('all');
 
   const loadEvents = useCallback(async () => {
     console.log('Loading events for MotionEvents page...');
@@ -63,7 +64,8 @@ const MotionEvents = () => {
         searchQuery: searchQuery || undefined,
         startDate: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0) : undefined,
         endDate: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999) : undefined,
-        sortBy: sortBy
+        sortBy: sortBy,
+        detectionType: selectedDetectionType
       });
       console.log("Fetched motion events:", response.events);
       setEvents(response.events);
@@ -315,6 +317,19 @@ const MotionEvents = () => {
             </SelectContent>
           </Select>
 
+          {/* Detection Type Filter */}
+          <Select value={selectedDetectionType} onValueChange={setSelectedDetectionType}>
+            <SelectTrigger className="min-w-[120px] h-9">
+              <SelectValue placeholder="All Events" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Events</SelectItem>
+              <SelectItem value="face">Face Detection</SelectItem>
+              <SelectItem value="person">Person Detection</SelectItem>
+              <SelectItem value="motion">Motion Only</SelectItem>
+            </SelectContent>
+          </Select>
+
           {(searchQuery || selectedCamera !== 'all' || selectedDate) && (
             <Button variant="ghost" size="sm" className="h-9"
               onClick={() => {
@@ -397,6 +412,18 @@ const MotionEvents = () => {
                   {event.confidence > 0 && (
                     <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded-full">
                       {Math.round(event.confidence * 100)}%
+                    </div>
+                  )}
+                  {/* Show badge for face detection events */}
+                  {event.labels?.includes('face') && (
+                    <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded-full">
+                      Face
+                    </div>
+                  )}
+                  {/* Show badge for person detection events */}
+                  {event.labels?.includes('person') && !event.labels?.includes('face') && (
+                    <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1 py-0.5 rounded-full">
+                      Person
                     </div>
                   )}
                 </div>

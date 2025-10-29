@@ -939,6 +939,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
       const sortBy = req.query.sortBy as string || 'newest';
+      const detectionType = req.query.detectionType as string || 'all';
 
       console.log('API Request:', {
         page,
@@ -1017,13 +1018,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             timestamp = fileModTime;
           }
           
+          // Determine event type based on filename pattern
+          let labels: string[];
+          let confidence = 75; // Default confidence
+          
+          if (file.includes('faces_')) {
+            labels = ['face', 'detection'];
+          } else if (file.includes('person_')) {
+            labels = ['person', 'detection'];
+          } else {
+            labels = ['motion'];
+          }
+          
           return {
             id: `evt_${file}`,
             cameraId,
             timestamp,
             imagePath: `/events/${file}`,
-            confidence: 75, // Default confidence
-            labels: ['motion'],
+            confidence, // Will be properly set by detection services in the future
+            labels,
             location: 'Unknown',
             duration: 0,
             cameraName: cameraId // Assuming cameraName is same as cameraId for now
@@ -1057,6 +1070,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       if (endDate) {
         filteredEvents = filteredEvents.filter(event => new Date(event.timestamp) <= endDate);
         console.log('After end date filter:', filteredEvents.length, 'to:', endDate);
+      }
+
+      // Apply detection type filter
+      if (detectionType && detectionType !== 'all') {
+        switch (detectionType) {
+          case 'face':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('face'));
+            break;
+          case 'person':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('person') && !event.labels.includes('face'));
+            break;
+          case 'motion':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('motion') && !event.labels.includes('face') && !event.labels.includes('person'));
+            break;
+          default:
+            // For any other value, don't apply detection type filter
+            break;
+        }
+        console.log('After detection type filter (', detectionType, '):', filteredEvents.length);
       }
 
       // Apply sorting AFTER filtering to get correct order within filtered results

@@ -29,6 +29,7 @@ import {
   Clock,
   Wifi,
   WifiOff,
+  CheckCircle2,
   Sun,
   Moon,
   Thermometer,

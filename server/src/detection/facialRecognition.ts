@@ -5,6 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import * as cv from '@techstark/opencv-js';
+import { createCanvas, loadImage } from 'canvas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,12 +85,26 @@ export class FacialRecognitionService extends EventEmitter {
     reject: (error: Error) => void;
   }> = [];
   private isProcessing = false;
+  private classifier: any; // OpenCV Cascade Classifier
+  private cv: any;
+  private isInitialized!: Promise<void>;
 
   constructor() {
     super();
-    this.initializeDefaultSettings();
-    this.initializeDatabase();
-    this.loadModel();
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      this.cv = await (await import('@techstark/opencv-js')).default;
+      this.initializeDefaultSettings();
+      await this.initializeDatabase();
+      await this.loadModel();
+      this.emit('ready');
+    } catch (error) {
+      console.error('Failed to initialize facial recognition service:', error);
+      this.emit('error', error);
+    }
   }
 
   // Initialize default settings
@@ -156,15 +172,78 @@ export class FacialRecognitionService extends EventEmitter {
     try {
       console.log('Loading face recognition model...');
       
-      // In a real implementation, load face-api.js or similar models
-      // For now, simulate loading
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Try multiple path resolutions for better compatibility
+      const possiblePaths = [
+        path.join(__dirname, '../models/haarcascade_frontalface_default.xml'),
+        path.join(process.cwd(), 'src/models/haarcascade_frontalface_default.xml'),
+        path.join(process.cwd(), 'server/src/models/haarcascade_frontalface_default.xml'),
+        path.resolve('./server/src/models/haarcascade_frontalface_default.xml'),
+        '/Users/baruntayenjam/Code/home-security/server/src/models/haarcascade_frontalface_default.xml'
+      ];
+      
+      let modelPath = '';
+      let foundPath = false;
+      
+      for (const testPath of possiblePaths) {
+        console.log(`Testing path: ${testPath}`);
+        if (fs.existsSync(testPath)) {
+          const stats = fs.statSync(testPath);
+          console.log(`Found model at: ${testPath} (size: ${stats.size} bytes)`);
+          modelPath = testPath;
+          foundPath = true;
+          break;
+        }
+      }
+      
+      if (!foundPath) {
+        throw new Error('Haar cascade model file not found in any expected location');
+      }
+
+      this.classifier = new this.cv.CascadeClassifier();
+      
+      // Try to load the classifier with multiple approaches
+      let loaded = false;
+      
+      // First try with the resolved path
+      loaded = this.classifier.load(modelPath);
+      console.log('Initial classifier load result:', loaded);
+      
+      // If that fails, try absolute path
+      if (!loaded && !path.isAbsolute(modelPath)) {
+        const absolutePath = path.resolve(modelPath);
+        console.log('Trying absolute path:', absolutePath);
+        loaded = this.classifier.load(absolutePath);
+        console.log('Absolute path classifier load result:', loaded);
+      }
+      
+      // If still fails, try reading the file content and creating a temporary file
+      if (!loaded) {
+        try {
+          const modelContent = fs.readFileSync(modelPath, 'utf8');
+          const tempPath = path.join(process.env.TMPDIR || '/tmp', 'haarcascade_frontalface_default.xml');
+          fs.writeFileSync(tempPath, modelContent);
+          console.log('Trying temporary file:', tempPath);
+          loaded = this.classifier.load(tempPath);
+          console.log('Temporary file classifier load result:', loaded);
+        } catch (tempError) {
+          console.warn('Failed to create temporary file:', tempError);
+        }
+      }
+      
+      console.log('Final classifier load result:', loaded);
+      
+      if (!loaded) {
+        console.error('All attempts to load Haar cascade classifier failed');
+        throw new Error('Failed to load Haar cascade classifier after multiple attempts');
+      }
       
       this.modelLoaded = true;
       console.log('Face recognition model loaded successfully');
       this.emit('modelLoaded');
     } catch (error) {
       console.error('Failed to load face recognition model:', error);
+      console.warn('Face detection will be disabled');
+      this.modelLoaded = false; // Set to false instead of throwing
       this.emit('modelError', error);
     }
   }
@@ -188,6 +267,7 @@ export class FacialRecognitionService extends EventEmitter {
 
   // Process frame for face detection and recognition
   async recognizeFaces(cameraId: string, frame: Buffer): Promise<FaceRecognitionEvent | null> {
+    await this.isInitialized;
     if (!this.modelLoaded) {
       console.warn('Face recognition model not loaded yet');
       return null;
@@ -290,43 +370,53 @@ export class FacialRecognitionService extends EventEmitter {
     }
   }
 
-  // Detect faces in frame (mock implementation)
+  // Detect faces in frame (real implementation)
   private async detectFaces(frame: Buffer, settings: FaceRecognitionSettings): Promise<FaceDetection[]> {
-    // Mock face detection
-    // In reality, use face-api.js or similar
-    const faces: FaceDetection[] = [];
-    
-    // Simulate random face detection
-    if (Math.random() > 0.6) {
-      faces.push({
-        id: `face_${Date.now()}_1`,
-        bbox: {
-          x: 200 + Math.floor(Math.random() * 100),
-          y: 150 + Math.floor(Math.random() * 50),
-          width: 80 + Math.floor(Math.random() * 20),
-          height: 100 + Math.floor(Math.random() * 20)
-        },
-        confidence: 0.7 + Math.random() * 0.3
-      });
+    // Check if model is loaded
+    if (!this.modelLoaded || !this.classifier) {
+      return [];
     }
 
-    if (Math.random() > 0.9) {
-      faces.push({
-        id: `face_${Date.now()}_2`,
-        bbox: {
-          x: 400 + Math.floor(Math.random() * 100),
-          y: 180 + Math.floor(Math.random() * 50),
-          width: 75 + Math.floor(Math.random() * 15),
-          height: 95 + Math.floor(Math.random() * 15)
-        },
-        confidence: 0.6 + Math.random() * 0.4
-      });
-    }
+    try {
+      // Load image using canvas
+      const image = await loadImage(frame);
+      const canvas = createCanvas(image.width, image.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image, 0, 0, image.width, image.height);
+      
+      // Use OpenCV to read from canvas
+      const src = this.cv.imread(canvas);
+      const gray = new this.cv.Mat();
+      this.cv.cvtColor(src, gray, this.cv.COLOR_RGBA2GRAY, 0);
 
-    return faces.filter(face => 
-      face.bbox.width >= settings.minFaceSize && 
-      face.bbox.height >= settings.minFaceSize
-    );
+      const faces = new this.cv.RectVector();
+      const msize = new this.cv.Size(settings.minFaceSize, settings.minFaceSize);
+      this.classifier.detectMultiScale(gray, faces, 1.1, 3, 0, msize);
+
+      const detectedFaces: FaceDetection[] = [];
+      for (let i = 0; i < faces.size(); ++i) {
+        const rect = faces.get(i);
+        detectedFaces.push({
+          id: `face_${Date.now()}_${i}`,
+          bbox: {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+          },
+          confidence: 0.9, // Haar cascades don't provide confidence, so we use a default value
+        });
+      }
+
+      src.delete();
+      gray.delete();
+      faces.delete();
+
+      return detectedFaces;
+    } catch (error) {
+      console.error('Face detection error:', error);
+      return [];
+    }
   }
 
   // Recognize faces against known persons

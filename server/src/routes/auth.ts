@@ -3,7 +3,7 @@ import { authService } from '../auth/index.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
 import { createAuthRateLimit } from '../middleware/rateLimit.js';
 import { authenticate } from '../middleware/auth.js';
-import { auditLogger } from '../utils/auditLogger.js';
+import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
 
 export function configureAuthRoutes(app: Express) {
@@ -49,9 +49,16 @@ export function configureAuthRoutes(app: Express) {
         });
 
         if (result.success) {
-          auditLogger.logAuth('USER_REGISTER', req, true, result.user?.id, result.user?.username, {
-            email,
-            role: role || 'user'
+          auditLogger.log({
+            level: 'INFO',
+            category: 'AUTH',
+            action: 'USER_REGISTER',
+            userId: result.user?.id,
+            username: result.user?.username,
+            ip: auditLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            details: { email, role: role || 'user' },
+            success: true
           });
           logger.info(`User registered successfully: ${username}`, 'AuthRoutes');
           return res.status(201).json({
@@ -61,9 +68,15 @@ export function configureAuthRoutes(app: Express) {
             token: result.token
           });
         } else {
-          auditLogger.logAuth('USER_REGISTER_FAILED', req, false, undefined, username, {
-            email,
-            error: result.error
+          auditLogger.log({
+            level: 'WARN',
+            category: 'AUTH',
+            action: 'USER_REGISTER_FAILED',
+            username: username,
+            ip: auditLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            details: { email, error: result.error },
+            success: false
           });
           return res.status(400).json({
             success: false,
@@ -107,8 +120,16 @@ export function configureAuthRoutes(app: Express) {
         });
 
         if (result.success) {
-          auditLogger.logAuth('USER_LOGIN', req, true, result.user?.id, result.user?.username, {
-            loginMethod: 'password'
+          auditLogger.log({
+            level: 'INFO',
+            category: 'AUTH',
+            action: 'USER_LOGIN',
+            userId: result.user?.id,
+            username: result.user?.username,
+            ip: auditLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            details: { loginMethod: 'password' },
+            success: true
           });
           logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');
           return res.json({
@@ -118,8 +139,15 @@ export function configureAuthRoutes(app: Express) {
             token: result.token
           });
         } else {
-          auditLogger.logAuth('USER_LOGIN_FAILED', req, false, undefined, username, {
-            error: result.error
+          auditLogger.log({
+            level: 'WARN',
+            category: 'AUTH',
+            action: 'USER_LOGIN_FAILED',
+            username: username,
+            ip: auditLogger.getClientIP(req),
+            userAgent: req.get('User-Agent'),
+            details: { error: result.error },
+            success: false
           });
           return res.status(401).json({
             success: false,
@@ -249,8 +277,16 @@ export function configureAuthRoutes(app: Express) {
           });
         }
 
-        // Generate new token
-        const token = authService.generateToken(user as any);
+        let token: string;
+        try {
+          token = authService.generateToken(user as any);
+        } catch (error) {
+          logger.error(`Token refresh error during JWT signing: ${error}`, 'AuthRoutes');
+          return res.status(500).json({
+            success: false,
+            error: 'Token refresh failed - JWT signing error'
+          });
+        }
 
         res.json({
           success: true,
@@ -271,15 +307,32 @@ export function configureAuthRoutes(app: Express) {
     authenticate(),
     (req: Request, res: Response) => {
       try {
-        auditLogger.logAuth('USER_LOGOUT', req, true, req.user?.userId, req.user?.username);
+        auditLogger.log({
+          level: 'INFO',
+          category: 'AUTH',
+          action: 'USER_LOGOUT',
+          userId: req.user?.userId,
+          username: req.user?.username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          success: true
+        });
         logger.info(`User logged out: ${req.user?.username}`, 'AuthRoutes');
         res.json({
           success: true,
           message: 'Logout successful'
         });
       } catch (error) {
-        auditLogger.logAuth('USER_LOGOUT_FAILED', req, false, req.user?.userId, req.user?.username, {
-          error: error instanceof Error ? error.message : 'Unknown error'
+        auditLogger.log({
+          level: 'ERROR',
+          category: 'AUTH',
+          action: 'USER_LOGOUT_FAILED',
+          userId: req.user?.userId,
+          username: req.user?.username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          details: { error: error instanceof Error ? error.message : 'Unknown error' },
+          success: false
         });
         logger.error(`Logout error: ${error}`, 'AuthRoutes');
         return res.status(500).json({

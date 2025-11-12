@@ -17,6 +17,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   fullscreen = false, 
   autoStart = true 
 }) => {
+  console.log(`[CameraStream] 🎥 Mounting for camera: ${camera.name} (${camera.id}) | AutoStart: ${autoStart}`);
+
   const { startCameraStream, stopCameraStream } = useCameras();
   const { connected: socketConnected, connectionStatus } = useSocketContext();
 
@@ -27,59 +29,92 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const [displayFps, setDisplayFps] = useState<number>(0);
+  const streamActionRef = useRef<"start" | "stop" | null>(null);
 
   const handleStreamStart = useCallback(async () => {
+    console.log(`[CameraStream] 🎬 handleStreamStart called for ${camera.id}. Socket connected: ${socketConnected}`);
     if (!socketConnected) {
+      console.error("[CameraStream] Socket not connected. Cannot start stream.");
       setError("Socket not connected. Cannot start stream.");
       return;
     }
+    if (streamActionRef.current === "start") {
+      console.warn(`[CameraStream] Stream start for ${camera.id} already in progress.`);
+      return;
+    }
+    
     setError(null);
+    streamActionRef.current = "start";
     setIsStreaming(true);
+    console.log(`[CameraStream] 🟢 Set isStreaming to true for ${camera.id}`);
+    
+    // Reset FPS counters
+    frameCountRef.current = 0;
+    lastFrameTimeRef.current = performance.now();
+    
     try {
+      console.log(`[CameraStream] ▶️ Requesting stream from server for ${camera.id}`);
       await startCameraStream(camera.id);
-      // Reset FPS counter
-      frameCountRef.current = 0;
-      lastFrameTimeRef.current = performance.now();
+      console.log(`[CameraStream] ✅ Stream request successful for ${camera.id}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start stream';
+      console.error(`[CameraStream] ❌ Error starting stream for ${camera.id}:`, errorMessage);
       setError(errorMessage);
       setIsStreaming(false);
+      streamActionRef.current = null;
     }
   }, [camera.id, startCameraStream, socketConnected]);
 
   const handleStreamStop = useCallback(() => {
+    console.log(`[CameraStream] 🎬 handleStreamStop called for ${camera.id}`);
+    if (streamActionRef.current === "stop") {
+      console.warn(`[CameraStream] Stream stop for ${camera.id} already in progress.`);
+      return;
+    }
+    
+    streamActionRef.current = "stop";
     setIsStreaming(false);
     setCurrentFrame(null);
+    console.log(`[CameraStream] 🔴 Set isStreaming to false for ${camera.id}`);
     stopCameraStream(camera.id).catch(err => {
-      console.error("Failed to stop stream:", err);
+      console.error(`[CameraStream] ❌ Failed to stop stream for ${camera.id}:`, err);
     });
   }, [camera.id, stopCameraStream]);
 
-  // Auto-start or stop streaming
+  // Effect for auto-starting/stopping based on props and socket connection
   useEffect(() => {
+    console.log(`[CameraStream] 🔄 Auto-start/stop effect for ${camera.id}. autoStart: ${autoStart}, socketConnected: ${socketConnected}, isStreaming: ${isStreaming}`);
+    
     if (autoStart && socketConnected && !isStreaming) {
+      console.log(`[CameraStream] 🚀 Auto-starting stream for ${camera.id}`);
       handleStreamStart();
     } else if (!autoStart && isStreaming) {
+      console.log(`[CameraStream] 🛑 Auto-stopping stream for ${camera.id}`);
       handleStreamStop();
     }
-    
+
+    // Cleanup on unmount
     return () => {
+      console.log(`[CameraStream] 🧹 Cleanup effect for ${camera.id}. isStreaming: ${isStreaming}`);
       if (isStreaming) {
         handleStreamStop();
       }
     };
   }, [camera.id, autoStart, socketConnected, isStreaming, handleStreamStart, handleStreamStop]);
 
-  // Handle frame reception from WebSocket
+  // Effect for handling WebSocket events
   useEffect(() => {
+    console.log(`[CameraStream] 🎧 Registering WebSocket listeners for ${camera.id}`);
+
     const handleFrame = (data: { cameraId: string; data: string; timestamp: string }) => {
       if (data.cameraId === camera.id) {
+        // console.log(`[CameraStream] 📸 Frame received for ${camera.id}. Length: ${data.data?.length}`);
         if (error) setError(null);
         
         const imageDataUrl = `data:image/jpeg;base64,${data.data}`;
         setCurrentFrame(imageDataUrl);
         
-        // Calculate FPS
+        // FPS calculation
         frameCountRef.current++;
         const now = performance.now();
         const elapsed = now - lastFrameTimeRef.current;
@@ -95,6 +130,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     const handleError = (data: { cameraId: string; error: string }) => {
       if (data.cameraId === camera.id) {
+        console.error(`[CameraStream] ❌ WebSocket error for ${camera.id}: ${data.error}`);
         setError(data.error);
         setIsStreaming(false);
       }
@@ -104,12 +140,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     const errorUnsubscribe = socketService.on('camera-error', handleError);
 
     return () => {
+      console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
       frameUnsubscribe();
       errorUnsubscribe();
     };
-  }, [camera.id, isStreaming, error]);
+  }, [camera.id, error]); // Dependency array is minimal to avoid re-registering listeners unnecessarily
 
   const toggleStream = () => {
+    console.log(`[CameraStream] ⏯️ toggleStream called for ${camera.id}. Currently streaming: ${isStreaming}`);
     if (isStreaming) {
       handleStreamStop();
     } else {
@@ -133,7 +171,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           src={currentFrame} 
           alt={`${camera.name} stream`} 
           className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
-          onError={() => setError('Failed to load video frame')}
+          onError={() => {
+            console.error(`[CameraStream] 💥 Failed to load image frame for ${camera.id}`);
+            setError('Failed to load video frame');
+          }}
         />
       ) : (
         <div 
@@ -187,3 +228,4 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     </div>
   );
 };
+

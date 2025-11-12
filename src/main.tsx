@@ -27,10 +27,11 @@ if (import.meta.env.DEV) {
   const observer = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       if (entry.entryType === 'navigation') {
-        const loadTime = entry.loadEventEnd - entry.fetchStart;
+        const navEntry = entry as PerformanceNavigationTiming;
+        const loadTime = navEntry.loadEventEnd - navEntry.fetchStart;
         logger.performance('Page Load Time', loadTime, 'ms', {
-          domContentLoaded: entry.domContentLoadedEventEnd - entry.domContentLoadedEventStart,
-          domComplete: entry.domComplete - entry.fetchStart
+          domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
+          domComplete: navEntry.domComplete - navEntry.fetchStart
         });
       }
     }

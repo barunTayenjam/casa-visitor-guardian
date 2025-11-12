@@ -7,7 +7,8 @@ import { StreamManager, Camera } from '../streams/rtspManager.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
 import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLimit.js';
 import { logger } from '../utils/logger.js';
-import { auditLogger } from '../utils/auditLogger.js';
+import auditLogger from '../utils/auditLogger.js';
+import logRoutes from './logRoutes.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -589,6 +590,51 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Start test streaming for a camera
+  app.post('/api/cameras/:id/stream/start-test', (req: Request, res: Response) => {
+    try {
+      if (!streamManager) {
+        return res.status(503).json({ 
+          success: false, 
+          error: 'Camera system not initialized',
+          status: 'unavailable'
+        });
+      }
+
+      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      if (!camera) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Camera not found',
+          cameraId: req.params.id
+        });
+      }
+
+      // Stop any existing stream
+      streamManager.stopStream(req.params.id);
+
+      // Mark camera as active for test streaming
+      (camera as any).isActive = true;
+      (camera as any).isTestStream = true;
+
+      res.json({ 
+        success: true, 
+        status: 'test-streaming',
+        cameraId: req.params.id,
+        message: 'Test stream started. Access via /stream/' + req.params.id,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error(`Error starting test stream for camera ${req.params.id}:`, error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to start test stream',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        cameraId: req.params.id
+      });
+    }
+  });
+
   // Start streaming from a camera
   app.post('/api/cameras/:id/stream/start', (req: Request, res: Response) => {
     try {
@@ -717,8 +763,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Check if this is a test stream or real RTSP stream
       const process = streamManager.getProcess(cameraId);
+      const isTestStream = (camera as any).isTestStream;
       
-      if (process && process.stdout) {
+      if (process && process.stdout && !isTestStream) {
         console.log(`*** FOUND REAL CAMERA PROCESS for ${cameraId} - STARTING MJPEG STREAM ***`);
         
         let isActive = true;

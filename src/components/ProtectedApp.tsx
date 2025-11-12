@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react';
 import { SecurityLayout } from "./layout/SecurityLayout";
-import { SocketProvider } from "../contexts/SocketContext";
 import { CameraProvider } from "../contexts/CameraContext";
 import { EventsProvider } from "../contexts/EventsContext";
 import { Outlet } from "react-router-dom";
@@ -15,15 +14,13 @@ const LoadingFallback = () => (
 export const ProtectedApp = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <SocketProvider>
-        <CameraProvider>
-          <EventsProvider>
-            <SecurityLayout>
-              <Outlet />
-            </SecurityLayout>
-          </EventsProvider>
-        </CameraProvider>
-      </SocketProvider>
+      <CameraProvider>
+        <EventsProvider>
+          <SecurityLayout>
+            <Outlet />
+          </SecurityLayout>
+        </EventsProvider>
+      </CameraProvider>
     </Suspense>
   );
 };

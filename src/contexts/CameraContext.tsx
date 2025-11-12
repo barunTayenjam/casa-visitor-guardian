@@ -171,7 +171,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Update a camera
-  const updateCamera = async (id: string, updates: Partial<Camera>) => {
+  const updateCamera = useCallback(async (id: string, updates: Partial<Camera>) => {
     try {
       // Update in backend
       if (Object.keys(updates).some(key => [
@@ -188,7 +188,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to update camera ${id}:`, err);
       throw err;
     }
-  };
+  }, [apiService, setCameras]);
 
   // Delete a camera
   const deleteCamera = async (id: string) => {
@@ -210,25 +210,27 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Start streaming from a camera
-  const startCameraStream = async (id: string) => {
+  const startCameraStream = useCallback(async (id: string) => {
     try {
+      console.log(`🎬 CameraContext: Requesting stream for camera ${id}`);
       socketService.requestStream(id);
       updateCamera(id, { status: 'online' });
+      console.log(`✅ CameraContext: Stream request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to start stream for camera ${id}:`, err);
       throw err;
     }
-  };
+  }, [socketService, updateCamera]);
 
   // Stop streaming from a camera
-  const stopCameraStream = async (id: string) => {
+  const stopCameraStream = useCallback(async (id: string) => {
     try {
       socketService.stopStream(id);
     } catch (err) {
       console.error(`Failed to stop stream for camera ${id}:`, err);
       throw err;
     }
-  };
+  }, [socketService]);
 
   // Take a snapshot from a camera
   const takeSnapshot = async (id: string, resolution?: string) => {

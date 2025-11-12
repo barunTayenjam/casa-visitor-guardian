@@ -1,4 +1,4 @@
-import cv from '@techstark/opencv-js';
+import * as cv from '@techstark/opencv-js';
 import { createCanvas, loadImage } from 'canvas';
 import fs from 'fs';
 import path from 'path';
@@ -8,30 +8,45 @@ import path from 'path';
  */
 export class OpenCVProcessor {
   private static initialized = false;
+  private static cv: any;
 
   static async initialize(): Promise<void> {
     if (this.initialized) return;
 
     try {
-      // Wait for OpenCV to be ready
-      if (typeof cv.Mat === 'undefined') {
-        console.log('Waiting for OpenCV to initialize...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // Load OpenCV module
+      if (!this.cv) {
+        this.cv = (await import('@techstark/opencv-js')).default;
+        // Wait for OpenCV to be ready
+        if (typeof this.cv.Mat === 'undefined') {
+          console.log('Waiting for OpenCV to initialize...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
       this.initialized = true;
       console.log('OpenCV.js initialized successfully');
     } catch (error) {
       console.error('Failed to initialize OpenCV:', error);
-      throw error;
+      // Don't throw error, just mark as not initialized
+      this.initialized = true;
+      console.warn('OpenCV functionality will be disabled');
     }
+  }
+
+  private static getCv(): any {
+    if (!this.cv) {
+      throw new Error('OpenCV not available');
+    }
+    return this.cv;
   }
 
   /**
    * Convert image buffer to OpenCV Mat
    */
-  static async bufferToMat(buffer: Buffer): Promise<cv.Mat> {
+  static async bufferToMat(buffer: Buffer): Promise<any> {
     await this.initialize();
+    const cv = this.getCv();
     
     return new Promise((resolve, reject) => {
       try {
@@ -45,7 +60,7 @@ export class OpenCVProcessor {
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           
           // Create Mat from image data using the correct OpenCV.js method
-          const mat = new cv.Mat(imageData.height, imageData.width, cv.CV_8UC4);
+          const mat = new this.cv.Mat(imageData.height, imageData.width, this.cv.CV_8UC4);
           mat.data.set(imageData.data);
           
           resolve(mat);
@@ -59,10 +74,12 @@ export class OpenCVProcessor {
   /**
    * Detect people using HOG detector
    */
-  static async detectPeople(imageMat: cv.Mat): Promise<Array<{confidence: number, bbox: cv.Rect}>> {
+  static async detectPeople(imageMat: any): Promise<Array<{confidence: number, bbox: any}>> {
     await this.initialize();
     
     try {
+      const cv = this.getCv();
+      
       // Convert to grayscale for HOG detector
       const gray = new cv.Mat();
       cv.cvtColor(imageMat, gray, cv.COLOR_RGBA2GRAY);
@@ -121,8 +138,9 @@ export class OpenCVProcessor {
   /**
    * Motion detection using background subtraction
    */
-  static async detectMotion(imageMat: cv.Mat): Promise<cv.Mat> {
+  static async detectMotion(imageMat: any): Promise<any> {
     await this.initialize();
+    const cv = this.getCv();
     
     try {
       // Convert to grayscale
@@ -162,9 +180,12 @@ export class OpenCVProcessor {
   /**
    * Find contours in binary image
    */
-  static findContours(binaryMat: cv.Mat): Promise<Array<cv.MatVector>> {
-    return new Promise((resolve, reject) => {
+  static findContours(binaryMat: any): Promise<Array<any>> {
+    return new Promise(async (resolve, reject) => {
       try {
+        await this.initialize();
+        const cv = this.getCv();
+        
         const contours = new cv.MatVector();
         const hierarchy = new cv.Mat();
         
@@ -189,10 +210,11 @@ export class OpenCVProcessor {
   /**
    * Detect edges using Canny edge detection
    */
-  static detectEdges(imageMat: cv.Mat, lowThreshold: number = 50, highThreshold: number = 150): Promise<cv.Mat> {
+  static detectEdges(imageMat: any, lowThreshold: number = 50, highThreshold: number = 150): Promise<any> {
     return new Promise(async (resolve, reject) => {
       try {
         await this.initialize();
+        const cv = this.getCv();
         
         // Convert to grayscale
         const gray = new cv.Mat();
@@ -215,8 +237,9 @@ export class OpenCVProcessor {
   /**
    * Simple face detection using Haar cascades
    */
-  static async detectFaces(imageMat: cv.Mat): Promise<Array<{confidence: number, bbox: cv.Rect}>> {
+  static async detectFaces(imageMat: any): Promise<Array<{confidence: number, bbox: any}>> {
     await this.initialize();
+    const cv = this.getCv();
     
     try {
       // Convert to grayscale
@@ -229,7 +252,7 @@ export class OpenCVProcessor {
 
       // Note: In a real implementation, you would load a Haar cascade classifier
       // For demo purposes, we'll simulate face detection
-      const faces: Array<{confidence: number, bbox: cv.Rect}> = [];
+      const faces: Array<{confidence: number, bbox: any}> = [];
       
       // Simulate face detection with random results
       if (Math.random() > 0.7) {
@@ -258,7 +281,7 @@ export class OpenCVProcessor {
   /**
    * Cleanup OpenCV Mats
    */
-  static cleanup(...mats: cv.Mat[]): void {
+  static cleanup(...mats: any[]): void {
     mats.forEach(mat => {
       if (mat && mat.delete) {
         mat.delete();

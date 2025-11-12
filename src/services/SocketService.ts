@@ -41,11 +41,11 @@ class SocketService {
           this.socket.disconnect();
         }
 
-        // In development, use localhost explicitly to avoid CORS issues
+        // Use relative URL in development to leverage Vite proxy
         // In production, use relative URL (nginx will proxy to backend)
         let socketUrl: string;
         if (import.meta.env.DEV) {
-          // In development, use the current origin to leverage Vite proxy
+          // In development, use relative URL to leverage Vite proxy
           socketUrl = window.location.origin;
         } else {
           // In production (Docker), use relative URL - nginx will proxy to backend
@@ -72,10 +72,12 @@ class SocketService {
         });
 
         this.socket.on('connect', () => {
+          console.log('✅ SocketService: Socket connected successfully');
           this.isConnecting = false;
           
           // Re-register all callbacks when socket connects
           this.callbacks.forEach((listeners, event) => {
+            console.log(`🔄 SocketService: Re-registering ${listeners.size} listeners for event: ${event}`);
             listeners.forEach(callback => {
               this.socket?.on(event, callback);
             });
@@ -131,6 +133,11 @@ class SocketService {
           // Enhanced motion detected event
         });
 
+        // Frame event listener for debugging
+        this.socket.on('frame', (data) => {
+          console.log(`🖼️ SocketService: Raw frame received for camera ${data.cameraId}, size: ${data.data?.length || 0}`);
+        });
+
         // Set a timeout for connection
         setTimeout(() => {
           if (!this.socket?.connected) {
@@ -159,10 +166,13 @@ class SocketService {
 
   // Request a camera stream
   requestStream(cameraId: string) {
+    console.log(`📡 SocketService: Requesting stream for camera ${cameraId}, socket connected: ${this.socket?.connected}`);
     if (!this.socket?.connected) {
+      console.warn('❌ Socket not connected, cannot request stream');
       return;
     }
     this.socket.emit('requestStream', cameraId);
+    console.log(`✅ SocketService: Stream request emitted for camera ${cameraId}`);
   }
 
   // Stop streaming a camera
@@ -175,6 +185,7 @@ class SocketService {
 
   // Add event listener
   on(event: string, callback: (...args: unknown[]) => void) {
+    console.log(`👂 SocketService: Registering listener for event: ${event}`);
     if (!this.callbacks.has(event)) {
       this.callbacks.set(event, new Set());
     }
@@ -183,7 +194,10 @@ class SocketService {
 
     // If socket is already connected, add the listener directly
     if (this.socket?.connected) {
+      console.log(`🔌 SocketService: Socket connected, adding listener for ${event}`);
       this.socket.on(event, callback);
+    } else {
+      console.log(`⚠️ SocketService: Socket not connected, listener queued for ${event}`);
     }
 
     return () => this.off(event, callback);

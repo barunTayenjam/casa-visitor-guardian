@@ -8,6 +8,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Import log database
+import { getLogDatabase } from '../services/logDatabase.js';
+
 // Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, '../../logs');
 if (!fs.existsSync(logsDir)) {
@@ -36,6 +39,7 @@ const LOGGING_CONFIG = {
   enableStreamLogs: true,   // Enable stream logs
   enableSocketLogs: true,   // Enable socket logs
   enableFileLogging: true,  // Enable file logging
+  enableDatabaseLogging: true, // Enable database logging
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size
   maxLogFiles: 5 // Keep 5 log files max
 };
@@ -79,6 +83,40 @@ const writeToFile = (filePath: string, message: string) => {
   } catch (error) {
     // If file logging fails, still log to console
     originalConsoleError('Failed to write to log file:', error);
+  }
+};
+
+// Database logging utility
+const writeToDatabase = async (
+  level: string,
+  message: string,
+  source?: string,
+  error?: unknown,
+  metadata?: Record<string, unknown>
+) => {
+  if (!LOGGING_CONFIG.enableDatabaseLogging) return;
+  
+  try {
+    const logDb = await getLogDatabase();
+    if (!logDb || !logDb.pool) {
+      // Database not yet initialized, skip database logging
+      return;
+    }
+    
+    const errorDetails = error ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : undefined;
+    const metadataStr = metadata ? JSON.stringify(metadata) : undefined;
+    
+    await logDb.insertLog({
+      timestamp: new Date().toISOString(),
+      level: level as 'info' | 'warn' | 'error' | 'debug',
+      message,
+      source,
+      error_details: errorDetails,
+      metadata: metadataStr
+    });
+  } catch (dbError) {
+    // If database logging fails, log to console but don't crash
+    originalConsoleError('Failed to write to log database:', dbError);
   }
 };
 
@@ -126,6 +164,9 @@ const log = (level: string, message: string, source?: string, error?: unknown, m
   if (source === 'API' || source === 'SOCKET') {
     writeToFile(accessLogFile, logMessage);
   }
+
+  // Write to database (async, don't block)
+  writeToDatabase(level, message, source, error, metadata);
 };
 
 // Override console methods to also log to file

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { SocketProvider } from "./contexts/SocketContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -17,6 +18,9 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CameraConfig = lazy(() => import("./pages/CameraConfig"));
 const MotionEvents = lazy(() => import("./pages/MotionEvents"));
 const Settings = lazy(() => import("./pages/Settings"));
+const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
+const VisitorReports = lazy(() => import("./pages/VisitorReports"));
+const SystemLogs = lazy(() => import("./pages/SystemLogs"));
 const Debug = lazy(() => import("./pages/Debug"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -79,8 +83,9 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AuthProvider>
-              <Toaster />
+            <SocketProvider>
+              <AuthProvider>
+                <Toaster />
               <Suspense fallback={<LoadingFallback />}>
                 <Routes>
                   {/* Public routes */}
@@ -136,6 +141,23 @@ const App = () => {
                         <MotionEvents />
                       </ErrorBoundary>
                     } />
+                    <Route path="visitor-timeline" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <VisitorTimeline />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="visitor-reports" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <VisitorReports />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="logs" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <ProtectedRoute requiredRole="admin">
+                          <SystemLogs />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                    } />
                     <Route path="settings" element={
                       <ErrorBoundary fallback={ErrorFallback}>
                         <ProtectedRoute requiredRole="user">
@@ -149,7 +171,8 @@ const App = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </AuthProvider>
+              </AuthProvider>
+            </SocketProvider>
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>

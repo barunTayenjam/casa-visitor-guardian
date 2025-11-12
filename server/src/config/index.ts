@@ -93,11 +93,6 @@ const defaultConfig: Partial<AppConfig> = {
 
 // Load camera configuration from environment or file
 function loadCameraConfig(): CameraConfig[] {
-  // Initialize credential manager and migrate if needed
-  if (CredentialManager.validateCredentials()) {
-    CredentialManager.migrateFromCamerasJson();
-  }
-
   // Try to load from cameras.json file first
   const camerasFile = path.join(__dirname, '../../cameras.json');
   if (fs.existsSync(camerasFile)) {

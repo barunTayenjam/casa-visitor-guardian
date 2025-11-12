@@ -127,13 +127,22 @@ export class StreamManager {
       return true;
     }
 
+    // Check if this is a test stream
+    if (camera.rtspUrl.startsWith('test://')) {
+      logger.info(`Starting test stream for camera ${cameraId}`, 'StreamManager');
+      this.startTestStream(cameraId);
+      return true;
+    }
+
     try {
       // Construct authentication part of URL if provided
       let rtspUrl = camera.rtspUrl;
       if (camera.username && camera.password) {
         const urlParts = camera.rtspUrl.split("://");
         if (urlParts.length === 2) {
-          rtspUrl = `${urlParts[0]}://${camera.username}:${camera.password}@${urlParts[1]}`;
+          const encodedUsername = encodeURIComponent(camera.username);
+          const encodedPassword = encodeURIComponent(camera.password);
+          rtspUrl = `${urlParts[0]}://${encodedUsername}:${encodedPassword}@${urlParts[1]}`;
         }
       }
 
@@ -145,9 +154,10 @@ export class StreamManager {
         // Use TCP for RTSP as it's much more reliable than UDP
         "-rtsp_transport",
         "tcp",
-        // Set a shorter timeout to detect connection issues quickly
+        // Set timeout for connection (10 seconds = 10,000,000 microseconds)
+        // Increased from 3s to handle slower networks and initialization
         "-timeout",
-        "3000000",
+        "10000000",
 
         // Error tolerance flags
         "-err_detect",
@@ -161,12 +171,13 @@ export class StreamManager {
         // Set maximum delay for better synchronization
         "-max_delay",
         "300000",
-        // Reduce probing size for faster startup
+        // Probing and analysis settings
+        // Increased probesize for better compatibility with unreliable streams
         "-probesize",
-        "64000",
-        // Analyze shorter portions of the input to speed up startup
+        "5000000", // 5MB (increased from 64KB for better stream detection)
+        // Analyze duration - balance between startup speed and reliability
         "-analyzeduration",
-        "1000000",
+        "3000000", // 3 seconds (increased from 1s for better codec detection)
         "-re", // Force reading input at the native frame rate
         // Input source
         "-i",
@@ -196,10 +207,9 @@ export class StreamManager {
       // Stream start log disabled - logger.info(`Starting stream for camera ${cameraId} with resolution ${camera.resolution}`, 'StreamManager');
       // FFMPEG command log disabled - logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
 
-      // Reset retry count if camera is restarting after being offline for a while
-      if (camera.retryCount && camera.retryCount > 5) {
-        camera.retryCount = 0;
-      }
+      // Reset retry count on successful connection attempt start
+      // Note: Only reset if we've had a successful connection before
+      // Keep retry count during connection attempts to track rate limiting
 
       // Spawn ffmpeg process with proper pipes for more reliable streaming
       const process = spawn(ffmpegPath, ffmpegArgs, {
@@ -229,6 +239,13 @@ export class StreamManager {
         }
         streamErrors = 0;
         lastSuccessfulFrame = Date.now();
+        
+        // Reset retry count on successful frame reception
+        // This means camera is working and rate limit (if any) has expired
+        if (camera.retryCount > 0) {
+          logger.info(`Camera ${cameraId} connection successful, resetting retry count`, 'StreamManager');
+          camera.retryCount = 0;
+        }
 
         buffer = Buffer.concat([buffer, data]);
 
@@ -296,14 +313,19 @@ export class StreamManager {
             timestamp: new Date().toISOString(),
           });
           streamErrors++;
-        } else if (errorMsg.includes("Connection timed out")) {
+        } else if (errorMsg.includes("Connection timed out") || errorMsg.includes("Operation timed out")) {
           logger.error(
-            `Connection timeout for camera ${cameraId}. Check the IP address and network.`, 'StreamManager',
+            `Connection timeout for camera ${cameraId}. Camera is unreachable. Check the IP address, network connectivity, and camera power.`, 'StreamManager',
           );
+          camera.lastError = `Network timeout - Camera unreachable at ${camera.rtspUrl.match(/@([^/]+)/)?.[1] || 'unknown IP'}`;
           this.io.to(`camera-${cameraId}`).emit("camera-error", {
             cameraId,
-            error: "Connection timed out. Check camera IP and network.",
+            error: "Camera unreachable. Check: 1) Camera is powered on, 2) Network cable connected, 3) IP address is correct. Run: bash tmp_rovodev_check_camera_network.sh",
             timestamp: new Date().toISOString(),
+            details: {
+              type: 'network_timeout',
+              suggestion: 'Run network diagnostics: bash tmp_rovodev_check_camera_network.sh'
+            }
           });
           streamErrors++;
         } else {
@@ -351,6 +373,35 @@ export class StreamManager {
           if (shouldRestart) {
             // Calculate retry delay with exponential backoff (5-30 seconds)
             const retryCount = camera.retryCount || 0;
+            
+            // IMPORTANT: TP-Link Tapo cameras have rate limiting!
+            // Max 10 retries, then wait 5 minutes before trying again
+            // This prevents IP bans from the camera
+            const MAX_RETRIES = 10;
+            const COOLDOWN_PERIOD = 5 * 60 * 1000; // 5 minutes
+            
+            if (retryCount >= MAX_RETRIES) {
+              logger.warn(
+                `Camera ${cameraId} reached max retry limit (${MAX_RETRIES}). Entering cooldown period of 5 minutes to avoid IP ban.`, 'StreamManager',
+              );
+              
+              camera.retryCount = 0; // Reset for next attempt
+              
+              this.io.to(`camera-${cameraId}`).emit("camera-status", {
+                cameraId,
+                status: "cooldown",
+                message: `Max retries reached. Camera may have rate-limited this server. Waiting 5 minutes before retry to avoid IP ban.`,
+                timestamp: new Date().toISOString(),
+              });
+              
+              setTimeout(() => {
+                logger.info(`Cooldown complete for camera ${cameraId}. Attempting to reconnect...`, 'StreamManager');
+                this.startStream(cameraId);
+              }, COOLDOWN_PERIOD);
+              
+              return;
+            }
+            
             const retryDelay = Math.min(
               5000 * Math.pow(1.5, retryCount),
               30000,
@@ -358,13 +409,13 @@ export class StreamManager {
             camera.retryCount = retryCount + 1;
 
             logger.info(
-              `Attempting to restart stream for camera ${cameraId} in ${retryDelay / 1000} seconds (retry #${camera.retryCount})`, 'StreamManager',
+              `Attempting to restart stream for camera ${cameraId} in ${retryDelay / 1000} seconds (retry #${camera.retryCount}/${MAX_RETRIES})`, 'StreamManager',
             );
 
             this.io.to(`camera-${cameraId}`).emit("camera-status", {
               cameraId,
               status: "reconnecting",
-              message: `Connection lost (exit code ${code}). Retrying in ${Math.round(retryDelay / 1000)} seconds...`,
+              message: `Connection lost (exit code ${code}). Retrying in ${Math.round(retryDelay / 1000)} seconds... (${camera.retryCount}/${MAX_RETRIES})`,
               timestamp: new Date().toISOString(),
             });
 

@@ -6,9 +6,11 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import debug from 'debug';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { CredentialManager } from './utils/credentialManager.js';
 
 // Import configuration and logger
 import { config, validateConfig } from './config/index.js';
+import { getLogDatabase } from './services/logDatabase.js';
 import { logger } from './utils/logger.js';
 
 // Import security middleware
@@ -23,23 +25,27 @@ import {
   validateApiKey, 
   configureHelmet 
 } from './middleware/security.js';
-import { auditMiddleware } from './utils/auditLogger.js';
+// import auditMiddleware, auditLogger from './utils/auditLogger.js';
 
 // Import modules
 import { setupRTSPStreams, StreamManager } from './streams/rtspManager.js';
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
 import { configureBatchProcessingRoutes } from './routes/batchProcessing.js';
+import { configureVisitorRoutes } from './routes/visitorRoutes.js';
+import logRoutes from './routes/logRoutes.js';
 import { startCronJobs } from './utils/cronJobs.js';
 import { setupOptimizedMotionDetection, OptimizedMotionDetector } from './detection/optimizedMotionDetection.js';
 import { objectDetectionService, ObjectDetectionService } from './detection/objectDetection.js';
 import { facialRecognitionService, FacialRecognitionService } from './detection/facialRecognition.js';
 import { motionBatchIntegration } from './integrations/motionBatchIntegration.js';
+import { visitorReportScheduler } from './services/visitorReportScheduler.js';
+import { visitorDatabase } from './services/visitorDatabase.js';
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { AddressInfo } from 'net';
+
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -50,10 +56,14 @@ dotenv.config();
 
 // Validate configuration
 try {
+  // Initialize log database first, before any logging occurs
+  await getLogDatabase();
+  console.log('Log database initialized successfully');
+  
   validateConfig();
   logger.info('Configuration validated successfully', 'Server');
 } catch (error) {
-  logger.error(`Configuration validation failed: ${error}`, 'Server');
+  console.error(`Configuration validation failed: ${error}`);
   process.exit(1);
 }
 
@@ -215,7 +225,7 @@ if (process.env.NODE_ENV === 'production') {
 app.use('/api', validateApiKey);
 
 // Audit logging middleware
-app.use('/api', auditMiddleware('API_REQUEST', 'API'));
+// app.use('/api', auditMiddleware());
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
@@ -299,6 +309,20 @@ io.on('connection', (socket: Socket) => {
       }
       
       const streamRoom = `camera-${cameraId}`;
+      
+      // Check if stream is already active
+      if (!activeStreams.has(streamRoom)) {
+        // Start the actual FFmpeg stream
+        const streamManager = (global as any).streamManager;
+        if (streamManager) {
+          const started = streamManager.startStream(cameraId);
+          if (!started) {
+            socket.emit('streamError', { cameraId, error: 'Failed to start camera stream' });
+            return;
+          }
+        }
+      }
+      
       socket.join(streamRoom);
       activeStreams.add(streamRoom);
       
@@ -307,7 +331,7 @@ io.on('connection', (socket: Socket) => {
         logger.streamRequest(cameraId, socket.id);
       }
       
-      // Emit a confirmation back to the client
+      // Emit a confirmation back to client
       socket.emit('streamRequested', { cameraId, status: 'joined' });
     } catch (error) {
       console.error('Stream request error:', error);
@@ -337,44 +361,21 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-// Helper function to find an available port starting from the provided port
-const findAvailablePort = (startPort: number): Promise<number> => {
-  return new Promise((resolve) => {
-    const testServer = http.createServer();
-    testServer.once('error', () => {
-      // Port is in use, try the next one
-      testServer.close(() => {
-        resolve(findAvailablePort(startPort + 1));
-      });
-    });
-    
-    testServer.once('listening', () => {
-      // Found an available port
-      const port = (testServer.address() as AddressInfo).port;
-      testServer.close(() => {
-        resolve(port);
-      });
-    });
-    
-    testServer.listen(startPort);
-  });
-};
 
-// Set up server with dynamic port binding
-const DEFAULT_PORT = config.port;
-logger.info(`Attempting to start server on port ${DEFAULT_PORT}`, 'Server');
 
-// Find an available port and start the server
+// Set up server with fixed port binding
+const PORT = config.port;
+logger.info(`Starting server on port ${PORT}`, 'Server');
+
+// Start the server on the configured port
 (async () => {
   try {
-    const PORT = await findAvailablePort(DEFAULT_PORT);
-    
-    if (PORT !== DEFAULT_PORT) {
-      // Port change log disabled - console.log(`Port ${DEFAULT_PORT} was in use, using port ${PORT} instead`);
-    }
-    
     server.listen(PORT, async () => {
       console.log(`*** SERVER STARTED ON PORT ${PORT} ***`);
+      
+      // Initialize log database first, before any logging occurs
+      await getLogDatabase();
+      console.log('Log database initialized successfully');
       
       // Update the PORT in the process environment so other components can use it
       process.env.PORT = PORT.toString();
@@ -395,6 +396,16 @@ logger.info(`Attempting to start server on port ${DEFAULT_PORT}`, 'Server');
         
         // Configure batch processing routes
         configureBatchProcessingRoutes(app);
+        
+        // Configure visitor analytics routes
+        configureVisitorRoutes(app);
+        
+        // Configure log management routes
+        app.use('/api', logRoutes);
+        
+        // Add simple test route for debugging
+        const { addTestVisitorRoute } = await import('./testVisitorRoutes.js');
+        addTestVisitorRoute(app);
         
         // Initialize motion-triggered detection and batch integration
         setupMotionBatchIntegration(io);
@@ -429,6 +440,18 @@ logger.info(`Attempting to start server on port ${DEFAULT_PORT}`, 'Server');
         
         // Start cron jobs
         startCronJobs(io);
+        
+        // Initialize visitor database and report scheduler
+        console.log('About to initialize visitor database...');
+        try {
+          await visitorDatabase.initialize();
+          console.log('Visitor database initialized successfully');
+        } catch (err) {
+          console.error('Visitor database initialization failed:', err);
+        }
+        console.log('About to initialize visitor report scheduler...');
+        await visitorReportScheduler.initialize();
+        console.log('Visitor report scheduler initialized');
         
         // Setup performance monitoring and cleanup
         setupPerformanceMonitoring(io);

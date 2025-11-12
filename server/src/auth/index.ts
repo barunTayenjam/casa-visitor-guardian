@@ -77,11 +77,16 @@ export class AuthService {
       role: user.role
     };
 
-    return jwt.sign(payload, config.jwtSecret, {
-      expiresIn: config.jwtExpiresIn,
-      issuer: 'home-security-system',
-      audience: 'home-security-client'
-    } as jwt.SignOptions);
+    try {
+      return jwt.sign(payload, config.jwtSecret, {
+        expiresIn: config.jwtExpiresIn,
+        issuer: 'home-security-system',
+        audience: 'home-security-client'
+      } as jwt.SignOptions);
+    } catch (error) {
+      logger.error(`JWT signing error: ${error}`, 'AuthService');
+      throw error;
+    }
   }
 
   // Verify JWT token
@@ -149,7 +154,16 @@ export class AuthService {
       logger.info(`New user registered: ${newUser.username}`, 'AuthService');
 
       // Generate token
-      const token = this.generateToken(newUser);
+      let token: string;
+      try {
+        token = this.generateToken(newUser);
+      } catch (error) {
+        logger.error(`Failed to generate JWT token during registration: ${error}`, 'AuthService');
+        return {
+          success: false,
+          error: 'Failed to generate authentication token'
+        };
+      }
 
       // Return user without password
       const { password, ...userWithoutPassword } = newUser;
@@ -209,7 +223,16 @@ export class AuthService {
       logger.info(`User logged in: ${user.username}`, 'AuthService');
 
       // Generate token
-      const token = this.generateToken(user);
+      let token: string;
+      try {
+        token = this.generateToken(user);
+      } catch (error) {
+        logger.error(`Failed to generate JWT token: ${error}`, 'AuthService');
+        return {
+          success: false,
+          error: 'Failed to generate authentication token'
+        };
+      }
 
       // Return user without password
       const { password, ...userWithoutPassword } = user;

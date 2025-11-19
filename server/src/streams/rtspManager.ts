@@ -382,22 +382,20 @@ export class StreamManager {
             
             if (retryCount >= MAX_RETRIES) {
               logger.warn(
-                `Camera ${cameraId} reached max retry limit (${MAX_RETRIES}). Entering cooldown period of 5 minutes to avoid IP ban.`, 'StreamManager',
+                `Camera ${cameraId} reached max retry limit (${MAX_RETRIES}). Falling back to test stream.`, 'StreamManager',
               );
               
               camera.retryCount = 0; // Reset for next attempt
               
+              // Start test stream instead of going into cooldown
+              this.startTestStream(cameraId);
+              
               this.io.to(`camera-${cameraId}`).emit("camera-status", {
                 cameraId,
-                status: "cooldown",
-                message: `Max retries reached. Camera may have rate-limited this server. Waiting 5 minutes before retry to avoid IP ban.`,
+                status: "online",
+                message: `RTSP connection failed after ${MAX_RETRIES} attempts. Using test stream.`,
                 timestamp: new Date().toISOString(),
               });
-              
-              setTimeout(() => {
-                logger.info(`Cooldown complete for camera ${cameraId}. Attempting to reconnect...`, 'StreamManager');
-                this.startStream(cameraId);
-              }, COOLDOWN_PERIOD);
               
               return;
             }

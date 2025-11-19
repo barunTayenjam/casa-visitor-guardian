@@ -1,0 +1,86 @@
+# Backend Dockerfile
+# Multi-stage build for production Node.js application
+
+# Stage 1: Dependencies
+FROM node:18-alpine AS dependencies
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci && npm cache clean --force
+
+# Stage 2: Build
+FROM node:18-alpine AS build
+WORKDIR /app
+
+# Copy dependencies and source
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+
+# Set environment for build
+ENV NODE_ENV=production
+
+# Build TypeScript
+RUN npm run build
+
+# Stage 3: Production
+FROM node:18-alpine AS production
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    ffmpeg \
+    ffmpeg-dev \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    && rm -rf /var/cache/apk/*
+
+# Create application user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S sentryvision -u 1001
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/snapshots /app/events && \
+    chown -R sentryvision:nodejs /app
+
+# Switch to non-root user
+USER sentryvision
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV TZ=UTC
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Start application
+CMD ["node", "dist/index.js"]

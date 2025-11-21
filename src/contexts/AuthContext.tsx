@@ -49,11 +49,12 @@ type AuthAction =
   | { type: 'SET_LOADING'; payload: boolean };
 
 // Initial state
+const token = localStorage.getItem('auth_token');
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('auth_token'),
+  token,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: !!token, // Start with loading true if there's a token to validate
   error: null,
 };
 

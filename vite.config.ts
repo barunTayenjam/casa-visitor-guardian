@@ -10,37 +10,37 @@ export default defineConfig(({ mode }) => ({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
       },
       '/events': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
       },
       '/snapshots': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
       },
       '/stream': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
       },
       '/snapshot': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
       },
       '/socket.io': {
-        target: 'http://localhost:9753',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false,
         ws: true,

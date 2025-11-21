@@ -87,7 +87,15 @@ const App = () => {
               <AuthProvider>
                 <Toaster />
               <Suspense fallback={<LoadingFallback />}>
-                <Routes>
+                  <Routes>
+                  {/* Default redirect - if authenticated go to /app, otherwise login */}
+                  <Route 
+                    index 
+                    element={
+                      <AuthRedirect />
+                    } 
+                  />
+                  
                   {/* Public routes */}
                   <Route 
                     path="/login" 
@@ -109,14 +117,6 @@ const App = () => {
                     } 
                     />
                   )}
-                  
-                  {/* Default redirect - if authenticated go to /app, otherwise login */}
-                  <Route 
-                    path="/" 
-                    element={
-                      <AuthRedirect />
-                    } 
-                  />
                   
                   {/* Protected routes with nested layout */}
                   <Route path="/app" element={

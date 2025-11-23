@@ -72,7 +72,10 @@ export class ObjectDetectionService extends EventEmitter {
   constructor() {
     super();
     this.initializeDefaultSettings();
-    this.loadModel();
+    // Don't await in constructor - load model asynchronously
+    this.loadModel().catch(error => {
+      console.error('Failed to load model asynchronously:', error);
+    });
   }
 
   // Initialize default settings for all cameras
@@ -254,6 +257,9 @@ export class ObjectDetectionService extends EventEmitter {
     const detections: DetectionResult[] = [];
     
     try {
+      // Ensure OpenCV is initialized
+      await OpenCVProcessor.initialize();
+      
       // Convert frame buffer to OpenCV Mat
       const imageMat = await OpenCVProcessor.bufferToMat(frame);
       

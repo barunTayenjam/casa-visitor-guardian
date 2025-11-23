@@ -1881,11 +1881,29 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Run person detection
-      const detectionResult = await objectDetectionService.detectObjects(cameraId, currentFrame);
+      // Use OpenCV microservice for detection
+      const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
+      const openCVClient = getOpenCVClient();
+      
+      // Save current frame to temporary file for processing
+      const fs = await import('fs');
+      const path = await import('path');
+      const os = await import('os');
+      
+      const tempDir = os.tmpdir();
+      const tempImagePath = path.join(tempDir, `detection_${cameraId}_${Date.now()}.jpg`);
+      
+      // Write frame buffer to file
+      fs.writeFileSync(tempImagePath, currentFrame);
+      
+      // Run object detection using microservice
+      const detectionResult = await openCVClient.detectObjects(tempImagePath);
+      
+      // Clean up temp file
+      fs.unlinkSync(tempImagePath);
       
       // Process detection results
-      const persons = detectionResult.detections.filter((d: any) => d.class === 'person');
+      const persons = detectionResult.detections?.filter((d: any) => d.class === 'person') || [];
       
       if (persons.length > 0) {
         // Emit person detection event
@@ -1912,7 +1930,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.json({
         success: true,
         persons: persons.length,
-        detections: detectionResult.detections,
+        detections: detectionResult.detections || [],
         timestamp: new Date().toISOString()
       });
       
@@ -1942,27 +1960,45 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Run facial detection
-      const faceResult = await facialRecognitionService.recognizeFaces(cameraId, currentFrame);
+      // Use OpenCV microservice for face recognition
+      const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
+      const openCVClient = getOpenCVClient();
       
-      if (faceResult.faces.length > 0) {
+      // Save current frame to temporary file for processing
+      const fs = await import('fs');
+      const path = await import('path');
+      const os = await import('os');
+      
+      const tempDir = os.tmpdir();
+      const tempImagePath = path.join(tempDir, `face_${cameraId}_${Date.now()}.jpg`);
+      
+      // Write frame buffer to file
+      fs.writeFileSync(tempImagePath, currentFrame);
+      
+      // Run face recognition using microservice
+      const faceResult = await openCVClient.recognizeFaces(tempImagePath);
+      
+      // Clean up temp file
+      fs.unlinkSync(tempImagePath);
+      
+      if (faceResult.faceDetections && faceResult.faceDetections.length > 0) {
         // Emit face detection event
         io.emit('faceDetected', {
           cameraId,
           timestamp: new Date().toISOString(),
-          faces: faceResult.faces.map((f: any) => ({
+          faces: faceResult.faceDetections.map((f: any) => ({
             confidence: f.confidence,
-            boundingBox: f.boundingBox,
-            personId: f.personId,
-            personName: f.personName,
-            isKnown: f.isKnown,
+            boundingBox: f.bbox,
+            personId: f.id,
+            personName: f.name,
+            isKnown: f.name !== 'Unknown',
             timestamp: new Date().toISOString()
           })),
-          imagePath: faceResult.detectionImagePath
+          imagePath: tempImagePath
         });
         
         // Add alert for face detection
-        const unknownFaces = faceResult.faces.filter((f: any) => !f.isKnown);
+        const unknownFaces = faceResult.faceDetections.filter((f: any) => f.name === 'Unknown');
         if (unknownFaces.length > 0) {
           addAlert({
             type: 'motion',
@@ -1975,10 +2011,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       res.json({
         success: true,
-        faces: faceResult.faces.length,
-        knownFaces: faceResult.faces.filter((f: any) => f.isKnown).length,
-        unknownFaces: faceResult.faces.filter((f: any) => !f.isKnown).length,
-        detections: faceResult.faces,
+        faces: faceResult.faceDetections?.length || 0,
+        knownFaces: faceResult.faceDetections?.filter((f: any) => f.name !== 'Unknown').length || 0,
+        unknownFaces: faceResult.faceDetections?.filter((f: any) => f.name === 'Unknown').length || 0,
+        detections: faceResult.faceDetections || [],
         timestamp: new Date().toISOString()
       });
       
@@ -1996,6 +2032,31 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error('Error getting person detection settings:', error);
       res.status(500).json({ success: false, error: 'Failed to get person detection settings' });
+    }
+  });
+
+  // OpenCV service status endpoint
+  app.get('/api/opencv/status', async (req: Request, res: Response) => {
+    try {
+      const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
+      const client = getOpenCVClient();
+      
+      const status = await client.getStatus();
+      const isHealthy = await client.checkHealth();
+      
+      res.json({
+        success: true,
+        status: status || { status: 'error', initialized: false, service: 'opencv-detection' },
+        healthy: isHealthy,
+        serviceUrl: client.getServiceUrl()
+      });
+    } catch (error) {
+      console.error('Error getting OpenCV service status:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get OpenCV service status',
+        status: { status: 'error', initialized: false, service: 'opencv-detection' }
+      });
     }
   });
   

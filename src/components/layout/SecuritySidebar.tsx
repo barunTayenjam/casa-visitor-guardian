@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '@/components/ui/sidebar';
-import { Home, MonitorCog, Bell, Settings, Shield, Camera, Activity, Users, UserCheck, Calendar, TrendingUp, FileText } from 'lucide-react';
+import { Home, MonitorCog, Bell, Settings, Shield, Camera, Activity, Users, UserCheck, Calendar, TrendingUp, FileText, Eye } from 'lucide-react';
 
 export const SecuritySidebar = () => {
   const { state, toggleSidebar } = useSidebar();
@@ -23,7 +23,11 @@ export const SecuritySidebar = () => {
       href: '/app/events',
       icon: Bell,
     },
-
+    {
+      title: 'OpenCV Detection',
+      href: '/app/opencv',
+      icon: Eye,
+    },
     {
       title: 'Visitor Timeline',
       href: '/app/visitor-timeline',

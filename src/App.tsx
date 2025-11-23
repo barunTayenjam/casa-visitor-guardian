@@ -21,6 +21,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
 const VisitorReports = lazy(() => import("./pages/VisitorReports"));
 const SystemLogs = lazy(() => import("./pages/SystemLogs"));
+const OpenCV = lazy(() => import("./pages/OpenCVSimple.tsx"));
 const Debug = lazy(() => import("./pages/Debug"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -118,6 +119,16 @@ const App = () => {
                     />
                   )}
                   
+                  {/* OpenCV route */}
+                  <Route 
+                    path="/opencv" 
+                    element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <OpenCV />
+                      </ErrorBoundary>
+                    } 
+                  />
+                  
                   {/* Protected routes with nested layout */}
                   <Route path="/app" element={
                     <ProtectedRoute>
@@ -158,6 +169,7 @@ const App = () => {
                         </ProtectedRoute>
                       </ErrorBoundary>
                     } />
+
                     <Route path="settings" element={
                       <ErrorBoundary fallback={ErrorFallback}>
                         <ProtectedRoute requiredRole="user">

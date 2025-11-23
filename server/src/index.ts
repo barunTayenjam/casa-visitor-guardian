@@ -388,6 +388,12 @@ logger.info(`Starting server on port ${PORT}`, 'Server');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any).streamManager = streamManager;
         
+        // Initialize detection services globally. This is not ideal, but it is a simple way to share instances.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (global as any).objectDetectionService = objectDetectionService;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (global as any).facialRecognitionService = facialRecognitionService;
+        
         // Configure routes
         configureRoutes(app, io);
         
@@ -413,11 +419,7 @@ logger.info(`Starting server on port ${PORT}`, 'Server');
         // Setup optimized motion detection
         const motionDetector: OptimizedMotionDetector = await setupOptimizedMotionDetection(streamManager, io);
         
-        // Initialize detection services globally. This is not ideal, but it is a simple way to share the instances.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any).objectDetectionService = objectDetectionService;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any).facialRecognitionService = facialRecognitionService;
+        // Detection services already initialized globally above
         
         // Make detection services available to routes
         console.log('Detection services initialized:');

@@ -21,7 +21,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
 const VisitorReports = lazy(() => import("./pages/VisitorReports"));
 const SystemLogs = lazy(() => import("./pages/SystemLogs"));
-const OpenCV = lazy(() => import("./pages/OpenCVSimple.tsx"));
+const OpenCV = lazy(() => import("./pages/OpenCV.tsx"));
 const Debug = lazy(() => import("./pages/Debug"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 

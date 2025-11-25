@@ -132,6 +132,155 @@ interface BackendMotionEvent {
   archived?: boolean;
 }
 
+// ==================== BATCH PROCESSING TYPES ====================
+
+interface BatchTimeRange {
+  label: string;
+  value: {
+    start: Date | string;
+    end: Date | string;
+  };
+}
+
+interface BatchJob {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  startTime?: string;
+  endTime?: string;
+  progress: {
+    total: number;
+    processed: number;
+    successful: number;
+    failed: number;
+    currentFile?: string;
+  };
+  options: {
+    timeRange: {
+      start: string;
+      end: string;
+    };
+    cameraIds?: string[];
+    detectionTypes: ('person' | 'face' | 'both')[];
+    confidenceThreshold: number;
+    saveResults: boolean;
+    outputFormat: 'json' | 'csv' | 'database';
+  };
+  results?: {
+    totalImages: number;
+    personDetections: number;
+    faceDetections: number;
+    processingTime: number;
+  };
+  error?: string;
+}
+
+interface BatchProcessingOptions {
+  timeRange: {
+    start: string;
+    end: string;
+  };
+  cameraIds?: string[];
+  detectionTypes: ('person' | 'face' | 'both')[];
+  confidenceThreshold: number;
+  saveResults: boolean;
+  outputFormat: 'json' | 'csv' | 'database';
+}
+
+interface BatchResults {
+  jobId: string;
+  timestamp: string;
+  options: BatchProcessingOptions;
+  summary: {
+    totalImages: number;
+    personDetections: number;
+    faceDetections: number;
+    knownFaces: number;
+    unknownFaces: number;
+    processingTime?: number;
+  };
+  results: BatchResult[];
+}
+
+interface BatchResult {
+  filename: string;
+  timestamp: string;
+  cameraId: string;
+  persons: Array<{
+    confidence: number;
+    boundingBox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  }>;
+  faces: Array<{
+    confidence: number;
+    boundingBox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    personId?: string;
+    personName?: string;
+    isKnown?: boolean;
+  }>;
+}
+
+interface BatchStats {
+  total: number;
+  completed: number;
+  running: number;
+  queued: number;
+  failed: number;
+  cancelled: number;
+  totalProcessingTime: number;
+  totalPersonDetections: number;
+  totalFaceDetections: number;
+  recentJobs: number;
+}
+
+interface BatchAvailableEvent {
+  filename: string;
+  timestamp: string;
+  cameraId: string;
+  size: number;
+}
+
+// ==================== DETECTION TYPES ====================
+
+interface DetectionFilters {
+  startTime?: string;
+  endTime?: string;
+  cameraIds?: string[];
+  detectionTypes?: ('person' | 'face' | 'object')[];
+  minConfidence?: number;
+  maxConfidence?: number;
+  limit?: number;
+  offset?: number;
+}
+
+interface DetectionEvent {
+  id: string;
+  timestamp: string;
+  cameraId: string;
+  cameraName?: string;
+  imagePath: string;
+  detectionType: 'person' | 'face' | 'object';
+  confidence: number;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  className?: string;
+  personName?: string;
+  isKnown?: boolean;
+  metadata?: Record<string, any>;
+}
+
 class ApiService {
   private authToken: string | null = null;
 
@@ -1662,6 +1811,218 @@ class ApiService {
         `Failed to analyze motion for camera ${cameraId}`,
         500,
         'ANALYZE_MOTION_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== BATCH PROCESSING API ====================
+
+  /**
+   * Get available time ranges for batch processing
+   */
+  async getBatchTimeRanges(): Promise<BatchTimeRange[]> {
+    try {
+      const response = await this.get<{ success: boolean; ranges: BatchTimeRange[] }>('/batch/time-ranges');
+      if (response.success) {
+        return response.ranges;
+      }
+      throw new ApiError('Failed to get time ranges', 400, 'GET_TIME_RANGES_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get time ranges',
+        500,
+        'GET_TIME_RANGES_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Get all batch processing jobs
+   */
+  async getBatchJobs(): Promise<BatchJob[]> {
+    try {
+      const response = await this.get<{ success: boolean; jobs: BatchJob[] }>('/batch/jobs');
+      if (response.success) {
+        return response.jobs;
+      }
+      throw new ApiError('Failed to get batch jobs', 400, 'GET_BATCH_JOBS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get batch jobs',
+        500,
+        'GET_BATCH_JOBS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Start batch processing job
+   */
+  async startBatchProcessing(options: BatchProcessingOptions): Promise<string> {
+    try {
+      const response = await this.post<{ success: boolean; jobId: string }>('/batch/start', options);
+      if (response.success) {
+        return response.jobId;
+      }
+      throw new ApiError('Failed to start batch processing', 400, 'START_BATCH_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to start batch processing',
+        500,
+        'START_BATCH_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Cancel batch processing job
+   */
+  async cancelBatchJob(jobId: string): Promise<boolean> {
+    try {
+      const response = await this.post<{ success: boolean }>(`/batch/jobs/${jobId}/cancel`);
+      return response.success;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to cancel batch job ${jobId}`,
+        500,
+        'CANCEL_BATCH_JOB_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Get batch processing job results
+   */
+  async getBatchResults(jobId: string): Promise<BatchResults> {
+    try {
+      const response = await this.get<{ success: boolean; results: BatchResults }>(`/batch/jobs/${jobId}/results`);
+      if (response.success) {
+        return response.results;
+      }
+      throw new ApiError('Failed to get batch results', 400, 'GET_BATCH_RESULTS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to get batch results for job ${jobId}`,
+        500,
+        'GET_BATCH_RESULTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Get batch processing statistics
+   */
+  async getBatchStats(): Promise<BatchStats> {
+    try {
+      const response = await this.get<{ success: boolean; stats: BatchStats }>('/batch/stats');
+      if (response.success) {
+        return response.stats;
+      }
+      throw new ApiError('Failed to get batch stats', 400, 'GET_BATCH_STATS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get batch stats',
+        500,
+        'GET_BATCH_STATS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Get available events for batch processing
+   */
+  async getBatchAvailableEvents(params: {
+    startTime: string;
+    endTime: string;
+    cameraIds?: string[];
+  }): Promise<BatchAvailableEvent[]> {
+    try {
+      const response = await this.get<{ success: boolean; events: BatchAvailableEvent[] }>('/batch/events/available', params);
+      if (response.success) {
+        return response.events;
+      }
+      throw new ApiError('Failed to get available events', 400, 'GET_AVAILABLE_EVENTS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get available events',
+        500,
+        'GET_AVAILABLE_EVENTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Download batch processing results
+   */
+  async downloadBatchResults(jobId: string): Promise<void> {
+    try {
+      window.open(`/api/batch/jobs/${jobId}/download`, '_blank');
+    } catch (error) {
+      throw new ApiError(
+        `Failed to download batch results for job ${jobId}`,
+        500,
+        'DOWNLOAD_BATCH_RESULTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== DETECTION HISTORY API ====================
+
+  /**
+   * Get detection history with filters
+   */
+  async getDetectionHistory(filters: DetectionFilters): Promise<DetectionEvent[]> {
+    try {
+      const response = await this.get<{ success: boolean; detections: DetectionEvent[] }>('/detections/history', filters as Record<string, unknown>);
+      if (response.success) {
+        return response.detections;
+      }
+      throw new ApiError('Failed to get detection history', 400, 'GET_DETECTION_HISTORY_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get detection history',
+        500,
+        'GET_DETECTION_HISTORY_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  /**
+   * Get detection image with overlays
+   */
+  async getDetectionImage(imageId: string, includeOverlays: boolean = true): Promise<string> {
+    try {
+      const response = await this.get<{ success: boolean; imageUrl: string }>(`/detections/image/${imageId}`, {
+        overlays: includeOverlays
+      });
+      if (response.success) {
+        return response.imageUrl;
+      }
+      throw new ApiError('Failed to get detection image', 400, 'GET_DETECTION_IMAGE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to get detection image ${imageId}`,
+        500,
+        'GET_DETECTION_IMAGE_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

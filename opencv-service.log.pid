@@ -1,1 +1,29 @@
-92186
+
+> opencv-service@1.0.0 start
+> tsx src/index.ts
+
+OpenCV Service: Starting initialization...
+OpenCV Service: Using mock detection for now (OpenCV loading issue)
+OpenCV Service: Mock initialization completed successfully
+OpenCV Service: Service fully initialized
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::8084
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at app.listen (/Users/baruntayenjam/Code/home-security/opencv-service/node_modules/express/lib/application.js:635:24)
+    at <anonymous> (/Users/baruntayenjam/Code/home-security/opencv-service/src/index.ts:367:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 8084
+}
+
+Node.js v25.2.1

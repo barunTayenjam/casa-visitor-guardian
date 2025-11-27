@@ -1,1 +1,35 @@
-92261
+
+> sentryvision-server@1.0.0 dev
+> tsx src/index.ts
+
+Loading OpenCV and YOLO model...
+objc[13827]: Class GNotificationCenterDelegate is implemented in both /Users/baruntayenjam/Code/home-security/server/node_modules/canvas/build/Release/libgio-2.0.0.dylib (0x10ad1c4b8) and /Users/baruntayenjam/Code/home-security/server/node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.17.2.dylib (0x12b299af8). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+[2025-11-22T13:33:25.379Z] [INFO] [ROUTES] Configuring main API routes
+Initializing visitor database...
+Opening database at: /Users/baruntayenjam/Code/home-security/server/data/visitors.db
+Database file exists: true
+Batch processing database initialized
+Log database initialized successfully
+[2025-11-22T13:33:25.574Z] [INFO] [Server] Configuration validated successfully
+[2025-11-22T13:33:25.577Z] [INFO] [Server] Starting server on port 8082
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::8082
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at <anonymous> (/Users/baruntayenjam/Code/home-security/server/src/index.ts:373:12)
+    at <anonymous> (/Users/baruntayenjam/Code/home-security/server/src/index.ts:468:1)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 8082
+}
+
+Node.js v25.2.1

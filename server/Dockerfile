@@ -1,19 +1,37 @@
 # Multi-stage build for backend
 FROM node:20-alpine AS builder
 
-# Install system dependencies for FFMPEG and build tools
+# Install system dependencies for FFMPEG, canvas, and build tools
 RUN apk add --no-cache \
     ffmpeg \
     python3 \
+    py3-pip \
     make \
     g++ \
-    git
+    git \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libpng-dev \
+    cairo \
+    pango \
+    librsvg \
+    pixman
 
 # Set the working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Install Python distutils for canvas build
+RUN pip3 install setuptools --break-system-packages
 
 # Install dependencies
 RUN npm ci --only=production && npm cache clean --force
@@ -32,7 +50,15 @@ RUN npm run build
 FROM node:20-alpine AS production
 
 # Install runtime dependencies
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache \
+    ffmpeg \
+    cairo \
+    pango \
+    librsvg \
+    pixman \
+    jpeg \
+    libpng \
+    freetype
 
 # Create app directory
 WORKDIR /app

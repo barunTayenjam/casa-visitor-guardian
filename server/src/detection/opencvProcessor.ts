@@ -1,5 +1,5 @@
 import * as cv from '@techstark/opencv-js';
-import { createCanvas, loadImage } from 'canvas';
+import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
@@ -42,33 +42,27 @@ export class OpenCVProcessor {
   }
 
   /**
-   * Convert image buffer to OpenCV Mat
+   * Convert image buffer to OpenCV Mat using Sharp (much faster than canvas)
    */
   static async bufferToMat(buffer: Buffer): Promise<any> {
     await this.initialize();
     const cv = this.getCv();
     
-    return new Promise((resolve, reject) => {
-      try {
-        // Load image using canvas, then convert to OpenCV Mat
-        loadImage(buffer).then(image => {
-          const canvas = createCanvas(image.width, image.height);
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(image, 0, 0);
-          
-          // Get image data and convert to OpenCV Mat
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
-          // Create Mat from image data using the correct OpenCV.js method
-          const mat = new this.cv.Mat(imageData.height, imageData.width, this.cv.CV_8UC4);
-          mat.data.set(imageData.data);
-          
-          resolve(mat);
-        }).catch(reject);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    try {
+      // Use Sharp to convert buffer to RGBA raw pixels
+      const { data, info } = await sharp(buffer)
+        .ensureAlpha()  // Ensure RGBA format
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      
+      // Create OpenCV Mat from raw RGBA data
+      const mat = new cv.Mat(info.height, info.width, cv.CV_8UC4);
+      mat.data.set(new Uint8Array(data));
+      
+      return mat;
+    } catch (error) {
+      throw new Error(`Failed to convert buffer to Mat: ${error}`);
+    }
   }
 
   /**

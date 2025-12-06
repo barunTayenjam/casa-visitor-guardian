@@ -6,7 +6,6 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import * as cv from '@techstark/opencv-js';
-import { createCanvas, loadImage } from 'canvas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -378,14 +377,16 @@ export class FacialRecognitionService extends EventEmitter {
     }
 
     try {
-      // Load image using canvas
-      const image = await loadImage(frame);
-      const canvas = createCanvas(image.width, image.height);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(image, 0, 0, image.width, image.height);
+      // Use Sharp to convert frame to RGBA raw pixels (much faster than canvas)
+      const { data, info } = await sharp(frame)
+        .ensureAlpha()  // Ensure RGBA format
+        .raw()
+        .toBuffer({ resolveWithObject: true });
       
-      // Use OpenCV to read from canvas
-      const src = this.cv.imread(canvas);
+      // Create OpenCV Mat from raw RGBA data
+      const src = new this.cv.Mat(info.height, info.width, this.cv.CV_8UC4);
+      src.data.set(new Uint8Array(data));
+      
       const gray = new this.cv.Mat();
       this.cv.cvtColor(src, gray, this.cv.COLOR_RGBA2GRAY, 0);
 

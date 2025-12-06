@@ -1,0 +1,68 @@
+# Backend Podmanfile - Minimal Test
+FROM docker.io/library/node:18-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Create minimal package.json for test
+RUN cat > package.json << 'EOF'
+{
+  "name": "test-server",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
+EOF
+
+# Install dependencies
+RUN npm install --omit=dev && npm cache clean --force
+
+# Create minimal test server
+RUN cat > index.js << 'EOF'
+const express = require("express");
+const cors = require("cors");
+const app = express();
+const port = 9753;
+
+app.use(cors());
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "Backend is running" });
+});
+
+app.get("/", (req, res) => {
+  res.json({ message: "SentryVision Backend API" });
+});
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Test server running on port ${port}`);
+});
+EOF
+
+# Labels for Podman
+LABEL name="sentryvision-backend-test" \
+      version="1.0" \
+      description="SentryVision backend test service" \
+      maintainer="SentryVision Team"
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV TZ=UTC
+
+# Expose port
+EXPOSE 9753
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9753/api/health || exit 1
+
+# Start application
+CMD ["node", "index.js"]

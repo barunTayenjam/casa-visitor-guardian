@@ -1,53 +1,75 @@
 services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: sentryvision_nginx
+    ports:
+      - "4000:3000"
+    environment:
+      - NGINX_PORT=3000
+    depends_on:
+      - backend
+    networks:
+      - sentryvision-net
+    restart: unless-stopped
+
   backend:
     build:
       context: ./server
-      dockerfile: Dockerfile
-      target: production
-    ports:
-      - "${BACKEND_PORT}:9753"
-    environment:
-      - NODE_ENV=production
-      - PORT=9753
+      dockerfile: Containerfile
+    container_name: sentryvision_backend
+    env_file:
+      - .env
     volumes:
-      # Persistent storage for media files
-      - backend_snapshots:/app/public/snapshots
-      - backend_events:/app/public/events
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9753/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    ports:
-      - "${FRONTEND_PORT}:${NGINX_PORT}"
-    environment:
-      - NODE_ENV=production
-      - NGINX_PORT=${NGINX_PORT}
+      - ./data/snapshots:/app/public/snapshots
+      - ./data/events:/app/public/events
+      - ./cameras.json:/app/cameras.json
+    networks:
+      - sentryvision-net
     depends_on:
-      backend:
-        condition: service_healthy
+      - postgres
+      - redis
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3020/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+
+  opencv:
+    build:
+      context: ./opencv-service
+      dockerfile: Dockerfile
+    container_name: sentryvision_opencv
+    env_file:
+      - .env
+    volumes:
+      - ./data/snapshots:/app/snapshots
+      - ./data/events:/app/events
+    networks:
+      - sentryvision-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentryvision_postgres
+    env_file:
+      - .env
+    volumes:
+      - sentryvision_pg_data:/var/lib/postgresql/data
+    networks:
+      - sentryvision-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: sentryvision_redis
+    volumes:
+      - sentryvision_redis_data:/data
+    networks:
+      - sentryvision-net
+    restart: unless-stopped
 
 volumes:
-  backend_snapshots:
-    driver: local
-  backend_events:
-    driver: local
+  sentryvision_pg_data:
+  sentryvision_redis_data:
 
 networks:
-  default:
+  sentryvision-net:
     driver: bridge

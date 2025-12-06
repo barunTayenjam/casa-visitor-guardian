@@ -18,7 +18,15 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Basic routes
+// Health check endpoint for Docker
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0-test'
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'healthy', 

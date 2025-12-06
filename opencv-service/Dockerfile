@@ -1,0 +1,99 @@
+# OpenCV Service Dockerfile — Optimized for sharp + Alpine
+# Multi-stage build
+
+# Stage 1: Dependencies (with prebuilt binaries)
+FROM node:18-alpine AS dependencies
+
+WORKDIR /app
+
+# Install ONLY runtime deps that OpenCV/your app truly needs
+# No build tools, no -dev packages unless absolutely required by YOUR code
+RUN apk add --no-cache \
+    curl \
+    opencv \
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    py3-distutils-extra
+
+# Install setuptools as fallback for distutils
+RUN pip3 install setuptools --break-system-packages
+
+COPY package*.json ./
+
+# Use canvas-free package if available, otherwise remove canvas from node_modules
+RUN if [ -f package.canvas-free.json ]; then \
+        cp package.canvas-free.json package.json; \
+    fi
+
+# Prevent sharp from detecting global libvips
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+# Force use of musl prebuilt binary (npm >=10)
+RUN npm ci --cpu=x64 --os=linux --libc=musl && npm cache clean --force
+
+# Stage 2: Build
+FROM node:18-alpine AS build
+
+WORKDIR /app
+
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# Stage 3: Production (lean runtime)
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+# Only install runtime system dependencies
+RUN apk add --no-cache \
+    curl \
+    opencv \
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    py3-distutils-extra \
+    && rm -rf /var/cache/apk/*
+
+# Install setuptools as fallback for distutils
+RUN pip3 install setuptools --break-system-packages
+
+# Prevent sharp fallback to global libvips
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1 \
+    NODE_ENV=production \
+    PORT=9754 \
+    TZ=UTC
+
+# Copy only what's needed
+COPY package*.json ./
+
+# Use canvas-free package if available, otherwise remove canvas from node_modules
+RUN if [ -f package.canvas-free.json ]; then \
+        cp package.canvas-free.json package.json; \
+    else \
+        npm uninstall canvas; \
+    fi
+
+RUN npm ci --omit=dev --cpu=x64 --os=linux --libc=musl && npm cache clean --force
+
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+
+# Runtime directories
+RUN mkdir -p /app/models /app/logs /app/snapshots /app/events
+
+LABEL name="sentryvision-opencv" \
+    version="1.0" \
+    description="SentryVision OpenCV service for AI/ML processing" \
+    maintainer="SentryVision Team"
+
+EXPOSE 9754
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9754/health || exit 1
+
+CMD ["node", "dist/index.js"]

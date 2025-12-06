@@ -1,4 +1,4 @@
-# Backend Dockerfile - Optimized for sharp + Alpine
+# Backend Podmanfile - Simplified Sharp-only build
 FROM node:18-alpine
 
 # Runtime dependencies only (no build tools!)
@@ -26,10 +26,11 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies — explicitly request musl binary (npm >=10)
-# This ensures sharp uses prebuilt linuxmusl-x64 binary, avoiding source build
 # Set Python path for node-gyp
 ENV PYTHON=/usr/bin/python3
+
+# Install dependencies — explicitly request musl binary (npm >=10)
+# This ensures sharp uses prebuilt linuxmusl-x64 binary, avoiding source build
 RUN npm ci --cpu=x64 --os=linux --libc=musl && npm cache clean --force
 
 # Copy application code

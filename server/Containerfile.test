@@ -1,0 +1,46 @@
+# Backend Podmanfile - Minimal Test Version
+FROM docker.io/library/node:18-alpine AS production
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    ffmpeg \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies (skip canvas for test)
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/snapshots /app/events
+
+# Labels for Podman
+LABEL name="sentryvision-backend" \
+      version="1.0" \
+      description="SentryVision backend service" \
+      maintainer="SentryVision Team"
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=9753
+ENV TZ=UTC
+
+# Expose port
+EXPOSE 9753
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9753/api/health || exit 1
+
+# Start application
+CMD ["node", "dist/index.js"]

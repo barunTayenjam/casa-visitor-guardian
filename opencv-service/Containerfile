@@ -1,0 +1,83 @@
+# OpenCV Service Containerfile — Fixed per sharp documentation
+# Multi-stage build for Podman
+
+# Stage 1: Dependencies
+FROM docker.io/library/node:18-alpine AS dependencies
+WORKDIR /app
+
+# Prevent sharp from detecting global libvips — critical for avoiding source build
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+COPY package*.json ./
+
+# Force install of musl (Alpine) prebuilt binary
+# Requires npm >=10 (Node 18.20.8 includes npm 10+ ✅)
+RUN npm ci --cpu=x64 --os=linux --libc=musl && npm cache clean --force
+
+# Stage 2: Build
+FROM docker.io/library/node:18-alpine AS build
+WORKDIR /app
+
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+
+ENV NODE_ENV=production
+RUN npm run build
+
+# Stage 3: Production
+FROM docker.io/library/node:18-alpine AS production
+WORKDIR /app
+
+# Install ONLY runtime dependencies — NO -dev, NO compilers
+RUN apk add --no-cache \
+    curl \
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    py3-distutils-extra \
+    opencv \
+    && rm -rf /var/cache/apk/*
+
+# Install setuptools as fallback for distutils
+RUN pip3 install setuptools --break-system-packages
+
+# Critical environment variables
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1 \
+    NODE_ENV=production \
+    PORT=9754 \
+    TZ=UTC
+
+# Install production dependencies (again enforce musl binary)
+COPY package*.json ./
+
+# Use canvas-free package if available, otherwise remove canvas from node_modules
+RUN if [ -f package.canvas-free.json ]; then \
+        cp package.canvas-free.json package.json; \
+    else \
+        npm uninstall canvas; \
+    fi
+
+RUN npm ci --omit=dev --cpu=x64 --os=linux --libc=musl && npm cache clean --force
+
+# Copy built app and dependencies
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+
+# Create runtime directories
+RUN mkdir -p /app/models /app/logs /app/snapshots /app/events
+
+# Labels for Podman
+LABEL name="sentryvision-opencv" \
+    version="1.0" \
+    description="SentryVision OpenCV service for AI/ML processing" \
+    maintainer="SentryVision Team"
+
+# Expose port
+EXPOSE 9754
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9754/health || exit 1
+
+# Start application
+CMD ["node", "dist/index.js"]

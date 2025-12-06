@@ -1,0 +1,44 @@
+# Complete SentryVision Backend Container
+FROM docker.io/library/node:18-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy package files
+COPY ./server/package*.json ./server/
+
+# Install only needed dependencies (no canvas!)
+RUN sed -i '/canvas/d' ./server/package.json && \
+    npm install --prefix ./server && \
+    npm cache clean --force
+
+# Copy complete backend
+COPY ./server/complete-backend.js ./server/complete-backend.js
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/snapshots /app/events
+
+# Labels
+LABEL name="sentryvision-backend-complete" \
+      version="1.0" \
+      description="SentryVision backend with auth" \
+      maintainer="SentryVision Team"
+
+# Environment
+ENV NODE_ENV=production
+ENV PORT=9753
+ENV TZ=UTC
+
+# Expose port
+EXPOSE 9753
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9753/api/health || exit 1
+
+# Start application
+CMD ["node", "server/complete-backend.js"]

@@ -95,14 +95,32 @@ export class FacialRecognitionService extends EventEmitter {
 
   private async initialize(): Promise<void> {
     try {
-      this.cv = await (await import('@techstark/opencv-js')).default;
+      // Try to load OpenCV, but don't fail if it's not available
+      try {
+        this.cv = await (await import('@techstark/opencv-js')).default;
+      } catch (opencvError) {
+        console.warn('OpenCV not available, face recognition will be disabled');
+        this.modelLoaded = false;
+        this.emit('ready');
+        return;
+      }
+      
       this.initializeDefaultSettings();
       await this.initializeDatabase();
-      await this.loadModel();
+      
+      // Try to load model, but don't fail the entire service
+      try {
+        await this.loadModel();
+      } catch (modelError) {
+        console.warn('Face recognition model loading failed, continuing without face detection');
+        this.modelLoaded = false;
+      }
+      
       this.emit('ready');
     } catch (error) {
       console.error('Failed to initialize facial recognition service:', error);
-      this.emit('error', error);
+      this.modelLoaded = false;
+      this.emit('ready'); // Still emit ready so server can start
     }
   }
 

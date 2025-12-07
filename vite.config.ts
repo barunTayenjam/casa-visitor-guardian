@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8082',
+        target: 'http://localhost:9753',
         changeOrigin: true,
         secure: false,
         timeout: 10000,
@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => ({
         timeout: 10000,
       },
       '/socket.io': {
-        target: 'http://localhost:8082',
+        target: 'http://localhost:9753',
         changeOrigin: true,
         secure: false,
         ws: true,

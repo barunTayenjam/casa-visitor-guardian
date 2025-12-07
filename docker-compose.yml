@@ -19,8 +19,32 @@ services:
       context: ./server
       dockerfile: Containerfile
     container_name: sentryvision_backend
-    env_file:
-      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8082
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sentryvision
+      - DB_USER=sentryvision
+      - DB_PASSWORD=sentryvision123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-min-32-chars
+      - JWT_EXPIRES_IN=24h
+      - BCRYPT_ROUNDS=12
+      - MAX_LOGIN_ATTEMPTS=5
+      - LOCKOUT_DURATION=900000
+      - RATE_LIMIT_WINDOW=900000
+      - RATE_LIMIT_MAX=100
+      - SNAPSHOTS_DIR=/app/public/snapshots
+      - EVENTS_DIR=/app/public/events
+      - MAX_STORAGE_GB=10
+      - RETENTION_DAYS=30
+      - FRAME_INTERVAL=40
+      - MAX_RECONNECT_ATTEMPTS=5
+      - RECONNECT_DELAY=5000
+      - LOG_LEVEL=info
+      - FRONTEND_URL=http://localhost:4000
     volumes:
       - ./data/snapshots:/app/public/snapshots
       - ./data/events:/app/public/events
@@ -49,8 +73,10 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: sentryvision_postgres
-    env_file:
-      - .env
+    environment:
+      - POSTGRES_DB=sentryvision
+      - POSTGRES_USER=sentryvision
+      - POSTGRES_PASSWORD=sentryvision123
     volumes:
       - sentryvision_pg_data:/var/lib/postgresql/data
     networks:

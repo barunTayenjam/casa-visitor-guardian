@@ -96,8 +96,15 @@ export class ObjectDetectionService extends EventEmitter {
     try {
       console.log('Loading OpenCV and YOLO model...');
       
-      // Load OpenCV.js (auto-loaded by the package)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try to load OpenCV.js, but don't block if it fails
+      try {
+        // Load OpenCV.js (auto-loaded by the package)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.warn('OpenCV loading failed, object detection will be limited');
+        this.modelLoaded = false;
+        return;
+      }
       
       // Initialize YOLOv4-tiny model configuration
       // Using a lightweight model suitable for on-device processing

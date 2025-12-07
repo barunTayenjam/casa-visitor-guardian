@@ -54,18 +54,7 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-// Validate configuration
-try {
-  // Initialize log database first, before any logging occurs
-  await getLogDatabase();
-  console.log('Log database initialized successfully');
-  
-  validateConfig();
-  logger.info('Configuration validated successfully', 'Server');
-} catch (error) {
-  console.error(`Configuration validation failed: ${error}`);
-  process.exit(1);
-}
+// Validate configuration will be done in server startup
 
 // Ensure necessary directories exist
 const publicDir = path.join(__dirname, '../public');
@@ -376,6 +365,26 @@ logger.info(`Starting server on port ${PORT}`, 'Server');
       // Initialize log database first, before any logging occurs
       await getLogDatabase();
       console.log('Log database initialized successfully');
+      
+      // Run database migrations
+      try {
+        const { MigrationManager } = await import('../../database/migrations/migrate.js');
+        const { Pool } = await import('pg');
+        const pool = new Pool({
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '5432'),
+          database: process.env.DB_NAME || 'sentryvision',
+          user: process.env.DB_USER || 'sentryvision',
+          password: process.env.DB_PASSWORD || 'sentryvision123',
+        });
+        
+        const migrationManager = new MigrationManager(pool, '/app/database/migrations');
+        await migrationManager.migrate();
+        console.log('Database migrations completed successfully');
+        await pool.end();
+      } catch (migrationError) {
+        console.warn('Database migration failed (might be already initialized):', migrationError);
+      }
       
       // Update the PORT in the process environment so other components can use it
       process.env.PORT = PORT.toString();

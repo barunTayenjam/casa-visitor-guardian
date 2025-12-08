@@ -1,9 +1,10 @@
 // File: server/src/models/User.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
-import { Exclude } from 'class-validator';
-import { Session } from './Session';
-import { AuditLog } from './AuditLog';
-import { PasswordHistory } from './PasswordHistory';
+import { Exclude } from 'class-transformer';
+import { Session } from './Session.js';
+import { AuditLog } from './AuditLog.js';
+import { PasswordHistory } from './PasswordHistory.js';
+import { Role } from './Role.js';
 
 @Entity('users')
 @Index(['email'])
@@ -11,28 +12,28 @@ import { PasswordHistory } from './PasswordHistory';
 @Index(['status'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ length: 50, unique: true })
-  username: string;
+  username!: string;
 
   @Column({ length: 255, unique: true })
-  email: string;
+  email!: string;
 
   @Column({ length: 255 })
   @Exclude()
-  passwordHash: string;
+  passwordHash!: string;
 
   @Column({ length: 32 })
   @Exclude()
-  salt: string;
+  salt!: string;
 
   @Column({ type: 'uuid', nullable: true })
-  roleId: string;
+  roleId!: string;
 
-  @ManyToOne('Role', 'users')
+  @ManyToOne(() => Role, 'users')
   @JoinColumn({ name: 'role_id' })
-  role: any;
+  role!: Role;
 
   @Column({ 
     type: 'varchar', 
@@ -40,62 +41,62 @@ export class User {
     default: 'active',
     enum: ['active', 'inactive', 'suspended', 'locked']
   })
-  status: string;
+  status!: 'active' | 'inactive' | 'suspended' | 'locked';
 
   @Column({ type: 'boolean', default: false })
-  mfaEnabled: boolean;
+  mfaEnabled!: boolean;
 
   @Column({ length: 32, nullable: true })
   @Exclude()
-  mfaSecret: string;
+  mfaSecret!: string | null;
 
   @Column({ type: 'text', array: true, nullable: true })
   @Exclude()
-  backupCodes: string[];
+  backupCodes!: string[] | null;
 
   @Column({ type: 'boolean', default: false })
-  emailVerified: boolean;
+  emailVerified!: boolean;
 
   @Column({ length: 255, nullable: true })
-  emailVerificationToken: string;
+  emailVerificationToken!: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  emailVerificationExpires: Date;
+  emailVerificationExpires!: Date | null;
 
   @Column({ length: 255, nullable: true })
   @Exclude()
-  passwordResetToken: string;
+  passwordResetToken!: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  passwordResetExpires: Date;
+  passwordResetExpires!: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  lastLogin: Date;
+  lastLogin!: Date | null;
 
   @Column({ type: 'integer', default: 0 })
-  failedLoginAttempts: number;
+  failedLoginAttempts!: number;
 
   @Column({ type: 'timestamp', nullable: true })
-  lockedUntil: Date;
+  lockedUntil!: Date | null;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ type: 'uuid', nullable: true })
-  createdBy: string;
+  createdBy!: string | null;
 
   @Column({ type: 'uuid', nullable: true })
-  updatedBy: string;
+  updatedBy!: string | null;
 
   @OneToMany(() => Session, session => session.user)
-  sessions: Session[];
+  sessions!: Session[];
 
   @OneToMany(() => AuditLog, auditLog => auditLog.user)
-  auditLogs: AuditLog[];
+  auditLogs!: AuditLog[];
 
   @OneToMany(() => PasswordHistory, passwordHistory => passwordHistory.user)
-  passwordHistory: PasswordHistory[];
+  passwordHistory!: PasswordHistory[];
 }

@@ -1,30 +1,30 @@
 // File: server/src/models/Role.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { User } from './User';
+import { User } from './User.js';
 
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ length: 50, unique: true })
-  name: string;
+  name!: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description!: string | null;
 
-  @Column({ type: 'jsonb', default: [] })
-  permissions: string[];
+  @Column({ type: 'jsonb', default: () => '[]' })
+  permissions!: string[];
 
   @Column({ type: 'boolean', default: false })
-  isSystemRole: boolean;
+  isSystemRole!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @OneToMany(() => User, user => user.role)
-  users: User[];
+  users!: User[];
 }

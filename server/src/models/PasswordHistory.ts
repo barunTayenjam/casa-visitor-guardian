@@ -1,23 +1,23 @@
 // File: server/src/models/PasswordHistory.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './User';
+import { User } from './User.js';
 
 @Entity('password_history')
 @Index(['userId'])
 export class PasswordHistory {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => User, user => user.passwordHistory, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ length: 255 })
-  passwordHash: string;
+  passwordHash!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

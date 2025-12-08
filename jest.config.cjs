@@ -1,13 +1,17 @@
 module.exports = {
-  preset: 'ts-jest',
+  preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   roots: ['<rootDir>/server', '<rootDir>/src'],
   testMatch: [
     '**/__tests__/**/*.ts',
     '**/?(*.)+(spec|test).ts'
   ],
+  extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', {
+      useESM: true,
+      tsconfig: 'server/tsconfig.json'
+    }],
   },
   collectCoverageFrom: [
     'server/src/**/*.ts',
@@ -40,6 +44,7 @@ module.exports = {
   maxWorkers: '50%',
   verbose: true,
   moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@server/(.*)$': '<rootDir>/server/src/$1'
   },
@@ -48,10 +53,11 @@ module.exports = {
     '/dist/',
     '/build/'
   ],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'mjs'],
   globals: {
     'ts-jest': {
-      tsconfig: 'tsconfig.json'
+      tsconfig: 'server/tsconfig.json',
+      useESM: true
     }
   }
 };

@@ -18,7 +18,7 @@ export interface ValidationRule {
   max?: number;
   pattern?: RegExp;
   enum?: string[];
-  custom?: (value: any) => boolean | string;
+  custom?: (value: unknown) => boolean | string;
 }
 
 // Validation error class
@@ -72,7 +72,7 @@ export function validate(schema: ValidationSchema) {
 
 // Validate object against schema
 function validateObject(
-  obj: any,
+  obj: Record<string, unknown>,
   schema: Record<string, ValidationRule>,
   context: string,
   errors: ValidationError[]
@@ -142,7 +142,7 @@ function validateObject(
 }
 
 // Validate value type
-function validateType(value: any, type: string): boolean {
+function validateType(value: unknown, type: string): boolean {
   switch (type) {
     case 'string':
       return typeof value === 'string';
@@ -154,7 +154,7 @@ function validateType(value: any, type: string): boolean {
       return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     case 'url':
       try {
-        new URL(value);
+        new URL(value as string);
         return true;
       } catch {
         return false;

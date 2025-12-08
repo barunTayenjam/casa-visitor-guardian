@@ -1,6 +1,6 @@
 // File: server/src/models/Session.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './User';
+import { User } from './User.js';
 
 @Entity('user_sessions')
 @Index(['userId'])
@@ -8,39 +8,39 @@ import { User } from './User';
 @Index(['expiresAt'])
 export class Session {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ length: 255, unique: true })
-  refreshToken: string;
+  refreshToken!: string;
 
   @Column({ length: 255 })
-  accessTokenHash: string;
+  accessTokenHash!: string;
 
-  @Column({ type: 'jsonb', default: {} })
-  deviceInfo: any;
+  @Column({ type: 'jsonb', default: () => '{}' })
+  deviceInfo!: Record<string, unknown>;
 
   @Column({ type: 'inet' })
-  ipAddress: string;
+  ipAddress!: string;
 
   @Column({ type: 'text', nullable: true })
-  userAgent: string;
+  userAgent!: string | null;
 
   @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ type: 'timestamp' })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  lastAccessed: Date;
+  lastAccessed!: Date;
 }

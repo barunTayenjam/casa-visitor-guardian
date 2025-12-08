@@ -117,7 +117,7 @@ const blockedIPs = new Map<string, { blockedUntil: number; violationCount: numbe
 
 export function ipBlocker(maxViolations = 10, blockDuration = 60 * 60 * 1000) { // 1 hour block
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = ipKeyGenerator(req);
+    const ip = ipKeyGenerator(req) as string;
     const now = Date.now();
 
     // Check if IP is blocked
@@ -169,11 +169,11 @@ export function isIPBlocked(ip: string): boolean {
 // Middleware to track violations and auto-block
 export function violationTracker(maxViolations = 10, blockDuration = 60 * 60 * 1000) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = ipKeyGenerator(req);
+    const ip = ipKeyGenerator(req) as string;
     
     // Track rate limit violations
     const originalSend = res.send;
-    res.send = function(data) {
+    res.send = function(data: unknown) {
       if (res.statusCode === 429) {
         const blockRecord = blockedIPs.get(ip) || { blockedUntil: 0, violationCount: 0 };
         blockRecord.violationCount++;
@@ -259,7 +259,7 @@ export const createAuthRateLimit = () => expressRateLimit({
   },
   keyGenerator: (req: Request) => {
     // Use IP + endpoint combination for auth attempts
-    const ip = ipKeyGenerator(req);
+    const ip = ipKeyGenerator(req) as string;
     const endpoint = req.path;
     return `auth:${ip}:${endpoint}`;
   },
@@ -281,7 +281,7 @@ export const createStreamRateLimit = () => expressRateLimit({
   },
   keyGenerator: (req: Request) => {
     // Use IP + camera ID for streaming
-    const ip = ipKeyGenerator(req);
+    const ip = ipKeyGenerator(req) as string;
     const cameraId = req.params.id || 'unknown';
     return `stream:${ip}:${cameraId}`;
   },

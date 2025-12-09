@@ -1,70 +1,89 @@
-# Multi-stage build for backend
-FROM node:20-alpine AS builder
+# Multi-stage build for SentryVision Backend
+# Optimized for production with security and performance in mind
 
-# Install system dependencies for FFMPEG and build tools
+# ===========================================
+# Base Stage - Common dependencies
+# ===========================================
+FROM node:20-alpine AS base
 RUN apk add --no-cache \
     ffmpeg \
+    ffmpeg-dev \
     python3 \
     make \
     g++ \
     git
-
-# Set the working directory
 WORKDIR /app
 
-# Copy package files
+# ===========================================
+# Dependencies Stage
+# ===========================================
+FROM base AS deps
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy source code
+# ===========================================
+# Builder Stage
+# ===========================================
+FROM base AS builder
+COPY package*.json ./
+RUN npm ci
 COPY src/ ./src/
 COPY tsconfig.json ./
-
-# Install dev dependencies for build
-RUN npm install --only=dev
-
-# Build the TypeScript application
+COPY models/ ./models/
 RUN npm run build
 
-# Production stage
+# ===========================================
+# Production Stage
+# ===========================================
 FROM node:20-alpine AS production
 
-# Install runtime dependencies
-RUN apk add --no-cache ffmpeg
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
 
-# Create app directory
+# Create app user with proper UID/GID
+RUN addgroup -g 1001 -S sentryvision && \
+    adduser -S sentryvision -u 1001 -G sentryvision
+
+# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install production dependencies
 COPY package*.json ./
-
-# Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/models ./models
 
-# Create necessary directories
-RUN mkdir -p public/snapshots public/events
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Change ownership of app directory
-RUN chown -R nodejs:nodejs /app
+# Create necessary directories with proper permissions
+RUN mkdir -p \
+    public/snapshots \
+    public/events \
+    logs \
+    uploads \
+    temp && \
+    chown -R sentryvision:sentryvision /app
 
 # Switch to non-root user
-USER nodejs
+USER sentryvision
 
-# Expose the port
+# Expose port
 EXPOSE 9753
 
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=9753
+
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:9753/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:9753/api/health || exit 1
+
+# Use dumb-init as PID 1
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
 CMD ["node", "dist/index.js"]

@@ -44,19 +44,20 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Configure routes first
+configureAuthRoutes(app);
+configureRoutes(app, io);
+console.log('Routes configured successfully');
+
 // Initialize stream manager
 async function initializeServices() {
   try {
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');
-    
-    // Configure routes after stream manager is initialized
-    configureAuthRoutes(app);
-    configureRoutes(app, io);
-    console.log('Routes configured successfully');
   } catch (error) {
     console.error('Failed to initialize stream manager:', error);
+    // Continue without stream manager - API routes will still work
   }
 }
 
@@ -111,6 +112,11 @@ const PORT = process.env.PORT || 9753;
 
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);
+  
+  // Configure routes first
+  configureAuthRoutes(app);
+  configureRoutes(app, io);
+  console.log('Routes configured successfully');
   
   // Initialize services after server starts
   await initializeServices();

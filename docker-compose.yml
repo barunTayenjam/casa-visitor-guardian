@@ -1,53 +1,181 @@
-services:
-  backend:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-      target: production
-    ports:
-      - "${BACKEND_PORT}:9753"
-    environment:
-      - NODE_ENV=production
-      - PORT=9753
-    volumes:
-      # Persistent storage for media files
-      - backend_snapshots:/app/public/snapshots
-      - backend_events:/app/public/events
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9753/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+version: '3.8'
 
+services:
+  # ===========================================
+  # Frontend Service
+  # ===========================================
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
       target: production
+    container_name: sentryvision-frontend
     ports:
-      - "${FRONTEND_PORT}:${NGINX_PORT}"
+      - "${FRONTEND_PORT:-3000}:80"
     environment:
       - NODE_ENV=production
-      - NGINX_PORT=${NGINX_PORT}
+      - NGINX_PORT=80
+      - API_URL=http://backend:9753
+      - WS_URL=ws://backend:9753
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - sentryvision-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3020/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
+  # ===========================================
+  # Backend Service
+  # ===========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: production
+    container_name: sentryvision-backend
+    ports:
+      - "${BACKEND_PORT:-9753}:9753"
+    environment:
+      - NODE_ENV=production
+      - PORT=9753
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-sentryvision}
+      - DB_USER=${DB_USER:-sentryvision}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - TOTP_SECRET=${TOTP_SECRET}
+      - BACKUP_CODE_ENCRYPTION_KEY=${BACKUP_CODE_ENCRYPTION_KEY}
+      - AUDIT_INTEGRITY_SECRET=${AUDIT_INTEGRITY_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-100MB}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - backend_snapshots:/app/public/snapshots
+      - backend_events:/app/public/events
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9753/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentryvision-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME:-sentryvision}
+      - POSTGRES_USER=${DB_USER:-sentryvision}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_logs:/var/log/postgresql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sentryvision} -d ${DB_NAME:-sentryvision}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c log_statement=none
+      -c log_duration=on
+      -c log_min_duration_statement=1000
+
+  # ===========================================
+  # Redis Cache
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: sentryvision-redis
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+      - redis_logs:/var/log/redis
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+# ===========================================
+# Volumes
+# ===========================================
 volumes:
+  postgres_data:
+    driver: local
+  postgres_logs:
+    driver: local
+  redis_data:
+    driver: local
+  redis_logs:
+    driver: local
   backend_snapshots:
     driver: local
   backend_events:
     driver: local
+  backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
 
+# ===========================================
+# Networks
+# ===========================================
 networks:
-  default:
+  sentryvision-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

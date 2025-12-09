@@ -71,10 +71,8 @@ services:
       - backend_uploads:/app/uploads
     command: ["npm", "run", "dev"]
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     restart: unless-stopped
     networks:
       - sentryvision-network

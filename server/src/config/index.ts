@@ -48,6 +48,9 @@ export interface AppConfig {
     snapshotsDir: string;
     eventsDir: string;
   };
+  streaming: {
+    frameInterval: number;
+  };
 }
 
 export const config: AppConfig = {
@@ -62,7 +65,24 @@ export const config: AppConfig = {
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD
   },
-  cameras: JSON.parse(process.env.CAMERAS || '[]'),
+  cameras: (() => {
+    try {
+      // Try environment variable first
+      if (process.env.CAMERAS) {
+        return JSON.parse(process.env.CAMERAS);
+      }
+      // Fallback to cameras.json file
+      const camerasPath = path.join(__dirname, '../../cameras.json');
+      if (fs.existsSync(camerasPath)) {
+        const camerasData = fs.readFileSync(camerasPath, 'utf8');
+        return JSON.parse(camerasData);
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to load camera configuration:', error);
+      return [];
+    }
+  })(),
   security: {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
     maxLoginAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5', 10),
@@ -73,6 +93,9 @@ export const config: AppConfig = {
   storage: {
     snapshotsDir: process.env.SNAPSHOTS_DIR || path.join(__dirname, '../public/snapshots'),
     eventsDir: process.env.EVENTS_DIR || path.join(__dirname, '../public/events')
+  },
+  streaming: {
+    frameInterval: parseInt(process.env.FRAME_INTERVAL || '1000', 10) // 1 second default
   }
 };
 

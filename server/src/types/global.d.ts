@@ -1,13 +1,13 @@
 import { StreamManager } from '../streams/rtspManager';
-import { SimpleMotionDetection } from '../detection/simpleMotionDetection';
+import { SimpleMotionDetector } from '../detection/simpleMotionDetection';
 
 declare global {
   var streamManager: StreamManager;
-  var motionDetector: SimpleMotionDetection;
+  var motionDetector: SimpleMotionDetector;
   namespace NodeJS {
     interface Global {
       streamManager: StreamManager;
-      motionDetector: SimpleMotionDetection;
+      motionDetector: SimpleMotionDetector;
     }
   }
 }

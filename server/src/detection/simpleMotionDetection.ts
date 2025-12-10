@@ -227,3 +227,9 @@ export function setupSimpleMotionDetection(streamManager: StreamManager, io: Soc
   
   return motionDetector;
 }
+
+// Global getter function
+export function getMotionDetector(): SimpleMotionDetector {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (global as any).motionDetector;
+}

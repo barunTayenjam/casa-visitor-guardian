@@ -15,16 +15,25 @@ services:
       - API_URL=http://backend:9753
       - WS_URL=ws://backend:9753
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - sentryvision-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   backend:
     build:
@@ -59,17 +68,32 @@ services:
       - backend_logs:/app/logs
       - backend_uploads:/app/uploads
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - sentryvision-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9753/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
   postgres:
     image: postgres:15-alpine
@@ -92,6 +116,14 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     command: >
       postgres
       -c shared_preload_libraries=pg_stat_statements
@@ -108,6 +140,7 @@ services:
       -c log_statement=none
       -c log_duration=on
       -c log_min_duration_statement=1000
+      -c ssl=off
 
   redis:
     image: redis:7-alpine
@@ -124,37 +157,81 @@ services:
     volumes:
       - redis_data:/data
       - redis_logs:/var/log/redis
+      - ${REDIS_TLS_DIR:-./docker/ssl}:/tls:ro
     restart: unless-stopped
     networks:
       - sentryvision-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    sysctls:
+      - net.core.somaxconn=65535
 
 volumes:
   postgres_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./data/postgres}
   postgres_logs:
     driver: local
   redis_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./data/redis}
   redis_logs:
     driver: local
   backend_snapshots:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SNAPSHOTS_PATH:-./data/snapshots}
   backend_events:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${EVENTS_PATH:-./data/events}
   backend_logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_PATH:-./logs/backend}
   backend_uploads:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${UPLOADS_PATH:-./data/uploads}
 
 networks:
   sentryvision-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
     ipam:
+      driver: default
       config:
         - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    labels:
+      - "com.sentryvision.network=production"
+      - "com.sentryvision.description=SentryVision internal network"

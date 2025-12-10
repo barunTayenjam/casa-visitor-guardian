@@ -21,42 +21,50 @@ class LogDatabase {
   private pool: any;
 
   constructor() {
-    this.dbPath = path.join(__dirname, '../../data/logs.db');
+    // Use logs directory that's created in container
+    this.dbPath = path.join(__dirname, '../../logs/logs.db');
   }
 
   async initialize(): Promise<void> {
-    this.pool = await getDatabasePool(this.dbPath);
-    
-    // Create logs table
-    await this.pool.execute(`
-      CREATE TABLE IF NOT EXISTS logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        level TEXT NOT NULL CHECK (level IN ('info', 'warn', 'error', 'debug')),
-        message TEXT NOT NULL,
-        source TEXT,
-        error_details TEXT,
-        metadata TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create indexes separately
-    await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_timestamp ON logs(timestamp)`);
-    await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_level ON logs(level)`);
-    await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_source ON logs(source)`);
-    await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_created_at ON logs(created_at)`);
-
-    // Create log cleanup trigger for old records
-    await this.pool.execute(`
-      CREATE TRIGGER IF NOT EXISTS cleanup_old_logs
-      AFTER INSERT ON logs
-      BEGIN
-        DELETE FROM logs 
-        WHERE created_at < datetime('now', '-30 days')
-        AND id < NEW.id - 100000;
-      END
-    `);
+    try {
+      this.pool = await getDatabasePool(this.dbPath);
+      
+      // Create logs table
+      await this.pool.execute(`
+        CREATE TABLE IF NOT EXISTS logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          timestamp TEXT NOT NULL,
+          level TEXT NOT NULL CHECK (level IN ('info', 'warn', 'error', 'debug')),
+          message TEXT NOT NULL,
+          source TEXT,
+          error_details TEXT,
+          metadata TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Create indexes separately
+      await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_timestamp ON logs(timestamp)`);
+      await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_level ON logs(level)`);
+      await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_source ON logs(source)`);
+      await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_created_at ON logs(created_at)`);
+      
+      // Create log cleanup trigger for old records
+      await this.pool.execute(`
+        CREATE TRIGGER IF NOT EXISTS cleanup_old_logs
+        AFTER INSERT ON logs
+        BEGIN
+          DELETE FROM logs 
+          WHERE created_at < datetime('now', '-30 days')
+          AND id < NEW.id - 100000;
+        END
+      `);
+      
+      console.log('LogDatabase initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize LogDatabase:', error);
+      throw error;
+    }
   }
 
   async insertLog(entry: Omit<LogEntry, 'id' | 'created_at'>): Promise<number> {
@@ -122,7 +130,7 @@ class LogDatabase {
     query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    return await this.pool.execute<LogEntry>(query, params);
+    return await this.pool.execute(query, params) as LogEntry[];
   }
 
   async getLogStats(): Promise<{
@@ -136,7 +144,7 @@ class LogDatabase {
     }
     
     const totalQuery = 'SELECT COUNT(*) as count FROM logs';
-    const totalResult = await this.pool.executeOne<{count: number}>(totalQuery);
+    const totalResult = await this.pool.executeOne(totalQuery) as {count: number};
     const total = totalResult?.count || 0;
 
     const byLevelQuery = `
@@ -144,7 +152,7 @@ class LogDatabase {
       FROM logs 
       GROUP BY level
     `;
-    const byLevelResults = await this.pool.execute<{level: string, count: number}>(byLevelQuery);
+    const byLevelResults = await this.pool.execute(byLevelQuery) as {level: string, count: number}[];
     const byLevel = byLevelResults.reduce((acc, row) => {
       acc[row.level] = row.count;
       return acc;
@@ -158,7 +166,7 @@ class LogDatabase {
       ORDER BY count DESC
       LIMIT 10
     `;
-    const bySourceResults = await this.pool.execute<{source: string, count: number}>(bySourceQuery);
+    const bySourceResults = await this.pool.execute(bySourceQuery) as {source: string, count: number}[];
     const bySource = bySourceResults.reduce((acc, row) => {
       acc[row.source] = row.count;
       return acc;
@@ -169,7 +177,7 @@ class LogDatabase {
       FROM logs 
       WHERE timestamp >= datetime('now', '-24 hours')
     `;
-    const last24hResult = await this.pool.executeOne<{count: number}>(last24hQuery);
+    const last24hResult = await this.pool.executeOne(last24hQuery) as {count: number};
     const last24h = last24hResult?.count || 0;
 
     return {
@@ -206,9 +214,9 @@ class LogDatabase {
     `;
     const searchPattern = `%${searchTerm}%`;
     
-    return await this.pool.execute<LogEntry>(query, [
+    return await this.pool.execute(query, [
       searchPattern, searchPattern, searchPattern, limit
-    ]);
+    ]) as LogEntry[];
   }
 }
 

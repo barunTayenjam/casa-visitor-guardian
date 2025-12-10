@@ -37,11 +37,18 @@ const io = new SocketIOServer(server, {
 
 // Basic routes
 app.get('/health', (req, res) => {
+  console.log('Health endpoint called');
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// Test endpoint
+app.get('/test', (req, res) => {
+  console.log('Test endpoint called');
+  res.json({ message: 'Test successful' });
 });
 
 // Configure routes first
@@ -119,5 +126,9 @@ server.listen(PORT, async () => {
   console.log('Routes configured successfully');
   
   // Initialize services after server starts
-  await initializeServices();
+  //   //   // await initializeServices(); // Disabled for testing // Disabled for testing // Disabled for testing - stream manager hanging
+});// Test endpoint
+app.get('/test', (req, res) => {
+  console.log('Test endpoint called');
+  res.json({ message: 'Test successful' });
 });

@@ -44,7 +44,7 @@ export interface Camera {
   frameRate: number;
   resolution: string;
   nightMode: boolean;
-  retryCount?: number; // Track connection retry attempts
+  retryCount: number; // Track connection retry attempts
   lastError?: string; // Store the last error message
 }
 
@@ -675,12 +675,15 @@ export class StreamManager {
   }
 }
 
+// Global stream manager instance
+let streamManager: StreamManager;
+
 // Setup and return the stream manager
 export async function setupRTSPStreams(
   io: SocketIOServer,
 ): Promise<StreamManager> {
   console.log("Setting up RTSP stream manager");
-  const streamManager = new StreamManager(io);
+  streamManager = new StreamManager(io);
 
   // Auto-start real RTSP streams with a delay to ensure proper initialization
   console.log("Starting RTSP streams for all cameras");
@@ -711,3 +714,6 @@ export async function setupRTSPStreams(
 
   return streamManager;
 }
+
+// Export the global stream manager instance
+export { streamManager };

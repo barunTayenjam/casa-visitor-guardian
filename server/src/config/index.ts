@@ -56,13 +56,13 @@ export interface AppConfig {
 export const config: AppConfig = {
   port: parseInt(process.env.PORT || '9753', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+  jwtSecret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   database: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'sentryvision',
-    username: process.env.DB_USERNAME,
+    username: process.env.DB_USER || process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD
   },
   cameras: (() => {
@@ -97,6 +97,10 @@ export const config: AppConfig = {
   streaming: {
     frameInterval: parseInt(process.env.FRAME_INTERVAL || '1000', 10) // 1 second default
   }
+};
+
+export const getCameraById = (id: string): CameraConfig | undefined => {
+  return config.cameras.find(camera => camera.id === id);
 };
 
 export const validateConfig = (): void => {

@@ -1,7 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
-import expressRateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import expressRateLimit from 'express-rate-limit';
+
+// Helper function to get IP address from request
+function ipKeyGenerator(req: Request): string {
+  return req.ip || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress || 
+         'unknown';
+}
 import helmet from 'helmet';
 
 // Memory store for rate limiting (in production, use Redis)
@@ -117,7 +125,7 @@ const blockedIPs = new Map<string, { blockedUntil: number; violationCount: numbe
 
 export function ipBlocker(maxViolations = 10, blockDuration = 60 * 60 * 1000) { // 1 hour block
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = ipKeyGenerator(req) as string;
+    const ip = ipKeyGenerator(req);
     const now = Date.now();
 
     // Check if IP is blocked
@@ -169,7 +177,7 @@ export function isIPBlocked(ip: string): boolean {
 // Middleware to track violations and auto-block
 export function violationTracker(maxViolations = 10, blockDuration = 60 * 60 * 1000) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = ipKeyGenerator(req) as string;
+    const ip = ipKeyGenerator(req);
     
     // Track rate limit violations
     const originalSend = res.send;
@@ -259,7 +267,7 @@ export const createAuthRateLimit = () => expressRateLimit({
   },
   keyGenerator: (req: Request) => {
     // Use IP + endpoint combination for auth attempts
-    const ip = ipKeyGenerator(req) as string;
+    const ip = ipKeyGenerator(req);
     const endpoint = req.path;
     return `auth:${ip}:${endpoint}`;
   },
@@ -281,7 +289,7 @@ export const createStreamRateLimit = () => expressRateLimit({
   },
   keyGenerator: (req: Request) => {
     // Use IP + camera ID for streaming
-    const ip = ipKeyGenerator(req) as string;
+    const ip = ipKeyGenerator(req);
     const cameraId = req.params.id || 'unknown';
     return `stream:${ip}:${cameraId}`;
   },

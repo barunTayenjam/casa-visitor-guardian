@@ -68,7 +68,7 @@ export interface FaceRecognitionSettings {
   recognitionThreshold: number; // 0-1, lower = more strict
   saveUnknownFaces: boolean;
   maxFacesPerFrame: number;
-  enableLivenessDetection: boolean;
+  // enableLivenessDetection: boolean;
 }
 
 type KnownFace = FaceDetection & { person: KnownPerson; matchConfidence: number };
@@ -115,7 +115,7 @@ export class FacialRecognitionService extends EventEmitter {
       recognitionThreshold: 0.6,
       saveUnknownFaces: true,
       maxFacesPerFrame: 5,
-      enableLivenessDetection: false
+      // enableLivenessDetection: false
     };
 
     this.settings.set('default', defaultSettings);
@@ -266,14 +266,14 @@ export class FacialRecognitionService extends EventEmitter {
   }
 
   // Process frame for face detection and recognition
-  async recognizeFaces(cameraId: string, frame: Buffer): Promise<FaceRecognitionEvent | null> {
+  async recognizeFaces(frame: Buffer, cameraId?: string): Promise<FaceRecognitionEvent | null> {
     await this.isInitialized;
     if (!this.modelLoaded) {
       console.warn('Face recognition model not loaded yet');
       return null;
     }
 
-    const settings = this.getSettings(cameraId);
+    const settings = this.getSettings(cameraId || 'default');
     if (!settings || !settings.enabled) {
       return null;
     }
@@ -567,7 +567,7 @@ export class FacialRecognitionService extends EventEmitter {
   }
 
   // Add new known person
-  async addKnownPerson(person: Omit<KnownPerson, 'id' | 'createdAt' | 'faceCount' | 'embeddings'>): Promise<string> {
+  async addKnownPerson(person: Omit<KnownPerson, 'id' | 'createdAt' | 'faceCount' | 'embeddings'>, imagePath?: string): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
     const id = `person_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -633,3 +633,8 @@ interface KnownPersonRow {
 // Singleton instance
 export const facialRecognitionService = new FacialRecognitionService();
 export default facialRecognitionService;
+
+// Global getter function
+export function getFacialRecognitionService(): FacialRecognitionService {
+  return facialRecognitionService;
+}

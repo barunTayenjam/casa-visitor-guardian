@@ -1,0 +1,236 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: sentryvision-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    environment:
+      - NODE_ENV=production
+      - NGINX_PORT=80
+      - API_URL=http://backend:9753
+      - WS_URL=ws://backend:9753
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: production
+    container_name: sentryvision-backend
+    ports:
+      - "${BACKEND_PORT:-9753}:9753"
+    environment:
+      - NODE_ENV=production
+      - PORT=9753
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-sentryvision}
+      - DB_USER=${DB_USER:-sentryvision}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - TOTP_SECRET=${TOTP_SECRET}
+      - BACKUP_CODE_ENCRYPTION_KEY=${BACKUP_CODE_ENCRYPTION_KEY}
+      - AUDIT_INTEGRITY_SECRET=${AUDIT_INTEGRITY_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-100MB}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./server/cameras.json:/app/cameras.json:ro
+      - backend_snapshots:/app/public/snapshots
+      - backend_events:/app/public/events
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentryvision-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME:-sentryvision}
+      - POSTGRES_USER=${DB_USER:-sentryvision}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_logs:/var/log/postgresql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sentryvision} -d ${DB_NAME:-sentryvision}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c log_statement=none
+      -c log_duration=on
+      -c log_min_duration_statement=1000
+      -c ssl=off
+
+  redis:
+    image: redis:7-alpine
+    container_name: sentryvision-redis
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+      - redis_logs:/var/log/redis
+      - ${REDIS_TLS_DIR:-./docker/ssl}:/tls:ro
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    sysctls:
+      - net.core.somaxconn=65535
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./data/postgres}
+  postgres_logs:
+    driver: local
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./data/redis}
+  redis_logs:
+    driver: local
+  backend_snapshots:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SNAPSHOTS_PATH:-./data/snapshots}
+  backend_events:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${EVENTS_PATH:-./data/events}
+  backend_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_PATH:-./logs/backend}
+  backend_uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${UPLOADS_PATH:-./data/uploads}
+
+networks:
+  sentryvision-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.100.0/24
+          gateway: 192.168.100.1
+    labels:
+      - "com.sentryvision.network=production"
+      - "com.sentryvision.description=SentryVision internal network"

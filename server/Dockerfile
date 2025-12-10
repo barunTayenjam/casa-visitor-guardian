@@ -126,7 +126,7 @@ ENV TZ=UTC
 # Add health check script before switching user
 RUN echo '#!/bin/sh' > /healthcheck.sh && \
     echo 'set -e' >> /healthcheck.sh && \
-    echo 'wget --no-verbose --tries=1 --spider http://localhost:9753/api/health || exit 1' >> /healthcheck.sh && \
+    echo 'wget --no-verbose --tries=1 --spider http://localhost:9753/health || exit 1' >> /healthcheck.sh && \
     chmod +x /healthcheck.sh
 
 # Switch to non-root user for security

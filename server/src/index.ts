@@ -35,20 +35,35 @@ const io = new SocketIOServer(server, {
   }
 });
 
-// Basic routes
+// Basic routes - with debugging
 app.get('/health', (req, res) => {
-  console.log('Health endpoint called');
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+  console.log('=== HEALTH ENDPOINT START ===');
+  console.log('1. Request received');
+  try {
+    console.log('2. About to send response');
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+    console.log('3. Response sent');
+  } catch (error) {
+    console.error('4. Error in health endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+  console.log('=== HEALTH ENDPOINT END ===');
 });
 
 // Test endpoint
 app.get('/test', (req, res) => {
-  console.log('Test endpoint called');
-  res.json({ message: 'Test successful' });
+  console.log('=== TEST ENDPOINT START ===');
+  try {
+    res.json({ message: 'Test successful' });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+  console.log('=== TEST ENDPOINT END ===');
 });
 
 // Configure routes first
@@ -119,16 +134,7 @@ const PORT = process.env.PORT || 9753;
 
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);
-  
-  // Configure routes first
-  configureAuthRoutes(app);
-  configureRoutes(app, io);
-  console.log('Routes configured successfully');
-  
+
   // Initialize services after server starts
-  //   //   // await initializeServices(); // Disabled for testing // Disabled for testing // Disabled for testing - stream manager hanging
-});// Test endpoint
-app.get('/test', (req, res) => {
-  console.log('Test endpoint called');
-  res.json({ message: 'Test successful' });
+  // await initializeServices(); // Disabled for testing - stream manager hanging
 });

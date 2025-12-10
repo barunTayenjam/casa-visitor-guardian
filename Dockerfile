@@ -77,8 +77,12 @@ RUN rm -rf /usr/share/nginx/html/*
 RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run /etc/nginx/conf.d && \
     chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /etc/nginx/conf.d
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built assets from builder stage with proper ownership
+COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
+
+# Set proper permissions for nginx html directory
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html
 
 # Copy custom nginx configuration
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf.template
@@ -113,8 +117,7 @@ RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
     echo '    include /etc/nginx/conf.d/*.conf;' >> /etc/nginx/nginx.conf && \
     echo '}' >> /etc/nginx/nginx.conf
 
-# Create health check endpoint
-RUN echo 'location /health { access_log off; return 200 "healthy\n"; add_header Content-Type text/plain; }' > /etc/nginx/conf.d/health.conf.template
+# Don't create separate health.conf - it will be in default.conf
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -133,7 +136,6 @@ RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
     echo '' >> /docker-entrypoint.sh && \
     echo '# Substitute environment variables in nginx config' >> /docker-entrypoint.sh && \
     echo 'envsubst "\$NGINX_PORT" < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf' >> /docker-entrypoint.sh && \
-    echo 'envsubst < /etc/nginx/conf.d/health.conf.template > /etc/nginx/conf.d/health.conf' >> /docker-entrypoint.sh && \
     echo '' >> /docker-entrypoint.sh && \
     echo '# Create API configuration file for frontend' >> /docker-entrypoint.sh && \
     echo 'cat > /usr/share/nginx/html/config.js << EOF' >> /docker-entrypoint.sh && \

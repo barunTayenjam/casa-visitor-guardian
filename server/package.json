@@ -4,6 +4,7 @@
   "description": "Backend server for streaming RTSP camera feeds",
   "main": "dist/index.js",
   "type": "module",
+
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",

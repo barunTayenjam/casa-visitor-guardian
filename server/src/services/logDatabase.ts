@@ -223,10 +223,22 @@ class LogDatabase {
 // Singleton instance
 let logDatabaseInstance: LogDatabase | null = null;
 
-export async function getLogDatabase(): Promise<LogDatabase> {
+export async function getLogDatabase(): Promise<LogDatabase | null> {
   if (!logDatabaseInstance) {
-    logDatabaseInstance = new LogDatabase();
-    await logDatabaseInstance.initialize();
+    try {
+      logDatabaseInstance = new LogDatabase();
+      // Add timeout to prevent hanging
+      const initPromise = logDatabaseInstance.initialize();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Database initialization timeout')), 5000);
+      });
+      
+      await Promise.race([initPromise, timeoutPromise]);
+      return logDatabaseInstance;
+    } catch (error) {
+      console.error('Failed to initialize log database:', error);
+      return null; // Return null instead of throwing to prevent blocking
+    }
   }
   return logDatabaseInstance;
 }

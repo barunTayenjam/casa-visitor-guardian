@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import OpenCVProcessor from './opencvProcessor.js';
-import { DetectionResult, DetectionClass, ObjectDetectionSettings } from './objectDetection.js';
+import { DetectionResult, ObjectDetectionSettings } from './objectDetection.js';
 import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -214,7 +214,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       const detections = await this.performObjectDetection(imageMat);
       
       // Calculate event metadata
-      const personCount = detections.filter(d => d.class === DetectionClass.PERSON).length;
+      const personCount = detections.filter(d => d.class === 'person').length;
       const maxConfidence = Math.max(...detections.map(d => d.confidence), 0);
       
       // Create motion detection event
@@ -278,9 +278,9 @@ export class MotionTriggeredDetection extends EventEmitter {
       
       for (const person of peopleDetections) {
         detections.push({
-          class: DetectionClass.PERSON,
+          class: 'person',
           confidence: person.confidence,
-          bbox: person.bbox
+          boundingBox: person.bbox
         });
       }
 

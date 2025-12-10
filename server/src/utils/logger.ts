@@ -30,60 +30,71 @@ const originalConsoleDebug = console.debug;
 
 // Configuration to control logging levels
 const LOGGING_CONFIG = {
-  enableInfo: true,       // Enable info logs for debugging
+  enableInfo: false,      // Disable info logs to reduce overhead
   enableWarn: true,       // Keep warnings
   enableError: true,      // Keep errors
-  enableDebug: true,      // Enable debug logs
+  enableDebug: false,     // Disable debug logs to reduce overhead
   enableServerStart: true, // Keep server start messages
-  enableMotionEvents: true, // Enable motion detection logs
-  enableStreamLogs: true,   // Enable stream logs
-  enableSocketLogs: true,   // Enable socket logs
-  enableFileLogging: true,  // Enable file logging
+  enableMotionEvents: false, // Disable motion detection logs to reduce overhead
+  enableStreamLogs: false,   // Disable stream logs to reduce overhead
+  enableSocketLogs: false,   // Disable socket logs to reduce overhead
+  enableFileLogging: false,  // Disable file logging temporarily to fix HTTP hanging
   enableDatabaseLogging: false, // Disable database logging temporarily to fix HTTP hanging
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size
   maxLogFiles: 5, // Keep 5 log files max
 };
 
-// File logging utility
+// File logging utility - made async to prevent blocking
 const writeToFile = (filePath: string, message: string) => {
   if (!LOGGING_CONFIG.enableFileLogging) return;
   
-  try {
-    // Check file size and rotate if necessary
-    if (fs.existsSync(filePath)) {
-      const stats = fs.statSync(filePath);
-      if (stats.size > LOGGING_CONFIG.maxLogFileSize) {
-        // Rotate log file
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const rotatedPath = filePath.replace('.log', `-${timestamp}.log`);
-        fs.renameSync(filePath, rotatedPath);
-        
-        // Clean up old log files
-        const dir = path.dirname(filePath);
-        const baseName = path.basename(filePath, '.log');
-        const files = fs.readdirSync(dir)
-          .filter(f => f.startsWith(baseName) && f.includes('-'))
-          .map(f => ({ name: f, path: path.join(dir, f) }))
-          .sort((a, b) => {
-            const statA = fs.statSync(a.path);
-            const statB = fs.statSync(b.path);
-            return statB.mtime.getTime() - statA.mtime.getTime();
-          });
-        
-        // Remove old files beyond the limit
-        if (files.length > LOGGING_CONFIG.maxLogFiles) {
-          files.slice(LOGGING_CONFIG.maxLogFiles).forEach(file => {
-            fs.unlinkSync(file.path);
-          });
+  // Use setImmediate to avoid blocking the event loop
+  setImmediate(async () => {
+    try {
+      // Check file size and rotate if necessary
+      if (fs.existsSync(filePath)) {
+        const stats = await fs.promises.stat(filePath);
+        if (stats.size > LOGGING_CONFIG.maxLogFileSize) {
+          // Rotate log file
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const rotatedPath = filePath.replace('.log', `-${timestamp}.log`);
+          await fs.promises.rename(filePath, rotatedPath);
+          
+          // Clean up old log files
+          const dir = path.dirname(filePath);
+          const baseName = path.basename(filePath, '.log');
+          const files = await fs.promises.readdir(dir);
+          const filteredFiles = files
+            .filter(f => f.startsWith(baseName) && f.includes('-'))
+            .map(f => ({ name: f, path: path.join(dir, f) }));
+          
+          // Get file stats for sorting
+          const filesWithStats = await Promise.all(
+            filteredFiles.map(async f => {
+              const stat = await fs.promises.stat(f.path);
+              return { ...f, mtime: stat.mtime };
+            })
+          );
+          
+          const sortedFiles = filesWithStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+          
+          // Remove old files beyond limit
+          if (sortedFiles.length > LOGGING_CONFIG.maxLogFiles) {
+            await Promise.all(
+              sortedFiles.slice(LOGGING_CONFIG.maxLogFiles).map(file => 
+                fs.promises.unlink(file.path)
+              )
+            );
+          }
         }
       }
+      
+      await fs.promises.appendFile(filePath, message + '\n');
+    } catch (error) {
+      // If file logging fails, still log to console
+      originalConsoleError('Failed to write to log file:', error);
     }
-    
-    fs.appendFileSync(filePath, message + '\n');
-  } catch (error) {
-    // If file logging fails, still log to console
-    originalConsoleError('Failed to write to log file:', error);
-  }
+  });
 };
 
 // Database logging utility
@@ -165,8 +176,16 @@ const log = (level: string, message: string, source?: string, error?: unknown, m
     writeToFile(accessLogFile, logMessage);
   }
 
-  // Write to database (async, don't block)
-  writeToDatabase(level, message, source, error, metadata);
+  // Write to database (async, don't block) - only if enabled
+  if (LOGGING_CONFIG.enableDatabaseLogging) {
+    // Use setImmediate to avoid blocking the current request
+    setImmediate(() => {
+      writeToDatabase(level, message, source, error, metadata).catch(err => {
+        // Silently ignore database logging errors to prevent infinite loops
+        originalConsoleError('Database logging failed:', err);
+      });
+    });
+  }
 };
 
 // Override console methods to also log to file

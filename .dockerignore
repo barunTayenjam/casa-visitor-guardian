@@ -29,6 +29,25 @@ build
 .next
 out
 
+# Large data directories (IMPORTANT - prevents massive builds)
+data
+data/**
+test-data
+test-data/**
+server/data
+server/data/**
+server/node-env
+server/node-env/**
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+logs
+*.log
+server/logs
+.aic-logs
+
 # Logs
 logs
 *.log

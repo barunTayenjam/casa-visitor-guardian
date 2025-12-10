@@ -1,9 +1,8 @@
 import { Camera, MotionEvent } from '@/types/security';
 
-// API URLs are now relative in development mode since we use Vite's proxy
-const isDev = import.meta.env.DEV;
-const API_URL = isDev ? '/api' : '/api'; // Always use relative URLs, nginx will proxy
-const BACKEND_URL = isDev ? '' : ''; // Always use relative URLs in production
+// API URLs - use relative URLs in both dev and production since nginx handles proxying
+const API_URL = '/api';
+const BACKEND_URL = '';
 
 // Custom error types
 export class ApiError extends Error {

@@ -20,7 +20,7 @@ services:
     networks:
       - sentryvision-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -40,14 +40,22 @@ services:
     environment:
       - NODE_ENV=production
       - NGINX_PORT=80
-      - API_URL=http://localhost:9753
-      - WS_URL=ws://localhost:9753
+      - API_URL=http://backend:9753
+      - WS_URL=ws://backend:9753
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - sentryvision-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
@@ -105,12 +113,20 @@ services:
     restart: unless-stopped
     networks:
       - sentryvision-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   # ===========================================
   # PostgreSQL Production Database
@@ -130,6 +146,14 @@ services:
     restart: unless-stopped
     networks:
       - sentryvision-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sentryvision} -d ${DB_NAME:-sentryvision}"]
       interval: 10s
@@ -173,8 +197,16 @@ services:
     restart: unless-stopped
     networks:
       - sentryvision-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -272,6 +304,8 @@ volumes:
 networks:
   sentryvision-network:
     driver: bridge
+    name: sentryvision-network-prod
     ipam:
+      driver: default
       config:
         - subnet: 172.29.0.0/16

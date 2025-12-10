@@ -5,59 +5,94 @@
 # Base Stage - Common dependencies
 # ===========================================
 FROM node:20-alpine AS base
-RUN apk add --no-cache \
+# Install security updates first
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
     ffmpeg \
     ffmpeg-dev \
     python3 \
     make \
     g++ \
-    git
+    git \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
+# Create app directory with proper permissions
+RUN mkdir -p /app && chown -R node:node /app
 WORKDIR /app
 
 # ===========================================
 # Dependencies Stage
 # ===========================================
 FROM base AS deps
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Copy package files
+COPY --chown=node:node package*.json ./
+# Install dependencies with npm ci for reproducible builds
+RUN npm ci --only=production && npm cache clean --force && \
+    rm -rf ~/.npm
 
 # ===========================================
 # Builder Stage
 # ===========================================
 FROM base AS builder
-COPY package*.json ./
+# Copy package files
+COPY --chown=node:node package*.json ./
+# Install all dependencies including dev dependencies
 RUN npm ci
-COPY src/ ./src/
-COPY tsconfig.json ./
-COPY models/ ./models/
-RUN npm run build
+# Copy source code
+COPY --chown=node:node src/ ./src/
+COPY --chown=node:node tsconfig.json ./
+COPY --chown=node:node models/ ./models/
+# Build TypeScript
+RUN npm run build && \
+    # Remove source maps from production build
+    find dist -name "*.map" -type f -delete && \
+    # Clean up dev dependencies
+    npm cache clean --force
+
+# ===========================================
+# Security Scanning Stage
+# ===========================================
+FROM base AS security
+# Install security scanning tools
+RUN apk add --no-cache \
+    curl \
+    wget \
+    nmap \
+    && rm -rf /var/cache/apk/*
+# Placeholder for security scans
+RUN echo "Security scanning stage - add vulnerability scanning here"
 
 # ===========================================
 # Production Stage
 # ===========================================
 FROM node:20-alpine AS production
-
-# Install runtime dependencies only
-RUN apk add --no-cache \
+# Install runtime dependencies only and security updates
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
     ffmpeg \
     curl \
     dumb-init \
+    tini \
+    ca-certificates \
+    su-exec \
     && rm -rf /var/cache/apk/*
 
-# Create app user with proper UID/GID
+# Create app user with proper UID/GID and no shell
 RUN addgroup -g 1001 -S sentryvision && \
-    adduser -S sentryvision -u 1001 -G sentryvision
+    adduser -S sentryvision -u 1001 -G sentryvision -s /bin/false
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install production dependencies
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Copy package files
+COPY --chown=sentryvision:sentryvision package*.json ./
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force && \
+    rm -rf ~/.npm
 
 # Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/models ./models
+COPY --from=builder --chown=sentryvision:sentryvision /app/dist ./dist
+COPY --from=builder --chown=sentryvision:sentryvision /app/models ./models
 
 # Create necessary directories with proper permissions
 RUN mkdir -p \
@@ -65,25 +100,47 @@ RUN mkdir -p \
     public/events \
     logs \
     uploads \
-    temp && \
-    chown -R sentryvision:sentryvision /app
+    temp \
+    /app/.cache && \
+    chown -R sentryvision:sentryvision /app && \
+    chmod 750 /app && \
+    chmod 750 /app/public && \
+    chmod 750 /app/logs && \
+    chmod 750 /app/uploads && \
+    chmod 750 /app/temp && \
+    # Create logs.db file for SQLite logging
+    touch /app/logs/logs.db && \
+    chown sentryvision:sentryvision /app/logs/logs.db
 
-# Switch to non-root user
+# Set up proper file descriptors
+RUN echo "fs.file-max = 65536" >> /etc/sysctl.conf && \
+    mkdir -p /etc/security/limits.d && \
+    echo "* soft nofile 65536" >> /etc/security/limits.d/sentryvision.conf && \
+    echo "* hard nofile 65536" >> /etc/security/limits.d/sentryvision.conf
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=9753
+ENV TZ=UTC
+
+# Add health check script before switching user
+RUN echo '#!/bin/sh' > /healthcheck.sh && \
+    echo 'set -e' >> /healthcheck.sh && \
+    echo 'wget --no-verbose --tries=1 --spider http://localhost:9753/api/health || exit 1' >> /healthcheck.sh && \
+    chmod +x /healthcheck.sh
+
+# Switch to non-root user for security
 USER sentryvision
 
 # Expose port
 EXPOSE 9753
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=9753
-
-# Health check
+# Health check with wget (smaller than curl)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:9753/api/health || exit 1
+    CMD /healthcheck.sh
 
-# Use dumb-init as PID 1
-ENTRYPOINT ["dumb-init", "--"]
+# Use tini as PID 1 for proper signal handling
+ENTRYPOINT ["tini", "--"]
 
-# Start the application
+# Start the application with proper signal handling
 CMD ["node", "dist/index.js"]

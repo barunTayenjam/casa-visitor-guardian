@@ -39,9 +39,9 @@ const LOGGING_CONFIG = {
   enableStreamLogs: true,   // Enable stream logs
   enableSocketLogs: true,   // Enable socket logs
   enableFileLogging: true,  // Enable file logging
-  enableDatabaseLogging: true, // Enable database logging
+  enableDatabaseLogging: false, // Disable database logging temporarily to fix HTTP hanging
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size
-  maxLogFiles: 5 // Keep 5 log files max
+  maxLogFiles: 5, // Keep 5 log files max
 };
 
 // File logging utility
@@ -98,7 +98,7 @@ const writeToDatabase = async (
   
   try {
     const logDb = await getLogDatabase();
-    if (!logDb || !logDb.pool) {
+    if (!logDb) {
       // Database not yet initialized, skip database logging
       return;
     }

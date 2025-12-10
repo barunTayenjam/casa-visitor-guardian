@@ -192,4 +192,3 @@ const auditLogger = new AuditLogger();
 // Export both instance and middleware
 export default auditLogger;
 export const auditMiddleware = auditLogger.auditMiddleware.bind(auditLogger);
-export { AuditLogEntry };

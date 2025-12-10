@@ -2,6 +2,7 @@
 import { Pool } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
 import { logger } from '../../server/src/utils/logger';
 
 interface Migration {
@@ -103,8 +104,7 @@ class MigrationManager {
   }
 
   private calculateChecksum(sql: string): string {
-    const crypto = require('crypto');
-    return crypto.createHash('sha256').update(sql).digest('hex');
+    return createHash('sha256').update(sql).digest('hex');
   }
 }
 

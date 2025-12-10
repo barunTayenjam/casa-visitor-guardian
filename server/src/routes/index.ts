@@ -3,12 +3,15 @@ import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { StreamManager, Camera } from '../streams/rtspManager.js';
+import { StreamManager, Camera, streamManager } from '../streams/rtspManager.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
 import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLimit.js';
 import { logger } from '../utils/logger.js';
 import auditLogger from '../utils/auditLogger.js';
 import logRoutes from './logRoutes.js';
+import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
+import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
+import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -499,7 +502,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         password,
         frameRate: frameRate || 15,
         resolution: resolution || '640x480',
-        nightMode: false
+        nightMode: false,
+        retryCount: 0
       });
       
       res.json({ success: true, cameraId });
@@ -958,6 +962,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get motion detection settings for a camera
   app.get('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
     try {
+      const motionDetector = getGlobalMotionDetector();
       const settings = motionDetector.getSettings(req.params.cameraId);
       if (!settings) {
         return res.status(404).json({ success: false, error: 'Settings not found' });
@@ -973,6 +978,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
     try {
       const { enabled, sensitivity, cooldownPeriod } = req.body;
+      const motionDetector = getGlobalMotionDetector();
       const updated = motionDetector.updateSettings(req.params.cameraId, {
         enabled,
         sensitivity,
@@ -2041,6 +2047,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get person detection settings
   app.get('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
+      const objectDetectionService = getGlobalObjectDetectionService();
       const settings = objectDetectionService.getSettings('default');
       res.json({ success: true, settings });
     } catch (error) {
@@ -2078,6 +2085,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
       const { minConfidence, maxDetections, targetClasses } = req.body;
+      const objectDetectionService = getGlobalObjectDetectionService();
       const updated = objectDetectionService.updateSettings('default', {
         minConfidence: minConfidence || 0.5,
         maxDetections: maxDetections || 10,
@@ -2094,6 +2102,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get facial recognition settings
   app.get('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
+      const facialRecognitionService = getGlobalFacialRecognitionService();
       const settings = facialRecognitionService.getSettings('default');
       res.json({ success: true, settings });
     } catch (error) {
@@ -2106,10 +2115,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
       const { recognitionThreshold, minFaceSize, livenessDetection } = req.body;
+      const facialRecognitionService = getGlobalFacialRecognitionService();
       const updated = facialRecognitionService.updateSettings('default', {
         recognitionThreshold: recognitionThreshold || 0.6,
         minFaceSize: minFaceSize || 48,
-        livenessDetection: livenessDetection || false
+        // livenessDetection: livenessDetection || false
       });
       
       res.json({ success: true, updated });
@@ -2122,6 +2132,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get known persons
   app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
     try {
+      const facialRecognitionService = getGlobalFacialRecognitionService();
       const persons = await facialRecognitionService.getKnownPersons();
       res.json({ success: true, persons });
     } catch (error) {
@@ -2139,7 +2150,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'Name and at least one image are required' });
       }
       
-      const personId = await facialRecognitionService.addKnownPerson(name, imagePaths, description);
+      const facialRecognitionService = getGlobalFacialRecognitionService();
+      const personId = await facialRecognitionService.addKnownPerson({ name, description, isFamily: false, isAuthorized: true }, imagePaths[0]);
       
       res.json({
         success: true,
@@ -2195,15 +2207,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Run person detection if enabled
       if (enablePersonDetection) {
-        const personResult = await objectDetectionService.detectObjects(currentFrame, {
-          detectClasses: ['person'],
-          confidenceThreshold: 0.5
-        });
-        analysisResults.persons = personResult.detections.filter((d: any) => d.class === 'person');
+        const objectDetectionService = getGlobalObjectDetectionService();
+        const personResult = await objectDetectionService.detectObjects(currentFrame, 'default');
+        analysisResults.persons = personResult.detections.filter((d) => d.class === 'person');
       }
       
       // Run face detection if enabled
       if (enableFaceDetection) {
+        const facialRecognitionService = getGlobalFacialRecognitionService();
         const faceResult = await facialRecognitionService.recognizeFaces(currentFrame);
         analysisResults.faces = faceResult.faces;
       }

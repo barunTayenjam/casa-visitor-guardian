@@ -145,21 +145,22 @@ export class ObjectDetectionService extends EventEmitter {
   }
 
   // Process frame for object detection
-  async detectObjects(cameraId: string, frame: Buffer): Promise<ObjectDetectionEvent | null> {
+  async detectObjects(frame: string | Buffer, cameraId?: string): Promise<ObjectDetectionEvent | null> {
     if (!this.modelLoaded) {
       console.warn('Object detection model not loaded yet');
       return null;
     }
 
-    const settings = this.getSettings(cameraId);
+    const settings = this.getSettings(cameraId || 'default');
     if (!settings || !settings.enabled) {
       return null;
     }
 
     return new Promise((resolve, reject) => {
-      this.processingQueue.push({
+      const actualFrame = typeof frame === 'string' ? Buffer.from(frame, 'base64') : frame;
+    this.processingQueue.push({
         cameraId,
-        frame,
+        frame: actualFrame,
         timestamp: Date.now(),
         resolve,
         reject
@@ -374,3 +375,8 @@ export class ObjectDetectionService extends EventEmitter {
 // Singleton instance
 export const objectDetectionService = new ObjectDetectionService();
 export default objectDetectionService;
+
+// Global getter function
+export function getObjectDetectionService(): ObjectDetectionService {
+  return objectDetectionService;
+}

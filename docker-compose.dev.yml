@@ -1,0 +1,266 @@
+services:
+  # ===========================================
+  # Frontend Development Service
+  # ===========================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: sentryvision-frontend-dev
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:${BACKEND_PORT:-9753}
+      - VITE_WS_URL=ws://localhost:${BACKEND_PORT:-9753}
+      - VITE_NODE_ENV=development
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./package*.json:/app/
+      - frontend_node_modules:/app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentryvision-dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # ===========================================
+  # Backend Development Service
+  # ===========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: builder
+    container_name: sentryvision-backend-dev
+    ports:
+      - "${BACKEND_PORT:-9753}:9753"
+    environment:
+      - NODE_ENV=development
+      - PORT=9753
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-sentryvision_dev}
+      - DB_USER=${DB_USER:-sentryvision}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - TOTP_SECRET=${TOTP_SECRET}
+      - BACKUP_CODE_ENCRYPTION_KEY=${BACKUP_CODE_ENCRYPTION_KEY}
+      - AUDIT_INTEGRITY_SECRET=${AUDIT_INTEGRITY_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-pretty}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-100MB}
+    volumes:
+      # Mount source code for hot reloading
+      - ./server/src:/app/src
+      - ./server/package*.json:/app/
+      - backend_node_modules:/app/node_modules
+      - backend_snapshots:/app/public/snapshots
+      - backend_events:/app/public/events
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+    command: ["npm", "run", "dev"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sentryvision-dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================
+  # PostgreSQL Development Database
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentryvision-postgres-dev
+    environment:
+      - POSTGRES_DB=${DB_NAME:-sentryvision_dev}
+      - POSTGRES_USER=${DB_USER:-sentryvision}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - postgres_dev_logs:/var/log/postgresql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    networks:
+      - sentryvision-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sentryvision} -d ${DB_NAME:-sentryvision_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # ===========================================
+  # Redis Development Cache
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: sentryvision-redis-dev
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_dev_data:/data
+      - redis_dev_logs:/var/log/redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    networks:
+      - sentryvision-dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.125'
+          memory: 64M
+
+  # ===========================================
+  # Database Admin (Optional)
+  # ===========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sentryvision-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@sentryvision.local}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    profiles:
+      - admin
+
+  # ===========================================
+  # Redis Admin (Optional)
+  # ===========================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: sentryvision-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+    profiles:
+      - admin
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  postgres_dev_data:
+    driver: local
+  postgres_dev_logs:
+    driver: local
+  redis_dev_data:
+    driver: local
+  redis_dev_logs:
+    driver: local
+  pgadmin_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  backend_node_modules:
+    driver: local
+  backend_snapshots:
+    driver: local
+  backend_events:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  sentryvision-dev-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.0.0/16
+          gateway: 172.31.0.1
+    labels:
+      - "com.sentryvision.network=development"
+      - "com.sentryvision.description=SentryVision development network"

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "test-cam1",
+    "name": "Test Camera 1",
+    "rtspUrl": "rtsp://test.local:554/stream1",
+    "username": "test",
+    "password": "test",
+    "frameRate": 15,
+    "resolution": "1920x1080",
+    "nightMode": false,
+    "credentialId": null
+  }
+]

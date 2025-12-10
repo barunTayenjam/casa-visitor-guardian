@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Visitor Report - 11/9/2025</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header .date {
+            color: #7f8c8d;
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.known {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        .stat-card.unknown {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 2em;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .visitor-list {
+            list-style: none;
+            padding: 0;
+        }
+        .visitor-item {
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .visitor-item.known {
+            border-left-color: #4CAF50;
+        }
+        .visitor-item.unknown {
+            border-left-color: #ff6b6b;
+        }
+        .visitor-name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .visitor-details {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #3498db;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -25px;
+            top: 20px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #3498db;
+        }
+        .timeline-time {
+            font-weight: bold;
+            color: #3498db;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #7f8c8d;
+        }
+        .no-data {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Weekly Visitor Report</h1>
+            <div class="date">Sunday, November 9, 2025</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>233</h3>
+                <p>Total Visits</p>
+            </div>
+            <div class="stat-card known">
+                <h3>10</h3>
+                <p>Known Visitors</p>
+            </div>
+            <div class="stat-card unknown">
+                <h3>49</h3>
+                <p>Unknown Visitors</p>
+            </div>
+            <div class="stat-card">
+                <h3>59</h3>
+                <p>Unique Visitors</p>
+            </div>
+        </div>
+
+        
+        <div class="section">
+            <h2>Visitor Summary</h2>
+            <ul class="visitor-list">
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875876</div>
+                    <div class="visitor-details">2 visits • First seen: 1:53:08 PM • Last seen: 1:52:38 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875876</div>
+                    <div class="visitor-details">1 visits • First seen: 1:50:11 PM • Last seen: 1:50:11 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875875</div>
+                    <div class="visitor-details">3 visits • First seen: 1:47:50 PM • Last seen: 1:49:11 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875875</div>
+                    <div class="visitor-details">2 visits • First seen: 1:45:44 PM • Last seen: 1:47:45 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 9</div>
+                    <div class="visitor-details">6 visits • First seen: 1:08:03 PM • Last seen: 1:45:55 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875874</div>
+                    <div class="visitor-details">5 visits • First seen: 1:41:00 PM • Last seen: 1:40:23 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875874</div>
+                    <div class="visitor-details">4 visits • First seen: 1:43:54 PM • Last seen: 1:40:21 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875873</div>
+                    <div class="visitor-details">6 visits • First seen: 1:38:21 PM • Last seen: 1:38:21 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875873</div>
+                    <div class="visitor-details">3 visits • First seen: 1:36:38 PM • Last seen: 1:37:08 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875872</div>
+                    <div class="visitor-details">2 visits • First seen: 1:33:56 PM • Last seen: 1:34:27 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875872</div>
+                    <div class="visitor-details">1 visits • First seen: 1:30:15 PM • Last seen: 1:30:15 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875871</div>
+                    <div class="visitor-details">1 visits • First seen: 1:25:22 PM • Last seen: 1:25:22 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875871</div>
+                    <div class="visitor-details">3 visits • First seen: 1:29:33 PM • Last seen: 1:25:13 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875870</div>
+                    <div class="visitor-details">2 visits • First seen: 1:24:43 PM • Last seen: 1:23:42 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875870</div>
+                    <div class="visitor-details">2 visits • First seen: 1:24:02 PM • Last seen: 1:23:02 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875869</div>
+                    <div class="visitor-details">5 visits • First seen: 1:19:51 PM • Last seen: 1:19:21 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875869</div>
+                    <div class="visitor-details">1 visits • First seen: 1:17:45 PM • Last seen: 1:17:45 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875868</div>
+                    <div class="visitor-details">6 visits • First seen: 1:12:30 PM • Last seen: 1:13:46 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875868</div>
+                    <div class="visitor-details">4 visits • First seen: 1:11:51 PM • Last seen: 1:12:21 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875867</div>
+                    <div class="visitor-details">4 visits • First seen: 1:08:03 PM • Last seen: 1:06:26 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 1</div>
+                    <div class="visitor-details">10 visits • First seen: 1:08:33 PM • Last seen: 1:05:31 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875867</div>
+                    <div class="visitor-details">3 visits • First seen: 1:05:01 PM • Last seen: 1:05:01 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 2</div>
+                    <div class="visitor-details">8 visits • First seen: 1:30:45 PM • Last seen: 1:00:25 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875866</div>
+                    <div class="visitor-details">2 visits • First seen: 1:03:05 PM • Last seen: 1:00:25 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875866</div>
+                    <div class="visitor-details">3 visits • First seen: 1:04:45 PM • Last seen: 1:00:19 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 4</div>
+                    <div class="visitor-details">12 visits • First seen: 1:40:51 PM • Last seen: 12:58:33 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 6</div>
+                    <div class="visitor-details">5 visits • First seen: 1:47:20 PM • Last seen: 12:58:03 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875865</div>
+                    <div class="visitor-details">9 visits • First seen: 12:59:45 PM • Last seen: 12:55:37 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875865</div>
+                    <div class="visitor-details">8 visits • First seen: 12:59:03 PM • Last seen: 12:55:25 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875864</div>
+                    <div class="visitor-details">1 visits • First seen: 12:54:54 PM • Last seen: 12:54:54 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 3</div>
+                    <div class="visitor-details">5 visits • First seen: 1:31:15 PM • Last seen: 12:51:48 PM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 8</div>
+                    <div class="visitor-details">12 visits • First seen: 1:33:55 PM • Last seen: 12:51:18 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875864</div>
+                    <div class="visitor-details">9 visits • First seen: 12:54:07 PM • Last seen: 12:50:36 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875854</div>
+                    <div class="visitor-details">1 visits • First seen: 12:00:00 PM • Last seen: 12:00:00 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875851</div>
+                    <div class="visitor-details">1 visits • First seen: 11:48:49 AM • Last seen: 11:48:49 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875850</div>
+                    <div class="visitor-details">1 visits • First seen: 11:41:21 AM • Last seen: 11:41:21 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875849</div>
+                    <div class="visitor-details">1 visits • First seen: 11:37:30 AM • Last seen: 11:37:30 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875848</div>
+                    <div class="visitor-details">2 visits • First seen: 11:34:47 AM • Last seen: 11:30:19 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875847</div>
+                    <div class="visitor-details">2 visits • First seen: 11:27:49 AM • Last seen: 11:26:29 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875846</div>
+                    <div class="visitor-details">1 visits • First seen: 11:24:00 AM • Last seen: 11:24:00 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875845</div>
+                    <div class="visitor-details">2 visits • First seen: 11:17:32 AM • Last seen: 11:17:32 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875845</div>
+                    <div class="visitor-details">7 visits • First seen: 11:18:33 AM • Last seen: 11:17:03 AM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 7</div>
+                    <div class="visitor-details">6 visits • First seen: 1:05:47 PM • Last seen: 11:15:30 AM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 10</div>
+                    <div class="visitor-details">9 visits • First seen: 1:17:45 PM • Last seen: 11:14:21 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875844</div>
+                    <div class="visitor-details">3 visits • First seen: 11:13:33 AM • Last seen: 11:10:08 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875843</div>
+                    <div class="visitor-details">2 visits • First seen: 11:06:15 AM • Last seen: 11:05:26 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875842</div>
+                    <div class="visitor-details">2 visits • First seen: 11:02:43 AM • Last seen: 11:02:43 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875842</div>
+                    <div class="visitor-details">1 visits • First seen: 11:02:38 AM • Last seen: 11:02:38 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875841</div>
+                    <div class="visitor-details">2 visits • First seen: 10:58:50 AM • Last seen: 10:57:50 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875840</div>
+                    <div class="visitor-details">4 visits • First seen: 10:51:53 AM • Last seen: 10:50:53 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875839</div>
+                    <div class="visitor-details">3 visits • First seen: 10:49:20 AM • Last seen: 10:48:50 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875838</div>
+                    <div class="visitor-details">6 visits • First seen: 10:41:51 AM • Last seen: 10:41:51 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875837</div>
+                    <div class="visitor-details">6 visits • First seen: 10:39:15 AM • Last seen: 10:38:14 AM</div>
+                </li>
+                
+                <li class="visitor-item known">
+                    <div class="visitor-name">Person 5</div>
+                    <div class="visitor-details">9 visits • First seen: 1:16:00 PM • Last seen: 10:35:08 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875836</div>
+                    <div class="visitor-details">3 visits • First seen: 10:34:30 AM • Last seen: 10:34:30 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875836</div>
+                    <div class="visitor-details">3 visits • First seen: 10:33:51 AM • Last seen: 10:30:51 AM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875662</div>
+                    <div class="visitor-details">1 visits • First seen: 8:00:37 PM • Last seen: 8:00:37 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875662</div>
+                    <div class="visitor-details">1 visits • First seen: 8:00:21 PM • Last seen: 8:00:21 PM</div>
+                </li>
+                
+                <li class="visitor-item unknown">
+                    <div class="visitor-name">Unknown Person #875661</div>
+                    <div class="visitor-details">1 visits • First seen: 7:58:45 PM • Last seen: 7:58:45 PM</div>
+                </li>
+                
+            </ul>
+        </div>
+        
+
+        
+        <div class="section">
+            <h2>Activity Timeline</h2>
+            <div class="timeline">
+                
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/10/2025, 1:52:38 PM</div>
+                        <div>Unknown Person detected at cam1</div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/10/2025, 1:50:11 PM</div>
+                        <div>Unknown Person detected at cam2</div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/10/2025, 1:49:11 PM</div>
+                        <div>Unknown Person detected at cam2</div>
+                    </div>
+                    
+                
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/9/2025, 8:00:53 PM</div>
+                        <div>Person 10 detected at cam2</div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/9/2025, 8:00:37 PM</div>
+                        <div>Unknown Person detected at cam1</div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-time">11/9/2025, 8:00:21 PM</div>
+                        <div>Person 1 detected at cam2</div>
+                    </div>
+                    
+                
+            </div>
+        </div>
+        
+
+        
+        <div class="section">
+            <h2>Camera Activity</h2>
+            <ul class="visitor-list">
+                
+                <li class="visitor-item">
+                    <div class="visitor-name">cam1</div>
+                    <div class="visitor-details">28 detections • 27 unique visitors</div>
+                </li>
+                
+                <li class="visitor-item">
+                    <div class="visitor-name">cam2</div>
+                    <div class="visitor-details">43 detections • 41 unique visitors</div>
+                </li>
+                
+            </ul>
+        </div>
+        
+
+        <div class="footer">
+            <p>Report generated on 11/10/2025 at 1:54:30 PM by SentryVision Home Security System</p>
+            <p>This is an automated weekly visitor report covering 11/9/2025 to 11/11/2025.</p>
+        </div>
+    </div>
+</body>
+</html>

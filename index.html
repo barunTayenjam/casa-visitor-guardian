@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1e293b" />
+    <title>SentryVision - Smart Home Security</title>
+    <meta name="description" content="Intelligent home security camera system with live monitoring, motion detection, and AI-powered alerts" />
+    <meta name="author" content="SentryVision Team" />
+    <meta name="keywords" content="home security, camera system, motion detection, AI, smart home" />
+
+    <!-- Open Graph meta tags -->
+    <meta property="og:title" content="SentryVision - Smart Home Security" />
+    <meta property="og:description" content="Intelligent home security camera system with live monitoring and motion detection" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/favicon.svg" />
+
+    <!-- Twitter Card meta tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SentryVision - Smart Home Security" />
+    <meta name="twitter:description" content="Intelligent home security camera system with live monitoring and motion detection" />
+    <meta name="twitter:image" content="/favicon.svg" />
+    
+    <!-- Preconnect to improve performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    
+    <!-- Theme and color scheme -->
+    <script>
+      // Set theme before page renders to prevent flash
+      (function() {
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.classList.add(theme);
+      })();
+    </script>
+  </head>
+
+  <body class="bg-slate-900 text-slate-100 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

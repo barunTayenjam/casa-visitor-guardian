@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Security - Event Image Classification</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #28a745;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .image-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .image-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .image-info {
+            padding: 10px;
+            font-size: 12px;
+        }
+        .detection-highlight {
+            position: absolute;
+            border: 2px solid red;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Event Image Classification</h1>
+            <p>Scan and classify all detected event images for persons and faces</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="personCheckbox" checked> Detect Persons
+                </label>
+                <label>
+                    <input type="checkbox" id="faceCheckbox" checked> Detect Faces
+                </label>
+            </div>
+            <button id="scanButton">Scan All Event Images</button>
+            <button id="cancelButton" disabled>Cancel</button>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="progressText">Initializing...</div>
+        </div>
+
+        <div class="status" id="status">
+            Ready to scan event images. Click "Scan All Event Images" to begin.
+        </div>
+
+        <div class="results" id="results">
+            <h3>Previous Results</h3>
+            <div id="imageGrid" class="image-grid">
+                <!-- Results will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Connect to WebSocket server
+        const socket = io();
+
+        // DOM elements
+        const scanButton = document.getElementById('scanButton');
+        const cancelButton = document.getElementById('cancelButton');
+        const personCheckbox = document.getElementById('personCheckbox');
+        const faceCheckbox = document.getElementById('faceCheckbox');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const statusDiv = document.getElementById('status');
+        const imageGrid = document.getElementById('imageGrid');
+
+        let currentJobId = null;
+
+        // Socket event listeners
+        socket.on('classificationProgress', (data) => {
+            if (data.jobId === currentJobId) {
+                progressFill.style.width = data.progress + '%';
+                progressText.textContent = `Processing: ${data.processed}/${data.total} images - ${data.currentFile}`;
+            }
+        });
+
+        socket.on('classificationCompleted', (data) => {
+            if (data.jobId === currentJobId) {
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Completed!';
+                statusDiv.innerHTML = `Scan completed! Found ${data.detectionCount} detections in ${data.processedImages} images.`;
+                
+                // Load and display results
+                loadResults();
+                
+                // Reset UI
+                scanButton.disabled = false;
+                cancelButton.disabled = true;
+                currentJobId = null;
+            }
+        });
+
+        // Button event handlers
+        scanButton.addEventListener('click', async () => {
+            const classifyPerson = personCheckbox.checked;
+            const classifyFace = faceCheckbox.checked;
+
+            if (!classifyPerson && !classifyFace) {
+                alert('Please select at least one classification type');
+                return;
+            }
+
+            // Start the classification job
+            try {
+                scanButton.disabled = true;
+                cancelButton.disabled = false;
+                
+                progressContainer.style.display = 'block';
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Starting scan...';
+                
+                const response = await fetch('/api/events/classify-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        classifyPerson,
+                        classifyFace
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentJobId = result.jobId;
+                    statusDiv.textContent = `Started classification job for ${result.totalImages} images. Job ID: ${result.jobId}`;
+                } else {
+                    statusDiv.textContent = `Error: ${result.error}`;
+                    scanButton.disabled = false;
+                    cancelButton.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error starting classification:', error);
+                statusDiv.textContent = `Error: ${error.message}`;
+                scanButton.disabled = false;
+                cancelButton.disabled = true;
+            }
+        });
+
+        cancelButton.addEventListener('click', () => {
+            statusDiv.textContent = 'Cancelling job... (Note: Cancellation not implemented in this version)';
+            // In a real implementation, you would send a cancellation request to the backend
+        });
+
+        // Load available event images
+        async function loadEventImages() {
+            try {
+                const response = await fetch('/api/events/images');
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.textContent += ` | Found ${result.total} event images`;
+                }
+            } catch (error) {
+                console.error('Error loading event images:', error);
+            }
+        }
+
+        // Load previous results
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/events/images');
+                const result = await response.json();
+                
+                if (result.success) {
+                    imageGrid.innerHTML = '';
+                    
+                    // Limit to first 20 images for display
+                    const imagesToShow = result.images.slice(0, 20);
+                    
+                    imagesToShow.forEach(image => {
+                        const card = document.createElement('div');
+                        card.className = 'image-card';
+                        
+                        card.innerHTML = `
+                            <img src="${image.path}" alt="${image.filename}">
+                            <div class="image-info">
+                                <div>${image.filename}</div>
+                                <div>Size: ${(image.size / 1024).toFixed(1)} KB</div>
+                                <div>Modified: ${new Date(image.modifiedAt).toLocaleString()}</div>
+                            </div>
+                        `;
+                        
+                        imageGrid.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        // Initialize
+        loadEventImages();
+        loadResults();
+    </script>
+</body>
+</html>

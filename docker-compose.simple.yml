@@ -32,6 +32,7 @@ services:
     volumes:
       - ./server/cameras.json:/app/cameras.json
       - backend_data:/app/data
+      - events_data:/app/public/events
     depends_on:
       - postgres
 
@@ -49,3 +50,4 @@ services:
 volumes:
   postgres_data:
   backend_data:
+  events_data:

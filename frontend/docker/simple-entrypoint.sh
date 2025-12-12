@@ -8,7 +8,6 @@ echo "API URL: $API_URL"
 echo "WS URL: $WS_URL"
 
 # Create API configuration file for frontend
-# Handle empty or undefined variables safely
 API_URL="${API_URL:-/api}"
 WS_URL="${WS_URL:-/socket.io}"
 NODE_ENV="${NODE_ENV:-production}"
@@ -20,8 +19,6 @@ window.SENTRYVISION_CONFIG = {
   NODE_ENV: "${NODE_ENV}"
 };
 EOF
-
-# No need to substitute nginx config - it's already configured
 
 # Start nginx
 exec nginx -g "daemon off;"

@@ -1,0 +1,64 @@
+FROM node:20-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    postgresql \
+    nginx \
+    ffmpeg \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy entire application
+COPY . .
+
+# Install frontend dependencies
+RUN npm install
+
+# Install backend dependencies  
+RUN cd server && npm install
+
+# Build frontend
+RUN npm run build
+
+# Create simple startup script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "🚀 Starting SentryVision..."' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Start PostgreSQL' >> /start.sh && \
+    echo 'su - postgres -c "initdb -D /var/lib/postgresql/data" 2>/dev/null || true' >> /start.sh && \
+    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /tmp/postgres.log start"' >> /start.sh && \
+    echo 'sleep 3' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Create database' >> /start.sh && \
+    echo 'su - postgres -c "createdb sentryvision" 2>/dev/null || true' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Start backend' >> /start.sh && \
+    echo 'cd /app/server && npm start &' >> /start.sh && \
+    echo 'sleep 5' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Start nginx' >> /start.sh && \
+    echo 'nginx -g "daemon off;" &' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'echo "✅ All services started!"' >> /start.sh && \
+    echo 'echo "📱 Frontend: http://localhost"' >> /start.sh && \
+    echo 'echo "🔧 Backend: http://localhost:9753"' >> /start.sh && \
+    echo 'tail -f /dev/null' >> /start.sh && \
+    chmod +x /start.sh
+
+# Configure nginx
+RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
+    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    root /app/dist;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location /api {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        proxy_pass http://localhost:9753;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '}' >> /etc/nginx/conf.d/default.conf
+
+EXPOSE 80 9753
+
+CMD ["/start.sh"]

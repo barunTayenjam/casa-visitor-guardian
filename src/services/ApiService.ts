@@ -787,13 +787,14 @@ class ApiService {
 
       // Transform backend events to frontend format
       const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => {
-        const filename = event.imagePath?.replace('/events/', '') || '';
+        // Use the full imagePath from API (e.g., "/public/snapshots/cam1_motion_1.jpg")
+        // getEventImageUrl will handle the path cleaning
         return {
           id: event.id,
           cameraId: event.cameraId,
           cameraName: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
           timestamp: new Date(event.timestamp),
-          imageUrl: filename ? this.getEventImageUrl(filename) : null, // Ensure null if no image
+          imageUrl: event.imagePath ? this.getEventImageUrl(event.imagePath) : null, // Use full path
           confidence: event.confidence || 0,
           labels: Array.isArray(event.labels) && event.labels.length > 0 ? event.labels : ['motion'], // Use backend labels if available
           location: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
@@ -914,9 +915,27 @@ class ApiService {
         { filename }
       );
     }
-    // Use relative URLs in production so nginx can proxy them correctly
-    // In development, Vite's proxy will handle the routing
-    return `/events/${filename}`;
+    
+    // Handle full paths from API (e.g., "/public/snapshots/cam1_motion_1.jpg")
+    // or just filenames (e.g., "cam1_motion_1.jpg")
+    let cleanFilename = filename;
+    
+    // Remove leading slashes and /public/ prefix if present
+    cleanFilename = cleanFilename.replace(/^\/+/, '');
+    cleanFilename = cleanFilename.replace(/^public\//, '');
+    
+    // For Docker environment, use the same host and port as the current page
+    // The backend serves static files at /events and /snapshots endpoints
+    const currentHost = window.location.host;
+    const protocol = window.location.protocol;
+    
+    // If the filename already starts with events/ or snapshots/, use it directly
+    // Otherwise, assume it's in the events directory
+    const imagePath = cleanFilename.startsWith('events/') || cleanFilename.startsWith('snapshots/') 
+      ? cleanFilename 
+      : `events/${cleanFilename}`;
+    
+    return `${protocol}//${currentHost}/${imagePath}`;
   }
 
   // Get snapshot image URL
@@ -929,9 +948,26 @@ class ApiService {
         { filename }
       );
     }
-    // Use relative URLs in production so nginx can proxy them correctly
-    // In development, Vite's proxy will handle the routing
-    return `/snapshots/${filename}`;
+    
+    // Handle full paths from API (e.g., "/public/snapshots/cam1_motion_1.jpg")
+    // or just filenames (e.g., "cam1_motion_1.jpg")
+    let cleanFilename = filename;
+    
+    // Remove leading slashes and /public/ prefix if present
+    cleanFilename = cleanFilename.replace(/^\/+/, '');
+    cleanFilename = cleanFilename.replace(/^public\//, '');
+    
+    // For Docker environment, use the same host and port as the current page
+    const currentHost = window.location.host;
+    const protocol = window.location.protocol;
+    
+    // If the filename already starts with snapshots/, use it directly
+    // Otherwise, assume it's in the snapshots directory
+    const imagePath = cleanFilename.startsWith('snapshots/') 
+      ? cleanFilename 
+      : `snapshots/${cleanFilename}`;
+    
+    return `${protocol}//${currentHost}/${imagePath}`;
   }
 
   // Get system storage information
@@ -1425,7 +1461,7 @@ class ApiService {
       const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => ({
         ...event,
         timestamp: new Date(event.timestamp),
-        imageUrl: event.imagePath ? this.getEventImageUrl(event.imagePath.replace('/events/', '')) : null,
+        imageUrl: event.imagePath ? this.getEventImageUrl(event.imagePath) : null,
       }));
 
       return { events: transformedEvents, pagination: data.pagination };

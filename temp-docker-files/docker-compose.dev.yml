@@ -79,7 +79,8 @@ services:
     volumes:
       # Mount source code for hot reloading
       - ./server/src:/app/src
-      - ./server/package*.json:/app/
+      - ./server/package.json:/app/package.json
+      - ./server/package-lock.json:/app/package-lock.json
       - backend_node_modules:/app/node_modules
       - backend_snapshots:/app/public/snapshots
       - backend_events:/app/public/events

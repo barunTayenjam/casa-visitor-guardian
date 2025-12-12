@@ -7,6 +7,8 @@ import { Worker } from 'worker_threads';
 import { EventEmitter } from 'events';
 import { ObjectDetectionService, DetectionResult } from './objectDetection.js';
 import { FacialRecognitionService, FaceDetection } from './facialRecognition.js';
+import { AppDataSource } from '../database.js';
+import { Event } from '../models/Event.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -542,6 +544,21 @@ export class OptimizedMotionDetector extends EventEmitter {
             unknownFaces: analysisResult?.unknownFaces || 0
           }
         };
+        
+        // Save to database
+        const eventRepository = AppDataSource.getRepository(Event);
+        const newDbEvent = new Event();
+        newDbEvent.camera_id = cameraId;
+        newDbEvent.event_type = analysisResult?.hasPersons ? 'person' : (analysisResult?.hasFaces ? 'face' : 'motion');
+        newDbEvent.file_path = `/events/${filename}`;
+        newDbEvent.timestamp = new Date(event.timestamp);
+        newDbEvent.metadata = JSON.stringify(event.metadata);
+        
+        eventRepository.save(newDbEvent).then(() => {
+            console.log(`Motion event saved to database: ${filename}`);
+        }).catch(dbError => {
+            console.error(`Failed to save event to database: ${dbError}`);
+        });
 
         // Optimize: Only log motion events in development or high confidence events
         if (process.env.NODE_ENV !== 'production' || motionData.confidence > 80) {

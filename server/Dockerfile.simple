@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install FFmpeg for video processing and build tools
+RUN apk add --no-cache ffmpeg python3 make g++
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# Create necessary directories
+RUN mkdir -p public/snapshots public/events logs uploads
+
+EXPOSE 9753
+
+CMD ["npm", "start"]

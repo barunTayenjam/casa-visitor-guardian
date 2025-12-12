@@ -9,14 +9,10 @@ import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLi
 import { logger } from '../utils/logger.js';
 import auditLogger from '../utils/auditLogger.js';
 import logRoutes from './logRoutes.js';
-import { generateTestJpegFrame } from '../utils/testImageGenerator.js';
-import { AppDataSource } from '../database.js';
-import { Event } from '../models/Event.js';
-import { FindManyOptions } from 'typeorm';
 // Temporarily disable detection services to fix HTTP hanging
-import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
-import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
-import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
+// import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
+// import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
+// import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -877,9 +873,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       } else {
         console.log(`*** NO REAL PROCESS FOUND for ${cameraId} - USING TEST STREAM ***`);
         // Test stream - generate MJPEG frames on the fly
-        const generateTestMjpegFrame = async (cameraId: string) => {
+        const generateTestMjpegFrame = (cameraId: string) => {
           try {
-            const { generateTestJpegFrame } = await import('../utils/testImageGenerator.js');
+            const { generateTestJpegFrame } = require('../utils/testImageGenerator.js');
             return generateTestJpegFrame(cameraId);
           } catch (err) {
             console.error(`Error importing test frame generator:`, err);
@@ -892,11 +888,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         
         let isActive = true;
         
-        const sendFrame = async () => {
+        const sendFrame = () => {
           if (!isActive) return;
           
           try {
-            const frame = await generateTestMjpegFrame(cameraId);
+            const frame = generateTestMjpegFrame(cameraId);
             const chunkHeader = `Content-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
             const chunkEnd = `\r\n--${boundary}\r\n`;
             
@@ -1002,7 +998,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get historical motion events with pagination and filtering
-  app.get('/api/events/history', async (req: Request, res: Response) => {
+  app.get('/api/events/history', (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = parseInt(req.query.pageSize as string) || 20;
@@ -1013,63 +1009,189 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const sortBy = req.query.sortBy as string || 'newest';
       const detectionType = req.query.detectionType as string || 'all';
 
-      const eventRepository = AppDataSource.getRepository(Event);
-      
-      const findOptions: FindManyOptions<Event> = {
-        take: pageSize,
-        skip: (page - 1) * pageSize,
-        order: {},
-        where: {},
-      };
+      console.log('API Request:', {
+        page,
+        pageSize,
+        cameraIdFilter,
+        searchQuery,
+        startDate,
+        endDate,
+        sortBy
+      });
 
-      // Sorting
-      switch (sortBy) {
-        case 'oldest':
-          findOptions.order = { timestamp: 'ASC' };
-          break;
-        case 'newest':
-        default:
-          findOptions.order = { timestamp: 'DESC' };
-          break;
-      }
-      
-      // Filtering
-      const where: any = {};
+      const eventsDir = path.join(__dirname, '../../public/events');
+      const allFiles = fs.readdirSync(eventsDir)
+        .filter(file => file.endsWith('.jpg'))
+        .map(file => {
+          const parts = file.split('_');
+          const cameraId = parts[1] || 'unknown';
+          let timestamp = new Date().toISOString();
+          
+          // Get file modification time as a reliable fallback
+          const filePath = path.join(eventsDir, file);
+          const fileStats = fs.statSync(filePath);
+          const fileModTime = fileStats.mtime.toISOString();
+          
+          if (parts.length >= 3) {
+            const timestampPart = parts[2]?.split('.')[0]; // e.g., "1760618163997" (Unix timestamp in ms) or "2025-07-05T16-28-17-799Z"
+            if (timestampPart) {
+              let parsed = false;
+              
+              // Check if it's a Unix timestamp (length 13 digits for ms, 10 digits for seconds)
+              const timestampNum = parseInt(timestampPart);
+              if (!isNaN(timestampNum) && /^\d{10,13}$/.test(timestampPart)) {
+                if (timestampPart.length === 13) {
+                  // Unix timestamp in milliseconds
+                  timestamp = new Date(timestampNum).toISOString();
+                  parsed = true;
+                } else if (timestampPart.length === 10) {
+                  // Unix timestamp in seconds
+                  timestamp = new Date(timestampNum * 1000).toISOString();
+                  parsed = true;
+                }
+              }
+              
+              // Check if it's an ISO-like format (e.g., "2025-07-05T16-28-17-799Z")
+              if (!parsed && timestampPart.includes('T') && timestampPart.includes('-')) {
+                try {
+                  // Convert the filename format to ISO format
+                  // Replace '-' between time components with ':' and handle milliseconds
+                  let isoStr = timestampPart;
+                  // Fix milliseconds part - convert "-799Z" to ".799Z"
+                  isoStr = isoStr.replace(/-(\d{3})Z/, '.$1Z');
+                  // Fix the time separators (HH-mm-ss -> HH:mm:ss)
+                  isoStr = isoStr.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+                  
+                  const dateObj = new Date(isoStr);
+                  if (!isNaN(dateObj.getTime())) {
+                    timestamp = dateObj.toISOString();
+                    parsed = true;
+                  }
+                } catch (e) {
+                  console.log(`Failed to parse ISO-like timestamp: ${timestampPart}`);
+                }
+              }
+              
+              if (!parsed) {
+                // If parsing fails, use file modification time
+                timestamp = fileModTime;
+                console.log(`Using file modification time for ${file}: ${fileModTime}`);
+              }
+            } else {
+              // If no timestamp part, use file modification time
+              timestamp = fileModTime;
+            }
+          } else {
+            // If filename format is unexpected, use file modification time
+            timestamp = fileModTime;
+          }
+          
+          // Determine event type based on filename pattern
+          let labels: string[];
+          let confidence = 75; // Default confidence
+          
+          if (file.includes('faces_')) {
+            labels = ['face', 'detection'];
+          } else if (file.includes('person_')) {
+            labels = ['person', 'detection'];
+          } else {
+            labels = ['motion'];
+          }
+          
+          return {
+            id: `evt_${file}`,
+            cameraId,
+            timestamp,
+            imagePath: `/events/${file}`,
+            confidence, // Will be properly set by detection services in the future
+            labels,
+            location: 'Unknown',
+            duration: 0,
+            cameraName: cameraId // Assuming cameraName is same as cameraId for now
+          };
+        });
+
+      let filteredEvents = allFiles;
+
+      console.log('Total files before filtering:', allFiles.length);
+
       if (cameraIdFilter && cameraIdFilter !== 'all') {
-        where.camera_id = cameraIdFilter;
+        filteredEvents = filteredEvents.filter(event => event.cameraId === cameraIdFilter);
+        console.log('After camera filter:', filteredEvents.length);
       }
-      if (detectionType && detectionType !== 'all') {
-        where.event_type = detectionType;
+
+      if (searchQuery) {
+        const lowerCaseSearchQuery = searchQuery.toLowerCase();
+        filteredEvents = filteredEvents.filter(event =>
+          event.cameraId.toLowerCase().includes(lowerCaseSearchQuery) ||
+          event.labels.some(label => label.toLowerCase().includes(lowerCaseSearchQuery)) ||
+          event.location?.toLowerCase().includes(lowerCaseSearchQuery)
+        );
+        console.log('After search filter:', filteredEvents.length);
       }
+
       if (startDate) {
-        where.timestamp = { $gte: startDate };
+        filteredEvents = filteredEvents.filter(event => new Date(event.timestamp) >= startDate);
+        console.log('After start date filter:', filteredEvents.length, 'from:', startDate);
       }
+
       if (endDate) {
-        where.timestamp = { ...where.timestamp, $lte: endDate };
+        filteredEvents = filteredEvents.filter(event => new Date(event.timestamp) <= endDate);
+        console.log('After end date filter:', filteredEvents.length, 'to:', endDate);
       }
-      
-      findOptions.where = where;
 
-      // We are not implementing search query for now
+      // Apply detection type filter
+      if (detectionType && detectionType !== 'all') {
+        switch (detectionType) {
+          case 'face':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('face'));
+            break;
+          case 'person':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('person') && !event.labels.includes('face'));
+            break;
+          case 'motion':
+            filteredEvents = filteredEvents.filter(event => event.labels.includes('motion') && !event.labels.includes('face') && !event.labels.includes('person'));
+            break;
+          default:
+            // For any other value, don't apply detection type filter
+            break;
+        }
+        console.log('After detection type filter (', detectionType, '):', filteredEvents.length);
+      }
 
-      const [events, totalEvents] = await eventRepository.findAndCount(findOptions);
+      // Apply sorting AFTER filtering to get correct order within filtered results
+      filteredEvents = filteredEvents.sort((a: MotionEvent, b: MotionEvent) => {
+        switch (sortBy) {
+          case 'oldest':
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+          case 'confidence':
+            return b.confidence - a.confidence;
+          case 'newest':
+          default:
+            return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        }
+      });
 
+      // Debug: Log sorting results
+      console.log(`=== SORTING DEBUG (sortBy: ${sortBy}) ===`);
+      console.log('Total filtered events:', filteredEvents.length);
+      if (filteredEvents.length > 0) {
+        console.log('First 3 events after sorting:');
+        filteredEvents.slice(0, 3).forEach((event, index) => {
+          console.log(`  ${index + 1}. ${event.cameraId} | ${event.timestamp} | ${event.imagePath}`);
+        });
+      }
+      console.log('=== END SORTING DEBUG ===');
+
+      const totalEvents = filteredEvents.length;
       const totalPages = Math.ceil(totalEvents / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
 
       res.json({
         success: true,
-        events: events.map(event => ({
-          id: event.id,
-          cameraId: event.camera_id,
-          timestamp: event.timestamp.toISOString(),
-          imagePath: event.file_path,
-          thumbnailPath: event.thumbnail_path,
-          confidence: 0, // Replace with a real value if available
-          labels: [event.event_type],
-          location: event.camera_id,
-          duration: 0,
-          cameraName: event.camera_id,
-        })),
+        events: paginatedEvents,
         pagination: {
           totalEvents,
           totalPages,

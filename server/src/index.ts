@@ -11,6 +11,7 @@ import { config } from './config/index.js';
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
+import { initializeDatabase } from './database.js';
 
 dotenv.config({ path: './.env' });
 
@@ -19,10 +20,15 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:4000'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from public directory
+app.use('/events', express.static('public/events'));
+app.use('/snapshots', express.static('public/snapshots'));
+app.use('/public', express.static('public'));
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -30,7 +36,7 @@ const server = http.createServer(app);
 // Configure Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:4000'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true
   }
 });
@@ -74,6 +80,7 @@ console.log('Routes configured successfully');
 // Initialize stream manager
 async function initializeServices() {
   try {
+    await initializeDatabase();
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');

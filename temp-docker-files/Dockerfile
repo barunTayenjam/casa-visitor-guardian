@@ -138,13 +138,11 @@ RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
     echo 'envsubst "\$NGINX_PORT" < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf' >> /docker-entrypoint.sh && \
     echo '' >> /docker-entrypoint.sh && \
     echo '# Create API configuration file for frontend' >> /docker-entrypoint.sh && \
-    echo 'envsubst "\$API_URL \$WS_URL \$NODE_ENV" > /usr/share/nginx/html/config.js << EOF' >> /docker-entrypoint.sh && \
-    echo 'window.SENTRYVISION_CONFIG = {' >> /docker-entrypoint.sh && \
-    echo '  API_URL: "$API_URL",' >> /docker-entrypoint.sh && \
-    echo '  WS_URL: "$WS_URL",' >> /docker-entrypoint.sh && \
-    echo '  NODE_ENV: "$NODE_ENV"' >> /docker-entrypoint.sh && \
-    echo '};' >> /docker-entrypoint.sh && \
-    echo 'EOF' >> /docker-entrypoint.sh && \
+    echo 'echo "window.SENTRYVISION_CONFIG = {" > /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
+    echo 'echo "  API_URL: \"'$API_URL'\"," >> /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
+    echo 'echo "  WS_URL: \"'$WS_URL'\"," >> /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
+    echo 'echo "  NODE_ENV: \"'$NODE_ENV'\"" >> /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
+    echo 'echo "};" >> /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
     echo '' >> /docker-entrypoint.sh && \
     echo '# Start nginx with dumb-init' >> /docker-entrypoint.sh && \
     echo 'exec dumb-init nginx -g "daemon off;"' >> /docker-entrypoint.sh && \

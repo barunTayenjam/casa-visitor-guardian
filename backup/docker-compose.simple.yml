@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  sentryvision:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    ports:
+      - "80:80"
+      - "9753:9753"
+      - "5432:5432"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=localhost
+      - DB_PORT=5432
+      - DB_NAME=sentryvision
+      - DB_USER=sentryvision
+      - DB_PASSWORD=sentryvision123
+      - JWT_ACCESS_SECRET=your-jwt-access-secret-here-change-in-production
+      - JWT_REFRESH_SECRET=your-jwt-refresh-secret-here-change-in-production
+      - DATABASE_URL=postgresql://sentryvision:sentryvision123@localhost:5432/sentryvision
+    volumes:
+      - ./data:/app/data
+      - ./public:/app/public
+    networks:
+      - sentryvision-network
+
+networks:
+  sentryvision-network:
+    driver: bridge

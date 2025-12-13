@@ -9,6 +9,9 @@ export interface ObjectDetectionSettings {
   enabled: boolean;
   sensitivity: number;
   cooldownPeriod: number;
+  minConfidence?: number;
+  maxDetections?: number;
+  targetClasses?: string[];
 }
 
 export class ObjectDetectionService {
@@ -25,8 +28,8 @@ export class ObjectDetectionService {
   
   isReady(): boolean { return true; }
   
-  async detectObjects(cameraId: string, imageBuffer: Buffer, settings?: ObjectDetectionSettings): Promise<DetectionResult[]> {
-    return []; // Stub - no detection
+  async detectObjects(imageBuffer: Buffer, cameraId?: string): Promise<{ detections: DetectionResult[] }> {
+    return { detections: [] }; // Stub - no detection
   }
   
   updateSettings(cameraId: string, settings: Partial<ObjectDetectionSettings>): boolean {

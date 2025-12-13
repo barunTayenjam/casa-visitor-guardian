@@ -1,7 +1,7 @@
 // File: server/src/models/AuditLog.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, CreateDateColumn } from 'typeorm';
-import { User } from './User.js';
-import { Session } from './Session.js';
+import { User } from './User';
+import { Session } from './Session';
 
 @Entity('audit_logs')
 @Index(['userId'])

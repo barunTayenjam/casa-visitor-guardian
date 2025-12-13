@@ -1,10 +1,10 @@
 // File: server/src/models/User.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { Session } from './Session.js';
-import { AuditLog } from './AuditLog.js';
-import { PasswordHistory } from './PasswordHistory.js';
-import { Role } from './Role.js';
+import { Session } from './Session';
+import { AuditLog } from './AuditLog';
+import { PasswordHistory } from './PasswordHistory';
+import { Role } from './Role';
 
 @Entity('users')
 @Index(['email'])

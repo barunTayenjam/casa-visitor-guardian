@@ -1,6 +1,6 @@
 // File: server/src/models/Role.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { User } from './User.js';
+import { User } from './User';
 
 @Entity('roles')
 export class Role {

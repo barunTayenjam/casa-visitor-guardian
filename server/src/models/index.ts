@@ -1,7 +1,7 @@
 // File: server/src/models/index.ts
-export { User } from './User.js';
-export { Role } from './Role.js';
-export { Session } from './Session.js';
-export { AuditLog } from './AuditLog.js';
-export { PasswordHistory } from './PasswordHistory.js';
-export { Event } from './Event.js';
+export { User } from './User';
+export { Role } from './Role';
+export { Session } from './Session';
+export { AuditLog } from './AuditLog';
+export { PasswordHistory } from './PasswordHistory';
+export { Event } from './Event';

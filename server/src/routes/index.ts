@@ -1982,7 +1982,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
       const facialRecognitionService = getGlobalFacialRecognitionService();
-      const settings = facialRecognitionService.getSettings('default');
+      const settings = facialRecognitionService.getSettings();
       res.json({ success: true, settings });
     } catch (error) {
       console.error('Error getting facial recognition settings:', error);
@@ -1995,7 +1995,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const { recognitionThreshold, minFaceSize, livenessDetection } = req.body;
       const facialRecognitionService = getGlobalFacialRecognitionService();
-      const updated = facialRecognitionService.updateSettings('default', {
+      const updated = facialRecognitionService.updateSettings({
         recognitionThreshold: recognitionThreshold || 0.6,
         minFaceSize: minFaceSize || 48,
         // livenessDetection: livenessDetection || false
@@ -2030,7 +2030,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       }
       
       const facialRecognitionService = getGlobalFacialRecognitionService();
-      const personId = await facialRecognitionService.addKnownPerson({ name, description, isFamily: false, isAuthorized: true }, imagePaths[0]);
+      const personId = facialRecognitionService.addKnownPerson(name, imagePaths[0]);
       
       res.json({
         success: true,
@@ -2087,7 +2087,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Run person detection if enabled
       if (enablePersonDetection) {
         const objectDetectionService = getGlobalObjectDetectionService();
-        const personResult = await objectDetectionService.detectObjects(currentFrame, 'default');
+        const personResult = await objectDetectionService.detectObjects(currentFrame);
         analysisResults.persons = personResult.detections.filter((d) => d.class === 'person');
       }
       

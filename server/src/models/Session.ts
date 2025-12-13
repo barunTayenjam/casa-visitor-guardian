@@ -1,6 +1,6 @@
 // File: server/src/models/Session.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './User.js';
+import { User } from './User';
 
 @Entity('user_sessions')
 @Index(['userId'])

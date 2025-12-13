@@ -1,19 +1,19 @@
-version: '3.8'
-
 services:
   sentryvision:
     build:
       context: .
       dockerfile: Dockerfile.monolithic
-    container_name: sentryvision
+    container_name: sentryvision-monolithic
     ports:
       - "80:80"      # Frontend (nginx)
       - "9753:9753"   # Backend API
-      - "5432:5432"   # PostgreSQL
+      - "5432:5432"   # PostgreSQL (optional, for debugging)
     volumes:
       - ./data:/app/data                    # Persistent data
       - ./server/cameras.json:/app/server/cameras.json  # Camera config
       - postgres_data:/var/lib/postgresql/data  # Database data
+      - events_data:/app/public/events       # Events data
+      - snapshots_data:/app/data/snapshots   # Snapshots data
     environment:
       - NODE_ENV=production
       - PORT=9753
@@ -22,9 +22,18 @@ services:
       - DB_NAME=sentryvision
       - DB_USER=sentryvision
       - DB_PASSWORD=sentryvision123
-      - JWT_ACCESS_SECRET=your-jwt-access-secret-here
-      - JWT_REFRESH_SECRET=your-jwt-refresh-secret-here
+      - JWT_ACCESS_SECRET=your-jwt-access-secret-here-change-in-production
+      - JWT_REFRESH_SECRET=your-jwt-refresh-secret-here-change-in-production
+      - DATABASE_URL=postgresql://sentryvision:sentryvision123@localhost:5432/sentryvision
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/health"] || exit 1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
 
 volumes:
   postgres_data:
+  events_data:
+  snapshots_data:

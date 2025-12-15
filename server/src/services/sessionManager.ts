@@ -1,5 +1,5 @@
 import { DataSource, Repository } from 'typeorm';
-import { Session, User } from '../models';
+import { User } from '../models';
 import { JWTService } from '../utils/jwtService';
 import { AuditService } from '../utils/auditService';
 import { z } from 'zod';

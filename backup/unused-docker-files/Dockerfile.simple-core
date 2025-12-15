@@ -1,0 +1,53 @@
+FROM node:20-alpine
+
+# Install essential dependencies
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy entire application
+COPY . .
+
+# Install dependencies and build
+RUN npm install
+RUN cd server && npm install
+RUN npm run build
+RUN cd server && npm run build
+
+# Create simple startup script
+RUN echo '#!/bin/sh' > /start-all.sh && \
+    echo 'set -e' >> /start-all.sh && \
+    echo 'echo "🚀 Starting SentryVision Core Application..."' >> /start-all.sh && \
+    echo '' >> /start-all.sh && \
+    echo '# Start backend server' >> /start-all.sh && \
+    echo 'echo "Starting backend..."' >> /start-all.sh && \
+    echo 'cd /app/server && node dist/index.js &' >> /start-all.sh && \
+    echo 'BACKEND_PID=$!' >> /start-all.sh && \
+    echo 'sleep 5' >> /start-all.sh && \
+    echo '' >> /start-all.sh && \
+    echo '# Start frontend (serve built files)' >> /start-all.sh && \
+    echo 'echo "Starting frontend..."' >> /start-all.sh && \
+    echo 'cd /app && npx serve -s dist -l 5173 &' >> /start-all.sh && \
+    echo 'FRONTEND_PID=$!' >> /start-all.sh && \
+    echo 'sleep 2' >> /start-all.sh && \
+    echo '' >> /start-all.sh && \
+    echo 'echo "✅ Core services started!"' >> /start-all.sh && \
+    echo 'echo "🌐 Frontend: http://localhost:5173"' >> /start-all.sh && \
+    echo 'echo "🔧 Backend API: http://localhost:9753"' >> /start-all.sh && \
+    echo 'echo "📹 Features: Full SentryVision Application"' >> /start-all.sh && \
+    echo '' >> /start-all.sh && \
+    echo '# Wait for all services' >> /start-all.sh && \
+    echo 'wait $BACKEND_PID $FRONTEND_PID' >> /start-all.sh && \
+    chmod +x /start-all.sh
+
+# Expose ports
+EXPOSE 5173 9753
+
+# Set environment variables
+ENV NODE_ENV=production
+
+# Start everything
+CMD ["/start-all.sh"]

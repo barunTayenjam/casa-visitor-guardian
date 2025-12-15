@@ -1,0 +1,24 @@
+FROM node:20-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy streaming server
+COPY server/streaming-minimal.js .
+
+# Create startup script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "🚀 Starting SentryVision with Real Streaming..."' >> /start.sh && \
+    echo 'node streaming-minimal.js' >> /start.sh && \
+    chmod +x /start.sh
+
+# Expose ports
+EXPOSE 9753 9754
+
+# Start the application
+CMD ["/start.sh"]

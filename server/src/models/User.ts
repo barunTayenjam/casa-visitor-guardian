@@ -1,10 +1,10 @@
 // File: server/src/models/User.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { Session } from './Session';
-import { AuditLog } from './AuditLog';
-import { PasswordHistory } from './PasswordHistory';
-import { Role } from './Role';
+
+// import { AuditLog } from './AuditLog.js'; // Temporarily disabled
+import { PasswordHistory } from './PasswordHistory.js';
+import { Role } from './Role.js';
 
 @Entity('users')
 @Index(['email'])
@@ -91,11 +91,11 @@ export class User {
   @Column({ type: 'uuid', nullable: true })
   updatedBy!: string | null;
 
-  @OneToMany(() => Session, session => session.user)
-  sessions!: Session[];
+  @OneToMany('Session', 'user')
+  sessions!: any[];
 
-  @OneToMany(() => AuditLog, auditLog => auditLog.user)
-  auditLogs!: AuditLog[];
+  // @OneToMany(() => AuditLog, auditLog => auditLog.user)
+  // auditLogs!: AuditLog[]; // Temporarily disabled
 
   @OneToMany(() => PasswordHistory, passwordHistory => passwordHistory.user)
   passwordHistory!: PasswordHistory[];

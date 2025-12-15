@@ -1,7 +1,7 @@
 // File: server/src/models/AuditLog.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, CreateDateColumn } from 'typeorm';
-import { User } from './User';
-import { Session } from './Session';
+import { User } from './User.js';
+// import { Session } from './Session.js'; // Temporarily disabled
 
 @Entity('audit_logs')
 @Index(['userId'])
@@ -14,7 +14,7 @@ export class AuditLog {
   @Column({ type: 'uuid', nullable: true })
   userId!: string | null;
 
-  @ManyToOne(() => User, user => user.auditLogs, { nullable: true })
+  @ManyToOne(() => User, user => (user as any).auditLogs, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user!: User | null;
 
@@ -42,9 +42,9 @@ export class AuditLog {
   @Column({ type: 'uuid', nullable: true })
   sessionId!: string | null;
 
-  @ManyToOne(() => Session, { nullable: true })
+  @ManyToOne('Session', { nullable: true })
   @JoinColumn({ name: 'session_id' })
-  session!: Session | null;
+  session!: any | null;
 
   @Column({ 
     type: 'varchar', 

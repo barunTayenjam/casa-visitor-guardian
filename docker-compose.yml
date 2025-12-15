@@ -7,7 +7,6 @@ services:
     ports:
       - "80:80"      # Frontend (nginx)
       - "9753:9753"   # Backend API
-      - "5432:5432"   # PostgreSQL (optional, for debugging)
     volumes:
       - ./data:/app/data                    # Persistent data
       - ./server/cameras.json:/app/server/cameras.json  # Camera config
@@ -26,12 +25,13 @@ services:
       - JWT_REFRESH_SECRET=your-jwt-refresh-secret-here-change-in-production
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@localhost:5432/sentryvision
     restart: unless-stopped
+    # Add health check
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9753/health"] || exit 1
+      test: ["CMD", "curl", "-f", "http://localhost:9753/health"]
       interval: 30s
       timeout: 10s
-      start_period: 60s
       retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:

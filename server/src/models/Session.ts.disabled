@@ -1,6 +1,5 @@
 // File: server/src/models/Session.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './User';
 
 @Entity('user_sessions')
 @Index(['userId'])
@@ -13,9 +12,9 @@ export class Session {
   @Column({ type: 'uuid' })
   userId!: string;
 
-  @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne('User', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: any;
 
   @Column({ length: 255, unique: true })
   refreshToken!: string;

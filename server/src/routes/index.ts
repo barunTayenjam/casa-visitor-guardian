@@ -11,7 +11,7 @@ import auditLogger from '../utils/auditLogger.js';
 import logRoutes from './logRoutes.js';
 import { generateTestJpegFrame } from '../utils/testImageGenerator.js';
 import { AppDataSource } from '../database.js';
-import { Event } from '../models/Event.js';
+// import { Event } from '../models/Event.js'; // Temporarily disabled
 import { FindManyOptions } from 'typeorm';
 // Temporarily disable detection services to fix HTTP hanging
 import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
@@ -50,7 +50,7 @@ interface Alert {
 }
 
 // Store recent motion events in memory
-const recentEvents: MotionEvent[] = [];
+// const recentEvents: MotionEvent[] = []; // Temporarily disabled
 
 // Store alerts in memory
 let alerts: Alert[] = [];

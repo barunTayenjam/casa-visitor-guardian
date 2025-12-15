@@ -35,11 +35,14 @@ RUN npm ci
 # Build frontend
 RUN npm run build
 
-# Install backend dependencies (simplified)
-RUN cd server && npm install --no-optional --legacy-peer-deps
+# Install backend dependencies
+RUN cd server && npm install
 
-# Skip backend build for now - will run in development mode
-# RUN cd server && npm run build
+# Install database dependencies
+RUN cd database && npm install
+
+# Build backend
+RUN cd server && npm run build
 
 # Initialize PostgreSQL and create required directories
 RUN mkdir -p /var/lib/postgresql/data && \
@@ -53,103 +56,9 @@ RUN mkdir -p /var/lib/postgresql/data && \
     mkdir -p /etc/nginx/conf.d && \
     chown -R root:root /etc/nginx/conf.d
 
-# Create startup script inline
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'set -e' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Start PostgreSQL' >> /start.sh && \
-    echo 'echo "Starting PostgreSQL..."' >> /start.sh && \
-    echo 'su - postgres -c "initdb -D /var/lib/postgresql/data" || true' >> /start.sh && \
-    echo 'su - postgres -c "pg_ctl -D /var/lib/postgresql/data -l /tmp/postgresql.log start"' >> /start.sh && \
-    echo 'sleep 5' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Create database and user' >> /start.sh && \
-    echo 'echo "Creating database..."' >> /start.sh && \
-    echo 'su - postgres -c "createdb sentryvision" || true' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"CREATE USER sentryvision WITH PASSWORD '\''sentryvision123'\'';\"" || true' >> /start.sh && \
-    echo 'su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE sentryvision TO sentryvision;\""' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Wait for PostgreSQL to be ready' >> /start.sh && \
-    echo 'echo "Waiting for PostgreSQL to be ready..."' >> /start.sh && \
-    echo 'for i in $(seq 1 30); do' >> /start.sh && \
-    echo '    if su - postgres -c "pg_isready -h localhost -p 5432" >/dev/null 2>&1; then' >> /start.sh && \
-    echo '        echo "PostgreSQL is ready"' >> /start.sh && \
-    echo '        break' >> /start.sh && \
-    echo '    fi' >> /start.sh && \
-    echo '    echo "Waiting for PostgreSQL... $i/30"' >> /start.sh && \
-    echo '    sleep 2' >> /start.sh && \
-    echo 'done' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Run migrations' >> /start.sh && \
-    echo 'echo "Running migrations..."' >> /start.sh && \
-    echo 'cd /app/database && npm ci && npx tsx run-migrations.ts || echo "Migrations may have already run"' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Start backend' >> /start.sh && \
-    echo 'echo "Starting backend..."' >> /start.sh && \
-    echo 'cd /app/server && node streaming-api.js &' >> /start.sh && \
-    echo 'BACKEND_PID=$!' >> /start.sh && \
-    echo 'sleep 10' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Configure and start nginx' >> /start.sh && \
-    echo 'echo "Starting nginx..."' >> /start.sh && \
-    echo 'mkdir -p /etc/nginx/conf.d' >> /start.sh && \
-    echo '# Create nginx config for monolithic setup' >> /start.sh && \
-    echo 'echo "server {" > /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    listen 80;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    server_name localhost;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    root /app/dist;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    index index.html;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    location / {" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        try_files $uri $uri/ /index.html;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    }" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    location /api {" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_pass http://localhost:9753;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Upgrade $http_upgrade;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Connection '\''upgrade'\'';" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Host $host;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Real-IP $remote_addr;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Forwarded-Proto $scheme;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_cache_bypass $http_upgrade;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    }" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    location /socket.io {" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_pass http://localhost:9753;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_http_version 1.1;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Upgrade $http_upgrade;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Connection '\''upgrade'\'';" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header Host $host;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Real-IP $remote_addr;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_set_header X-Forwarded-Proto $scheme;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "        proxy_cache_bypass $http_upgrade;" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "    }" >> /etc/nginx/conf.d/default.conf && \
-    echo 'echo "}" >> /etc/nginx/conf.d/default.conf' >> /start.sh && \
-    echo 'nginx -g "daemon off;" &' >> /start.sh && \
-    echo 'NGINX_PID=$!' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Wait for services' >> /start.sh && \
-    echo 'echo "All services started!"' >> /start.sh && \
-    echo 'echo "Frontend: http://localhost:80"' >> /start.sh && \
-    echo 'echo "Backend: http://localhost:9753"' >> /start.sh && \
-    echo 'echo "Database: localhost:5432"' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Function to cleanup on exit' >> /start.sh && \
-    echo 'cleanup() {' >> /start.sh && \
-    echo '    echo "Shutting down services..."' >> /start.sh && \
-    echo '    kill $BACKEND_PID 2>/dev/null || true' >> /start.sh && \
-    echo '    kill $NGINX_PID 2>/dev/null || true' >> /start.sh && \
-    echo '    su - postgres -c "pg_ctl -D /var/lib/postgresql/data stop"' >> /start.sh && \
-    echo '    exit 0' >> /start.sh && \
-    echo '}' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Trap signals' >> /start.sh && \
-    echo 'trap cleanup SIGTERM SIGINT' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo '# Wait for services to stay running' >> /start.sh && \
-    echo 'wait $BACKEND_PID $NGINX_PID' >> /start.sh && \
-    chmod +x /start.sh
-
+# Copy the startup script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 
 # Set environment variables

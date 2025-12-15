@@ -1,0 +1,30 @@
+services:
+  sentryvision:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: sentryvision-dev
+    ports:
+      - "5173:5173"  # Frontend dev server
+      - "9753:9753"  # Backend API
+    volumes:
+      - .:/app                    # Mount source code for live reload
+      - /app/node_modules         # Prevent overwriting node_modules
+      - /app/server/node_modules  # Prevent overwriting server node_modules
+      - /app/database/node_modules # Prevent overwriting database node_modules
+      - ./data:/app/data          # Persistent data
+      - ./server/cameras.json:/app/server/cameras.json  # Camera config
+    environment:
+      - NODE_ENV=development
+      - PORT=9753
+      - DB_HOST=localhost
+      - DB_PORT=5432
+      - DB_NAME=sentryvision
+      - DB_USER=sentryvision
+      - DB_PASSWORD=sentryvision123
+      - JWT_ACCESS_SECRET=dev-jwt-access-secret
+      - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
+      - DATABASE_URL=postgresql://sentryvision:sentryvision123@localhost:5432/sentryvision
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

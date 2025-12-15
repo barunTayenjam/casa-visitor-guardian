@@ -1,0 +1,26 @@
+services:
+  sentryvision:
+    build:
+      context: .
+      dockerfile: Dockerfile.full-linux
+    ports:
+      - "5173:5173"  # Frontend
+      - "9753:9753"  # Backend API
+      - "8080:8080"  # OpenCV service
+      - "5432:5432"  # PostgreSQL (optional, for debugging)
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=localhost
+      - DB_PORT=5432
+      - DB_NAME=sentryvision
+      - DB_USER=sentryvision
+      - DB_PASSWORD=sentryvision123
+      - JWT_ACCESS_SECRET=your-jwt-access-secret-here-change-in-production
+      - JWT_REFRESH_SECRET=your-jwt-refresh-secret-here-change-in-production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9753/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

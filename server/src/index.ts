@@ -4,6 +4,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Import configuration
 import { config } from './config/index.js';
@@ -29,6 +31,11 @@ app.use(express.json());
 app.use('/events', express.static('public/events'));
 app.use('/snapshots', express.static('public/snapshots'));
 app.use('/public', express.static('public'));
+
+// Serve frontend static files
+const distPath = '/app/dist'; // Use absolute path in container
+app.use(express.static(distPath));
+
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -77,10 +84,16 @@ configureAuthRoutes(app);
 configureRoutes(app, io);
 console.log('Routes configured successfully');
 
+// For any other route, serve the index.html - temporarily disabled
+// app.get('*', (req, res) => {
+//     res.sendFile(path.join(distPath, 'index.html'));
+// });
+
 // Initialize stream manager
 async function initializeServices() {
   try {
-    await initializeDatabase();
+    // await initializeDatabase(); // Temporarily disabled due to TypeORM issues
+    console.log('Database initialization temporarily disabled');
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');

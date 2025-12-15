@@ -35,7 +35,7 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const PORT = 9755;
+const PORT = 9753;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Simple API server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);

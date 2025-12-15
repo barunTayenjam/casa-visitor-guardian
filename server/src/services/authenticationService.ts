@@ -1,5 +1,5 @@
 import { DataSource, Repository } from 'typeorm';
-import { User, Role, Session, AuditLog, PasswordHistory } from '../models';
+import { User, Role, AuditLog, PasswordHistory } from '../models';
 import { PasswordSecurityService, defaultPasswordPolicy } from '../utils/passwordSecurity';
 import { JWTService } from '../utils/jwtService';
 import { AuditService } from '../utils/auditService';

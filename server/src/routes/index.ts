@@ -1442,6 +1442,30 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Serve event images via API
+  app.get('/api/events/image/:filename', (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const imagePath = path.join(__dirname, '../../public/events', filename);
+      
+      // Security check - ensure filename is valid
+      if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        return res.status(400).json({ success: false, error: 'Invalid filename' });
+      }
+      
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({ success: false, error: 'Image not found' });
+      }
+      
+      // Send the file
+      res.sendFile(imagePath);
+    } catch (error) {
+      console.error('Error serving event image:', error);
+      res.status(500).json({ success: false, error: 'Failed to serve image' });
+    }
+  });
+
   // List snapshots
   app.get('/api/snapshots/list', (req: Request, res: Response) => {
     try {

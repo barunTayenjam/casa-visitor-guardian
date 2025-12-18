@@ -1,7 +1,7 @@
 
 import { DataSource } from 'typeorm';
 import { config } from './config/index.js';
-// import { User, Role, PasswordHistory, Event } from './models/index.js'; // Temporarily disabled
+import { User, Role, PasswordHistory, Event } from './models/index.js';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -10,7 +10,7 @@ export const AppDataSource = new DataSource({
   username: config.database.username,
   password: config.database.password,
   database: config.database.name,
-  entities: [], // Temporarily disabled
+  entities: [User, Role, PasswordHistory, Event],
   synchronize: false, // Never use TRUE in production!
   logging: config.nodeEnv === 'development',
   migrations: ['dist/migrations/*.js'],

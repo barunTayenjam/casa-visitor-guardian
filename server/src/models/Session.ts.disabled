@@ -16,10 +16,10 @@ export class Session {
   @JoinColumn({ name: 'user_id' })
   user!: any;
 
-  @Column({ length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   refreshToken!: string;
 
-  @Column({ length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   accessTokenHash!: string;
 
   @Column({ type: 'jsonb', default: () => '{}' })

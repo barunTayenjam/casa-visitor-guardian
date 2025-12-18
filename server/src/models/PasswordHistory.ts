@@ -11,11 +11,11 @@ export class PasswordHistory {
   @Column({ type: 'uuid' })
   userId!: string;
 
-  @ManyToOne(() => User, user => (user as any).passwordHistory, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   passwordHash!: string;
 
   @CreateDateColumn()

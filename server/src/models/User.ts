@@ -14,17 +14,17 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50, unique: true })
   username!: string;
 
-  @Column({ length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   email!: string;
 
-  @Column({ length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   @Exclude()
   passwordHash!: string;
 
-  @Column({ length: 32 })
+  @Column({ type: 'varchar', length: 32 })
   @Exclude()
   salt!: string;
 
@@ -46,7 +46,7 @@ export class User {
   @Column({ type: 'boolean', default: false })
   mfaEnabled!: boolean;
 
-  @Column({ length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 32, nullable: true })
   @Exclude()
   mfaSecret!: string | null;
 
@@ -57,13 +57,13 @@ export class User {
   @Column({ type: 'boolean', default: false })
   emailVerified!: boolean;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   emailVerificationToken!: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpires!: Date | null;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   @Exclude()
   passwordResetToken!: string | null;
 

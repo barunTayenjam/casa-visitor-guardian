@@ -6,7 +6,7 @@ services:
     container_name: sentryvision-dev
     ports:
       - "5173:5173"  # Frontend dev server
-      - "9753:9753"  # Backend API
+      - "8082:8082"  # Backend API
     volumes:
       - .:/app                    # Mount source code for live reload
       - /app/node_modules         # Prevent overwriting node_modules
@@ -16,7 +16,7 @@ services:
       - ./server/cameras.json:/app/server/cameras.json  # Camera config
     environment:
       - NODE_ENV=development
-      - PORT=9753
+      - PORT=8082
       - DB_HOST=localhost
       - DB_PORT=5432
       - DB_NAME=sentryvision

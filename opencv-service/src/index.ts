@@ -83,7 +83,7 @@ class OpenCVService {
 
   private async getCachedResult(fileHash: string): Promise<CacheEntry | null> {
     return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database('../server/data/logs.db');
+      const db = new sqlite3.Database('/app/data/logs.db');
       
       db.get(
         'SELECT object_detections, face_detections, processing_time FROM detection_cache WHERE file_hash = ?',
@@ -112,7 +112,7 @@ class OpenCVService {
 
   private async cacheResult(fileHash: string, objectDetections: any, faceDetections: any, processingTime: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database('../server/data/logs.db');
+      const db = new sqlite3.Database('/app/data/logs.db');
       
       db.run(
         `INSERT OR REPLACE INTO detection_cache 

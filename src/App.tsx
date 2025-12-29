@@ -17,6 +17,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CameraConfig = lazy(() => import("./pages/CameraConfig"));
 const MotionEvents = lazy(() => import("./pages/MotionEvents"));
+const BatchDetection = lazy(() => import("./pages/BatchDetection"));
 const Settings = lazy(() => import("./pages/Settings"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
 const VisitorReports = lazy(() => import("./pages/VisitorReports"));
@@ -170,14 +171,24 @@ const App = () => {
                       </ErrorBoundary>
                     } />
 
-                    <Route path="settings" element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <ProtectedRoute requiredRole="user">
-                          <Settings />
-                        </ProtectedRoute>
-                      </ErrorBoundary>
-                    } />
-                  </Route>
+                   <Route path="settings" element={
+                       <ErrorBoundary fallback={ErrorFallback}>
+                         <ProtectedRoute requiredRole="user">
+                           <Settings />
+                         </ProtectedRoute>
+                       </ErrorBoundary>
+                     } />
+                   
+                   {/* Batch Detection route - for running OpenCV on all events */}
+                   <Route 
+                     path="batch-detection" 
+                     element={
+                       <ErrorBoundary fallback={ErrorFallback}>
+                         <BatchDetection />
+                       </ErrorBoundary>
+                     } 
+                   />
+                   </Route>
                   
                   {/* Catch all */}
                   <Route path="*" element={<NotFound />} />

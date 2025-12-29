@@ -141,12 +141,10 @@ const parseTimestampFromFilename = (filename: string): number => {
   if (parts.length >= 3) {
     const timestampPart = parts[2]?.split('.')[0]; // e.g., "2025-06-29T07-24-23-640Z" or "1763535628378"
     if (timestampPart) {
-      // Check if timestampPart is a numeric timestamp (like 1763535628378 or 1763535628378Z)
+      // Check if timestampPart is a numeric timestamp (like 1763535628378)
       // Unix timestamps in milliseconds for 2025 would be ~1700000000000+ (much larger than 9999)
-      // Strip 'Z' suffix if present for numeric check
-      const cleanTimestampPart = timestampPart.replace(/Z$/, '');
-      const numericTimestamp = parseInt(cleanTimestampPart, 10);
-      if (!isNaN(numericTimestamp) && /^\d+$/.test(cleanTimestampPart) && cleanTimestampPart.length > 4) {
+      const numericTimestamp = parseInt(timestampPart, 10);
+      if (!isNaN(numericTimestamp) && timestampPart.length > 4) {
         // It's a numeric timestamp in milliseconds (not just a year like 2025)
         const parsedDate = new Date(numericTimestamp);
         if (!isNaN(parsedDate.getTime())) {
@@ -2287,9 +2285,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           if (parts.length >= 3) {
             const timestampPart = parts[2]?.split('.')[0];
             if (timestampPart) {
-              const cleanTimestampPart = timestampPart.replace(/Z$/, '');
-              const numericTimestamp = parseInt(cleanTimestampPart, 10);
-              const isNumeric = !isNaN(numericTimestamp) && /^\d+$/.test(cleanTimestampPart) && cleanTimestampPart.length > 4;
+              const numericTimestamp = parseInt(timestampPart, 10);
+              const isNumeric = !isNaN(numericTimestamp) && /^\d+$/.test(timestampPart) && timestampPart.length > 4;
               if (isNumeric) {
                 const parsedDate = new Date(numericTimestamp);
                 if (!isNaN(parsedDate.getTime())) {

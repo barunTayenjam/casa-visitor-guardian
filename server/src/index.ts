@@ -12,8 +12,10 @@ import { config } from './config/index.js';
 
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
+import { configureVisitorRoutes } from './routes/visitorRoutes.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase } from './database.js';
+import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 
 dotenv.config({ path: './.env' });
 
@@ -82,6 +84,7 @@ app.get('/test', (req, res) => {
 // Configure routes first
 configureAuthRoutes(app);
 configureRoutes(app, io);
+configureVisitorRoutes(app);
 console.log('Routes configured successfully');
 
 // For any other route, serve the index.html - temporarily disabled
@@ -97,9 +100,13 @@ async function initializeServices() {
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');
+
+    console.log('Initializing motion detection...');
+    (global as any).motionDetector = setupOptimizedMotionDetection((global as any).streamManager, io);
+    console.log('Motion detection initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize stream manager:', error);
-    // Continue without stream manager - API routes will still work
+    console.error('Failed to initialize services:', error);
+    // Continue without services - API routes will still work
   }
 }
 
@@ -150,7 +157,7 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 9753;
+const PORT = process.env.PORT || 8082;
 
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);

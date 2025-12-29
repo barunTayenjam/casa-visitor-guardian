@@ -17,6 +17,11 @@ RUN apk add --no-cache \
     py3-opencv \
     py3-numpy \
     lsof \
+    opencv-dev \
+    opencv-contrib-dev \
+    cmake \
+    gfortran \
+    build-base \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /app
@@ -38,7 +43,7 @@ COPY . .
 RUN mkdir -p /app/data/events /app/data/snapshots /app/public/events
 
 # Expose ports
-EXPOSE 5173 9753
+EXPOSE 5173 8082
 
 # Environment variables
 ENV NODE_ENV=development

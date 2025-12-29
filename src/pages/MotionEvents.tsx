@@ -411,7 +411,7 @@ const MotionEvents = () => {
                   </div>
                   {event.confidence > 0 && (
                     <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded-full">
-                      {Math.round(event.confidence * 100)}%
+                      {event.confidence >= 1 ? Math.round(event.confidence) + '%' : Math.round(event.confidence * 100) + '%'}
                     </div>
                   )}
                   {/* Show badge for face detection events */}
@@ -584,7 +584,7 @@ const MotionEvents = () => {
                       {selectedEvent.timestamp.toLocaleString()}
                     </p>
                     <p className="text-xs text-white/60 mt-1">
-                      Event {selectedEventIndex + 1} of {events.length} • {Math.round(selectedEvent.confidence * 100)}% confidence
+                      Event {selectedEventIndex + 1} of {events.length} • {selectedEvent.confidence >= 1 ? Math.round(selectedEvent.confidence) + '%' : Math.round(selectedEvent.confidence * 100) + '%'} confidence
                     </p>
                   </div>
                   <div className="flex gap-2">

@@ -213,6 +213,13 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const startCameraStream = useCallback(async (id: string) => {
     try {
       console.log(`🎬 CameraContext: Requesting stream for camera ${id}`);
+
+      // Ensure socket is connected before requesting stream
+      if (!socketService.isConnected()) {
+        console.log(`Socket not connected, attempting to connect...`);
+        await socketService.connect();
+      }
+
       socketService.requestStream(id);
       updateCamera(id, { status: 'online' });
       console.log(`✅ CameraContext: Stream request sent for camera ${id}`);

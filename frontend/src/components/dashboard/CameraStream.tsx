@@ -81,10 +81,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     });
   }, [camera.id, stopCameraStream]);
 
-  // Effect for auto-starting/stopping based on props and socket connection
+  // Effect for auto-starting/stopping based on props
   useEffect(() => {
     console.log(`[CameraStream] 🔄 Auto-start/stop effect for ${camera.id}. autoStart: ${autoStart}, socketConnected: ${socketConnected}, isStreaming: ${isStreaming}`);
-    
+
     if (autoStart && socketConnected && !isStreaming) {
       console.log(`[CameraStream] 🚀 Auto-starting stream for ${camera.id}`);
       handleStreamStart();
@@ -102,28 +102,57 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     };
   }, [camera.id, autoStart, socketConnected, isStreaming, handleStreamStart, handleStreamStop]);
 
+  // Effect to handle socket connection changes for auto-start
+  useEffect(() => {
+    console.log(`[CameraStream] 🔄 Socket connection status changed for ${camera.id}. Status: ${connectionStatus}, socketConnected: ${socketConnected}, autoStart: ${autoStart}, isStreaming: ${isStreaming}`);
+
+    // If socket just connected, autoStart is true, and we're not already streaming, start the stream
+    if (socketConnected && autoStart && !isStreaming) {
+      console.log(`[CameraStream] 🚀 Socket connected, auto-starting stream for ${camera.id}`);
+      handleStreamStart();
+    }
+  }, [socketConnected, connectionStatus, autoStart, isStreaming, handleStreamStart]);
+
   // Effect for handling WebSocket events
   useEffect(() => {
     console.log(`[CameraStream] 🎧 Registering WebSocket listeners for ${camera.id}`);
 
+    // Frame rate limiting to prevent excessive updates
+    let lastFrameUpdate = 0;
+    const FRAME_UPDATE_INTERVAL = 100; // ~10 FPS max update rate (100ms)
+
     const handleFrame = (data: { cameraId: string; data: string; timestamp: string }) => {
       if (data.cameraId === camera.id) {
-        // console.log(`[CameraStream] 📸 Frame received for ${camera.id}. Length: ${data.data?.length}`);
-        if (error) setError(null);
-        
-        const imageDataUrl = `data:image/jpeg;base64,${data.data}`;
-        setCurrentFrame(imageDataUrl);
-        
-        // FPS calculation
-        frameCountRef.current++;
-        const now = performance.now();
-        const elapsed = now - lastFrameTimeRef.current;
-        
-        if (elapsed >= 1000) {
-          const fps = Math.round((frameCountRef.current * 1000) / elapsed);
-          setDisplayFps(fps);
-          frameCountRef.current = 0;
-          lastFrameTimeRef.current = now;
+        const now = Date.now();
+
+        // Limit frame updates to prevent excessive rendering
+        if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
+          lastFrameUpdate = now;
+
+          // Create a new image object to properly handle loading
+          const img = new Image();
+          img.onload = () => {
+            // Only update state if the image loaded successfully
+            setCurrentFrame(`data:image/jpeg;base64,${data.data}`);
+
+            // FPS calculation
+            frameCountRef.current++;
+            const perfNow = performance.now();
+            const elapsed = perfNow - lastFrameTimeRef.current;
+
+            if (elapsed >= 1000) {
+              const fps = Math.round((frameCountRef.current * 1000) / elapsed);
+              setDisplayFps(fps);
+              frameCountRef.current = 0;
+              lastFrameTimeRef.current = perfNow;
+            }
+          };
+          img.onerror = () => {
+            console.error(`[CameraStream] 💥 Failed to load image frame for ${camera.id}`);
+            // Don't set error state on image load failure to avoid disrupting the stream
+            // The next valid frame will update the state
+          };
+          img.src = `data:image/jpeg;base64,${data.data}`;
         }
       }
     };
@@ -167,14 +196,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           </div>
         </div>
       ) : isStreaming && currentFrame ? (
-        <img 
-          src={currentFrame} 
-          alt={`${camera.name} stream`} 
+        <img
+          src={currentFrame}
+          alt={`${camera.name} stream`}
           className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
-          onError={() => {
-            console.error(`[CameraStream] 💥 Failed to load image frame for ${camera.id}`);
-            setError('Failed to load video frame');
-          }}
+          // Removed onError handler since we now handle image loading in the frame handler
         />
       ) : (
         <div 

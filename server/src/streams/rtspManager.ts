@@ -46,10 +46,11 @@ export interface Camera {
   nightMode: boolean;
   retryCount: number; // Track connection retry attempts
   lastError?: string; // Store the last error message
+  lastFrameSentTime?: number; // Track when the last frame was sent to limit frame rate
 }
 
 // Load camera configuration from secure config
-const configuredCameras: Omit<Camera, "process" | "isActive" | "lastFrame">[] = config.cameras.map(camera => ({
+const configuredCameras: Omit<Camera, "process" | "isActive" | "lastFrame" | "lastFrameSentTime">[] = config.cameras.map(camera => ({
   id: camera.id,
   name: camera.name,
   rtspUrl: camera.rtspUrl,
@@ -80,13 +81,14 @@ export class StreamManager {
 
   // Add a camera to the manager
   addCamera(
-    cameraConfig: Omit<Camera, "process" | "isActive" | "lastFrame">,
+    cameraConfig: Omit<Camera, "process" | "isActive" | "lastFrame" | "lastFrameSentTime">,
   ): string {
     const camera: Camera = {
       ...cameraConfig,
       process: null,
       isActive: false,
       lastFrame: null,
+      lastFrameSentTime: undefined,
     };
     this.cameras.set(camera.id, camera);
     // Camera addition log disabled - logger.info(`Added camera: ${camera.id} (${camera.name})`, 'StreamManager');
@@ -239,7 +241,7 @@ export class StreamManager {
         }
         streamErrors = 0;
         lastSuccessfulFrame = Date.now();
-        
+
         // Reset retry count on successful frame reception
         // This means camera is working and rate limit (if any) has expired
         if (camera.retryCount > 0) {
@@ -253,6 +255,14 @@ export class StreamManager {
         let endMarkerPos = -1;
         let frameCount = 0;
 
+        // Add frame rate limiting to prevent overwhelming the frontend
+        const FRAME_RATE_LIMIT = camera.frameRate || 15; // Use camera's configured frame rate
+        const FRAME_INTERVAL = 1000 / FRAME_RATE_LIMIT; // milliseconds between frames
+        // Use camera object to store last frame sent time to persist between data chunks
+        if (camera.lastFrameSentTime === undefined) {
+          camera.lastFrameSentTime = Date.now();
+        }
+
         while (
           (startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]))) !== -1 &&
           (endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos)) !== -1
@@ -264,18 +274,24 @@ export class StreamManager {
           // Optimize: Only emit if there are clients watching
           const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}`);
           const clientCount = room ? room.size : 0;
-          
-          if (clientCount > 0) {
-            // Only log emission details in development
-            if ((global as any).process?.env?.NODE_ENV !== 'production') {
-              console.log(`*** CAMERA ${cameraId} EMITTING FRAME: ${frameBuffer.length} bytes to ${clientCount} clients ***`);
-            }
 
-            this.io.to(`camera-${cameraId}`).emit("frame", {
-            cameraId,
-            data: frameBuffer.toString("base64"),
-            timestamp: new Date().toISOString(),
-            });
+          if (clientCount > 0) {
+            const now = Date.now();
+            // Only send frame if enough time has passed since the last frame was sent
+            if (now - (camera.lastFrameSentTime || 0) >= FRAME_INTERVAL) {
+              camera.lastFrameSentTime = now;
+
+              // Only log emission details in development
+              if ((global as any).process?.env?.NODE_ENV !== 'production') {
+                console.log(`*** CAMERA ${cameraId} EMITTING FRAME: ${frameBuffer.length} bytes to ${clientCount} clients ***`);
+              }
+
+              this.io.to(`camera-${cameraId}`).emit("frame", {
+              cameraId,
+              data: frameBuffer.toString("base64"),
+              timestamp: new Date().toISOString(),
+              });
+            }
           }
 
           // Motion-triggered detection (non-blocking, async)

@@ -592,12 +592,12 @@ export function configureVisitorRoutes(app: express.Application): void {
   console.log('*** VISITOR ROUTES CONFIGURED - REGISTERING MIDDLEWARE ***');
   
   // Add a fallback route for any unmatched request
-  router.use('*', (req, res) => {
+  router.use(/.*/, (req, res) => {
     console.log('*** UNMATCHED VISITOR ROUTE ***');
     console.log(`Method: ${req.method}`);
     console.log(`Path: ${req.path}`);
     console.log(`Original URL: ${req.url}`);
-    
+
     res.status(404).json({
       success: false,
       error: 'Visitor route not found',

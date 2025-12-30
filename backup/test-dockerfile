@@ -1,4 +1,0 @@
-FROM alpine:latest
-RUN echo "#!/bin/sh" > /start.sh && \\
-    echo "set -e" >> /start.sh && \\
-    echo "su - postgres -c \"psql -c \\\"CREATE USER sentryvision WITH PASSWORD \'sentryvision123\';\\\"\" || true" >> /start.sh

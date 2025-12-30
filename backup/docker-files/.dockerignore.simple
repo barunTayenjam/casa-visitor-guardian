@@ -1,9 +1,0 @@
-node_modules
-.git
-*.log
-.env
-data
-logs
-dist
-build
-.DS_Store

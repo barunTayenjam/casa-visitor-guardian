@@ -161,7 +161,7 @@ export const RecentEvents = ({ onEventSelect, limit = 10 }: RecentEventsProps) =
                         alt={`Event from ${event.cameraName}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/placeholder-event.jpg';
+                          (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     ) : (

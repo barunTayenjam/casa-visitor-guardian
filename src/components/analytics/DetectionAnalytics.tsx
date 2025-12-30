@@ -80,63 +80,70 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
   const loadAnalyticsData = async () => {
     setIsLoading(true);
     try {
-      // In a real implementation, these would be actual API calls
-      // For now, we'll simulate with mock data
-      const mockStats: DetectionStats = {
-        totalDetections: 1247,
-        personDetections: 856,
-        faceDetections: 391,
-        knownFaces: 156,
-        unknownFaces: 235,
-        averageConfidence: 0.78,
-        processingTime: 234,
-        accuracy: 0.82
-      };
+      let stats: DetectionStats | null = null;
+      let timeSeriesData: TimeSeriesData[] = [];
+      let cameraPerformanceData: CameraPerformance[] = [];
+      let detectionTypeData: DetectionTypeDistribution[] = [];
 
-      const mockTimeSeries: TimeSeriesData[] = Array.from({ length: 24 }, (_, i) => ({
-        timestamp: new Date(Date.now() - (23 - i) * 60 * 60 * 1000).toISOString(),
-        count: Math.floor(Math.random() * 50) + 10,
-        confidence: Math.random() * 0.3 + 0.6
-      }));
-
-      const mockCameraPerformance: CameraPerformance[] = [
-        {
-          cameraId: 'cam1',
-          cameraName: 'Front Door',
-          totalDetections: 678,
-          averageConfidence: 0.81,
-          processingTime: 198,
-          uptime: 0.97
-        },
-        {
-          cameraId: 'cam2',
-          cameraName: 'Backyard',
-          totalDetections: 569,
-          averageConfidence: 0.74,
-          processingTime: 287,
-          uptime: 0.94
+      // Get batch stats for overall statistics
+      try {
+        const batchStats = await apiService.getBatchStats();
+        if (batchStats) {
+          stats = {
+            totalDetections: (batchStats.totalPersonDetections || 0) + (batchStats.totalFaceDetections || 0),
+            personDetections: batchStats.totalPersonDetections || 0,
+            faceDetections: batchStats.totalFaceDetections || 0,
+            knownFaces: 0,
+            unknownFaces: 0,
+            averageConfidence: 0,
+            processingTime: batchStats.totalProcessingTime || 0,
+            accuracy: 0
+          };
         }
-      ];
+      } catch (error) {
+        console.warn('Could not load batch stats:', error);
+      }
 
-      const mockDetectionTypes: DetectionTypeDistribution[] = [
-        {
-          type: 'Person',
-          count: 856,
-          percentage: 68.6,
-          color: 'bg-blue-500'
-        },
-        {
-          type: 'Face',
-          count: 391,
-          percentage: 31.4,
-          color: 'bg-green-500'
+      // Get time series data based on time range
+      try {
+        let analyticsData;
+        if (timeRange === 'today') {
+          analyticsData = await apiService.getHourlyAnalytics();
+        } else if (timeRange === 'week') {
+          analyticsData = await apiService.getWeeklyAnalytics();
+        } else if (timeRange === 'month') {
+          analyticsData = await apiService.getMonthlyAnalytics();
         }
-      ];
 
-      setStats(mockStats);
-      setTimeSeriesData(mockTimeSeries);
-      setCameraPerformance(mockCameraPerformance);
-      setDetectionTypes(mockDetectionTypes);
+        if (analyticsData) {
+          if (timeRange === 'today' && analyticsData.hourlyData) {
+            timeSeriesData = analyticsData.hourlyData.map((d: any) => ({
+              timestamp: new Date().toISOString(),
+              count: d.count,
+              confidence: 0
+            }));
+          } else if (timeRange === 'week' && analyticsData.weeklyData?.dailyBreakdown) {
+            timeSeriesData = analyticsData.weeklyData.dailyBreakdown.map((d: any) => ({
+              timestamp: d.date,
+              count: d.count,
+              confidence: 0
+            }));
+          } else if (timeRange === 'month' && analyticsData.monthlyData?.weeklyBreakdown) {
+            timeSeriesData = analyticsData.monthlyData.weeklyBreakdown.map((d: any) => ({
+              timestamp: d.weekStart,
+              count: d.totalEvents,
+              confidence: 0
+            }));
+          }
+        }
+      } catch (error) {
+        console.warn('Could not load time series data:', error);
+      }
+
+      setStats(stats);
+      setTimeSeriesData(timeSeriesData);
+      setCameraPerformance(cameraPerformanceData);
+      setDetectionTypes(detectionTypeData);
     } catch (error) {
       console.error('Failed to load analytics:', error);
       toast({
@@ -191,7 +198,7 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
       case 'confidence':
         return timeSeriesData.map(d => ({ ...d, value: d.confidence * 100 }));
       case 'accuracy':
-        return timeSeriesData.map(d => ({ ...d, value: Math.random() * 20 + 75 })); // Mock accuracy
+        return timeSeriesData.map(d => ({ ...d, value: d.confidence * 100 })); // Use confidence as fallback for accuracy
       default:
         return timeSeriesData.map(d => ({ ...d, value: d.count }));
     }

@@ -1,7 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { visitorDatabase } from '../services/visitorDatabase.js';
+import { getVisitorDatabase } from '../services/visitorDatabasePostgres.js';
 import { visitorAnalyticsService } from '../services/visitorAnalyticsService.js';
 
 function generateBasicHTML(reportType: string, startDate: Date, endDate: Date): string {
@@ -227,7 +227,8 @@ export function configureVisitorRoutes(app: express.Application): void {
       console.log(`Getting visitor timeline from ${start.toISOString()} to ${end.toISOString()}`);
 
       // Get visitor timeline from database
-      const timeline = await visitorDatabase.getVisitorTimeline(start, end);
+      const visitorDb = await getVisitorDatabase();
+      const timeline = await visitorDb.getVisitorTimeline(start, end);
 
       console.log(`Timeline generated with ${timeline.length} days`);
 
@@ -341,9 +342,10 @@ export function configureVisitorRoutes(app: express.Application): void {
   router.get('/schedule', async (req, res) => {
     try {
       console.log('*** VISITOR SCHEDULE API CALLED ***');
-      console.log('Database initialized:', !!(visitorDatabase as any).db);
-      
-      const schedules = await visitorDatabase.getVisitorSchedules();
+      const visitorDb = await getVisitorDatabase();
+      console.log('Database initialized:', true);
+
+      const schedules = await visitorDb.getVisitorSchedules();
       console.log('Schedules fetched:', schedules.length);
 
       res.json({
@@ -434,7 +436,8 @@ export function configureVisitorRoutes(app: express.Application): void {
           parameters: { startDate, endDate, includeAnalytics, includeTimeline }
         };
 
-        const reportId = await visitorDatabase.saveVisitorReport({
+        const visitorDb = await getVisitorDatabase();
+        const reportId = await visitorDb.saveVisitorReport({
           id: `report_${Date.now()}`,
           reportType,
           periodStart: start.toISOString(),
@@ -468,7 +471,8 @@ export function configureVisitorRoutes(app: express.Application): void {
         console.warn('Analytics generation failed, creating basic report:', analyticsError);
         
         // Fallback: create basic report without analytics
-        const reportId = await visitorDatabase.saveVisitorReport({
+        const visitorDb = await getVisitorDatabase();
+        const reportId = await visitorDb.saveVisitorReport({
           id: `report_${Date.now()}`,
           reportType,
           periodStart: start.toISOString(),
@@ -560,7 +564,8 @@ export function configureVisitorRoutes(app: express.Application): void {
         }
       }
 
-      const scheduleId = await visitorDatabase.saveVisitorSchedule({
+      const visitorDb = await getVisitorDatabase();
+      const scheduleId = await visitorDb.saveVisitorSchedule({
         reportType,
         cronExpression,
         recipients,

@@ -44,9 +44,7 @@ export const EventGrid: React.FC<EventGridProps> = ({ events, onImageClick }) =>
                   console.error("Attempting to load from:", new URL(event.imageUrl, window.location.href).href);
                   const target = e.target as HTMLImageElement;
                   target.onerror = null;
-                  target.src = '/placeholder-camera.jpg';
-                  target.alt = 'Image not available';
-                  target.style.display = 'block';
+                  target.style.display = 'none';
                 }}
                 onLoad={() => {
                   console.log("Image loaded successfully:", event.imageUrl);

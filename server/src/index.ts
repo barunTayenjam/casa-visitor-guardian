@@ -16,6 +16,7 @@ import { configureVisitorRoutes } from './routes/visitorRoutes.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase } from './database.js';
 import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
+import { objectDetectionService } from './detection/objectDetectionOpenCV.js';
 
 dotenv.config({ path: './.env' });
 
@@ -97,6 +98,17 @@ async function initializeServices() {
   try {
     // await initializeDatabase(); // Temporarily disabled due to TypeORM issues
     console.log('Database initialization temporarily disabled');
+    
+    // Initialize OpenCV object detection service
+    console.log('Initializing OpenCV object detection service...');
+    const opencvStatus = await objectDetectionService.getServiceStatus();
+    if (opencvStatus.available) {
+      console.log(`OpenCV service available at ${opencvStatus.url} (${opencvStatus.responseTime}ms)`);
+      (global as any).objectDetectionService = objectDetectionService;
+    } else {
+      console.warn('OpenCV service not available, using stub detection');
+    }
+    
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');

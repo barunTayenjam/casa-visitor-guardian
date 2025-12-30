@@ -1,5 +1,5 @@
 import { CameraGrid } from '@/components/dashboard/CameraGrid';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RecentEvents } from '@/components/dashboard/RecentEvents';
 import { SystemOverview } from '@/components/dashboard/SystemOverview';
 import { QuickActions } from '@/components/dashboard/QuickActions';
@@ -32,6 +32,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import StreamDashboard from './StreamDashboard';
+import apiService from '@/services/ApiService';
 
 const Dashboard = () => {
   const [selectedEvent, setSelectedEvent] = useState<MotionEvent | null>(null);
@@ -49,6 +50,24 @@ const Dashboard = () => {
     aiAnalysis: true,
     autoCleanup: false
   });
+  
+  // System metrics state
+  const [systemMetrics, setSystemMetrics] = useState<{
+    storage: { total: number; used: number; available: number; percentage: number } | null;
+    health: {
+      uptime: number;
+      memory: { used: number; total: number };
+      cameras: { online: number; total: number };
+    } | null;
+    recentEvents: any[] | null;
+    alerts: any[] | null;
+  }>({
+    storage: null,
+    health: null,
+    recentEvents: null,
+    alerts: null
+  });
+  
   const { connected } = useSocketContext();
   const { cameras } = useCameras();
 
@@ -61,9 +80,47 @@ const Dashboard = () => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-
+ 
     return () => clearInterval(timer);
   }, [autoRefresh]);
+  
+  // Load system metrics on mount
+  React.useEffect(() => {
+    const loadSystemMetrics = async () => {
+      try {
+        const [storage, health] = await Promise.all([
+          apiService.getSystemStorage(),
+          apiService.getSystemHealth()
+        ]);
+        
+        setSystemMetrics(prev => ({
+          ...prev,
+          storage: {
+            total: storage.total,
+            used: storage.used,
+            available: storage.total - storage.used,
+            percentage: storage.percentage
+          },
+          health: {
+            uptime: health.uptime,
+            memory: health.memory,
+            cameras: health.cameras
+          },
+          recentEvents: [],
+          alerts: []
+        }));
+      } catch (error) {
+        console.error('Failed to load system metrics:', error);
+      }
+    };
+    
+    loadSystemMetrics();
+    
+    // Refresh system metrics every 30 seconds
+    const metricsInterval = setInterval(loadSystemMetrics, 30000);
+    
+    return () => clearInterval(metricsInterval);
+  }, []);
 
   // Handle system actions
   const handleSystemAction = (action: string) => {
@@ -192,18 +249,13 @@ const Dashboard = () => {
                       personsDetected: stats.totalPersonsDetected,
                       facesDetected: stats.totalFacesDetected
                     }}
-                    recentEvents={[]}
-                    storage={{
-                      total: 1000000,
-                      used: 750000,
-                      available: 250000,
-                      percentage: 75
-                    }}
-                    alerts={[]}
-                    uptime={86400000}
-                    cpuUsage={35}
-                    memoryUsage={62}
-                    networkStatus={'connected'}
+                    recentEvents={systemMetrics?.recentEvents || []}
+                    storage={systemMetrics?.storage || { total: 0, used: 0, available: 0, percentage: 0 }}
+                    alerts={systemMetrics?.alerts || []}
+                    uptime={systemMetrics?.health?.uptime || 0}
+                    cpuUsage={systemMetrics?.health?.memory ? Math.round((systemMetrics.health.memory.used / systemMetrics.health.memory.total) * 100) : 0}
+                    memoryUsage={systemMetrics?.health?.memory ? Math.round((systemMetrics.health.memory.used / systemMetrics.health.memory.total) * 100) : 0}
+                    networkStatus={connected ? 'connected' : 'disconnected'}
                   />
                 </>
               )}

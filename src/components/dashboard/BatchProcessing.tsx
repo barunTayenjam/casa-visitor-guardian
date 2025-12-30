@@ -333,8 +333,6 @@ export const BatchProcessing: React.FC = () => {
   };
 
   const handleViewResults = async (jobId: string) => {
-    console.log('🔥 handleViewResults called for jobId:', jobId);
-    
     // Try API first, then fallback to direct file loading
     try {
       const response = await apiService.get(`/batch/jobs/${jobId}/results`) as {
@@ -342,23 +340,17 @@ export const BatchProcessing: React.FC = () => {
         success: boolean;
         results: BatchResultsData;
       };
-      console.log('📡 API response status:', response.status);
-      console.log('📡 API response success:', response.success);
       
       if (response.success && response.results) {
-        console.log('✅ Loading batch results from API');
-        console.log('📊 Results summary:', response.results.summary);
-        console.log('📊 Results count:', response.results.results?.length || 0);
         setBatchResultsData(response.results);
         setViewingResultsJobId(jobId);
         return;
       }
     } catch (error) {
-      console.warn('⚠️ API call failed, trying fallback:', error.message);
+      console.warn('API call failed, trying fallback:', error.message);
     }
     
     // Fallback: Load from batch-results files directly
-    console.log('🔄 Trying fallback file loading...');
     try {
       // List of available batch result files
       const batchFiles = [
@@ -372,65 +364,21 @@ export const BatchProcessing: React.FC = () => {
           const response = await fetch(`http://localhost:9754/batch-results/${filename}`);
           if (response.ok) {
             const data = await response.json();
-            console.log('✅ Loaded batch data from file:', filename);
-            console.log('📊 File data summary:', data.summary);
-            console.log('📊 File results count:', data.results?.length || 0);
             
             // Set the data regardless of job ID match for testing
             setBatchResultsData(data);
             setViewingResultsJobId(jobId);
-            console.log('🎯 Batch results state set successfully');
             return;
           }
         } catch (fileError) {
-          console.warn(`⚠️ Failed to load file ${filename}:`, fileError.message);
+          console.warn(`Failed to load file ${filename}:`, fileError.message);
         }
       }
     } catch (fallbackError) {
-      console.error('❌ Fallback loading failed:', fallbackError);
+      console.error('Fallback loading failed:', fallbackError);
     }
     
-    console.error('❌ Could not load any batch results');
-    
-    // Force show a test view to verify the component works
-    console.log('🔧 Forcing test view...');
-    const testData = {
-      jobId: jobId,
-      timestamp: new Date().toISOString(),
-      options: {
-        timeRange: { start: '2025-10-16T13:00:00Z', end: '2025-10-16T14:00:00Z' },
-        cameraIds: ['cam2'],
-        detectionTypes: ['both'],
-        confidenceThreshold: 0.5,
-        saveResults: true,
-        outputFormat: 'json'
-      },
-      summary: {
-        totalImages: 88,
-        personDetections: 61,
-        faceDetections: 21,
-        knownFaces: 9,
-        unknownFaces: 12
-      },
-      results: [
-        {
-          filename: 'motion_cam2_2025-10-16T13-35-44-016Z.jpg',
-          timestamp: '2025-10-16T13:35:44.016Z',
-          cameraId: 'cam2',
-          persons: [
-            {
-              confidence: 0.81,
-              boundingBox: { x: 165, y: 96, width: 67, height: 137 }
-            }
-          ],
-          faces: []
-        }
-      ]
-    };
-    
-    setBatchResultsData(testData);
-    setViewingResultsJobId(jobId);
-    console.log('🎯 Test data set for demonstration');
+    console.error('Could not load any batch results');
   };
 
   const getStatusColor = (status: string) => {
@@ -960,114 +908,6 @@ export const BatchProcessing: React.FC = () => {
           />
         </div>
       )}
-
-      {/* Debug Test Button - Always visible */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-red-600">🔧 DEBUG: Test Detection Viewer</CardTitle>
-          <CardDescription>
-            Click this button to test the BatchResultViewer directly
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={() => {
-              console.log('🔧 DEBUG: Directly opening BatchResultViewer');
-              
-              const testJobId = 'test_job_123';
-              const testData = {
-                jobId: testJobId,
-                timestamp: new Date().toISOString(),
-                options: {
-                  timeRange: { start: '2025-10-16T13:00:00Z', end: '2025-10-16T14:00:00Z' },
-                  cameraIds: ['cam2'],
-                  detectionTypes: ['both'],
-                  confidenceThreshold: 0.5,
-                  saveResults: true,
-                  outputFormat: 'json'
-                },
-                summary: {
-                  totalImages: 88,
-                  personDetections: 61,
-                  faceDetections: 21,
-                  knownFaces: 9,
-                  unknownFaces: 12
-                },
-                results: [
-                  {
-                    filename: 'motion_cam2_2025-10-16T13-35-44-016Z.jpg',
-                    timestamp: '2025-10-16T13:35:44.016Z',
-                    cameraId: 'cam2',
-                    persons: [
-                      {
-                        confidence: 0.81,
-                        boundingBox: { x: 165, y: 96, width: 67, height: 137 }
-                      },
-                      {
-                        confidence: 0.73,
-                        boundingBox: { x: 244, y: 180, width: 62, height: 183 }
-                      }
-                    ],
-                    faces: [
-                      {
-                        confidence: 0.67,
-                        boundingBox: { x: 175, y: 110, width: 117, height: 43 },
-                        isKnown: false
-                      },
-                      {
-                        confidence: 0.81,
-                        boundingBox: { x: 50, y: 119, width: 90, height: 99 },
-                        isKnown: false
-                      }
-                    ]
-                  },
-                  {
-                    filename: 'motion_cam2_2025-10-16T13-56-12-950Z.jpg',
-                    timestamp: '2025-10-16T13:56:12.950Z',
-                    cameraId: 'cam2',
-                    persons: [
-                      {
-                        confidence: 0.78,
-                        boundingBox: { x: 230, y: 137, width: 140, height: 124 }
-                      }
-                    ],
-                    faces: []
-                  },
-                  {
-                    filename: 'motion_cam2_2025-10-16T13-57-12-918Z.jpg',
-                    timestamp: '2025-10-16T13:57:12.918Z',
-                    cameraId: 'cam2',
-                    persons: [],
-                    faces: [
-                      {
-                        confidence: 0.60,
-                        boundingBox: { x: 180, y: 242, width: 69, height: 110 },
-                        isKnown: false
-                      },
-                      {
-                        confidence: 0.96,
-                        boundingBox: { x: 216, y: 108, width: 103, height: 43 },
-                        isKnown: false
-                      }
-                    ]
-                  }
-                ]
-              };
-              
-              setBatchResultsData(testData);
-              setViewingResultsJobId(testJobId);
-              console.log('🔧 DEBUG: Test data loaded into state');
-            }}
-            className="bg-red-600 text-white hover:bg-red-700"
-          >
-            🎯 TEST DETECTION VIEWER
-          </Button>
-          <p className="text-sm text-muted-foreground mt-2">
-            This will show the BatchResultViewer with sample detection data including
-            green person boxes and blue face boxes.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 };

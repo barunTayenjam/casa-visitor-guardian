@@ -1,9 +1,0 @@
-services:
-  sentryvision:
-    build:
-      context: .
-      dockerfile: Dockerfile.complete
-    network_mode: host  # Use host network
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped

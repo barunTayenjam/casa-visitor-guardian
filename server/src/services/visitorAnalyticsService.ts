@@ -75,7 +75,8 @@ export class VisitorAnalyticsService extends EventEmitter {
 
   private async initializeServices(): Promise<void> {
     try {
-      await visitorDatabase.initialize();
+      const visitorDatabase = await getVisitorDatabase();
+      // Already initialized by getVisitorDatabase()
       // Don't call initialize on faceRecognitionService as it doesn't have that method
       console.log('Visitor analytics service initialized');
     } catch (error) {

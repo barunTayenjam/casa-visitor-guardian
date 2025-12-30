@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx vite --host",
     "dev:server": "cd server && npm run dev",
-    "dev:full": "npm run kill:ports && concurrently \"npm run dev:server\" \"wait-on -t 30000 http://localhost:8082 && npm run dev\"",
+    "dev:full": "npm run kill:ports && concurrently \"npm run dev:server\" \"npm run dev\"",
     "kill:ports": "lsof -ti:8082 | xargs kill -9 2>/dev/null || true && lsof -ti:5173 | xargs kill -9 2>/dev/null || true",
     "build": "npx vite build",
     "build:dev": "npx vite build --mode development",

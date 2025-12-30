@@ -514,7 +514,14 @@ export class OptimizedMotionDetector extends EventEmitter {
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `motion_${cameraId}_${timestamp}.jpg`;
-      const filepath = path.join(__dirname, '../../public/events', filename);
+      const eventsDir = '/app/public/events';
+      
+      // Ensure directory exists
+      if (!fs.existsSync(eventsDir)) {
+        fs.mkdirSync(eventsDir, { recursive: true });
+      }
+      
+      const filepath = path.join(eventsDir, filename);
 
       // Async file write
       fs.writeFile(filepath, frame, (error) => {

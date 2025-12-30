@@ -76,10 +76,13 @@ export class BatchProcessingService extends EventEmitter {
 
   constructor() {
     super();
-    this.eventsDir = path.join(__dirname, '../../public/events');
-    this.outputDir = path.join(__dirname, '../../public/batch-results');
+    this.eventsDir = '/app/public/events';
+    this.outputDir = '/app/public/batch-results';
     
-    // Ensure output directory exists
+    // Ensure directories exist
+    if (!fs.existsSync(this.eventsDir)) {
+      fs.mkdirSync(this.eventsDir, { recursive: true });
+    }
     if (!fs.existsSync(this.outputDir)) {
       fs.mkdirSync(this.outputDir, { recursive: true });
     }
@@ -107,6 +110,9 @@ export class BatchProcessingService extends EventEmitter {
       const dbJobs = await this.db.getJobs({ limit: 100 }); // Load last 100 jobs
       
       for (const dbJob of dbJobs) {
+        const options = typeof dbJob.options_json === 'string'
+          ? JSON.parse(dbJob.options_json)
+          : dbJob.options_json;
         const job: BatchProcessingJob = {
           id: dbJob.id,
           status: dbJob.status,
@@ -118,7 +124,7 @@ export class BatchProcessingService extends EventEmitter {
             successful: dbJob.successful_images,
             failed: dbJob.failed_images
           },
-          options: JSON.parse(dbJob.options_json),
+          options: { ...options, saveResults: options.saveResults ?? true },
           results: dbJob.status === 'completed' ? {
             totalImages: dbJob.total_images,
             personDetections: dbJob.person_detections,
@@ -262,16 +268,19 @@ export class BatchProcessingService extends EventEmitter {
         // Parse timestamp from filename
         let timestamp: Date;
         try {
-          // Handle formats like: 2025-10-16T12-36-03-998Z
-          if (timestampPart.includes('T') && timestampPart.endsWith('Z')) {
-            // Fix the time part: T12-36-03-998Z -> T12:36:03.998Z
+          const cleanPart = timestampPart.replace(/Z$/, '');
+          // Check if it's a numeric timestamp (milliseconds)
+          if (/^\d+$/.test(cleanPart)) {
+            timestamp = new Date(Number(cleanPart));
+          } else if (timestampPart.includes('T')) {
+            // Handle formats like: 2025-10-16T12-36-03-998Z
             let cleanTimestamp = timestampPart;
             const tIndex = timestampPart.indexOf('T');
             const datePart = timestampPart.substring(0, tIndex);
             let timePart = timestampPart.substring(tIndex + 1);
             
             // Remove final Z and replace time separators
-            timePart = timePart.slice(0, -1); // Remove Z
+            timePart = timePart.replace(/Z$/, ''); // Remove Z
             const timeComponents = timePart.split('-'); // Split by -
             
             if (timeComponents.length >= 3) {
@@ -289,12 +298,16 @@ export class BatchProcessingService extends EventEmitter {
             timestamp = new Date(timestampPart);
           }
           
+          console.log(`Parsed timestamp for ${file}: ${timestamp.toISOString()} (Original part: ${timestampPart})`);
+          
           // Check if date is valid
           if (isNaN(timestamp.getTime())) {
+            console.warn(`Invalid timestamp parsed for ${file}`);
             continue;
           }
-        } catch {
-          continue; // Skip invalid timestamps
+        } catch (err) {
+          console.error(`Error parsing timestamp for ${file}:`, err);
+          continue; 
         }
 
         // Filter by time range
@@ -570,17 +583,23 @@ export class BatchProcessingService extends EventEmitter {
       }
 
       // Create worker for processing
-      // Always use the compiled .js file from dist directory
-      // When running with tsx, we need to navigate from src/services to dist/services
-      const workerPath = path.join(__dirname, '../../dist/services/batchProcessingWorker.js');
-        
+      // In dev mode (tsx), run the .ts worker directly. In production, run the compiled .js worker.
+      const isTsMode = __filename.endsWith('.ts');
+      const workerPath = isTsMode 
+        ? path.join(__dirname, 'batchProcessingWorker.ts')
+        : path.join(__dirname, '../../dist/services/batchProcessingWorker.js');
+
+      console.log(`Starting batch worker: ${workerPath} (Mode: ${isTsMode ? 'TypeScript' : 'JavaScript'})`);
+
       const worker = new Worker(workerPath, {
         workerData: {
           events,
           options: job.options,
           jobId: job.id,
           outputDir: this.outputDir
-        }
+        },
+        // If in TS mode, we need to register the tsx loader for the worker thread
+        execArgv: isTsMode ? ['--import', 'tsx'] : []
       });
 
       this.activeJobs.set(job.id, worker);

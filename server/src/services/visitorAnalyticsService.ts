@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
-import { visitorDatabase, Visitor, VisitorTimeline, VisitorAnalytics } from './visitorDatabase.js';
+import { getVisitorDatabase, Visitor, VisitorTimeline, VisitorAnalytics } from './visitorDatabasePostgres.js';
 import { FacialRecognitionService, FaceRecognitionEvent, KnownPerson } from '../detection/facialRecognition.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);

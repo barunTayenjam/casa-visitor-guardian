@@ -3,7 +3,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
 import EventEmitter from 'events';
-import { getBatchProcessingDatabase, ProcessedImage } from './batchProcessingDatabase.js';
+import { getBatchProcessingDatabase, ProcessedImage } from './batchProcessingDatabasePostgres.js';
 import { FileHashUtil } from '../utils/fileHash.js';
 
 const __filename = fileURLToPath(import.meta.url);

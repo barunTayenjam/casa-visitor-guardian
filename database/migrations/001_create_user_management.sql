@@ -1,7 +1,18 @@
 -- File: database/migrations/001_create_user_management.sql
 
+-- Roles table with hierarchical permissions (must be created first for foreign keys)
+CREATE TABLE IF NOT EXISTS roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    permissions JSONB NOT NULL DEFAULT '[]',
+    is_system_role BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Users table with comprehensive fields
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -26,19 +37,8 @@ CREATE TABLE users (
     updated_by UUID REFERENCES users(id)
 );
 
--- Roles table with hierarchical permissions
-CREATE TABLE roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    permissions JSONB NOT NULL DEFAULT '[]',
-    is_system_role BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Sessions table for JWT token management
-CREATE TABLE user_sessions (
+CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     refresh_token VARCHAR(255) UNIQUE NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE user_sessions (
 );
 
 -- Audit logs table with structured data
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     action VARCHAR(100) NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE audit_logs (
 );
 
 -- Password history for preventing reuse
-CREATE TABLE password_history (
+CREATE TABLE IF NOT EXISTS password_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     password_hash VARCHAR(255) NOT NULL,
@@ -78,13 +78,13 @@ CREATE TABLE password_history (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
-CREATE INDEX idx_user_sessions_refresh_token ON user_sessions(refresh_token);
-CREATE INDEX idx_user_sessions_expires_at ON user_sessions(expires_at);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_password_history_user_id ON password_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh_token ON user_sessions(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_password_history_user_id ON password_history(user_id);

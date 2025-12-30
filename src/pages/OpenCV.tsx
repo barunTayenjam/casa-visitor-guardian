@@ -40,6 +40,7 @@ import apiService from '@/services/ApiService';
 import { useCameras } from '@/contexts/CameraContext';
 import DetectionOverlay from '@/components/detection/DetectionOverlay';
 import DetectionAnalytics from '@/components/analytics/DetectionAnalytics';
+import DetectionGallery from '@/components/detection/DetectionGallery';
 
 // Type definitions
 interface DetectionEvent {
@@ -165,7 +166,7 @@ const OpenCV: React.FC = () => {
     const interval = setInterval(() => {
       loadBatchJobs();
       checkServiceStatus();
-    }, 10000);
+    }, 2000);
     
     return () => clearInterval(interval);
   }, []);
@@ -461,8 +462,12 @@ const OpenCV: React.FC = () => {
         </Alert>
       )}
 
-      <Tabs defaultValue="detection" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="gallery" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="gallery" className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Gallery
+          </TabsTrigger>
           <TabsTrigger value="detection" className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
             Detection
@@ -480,6 +485,11 @@ const OpenCV: React.FC = () => {
             Analytics
           </TabsTrigger>
         </TabsList>
+
+        {/* Gallery Tab - NEW DEFAULT TAB */}
+        <TabsContent value="gallery" className="space-y-6">
+          <DetectionGallery />
+        </TabsContent>
 
         {/* Detection Tab */}
         <TabsContent value="detection" className="space-y-6">
@@ -607,7 +617,7 @@ const OpenCV: React.FC = () => {
                 {detectionResults.map((result, index) => (
                   <DetectionOverlay
                     key={index}
-                    imageUrl={selectedImage || '/placeholder-image.png'}
+                    imageUrl={selectedImage}
                     detections={result.detections}
                     faceDetections={result.faceDetections}
                     title={`Detection Result #${index + 1}`}
@@ -807,7 +817,7 @@ const OpenCV: React.FC = () => {
                               alt={event.detectionType}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.currentTarget.src = '/placeholder-image.png';
+                                e.currentTarget.style.display = 'none';
                               }}
                             />
                           </div>
@@ -838,7 +848,7 @@ const OpenCV: React.FC = () => {
                                 alt={event.detectionType}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.currentTarget.src = '/placeholder-image.png';
+                                  e.currentTarget.style.display = 'none';
                                 }}
                               />
                             </div>
@@ -969,12 +979,22 @@ const OpenCV: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Batch Jobs */}
+             {/* Batch Jobs */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="mr-2 h-5 w-5" />
-                  Batch Jobs
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-5 w-5" />
+                    Batch Jobs
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadBatchJobs}
+                    disabled={false}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
                 </CardTitle>
                 <CardDescription>
                   Active and recent batch processing jobs
@@ -985,25 +1005,36 @@ const OpenCV: React.FC = () => {
                   {batchJobs.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                      <p>No batch jobs yet</p>
+                      <p>No batch jobs found</p>
                       <p className="text-sm">Start a batch processing job to see it here</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {batchJobs.map((job) => (
                         <div key={job.id} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
+                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Badge 
                                 variant={
                                   job.status === 'completed' ? 'default' :
-                                  job.status === 'running' ? 'secondary' :
+                                  job.status === 'running' ? 'default' :
                                   job.status === 'failed' ? 'destructive' : 'outline'
                                 }
+                                className={
+                                  job.status === 'running' 
+                                    ? 'bg-green-500 hover:bg-green-600 animate-pulse' 
+                                    : ''
+                                }
                               >
+                                {job.status === 'running' && <RefreshCw className="mr-1 h-3 w-3 animate-spin" />}
                                 {job.status}
                               </Badge>
                               <span className="text-sm font-mono">#{job.id.slice(-8)}</span>
+                              {job.startTime && (
+                                <span className="text-xs text-muted-foreground">
+                                  Started {new Date(job.startTime).toLocaleTimeString()}
+                                </span>
+                              )}
                             </div>
                             
                             <div className="flex gap-1">
@@ -1031,18 +1062,58 @@ const OpenCV: React.FC = () => {
                           <div className="space-y-2">
                             <div className="flex justify-between text-sm">
                               <span>Progress</span>
-                              <span>{job.progress.processed} / {job.progress.total}</span>
+                              <span className="font-mono">
+                                {job.progress.processed} / {job.progress.total}
+                                {job.progress.total > 0 && (
+                                  <span className="ml-2 text-muted-foreground">
+                                    ({Math.round((job.progress.processed / job.progress.total) * 100)}%)
+                                  </span>
+                                )}
+                              </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(job.progress.processed / job.progress.total) * 100}%` }}
-                              />
-                            </div>
+                            
+                            {job.status === 'queued' ? (
+                              <div className="text-sm text-muted-foreground">
+                                Queued - waiting to start...
+                              </div>
+                            ) : job.progress.total > 0 ? (
+                              <>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.min((job.progress.processed / job.progress.total) * 100, 100)}%` }}
+                                  />
+                                </div>
+                                {job.startTime && job.progress.processed > 0 && job.progress.total > 0 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {(() => {
+                                      const elapsed = Date.now() - new Date(job.startTime).getTime();
+                                      const avgTimePerImage = elapsed / job.progress.processed;
+                                      const remaining = avgTimePerImage * (job.progress.total - job.progress.processed);
+                                      const remainingMins = Math.round(remaining / 60000);
+                                      return remainingMins > 0 
+                                        ? `~${remainingMins} min remaining`
+                                        : 'Almost done...';
+                                    })()}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-sm text-muted-foreground">
+                                Initializing...
+                              </div>
+                            )}
+                            
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>✓ {job.progress.successful}</span>
                               <span>✗ {job.progress.failed}</span>
                             </div>
+                            
+                            {job.progress.currentFile && (
+                              <div className="text-xs text-muted-foreground truncate">
+                                Processing: {job.progress.currentFile}
+                              </div>
+                            )}
                             
                             {job.results && (
                               <div className="pt-2 border-t text-sm">

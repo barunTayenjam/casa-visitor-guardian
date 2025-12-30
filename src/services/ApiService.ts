@@ -410,7 +410,7 @@ class ApiService {
       name: camera.name,
       status: status as 'online' | 'offline' | 'warning',
       streamUrl: camera.rtspUrl,
-      thumbnail: '/placeholder-camera.svg',
+      thumbnail: undefined, // Will be loaded dynamically
       location: camera.name, // Use camera name as location for now
       detectionEnabled: true, // Default, will be updated from motion settings
       sensitivity: 0.5, // Default, will be updated from motion settings
@@ -2024,9 +2024,20 @@ class ApiService {
    */
   async getDetectionHistory(filters: DetectionFilters): Promise<DetectionEvent[]> {
     try {
-      const response = await this.get<{ success: boolean; detections: DetectionEvent[] }>('/detections/history', filters as Record<string, unknown>);
+      const queryParams = new URLSearchParams();
+      if (filters.detectionTypes && filters.detectionTypes.length > 0) {
+        queryParams.append('type', filters.detectionTypes[0]);
+      }
+      if (filters.cameraIds && filters.cameraIds.length > 0) {
+        queryParams.append('cameraId', filters.cameraIds[0]);
+      }
+      if (filters.limit) {
+        queryParams.append('limit', filters.limit.toString());
+      }
+
+      const response = await this.get<{ success: boolean; events: DetectionEvent[] }>(`/detection/events?${queryParams.toString()}`);
       if (response.success) {
-        return response.detections;
+        return response.events;
       }
       throw new ApiError('Failed to get detection history', 400, 'GET_DETECTION_HISTORY_ERROR');
     } catch (error) {

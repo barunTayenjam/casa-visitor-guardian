@@ -17,17 +17,18 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8082
-      - DB_HOST=localhost
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=sentryvision
       - DB_USER=sentryvision
       - DB_PASSWORD=sentryvision123
       - JWT_ACCESS_SECRET=dev-jwt-access-secret
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
-      - DATABASE_URL=postgresql://sentryvision:sentryvision123@localhost:5432/sentryvision
+      - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv-service:8084  # OpenCV service endpoint
     depends_on:
       - opencv-service
+      - postgres
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -37,7 +38,7 @@ services:
   opencv-service:
     build:
       context: ./opencv-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.python
     container_name: opencv-service
     ports:
       - "8084:8084"  # OpenCV service API
@@ -47,11 +48,10 @@ services:
       - ./data/logs:/app/data/logs       # Logs directory
       - ./public/events:/app/public/events # Share events directory for batch processing
     environment:
-      - NODE_ENV=production
       - OPENCV_PORT=8084
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -59,26 +59,32 @@ services:
     networks:
       - sentryvision-network
 
-  # Optional: PostgreSQL database (if you want it containerized)
-  # Uncomment if you want to run PostgreSQL in Docker
-  # postgres:
-  #   image: postgres:15-alpine
-  #   container_name: sentryvision-db
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     - POSTGRES_DB=sentryvision
-  #     - POSTGRES_USER=sentryvision
-  #     - POSTGRES_PASSWORD=sentryvision123
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   restart: unless-stopped
-  #   networks:
-  #     - sentryvision-network
+  # PostgreSQL database for SentryVision
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentryvision-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=sentryvision
+      - POSTGRES_USER=sentryvision
+      - POSTGRES_PASSWORD=sentryvision123
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentryvision -d sentryvision"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
 
 networks:
   sentryvision-network:
     driver: bridge
 
-# volumes:
-#   postgres_data:
+volumes:
+  postgres_data:

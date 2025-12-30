@@ -8,7 +8,7 @@ import { validate, commonSchemas } from '../middleware/validation.js';
 import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLimit.js';
 import { logger } from '../utils/logger.js';
 import auditLogger from '../utils/auditLogger.js';
-import logRoutes from './logRoutes.js';
+// import logRoutes from './logRoutes.js';
 import { generateTestJpegFrame } from '../utils/testImageGenerator.js';
 import { AppDataSource } from '../database.js';
 // import { Event } from '../models/Event.js'; // Temporarily disabled
@@ -20,6 +20,8 @@ import { FindManyOptions } from 'typeorm';
 // Using global variables set up in index.ts
 import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
 import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
+import { batchProcessingService } from '../services/batchProcessingService.js';
+import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -53,7 +55,7 @@ interface Alert {
 }
 
 // Store recent motion events in memory
-// const recentEvents: MotionEvent[] = []; // Temporarily disabled
+const recentEvents: MotionEvent[] = [];
 
 // Store alerts in memory
 let alerts: Alert[] = [];
@@ -992,7 +994,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get motion detection settings for a camera
   app.get('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
     try {
-      const motionDetector = getGlobalMotionDetector();
+      const motionDetector = getMotionDetector();
       const settings = motionDetector.getSettings(req.params.cameraId);
       if (!settings) {
         return res.status(404).json({ success: false, error: 'Settings not found' });
@@ -1008,17 +1010,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
     try {
       const { enabled, sensitivity, cooldownPeriod } = req.body;
-      const motionDetector = getGlobalMotionDetector();
+      const motionDetector = getMotionDetector();
       const updated = motionDetector.updateSettings(req.params.cameraId, {
         enabled,
         sensitivity,
         cooldownPeriod
       });
-      
+
       if (!updated) {
         return res.status(404).json({ success: false, error: 'Camera not found' });
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       console.error(`Error updating motion settings for camera ${req.params.cameraId}:`, error);
@@ -2508,6 +2510,61 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         processingErrors: errors
       };
 
+      // Save batch job and results to PostgreSQL database
+      try {
+        const db = await getBatchProcessingDatabase();
+
+        const now = new Date();
+
+        // Create batch job record
+        await db.createJob({
+          id: batchId,
+          status: 'completed',
+          start_time: new Date(now.getTime() - avgProcessingTime * events.length),
+          end_time: now,
+          total_images: events.length,
+          processed_images: events.length,
+          successful_images: totalPersons + totalFaces,
+          failed_images: errors,
+          person_detections: totalPersons,
+          face_detections: totalFaces,
+          known_faces: 0,
+          unknown_faces: totalFaces,
+          processing_time_ms: Math.round(avgProcessingTime * events.length),
+          options_json: JSON.stringify({ startDate, endDate, limit }),
+          error_message: undefined
+        });
+
+        // Save processed images to database
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const event = events[i];
+
+          if (result.success) {
+            await db.addProcessedImage({
+              id: `${batchId}_${result.eventId}_${Date.now()}_${i}`,
+              job_id: batchId,
+              filename: result.imageId || result.eventId,
+              file_path: event.imagePath || '',
+              camera_id: event.cameraId || 'unknown',
+              image_timestamp: new Date(result.timestamp),
+              file_size: 0,
+              person_count: result.detections?.filter((d: any) => d.class === 'person').length || 0,
+              face_count: result.faceDetections?.length || 0,
+              known_face_count: 0,
+              unknown_face_count: result.faceDetections?.length || 0,
+              processing_time_ms: 0,
+              status: 'success',
+              detection_json: JSON.stringify(result),
+              file_hash: result.eventId
+            });
+          }
+        }
+        console.log(`Batch ${batchId} saved to PostgreSQL database`);
+      } catch (dbError) {
+        console.error('Failed to save batch to database:', dbError);
+      }
+
       res.json({
         success: true,
         batchId,
@@ -2526,19 +2583,45 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get batch progress
-  app.get('/api/detection/batch-progress/:batchId', (req: Request, res: Response) => {
+  app.get('/api/detection/batch-progress/:batchId', async (req: Request, res: Response) => {
     try {
       const { batchId } = req.params;
-      
+
       const progress = activeBatches.get(batchId);
-      
+
       if (!progress) {
+        // Try to get from database
+        const db = await getBatchProcessingDatabase();
+        const job = await db.getJob(batchId);
+        if (job) {
+          return res.json({
+            success: true,
+            progress: {
+              total: job.total_images,
+              processed: job.processed_images,
+              succeeded: job.successful_images,
+              failed: job.failed_images,
+              percentage: job.status === 'completed' ? 100 : 0
+            },
+            status: job.status,
+            summary: {
+              totalEvents: job.total_images,
+              personsDetected: job.person_detections,
+              facesDetected: job.face_detections,
+              vehiclesDetected: 0,
+              motionEvents: 0,
+              averageProcessingTime: job.processing_time_ms || 0,
+              processingErrors: job.failed_images
+            },
+            isFromDatabase: true
+          });
+        }
         return res.status(404).json({
           success: false,
           error: 'Batch not found'
         });
       }
-      
+
       res.json({
         success: true,
         progress
@@ -2581,4 +2664,189 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // API routes config log disabled - console.log('API routes configured');
+
+  // ===== BATCH PROCESSING ROUTES =====
+
+  // Get available time ranges
+  app.get('/api/batch/time-ranges', async (req: Request, res: Response) => {
+    try {
+      const ranges = await batchProcessingService.getAvailableTimeRanges();
+      res.json({
+        success: true,
+        ranges
+      });
+    } catch (error: any) {
+      console.error('Error getting time ranges:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Get all batch jobs
+  app.get('/api/batch/jobs', (req: Request, res: Response) => {
+    try {
+      const jobs = batchProcessingService.getAllJobs();
+      res.json({
+        success: true,
+        jobs
+      });
+    } catch (error: any) {
+      console.error('Error getting jobs:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Get batch statistics
+  app.get('/api/batch/stats', async (req: Request, res: Response) => {
+    try {
+      const stats = await batchProcessingService.getJobSummary();
+      res.json({
+        success: true,
+        stats: stats || {
+          total_jobs: 0,
+          queued_jobs: 0,
+          running_jobs: 0,
+          completed_jobs: 0,
+          failed_jobs: 0,
+          cancelled_jobs: 0
+        }
+      });
+    } catch (error: any) {
+      console.error('Error getting batch stats:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Get available events for batch processing
+  app.get('/api/batch/events/available', async (req: Request, res: Response) => {
+    try {
+      const { startTime, endTime, cameraIds } = req.query;
+      
+      const events = await batchProcessingService.getAvailableEvents({
+        startTime: new Date(startTime as string),
+        endTime: new Date(endTime as string),
+        cameraIds: cameraIds ? (cameraIds as string).split(',') : undefined
+      });
+      
+      res.json(events);
+    } catch (error: any) {
+      console.error('Error getting available events:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Start batch processing
+  app.post('/api/batch/start', async (req: Request, res: Response) => {
+    try {
+      const options = req.body;
+      
+      const jobId = await batchProcessingService.startBatchProcessing(options);
+      
+      res.json({
+        success: true,
+        jobId
+      });
+    } catch (error: any) {
+      console.error('Error starting batch processing:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Cancel batch job
+  app.post('/api/batch/jobs/:jobId/cancel', async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      
+      const success = await batchProcessingService.cancelJob(jobId);
+      
+      res.json({ success });
+    } catch (error: any) {
+      console.error('Error cancelling job:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Get batch job results
+  app.get('/api/batch/jobs/:jobId/results', async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      
+      const job = batchProcessingService.getJobStatus(jobId);
+      
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found'
+        });
+      }
+      
+      res.json({
+        success: true,
+        job
+      });
+    } catch (error: any) {
+      console.error('Error getting job results:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Download batch job results (serve file)
+  app.get('/api/batch/jobs/:jobId/download', async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      
+      const job = batchProcessingService.getJobStatus(jobId);
+      
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found'
+        });
+      }
+      
+      if (job.status !== 'completed' || !job.results) {
+        return res.status(400).json({
+          success: false,
+          error: 'Job not completed or no results available'
+        });
+      }
+      
+      const outputPath = path.join(__dirname, '../../public/batch-results', `${jobId}.json`);
+      
+      if (!fs.existsSync(outputPath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'Results file not found'
+        });
+      }
+      
+      res.download(outputPath, `batch_results_${jobId}.json`);
+    } catch (error: any) {
+      console.error('Error downloading batch results:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 }

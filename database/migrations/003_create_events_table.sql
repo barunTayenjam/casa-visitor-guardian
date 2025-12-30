@@ -1,7 +1,7 @@
 -- File: database/migrations/003_create_events_table.sql
 
 -- Events table for motion detection and security events
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type VARCHAR(50) NOT NULL,
     file_path VARCHAR(255) NOT NULL,

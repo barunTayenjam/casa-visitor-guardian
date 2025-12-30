@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Import log database
-import { getLogDatabase } from '../services/logDatabase.js';
+// import { getLogDatabase } from '../services/logDatabase.js';
 
 // Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, '../../logs');
@@ -106,25 +106,28 @@ const writeToDatabase = async (
   metadata?: Record<string, unknown>
 ) => {
   if (!LOGGING_CONFIG.enableDatabaseLogging) return;
-  
+
+  // TODO: Migrate to PostgreSQL audit_logs - logDatabase disabled
+  return;
+
   try {
-    const logDb = await getLogDatabase();
-    if (!logDb) {
-      // Database not yet initialized, skip database logging
-      return;
-    }
-    
+    // const logDb = await getLogDatabase();
+    // if (!logDb) {
+    //   // Database not yet initialized, skip database logging
+    //   return;
+    // }
+
     const errorDetails = error ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : undefined;
     const metadataStr = metadata ? JSON.stringify(metadata) : undefined;
-    
-    await logDb.insertLog({
-      timestamp: new Date().toISOString(),
-      level: level as 'info' | 'warn' | 'error' | 'debug',
-      message,
-      source,
-      error_details: errorDetails,
-      metadata: metadataStr
-    });
+
+    // await logDb.insertLog({
+    //   timestamp: new Date().toISOString(),
+    //   level: level as 'info' | 'warn' | 'error' | 'debug',
+    //   message,
+    //   source,
+    //   error_details: errorDetails,
+    //   metadata: metadataStr
+    // });
   } catch (dbError) {
     // If database logging fails, log to console but don't crash
     originalConsoleError('Failed to write to log database:', dbError);

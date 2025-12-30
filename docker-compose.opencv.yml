@@ -43,10 +43,9 @@ services:
     ports:
       - "8084:8084"  # OpenCV service API
     volumes:
+      - ./public:/app/public             # Shared public directory for temporary files
       - ./server/models:/app/models:ro  # Read-only access to models
       - ./data:/app/data                 # Shared data access
-      - ./data/logs:/app/data/logs       # Logs directory
-      - ./public/events:/app/public/events # Share events directory for batch processing
     environment:
       - OPENCV_PORT=8084
     restart: unless-stopped

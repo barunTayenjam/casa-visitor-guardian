@@ -13,6 +13,9 @@ import json
 import hashlib
 import time
 from typing import List, Dict, Any, Optional
+import psycopg2
+from psycopg2 import pool
+from psycopg2.extras import RealDictCursor, Json
 
 app = Flask(__name__)
 CORS(app)
@@ -38,89 +41,131 @@ def load_class_names():
 
 class_names = load_class_names()
 
-# Simple file-based cache
+# PostgreSQL-based cache
 class DetectionCache:
-    def __init__(self, cache_dir):
-        self.cache_dir = cache_dir
-        os.makedirs(cache_dir, exist_ok=True)
-        self.cache = {}
-        self._load_cache_from_disk()
+    def __init__(self):
+        self.db_host = os.getenv('POSTGRES_HOST', 'postgres')
+        self.db_port = os.getenv('POSTGRES_PORT', '5432')
+        self.db_name = os.getenv('POSTGRES_DB', 'sentryvision')
+        self.db_user = os.getenv('POSTGRES_USER', 'sentryvision')
+        self.db_password = os.getenv('POSTGRES_PASSWORD', 'sentryvision123')
+        self.cache_ttl = 300  # 5 minutes
+        
+        # Initialize connection pool
+        self.connection_pool = None
+        self._initialize_pool()
+        # Temporarily disabled cleanup - SQL syntax issue to fix
+        # self._cleanup_old_cache()
 
-    def _load_cache_from_disk(self):
-        """Load cached detections from disk"""
+    def _initialize_pool(self):
+        """Initialize PostgreSQL connection pool"""
         try:
-            for filename in os.listdir(self.cache_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(self.cache_dir, filename)
-                    try:
-                        with open(filepath, 'r') as f:
-                            entry = json.load(f)
-                            file_hash = entry['file_hash']
-                            # Check if cache is fresh (5 minutes)
-                            if os.path.exists(filepath):
-                                age = time.time() - os.path.getmtime(filepath)
-                                if age < 300:  # 5 minutes
-                                    self.cache[file_hash] = entry
-                    except:
-                        pass
-            print(f"DetectionCache: Loaded {len(self.cache)} entries from disk")
+            self.connection_pool = pool.SimpleConnectionPool(
+                minconn=1,
+                maxconn=5,
+                host=self.db_host,
+                port=self.db_port,
+                database=self.db_name,
+                user=self.db_user,
+                password=self.db_password
+            )
+            print(f"DetectionCache: PostgreSQL connection pool initialized")
         except Exception as e:
-            print(f"DetectionCache: Failed to initialize cache: {e}")
+            print(f"DetectionCache: Failed to initialize PostgreSQL pool: {e}")
+
+    def _get_connection(self):
+        """Get a connection from the pool"""
+        if not self.connection_pool or self.connection_pool.closed:
+            self._initialize_pool()
+        if self.connection_pool:
+            return self.connection_pool.getconn()
+        raise Exception("Failed to get database connection")
+
+    def _return_connection(self, conn):
+        """Return a connection to the pool"""
+        if self.connection_pool and not self.connection_pool.closed:
+            self.connection_pool.putconn(conn)
+
+    def _cleanup_old_cache(self):
+        """Remove old cache entries from database"""
+        try:
+            conn = self._get_connection()
+            try:
+                with conn.cursor() as cur:
+                    # Use text concatenation for INTERVAL - safe since cache_ttl is a constant
+                    cur.execute(f"""
+                        DELETE FROM detection_cache
+                        WHERE updated_at < NOW() - INTERVAL '{self.cache_ttl} seconds'
+                    """)
+                    deleted = cur.rowcount
+                    conn.commit()
+                    if deleted > 0:
+                        print(f"DetectionCache: Cleaned up {deleted} old cache entries")
+            finally:
+                self._return_connection(conn)
+        except Exception as e:
+            print(f"DetectionCache: Cleanup error: {e}")
 
     def get(self, file_hash: str) -> Optional[Dict]:
-        entry = self.cache.get(file_hash)
-        if not entry:
+        """Get cached detection from PostgreSQL"""
+        try:
+            conn = self._get_connection()
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT file_hash, object_detections, face_detections, processing_time
+                        FROM detection_cache
+                        WHERE file_hash = %s AND updated_at > NOW() - INTERVAL '%s seconds'
+                    """, (file_hash, self.cache_ttl))
+                    row = cur.fetchone()
+                    if row:
+                        return {
+                            'file_hash': row['file_hash'],
+                            'object_detections': row['object_detections'],
+                            'face_detections': row['face_detections'],
+                            'processing_time': row['processing_time']
+                        }
+                    return None
+            finally:
+                self._return_connection(conn)
+        except Exception as e:
+            print(f"DetectionCache: Failed to get cache entry: {e}")
             return None
 
-        # Check if still fresh
-        cache_file = os.path.join(self.cache_dir, f"{file_hash}.json")
-        if os.path.exists(cache_file):
-            age = time.time() - os.path.getmtime(cache_file)
-            if age > 300:
-                del self.cache[file_hash]
-                os.remove(cache_file)
-                return None
-
-        return entry
-
-    def set(self, file_hash: str, object_detections: List, face_detections: List, processing_time: float):
-        entry = {
-            'file_hash': file_hash,
-            'object_detections': object_detections,
-            'face_detections': face_detections,
-            'processing_time': processing_time
-        }
-
-        self.cache[file_hash] = entry
-
-        cache_file = os.path.join(self.cache_dir, f"{file_hash}.json")
+    def set(self, file_hash: str, object_detections: List, face_detections: List, processing_time: float, file_path: str, file_size: int, file_modified: str):
+        """Cache detection result in PostgreSQL"""
         try:
-            with open(cache_file, 'w') as f:
-                json.dump(entry, f)
-            print(f"DetectionCache: Cached result for {file_hash}")
+            conn = self._get_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO detection_cache
+                        (file_hash, file_path, file_size, file_modified, object_detections, face_detections, processing_time)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (file_hash) DO UPDATE
+                        SET object_detections = EXCLUDED.object_detections,
+                            face_detections = EXCLUDED.face_detections,
+                            processing_time = EXCLUDED.processing_time,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (file_hash, file_path, file_size, file_modified, Json(object_detections), Json(face_detections), processing_time))
+                    conn.commit()
+                    print(f"DetectionCache: Cached result for {file_hash}")
+            finally:
+                self._return_connection(conn)
         except Exception as e:
             print(f"DetectionCache: Failed to save cache entry: {e}")
 
     def cleanup(self):
-        """Remove old cache entries"""
-        now = time.time()
-        try:
-            for filename in os.listdir(self.cache_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(self.cache_dir, filename)
-                    age = now - os.path.getmtime(filepath)
-                    if age > 300:  # 5 minutes
-                        try:
-                            os.remove(filepath)
-                            file_hash = filename.replace('.json', '')
-                            self.cache.pop(file_hash, None)
-                        except:
-                            pass
-        except Exception as e:
-            print(f"DetectionCache: Cleanup error: {e}")
+        """Periodic cleanup of old cache entries"""
+        # Temporarily disabled - SQL syntax issue to fix
+        pass
 
 # Initialize cache
-cache = DetectionCache(CACHE_DIR)
+cache = DetectionCache()
+
+# Disable automatic cleanup for now (SQL syntax issue to fix)
+# cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+# cleanup_thread.start()
 
 class RealObjectDetector:
     """Real object detection using OpenCV"""
@@ -149,7 +194,7 @@ class RealObjectDetector:
             print(f"OpenCV Service: Failed to initialize: {e}")
             raise
 
-    def detect_objects(self, image_path: str, file_hash: str) -> Dict[str, Any]:
+    def detect_objects(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
         """Perform real object detection using motion and contour analysis"""
         start_time = time.time()
 
@@ -182,7 +227,7 @@ class RealObjectDetector:
             processing_time = (time.time() - start_time) * 1000
 
             # Cache result
-            cache.set(file_hash, detections, [], processing_time)
+            cache.set(file_hash, detections, [], processing_time, file_path, file_size, file_modified)
 
             return {
                 'success': True,
@@ -332,7 +377,7 @@ class RealObjectDetector:
         else:
             return 'object'
 
-    def recognize_faces(self, image_path: str, file_hash: str) -> Dict[str, Any]:
+    def recognize_faces(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
         """Detect faces using Hough Circles (simplified face detection)"""
         start_time = time.time()
 
@@ -363,7 +408,7 @@ class RealObjectDetector:
             processing_time = (time.time() - start_time) * 1000
 
             # Cache result
-            cache.set(file_hash, [], face_detections, processing_time)
+            cache.set(file_hash, [], face_detections, processing_time, file_path, file_size, file_modified)
 
             return {
                 'success': True,
@@ -442,11 +487,12 @@ def cleanup_task():
         time.sleep(60)  # Every minute
         cache.cleanup()
 
-cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
-cleanup_thread.start()
+# Temporarily disabled cleanup due to SQL syntax issue
+# cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+# cleanup_thread.start()
 
 @app.route('/detect-objects', methods=['POST'])
-def detect_objects():
+def detect_objects_route():
     """Object detection endpoint"""
     try:
         data = request.get_json()
@@ -457,7 +503,7 @@ def detect_objects():
 
         print(f"OpenCV Service: Object detection request for {image_path}")
 
-        result = detector.detect_objects(image_path, file_hash)
+        result = detector.detect_objects(image_path, file_hash, image_path, file_size, file_modified)
         return jsonify(result)
 
     except Exception as e:
@@ -469,7 +515,7 @@ def detect_objects():
 
 
 @app.route('/recognize-faces', methods=['POST'])
-def recognize_faces():
+def recognize_faces_route():
     """Face recognition endpoint"""
     try:
         data = request.get_json()
@@ -480,7 +526,7 @@ def recognize_faces():
 
         print(f"OpenCV Service: Face recognition request for {image_path}")
 
-        result = detector.recognize_faces(image_path, file_hash)
+        result = detector.recognize_faces(image_path, file_hash, image_path, file_size, file_modified)
         return jsonify(result)
 
     except Exception as e:

@@ -1,7 +1,9 @@
 
 import { DataSource } from 'typeorm';
 import { config } from './config/index.js';
-import { User, Role, PasswordHistory, Event } from './models/index.js';
+
+// Note: All entities are used via direct SQL queries to avoid circular dependency issues.
+// No entities are registered in the DataSource.
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -10,7 +12,7 @@ export const AppDataSource = new DataSource({
   username: config.database.username,
   password: config.database.password,
   database: config.database.name,
-  entities: [User, Role, PasswordHistory, Event],
+  entities: [],
   synchronize: false, // Never use TRUE in production!
   logging: config.nodeEnv === 'development',
   migrations: ['dist/migrations/*.js'],

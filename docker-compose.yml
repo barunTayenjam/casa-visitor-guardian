@@ -46,7 +46,7 @@ services:
       - ./server/models:/app/models:ro  # Read-only access to models
       - ./data:/app/data                 # Shared data access
       - ./data/logs:/app/data/logs       # Logs directory
-      - ./public/events:/app/public/events # Share events directory for batch processing
+      - ./server/public/events:/app/public/events # Share events directory for batch processing (24,624 real events here)
     environment:
       - OPENCV_PORT=8084
     restart: unless-stopped

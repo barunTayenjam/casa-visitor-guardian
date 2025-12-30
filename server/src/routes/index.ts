@@ -27,6 +27,14 @@ import { getBatchProcessingDatabase } from '../services/batchProcessingDatabaseP
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Define events directory - use absolute path for Docker compatibility
+const EVENTS_DIR = '/app/public/events';
+
+// Ensure events directory exists
+if (!fs.existsSync(EVENTS_DIR)) {
+  fs.mkdirSync(EVENTS_DIR, { recursive: true });
+}
+
 // Log route configuration
 logger.info('Configuring main API routes', 'ROUTES');
 
@@ -1040,7 +1048,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const sortBy = req.query.sortBy as string || 'newest';
       const detectionType = req.query.detectionType as string || 'all';
 
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       let allEvents: any[] = [];
 
       try {
@@ -1229,7 +1237,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
 
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       const allFiles = fs.readdirSync(eventsDir)
         .filter((file: string) => file.endsWith('.jpg'))
         .map((file: string) => {
@@ -1335,7 +1343,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const limit = parseInt(req.query.limit as string) || 100;
       
       // Get events from files in the events directory
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       let allEvents: MotionEvent[] = [];
       
       try {
@@ -1412,7 +1420,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const cameraId = req.params.cameraId;
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       
       // Get events from files in the events directory for this camera
       let fileEvents: MotionEvent[] = [];
@@ -1526,7 +1534,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // List event images
   app.get('/api/events/list', (req: Request, res: Response) => {
     try {
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       const files = fs.readdirSync(eventsDir)
         .filter(file => file.endsWith('.jpg'))
         .sort((a, b) => {
@@ -1545,7 +1553,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/events/image/:filename', (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
-      const imagePath = path.join(__dirname, '../../public/events', filename);
+      const imagePath = path.join(EVENTS_DIR, filename);
       
       // Security check - ensure filename is valid
       if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
@@ -1624,7 +1632,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/system/storage', (req: Request, res: Response) => {
     try {
       // Calculate storage usage for events and snapshots
-      const eventsDir = path.join(__dirname, '../../public/events');
+      const eventsDir = EVENTS_DIR;
       const snapshotsDir = path.join(__dirname, '../../public/snapshots');
       
       let eventsSize = 0;
@@ -1892,29 +1900,12 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Use OpenCV microservice for detection
-      const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
-      const openCVClient = getOpenCVClient();
-      
-      // Save current frame to temporary file for processing
-      const fs = await import('fs');
-      const path = await import('path');
-      const os = await import('os');
-      
-      const tempDir = os.tmpdir();
-      const tempImagePath = path.join(tempDir, `detection_${cameraId}_${Date.now()}.jpg`);
-      
-      // Write frame buffer to file
-      fs.writeFileSync(tempImagePath, currentFrame);
-      
-      // Run object detection using microservice
-      const detectionResult = await openCVClient.detectObjects(tempImagePath);
-      
-      // Clean up temp file
-      fs.unlinkSync(tempImagePath);
+      // Use objectDetectionService for detection
+      const objectDetectionService = getObjectDetectionService();
+      const { detections } = await objectDetectionService.detectPersons(cameraId, currentFrame);
       
       // Process detection results
-      const persons = detectionResult.detections?.filter((d: any) => d.class === 'person') || [];
+      const persons = detections.filter((d: any) => d.class === 'person') || [];
       
       if (persons.length > 0) {
         // Emit person detection event
@@ -1923,7 +1914,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           timestamp: new Date().toISOString(),
           persons: persons.map((p: any) => ({
             confidence: p.confidence,
-            boundingBox: p.boundingBox,
+            boundingBox: p.bbox,
             timestamp: new Date().toISOString()
           })),
           imagePath: currentFrame // In real implementation, save the frame
@@ -1941,7 +1932,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.json({
         success: true,
         persons: persons.length,
-        detections: detectionResult.detections || [],
+        detections: detections || [],
         timestamp: new Date().toISOString()
       });
       
@@ -1971,33 +1962,16 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Use OpenCV microservice for face recognition
-      const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
-      const openCVClient = getOpenCVClient();
+      // Use facialRecognitionService for face recognition
+      const facialRecognitionService = getFacialRecognitionService();
+      const { faces } = await facialRecognitionService.recognizeFaces(currentFrame);
       
-      // Save current frame to temporary file for processing
-      const fs = await import('fs');
-      const path = await import('path');
-      const os = await import('os');
-      
-      const tempDir = os.tmpdir();
-      const tempImagePath = path.join(tempDir, `face_${cameraId}_${Date.now()}.jpg`);
-      
-      // Write frame buffer to file
-      fs.writeFileSync(tempImagePath, currentFrame);
-      
-      // Run face recognition using microservice
-      const faceResult = await openCVClient.recognizeFaces(tempImagePath);
-      
-      // Clean up temp file
-      fs.unlinkSync(tempImagePath);
-      
-      if (faceResult.faceDetections && faceResult.faceDetections.length > 0) {
+      if (faces && faces.length > 0) {
         // Emit face detection event
         io.emit('faceDetected', {
           cameraId,
           timestamp: new Date().toISOString(),
-          faces: faceResult.faceDetections.map((f: any) => ({
+          faces: faces.map((f: any) => ({
             confidence: f.confidence,
             boundingBox: f.bbox,
             personId: f.id,
@@ -2005,11 +1979,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             isKnown: f.name !== 'Unknown',
             timestamp: new Date().toISOString()
           })),
-          imagePath: tempImagePath
+          imagePath: currentFrame
         });
         
         // Add alert for face detection
-        const unknownFaces = faceResult.faceDetections.filter((f: any) => f.name === 'Unknown');
+        const unknownFaces = faces.filter((f: any) => f.name === 'Unknown');
         if (unknownFaces.length > 0) {
           addAlert({
             type: 'motion',
@@ -2022,10 +1996,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       res.json({
         success: true,
-        faces: faceResult.faceDetections?.length || 0,
-        knownFaces: faceResult.faceDetections?.filter((f: any) => f.name !== 'Unknown').length || 0,
-        unknownFaces: faceResult.faceDetections?.filter((f: any) => f.name === 'Unknown').length || 0,
-        detections: faceResult.faceDetections || [],
+        faces: faces?.length || 0,
+        knownFaces: faces?.filter((f: any) => f.name !== 'Unknown').length || 0,
+        unknownFaces: faces?.filter((f: any) => f.name === 'Unknown').length || 0,
+        detections: faces || [],
         timestamp: new Date().toISOString()
       });
       
@@ -2259,7 +2233,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get events for batch processing - reads from real motion event files
   async function getEventsForBatch(request: BatchDetectionRequest): Promise<any[]> {
     try {
-      const eventsDir = '/app/public/events';
+      const eventsDir = EVENTS_DIR;
       let allEvents: any[] = [];
 
       // Read all event files from filesystem
@@ -2302,7 +2276,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             id: `evt_${file}`,
             imageId: file,
             timestamp,
-            imagePath: `/app/public/events/${file}`,
+            imagePath: path.join(EVENTS_DIR, file),
             type: eventType,
             confidence: 0.75,
             labels,

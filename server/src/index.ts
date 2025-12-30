@@ -96,8 +96,8 @@ console.log('Routes configured successfully');
 // Initialize stream manager
 async function initializeServices() {
   try {
-    // await initializeDatabase(); // Temporarily disabled due to TypeORM issues
-    console.log('Database initialization temporarily disabled');
+    await initializeDatabase();
+    console.log('Database initialized successfully');
     
     // Initialize OpenCV object detection service
     console.log('Initializing OpenCV object detection service...');

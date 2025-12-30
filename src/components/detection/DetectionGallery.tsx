@@ -99,11 +99,15 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
               timestamp = new Date(numericTimestamp);
             } else if (timestampPart.includes('T')) {
               const datePart = timestampPart.substring(0, 10);
-              const timePart = timestampPart.substring(11).replace(/-/g, ':');
-              const isoTimestamp = `${datePart}T${timePart}Z`;
+              const timePart = timestampPart.substring(11);
+              const isoTimestamp = `${datePart}T${timePart.replace(/-/g, ':').replace(/:([0-9]{3})Z$/, '.$1Z')}`;
               timestamp = new Date(isoTimestamp);
             }
           }
+        }
+        
+        if (isNaN(timestamp.getTime())) {
+          timestamp = new Date();
         }
         
         return {

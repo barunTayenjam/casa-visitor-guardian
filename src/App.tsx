@@ -98,38 +98,6 @@ const App = () => {
                     } 
                   />
                   
-                  {/* Public routes */}
-                  <Route 
-                    path="/login" 
-                    element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <Login />
-                      </ErrorBoundary>
-                    } 
-                  />
-                  
-                  {/* Development debug route */}
-                  {import.meta.env.DEV && (
-                    <Route 
-                      path="/debug" 
-                      element={
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <Debug />
-                        </ErrorBoundary>
-                    } 
-                    />
-                  )}
-                  
-                  {/* OpenCV route */}
-                  <Route 
-                    path="/opencv" 
-                    element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <OpenCV />
-                      </ErrorBoundary>
-                    } 
-                  />
-                  
                   {/* Protected routes with nested layout */}
                   <Route path="/app" element={
                     <ProtectedRoute>
@@ -139,6 +107,11 @@ const App = () => {
                     <Route index element={
                       <ErrorBoundary fallback={ErrorFallback}>
                         <Dashboard />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="opencv" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <OpenCV />
                       </ErrorBoundary>
                     } />
                     <Route path="camera-config" element={

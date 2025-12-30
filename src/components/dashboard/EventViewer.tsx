@@ -44,9 +44,7 @@ export const EventViewer: React.FC<EventViewerProps> = ({ events, onImageClick }
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.onerror = null;
-                        target.src = '/placeholder-camera.jpg';
-                        target.alt = 'Image not available';
-                        target.style.display = 'block';
+                        target.style.display = 'none';
                       }}
                     />
                   ) : (

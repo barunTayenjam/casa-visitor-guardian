@@ -110,7 +110,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ className }) => {
               className="object-cover w-full h-full"
               onError={(e) => {
                 console.error(`Failed to load image: ${getImageUrl(image, type)}`);
-                e.currentTarget.src = '/placeholder-event.jpg';
+                e.currentTarget.style.display = 'none';
               }}
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">

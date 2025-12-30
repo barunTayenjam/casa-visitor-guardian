@@ -75,40 +75,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       logger.error('Failed to fetch cameras', 'CAMERA', err);
       setError('Failed to load cameras from the server');
-      
-      // Provide mock cameras only in development when backend is completely unavailable
-      if (import.meta.env.DEV && err instanceof Error && err.message.includes('fetch')) {
-        logger.info('Backend not available, providing mock cameras for development', 'CAMERA');
-        const mockCameras: Camera[] = [
-          {
-            id: 'cam1',
-            name: 'Front Door',
-            status: 'online',
-            streamUrl: 'rtsp://192.168.31.62:554/stream1',
-            thumbnail: '/placeholder-camera.svg',
-            location: 'Front Entrance',
-            detectionEnabled: true,
-            sensitivity: 0.7,
-            lastSeen: new Date(),
-            resolution: '2560x1440',
-            fps: 15
-          },
-          {
-            id: 'cam2',
-            name: 'Back Door',
-            status: 'online',
-            streamUrl: 'rtsp://192.168.31.61:554/stream1',
-            thumbnail: '/placeholder-camera.svg',
-            location: 'Back Entrance',
-            detectionEnabled: true,
-            sensitivity: 0.8,
-            lastSeen: new Date(),
-            resolution: '1920x1080',
-            fps: 15
-          }
-        ];
-        setCameras(mockCameras);
-      }
     } finally {
       setLoading(false);
     }

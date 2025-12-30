@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
 import { EventEmitter } from 'events';
-import { ObjectDetectionService, DetectionResult } from './objectDetection.js';
+import { ObjectDetectionService, DetectionResult } from './objectDetectionOpenCV.js';
 import { FacialRecognitionService, FaceDetection } from './facialRecognition.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';

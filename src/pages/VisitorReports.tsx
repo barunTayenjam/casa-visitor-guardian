@@ -89,20 +89,7 @@ const VisitorReports: React.FC = () => {
       const response = await fetch('/api/visitors/schedule');
       
       if (!response.ok) {
-        console.warn('API not available, using mock data');
-        // Use mock data for now
-        setSchedules([
-          {
-            id: 'mock_1',
-            reportType: 'daily',
-            cronExpression: '0 9 * * *',
-            recipients: ['admin@example.com'],
-            enabled: true,
-            createdAt: new Date().toISOString(),
-            nextExecution: new Date(Date.now() + 24 * 60 * 60 * 1000)
-          }
-        ]);
-        return;
+        throw new Error('Failed to load schedules from server');
       }
 
       const data = await response.json();
@@ -113,56 +100,21 @@ const VisitorReports: React.FC = () => {
     } catch (err) {
       console.error('Error loading schedules:', err);
       setError('Failed to load schedules');
-      // Use mock data as fallback
-      setSchedules([
-        {
-          id: 'mock_1',
-          reportType: 'daily',
-          cronExpression: '0 9 * * *',
-          recipients: ['admin@example.com'],
-          enabled: true,
-          createdAt: new Date().toISOString(),
-          nextExecution: new Date(Date.now() + 24 * 60 * 60 * 1000)
-        }
-      ]);
+      setSchedules([]);
     }
   };
 
   const loadReportHistory = async () => {
     try {
-      // This would be implemented in the backend
-      // For now, we'll simulate with placeholder data
-      const mockHistory: ReportHistory[] = [
-        {
-          id: '1',
-          reportType: 'daily',
-          periodStart: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          periodEnd: new Date().toISOString(),
-          totalVisits: 15,
-          uniqueVisitors: 8,
-          knownVisitors: 5,
-          unknownVisitors: 3,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          filePath: '/public/reports/daily_report_2025-10-29.html'
-        },
-        {
-          id: '2',
-          reportType: 'weekly',
-          periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          periodEnd: new Date().toISOString(),
-          totalVisits: 89,
-          uniqueVisitors: 32,
-          knownVisitors: 18,
-          unknownVisitors: 14,
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          filePath: '/public/reports/weekly_report_2025-W43.html'
-        }
-      ];
+      const response = await fetch('/api/visitors/report/history');
+      const data = await response.json();
       
-      setReportHistory(mockHistory);
+      if (data.success) {
+        setReportHistory(data.reports || []);
+      }
     } catch (err) {
       console.error('Error loading report history:', err);
-      // Don't set error for history loading failure
+      setReportHistory([]);
     }
   };
 
@@ -197,34 +149,7 @@ const VisitorReports: React.FC = () => {
       });
 
       if (!response.ok) {
-        console.warn('API not available, simulating success');
-        // Simulate success for demo
-        const newSchedule = {
-          id: `schedule_${Date.now()}`,
-          reportType: formData.reportType,
-          cronExpression: formData.cronExpression,
-          recipients: validRecipients,
-          enabled: true,
-          createdAt: new Date().toISOString()
-        };
-        
-        if (editingSchedule) {
-          setSchedules(prev => prev.map(s => s.id === editingSchedule.id ? { ...newSchedule, id: editingSchedule.id } : s));
-        } else {
-          setSchedules(prev => [...prev, newSchedule]);
-        }
-        
-        // Reset form
-        setShowCreateSchedule(false);
-        setEditingSchedule(null);
-        setFormData({
-          reportType: 'daily',
-          cronExpression: '0 9 * * *',
-          recipients: ['']
-        });
-        
-        alert(editingSchedule ? 'Schedule updated successfully (demo mode)' : 'Schedule created successfully (demo mode)');
-        return;
+        throw new Error('Failed to save schedule');
       }
 
       const result = await response.json();
@@ -262,13 +187,7 @@ const VisitorReports: React.FC = () => {
       });
 
       if (!response.ok) {
-        console.warn('API not available, simulating toggle');
-        // Simulate toggle for demo
-        setSchedules(prev => prev.map(s => 
-          s.id === scheduleId ? { ...s, enabled } : s
-        ));
-        alert(`Schedule ${enabled ? 'enabled' : 'disabled'} successfully (demo mode)`);
-        return;
+        throw new Error('Failed to toggle schedule');
       }
 
       await loadSchedules();
@@ -291,11 +210,7 @@ const VisitorReports: React.FC = () => {
       });
 
       if (!response.ok) {
-        console.warn('API not available, simulating delete');
-        // Simulate delete for demo
-        setSchedules(prev => prev.filter(s => s.id !== scheduleId));
-        alert('Schedule deleted successfully (demo mode)');
-        return;
+        throw new Error('Failed to delete schedule');
       }
 
       await loadSchedules();

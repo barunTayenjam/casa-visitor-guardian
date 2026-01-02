@@ -76,8 +76,10 @@ export class BatchProcessingService extends EventEmitter {
 
   constructor() {
     super();
-    this.eventsDir = path.join(process.cwd(), 'public', 'events');
-    this.outputDir = path.join(process.cwd(), 'public', 'batch-results');
+    // Use absolute path for Docker compatibility
+    const appRoot = process.cwd().includes('server') ? '/app' : process.cwd();
+    this.eventsDir = path.join(appRoot, 'public', 'events');
+    this.outputDir = path.join(appRoot, 'public', 'batch-results');
 
     // Ensure directories exist
     if (!fs.existsSync(this.eventsDir)) {
@@ -583,23 +585,23 @@ export class BatchProcessingService extends EventEmitter {
       }
 
       // Create worker for processing
-      // In dev mode (tsx), run the .ts worker directly. In production, run the compiled .js worker.
-      const isTsMode = __filename.endsWith('.ts');
-      const workerPath = isTsMode 
-        ? path.join(__dirname, 'batchProcessingWorker.ts')
-        : path.join(__dirname, '../../dist/services/batchProcessingWorker.js');
+      // Always use compiled .js worker file
+      const workerPath = path.join(__dirname, '../../dist/services/batchProcessingWorker.js');
 
-      console.log(`Starting batch worker: ${workerPath} (Mode: ${isTsMode ? 'TypeScript' : 'JavaScript'})`);
+      // Fallback to source .js if dist doesn't exist (dev mode)
+      const finalWorkerPath = fs.existsSync(workerPath)
+        ? workerPath
+        : path.join(__dirname, 'batchProcessingWorker.js');
 
-      const worker = new Worker(workerPath, {
+      console.log(`Starting batch worker: ${finalWorkerPath}`);
+
+      const worker = new Worker(finalWorkerPath, {
         workerData: {
           events,
           options: job.options,
           jobId: job.id,
           outputDir: this.outputDir
-        },
-        // If in TS mode, we need to register the tsx loader for the worker thread
-        execArgv: isTsMode ? ['--import', 'tsx'] : []
+        }
       });
 
       this.activeJobs.set(job.id, worker);

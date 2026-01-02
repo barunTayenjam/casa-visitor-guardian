@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import OpenCVProcessor from './opencvProcessor.js';
 import { DetectionResult, ObjectDetectionSettings } from './objectDetection.js';
 import sharp from 'sharp';

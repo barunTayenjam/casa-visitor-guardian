@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
 
@@ -92,7 +92,8 @@ export class ObjectDetectionService {
     }
 
     // Save image temporarily to shared location accessible by both containers
-    const tempDir = path.join('/app/public/events/temp');
+    // Use /app/public which is mounted at /app/public in both sentryvision and opencv-service
+    const tempDir = '/app/public/events/temp';
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }

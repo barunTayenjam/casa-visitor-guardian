@@ -1,11 +1,12 @@
 // Server startup
 import express from 'express';
-import http from 'http';
+import http from 'node:http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Import configuration
 import { config } from './config/index.js';
@@ -17,6 +18,7 @@ import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase } from './database.js';
 import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 import { objectDetectionService } from './detection/objectDetectionOpenCV.js';
+import { facialRecognitionService } from './detection/facialRecognitionOpenCV.js';
 
 dotenv.config({ path: './.env' });
 
@@ -36,8 +38,12 @@ app.use('/snapshots', express.static('public/snapshots'));
 app.use('/public', express.static('public'));
 
 // Serve frontend static files
-const distPath = '/app/dist'; // Use absolute path in container
-app.use(express.static(distPath));
+const distPath = path.join(process.cwd(), 'dist'); // Use relative path for both container and local
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+} else {
+  console.log(`Frontend dist directory not found at ${distPath}, skipping static file serving`);
+}
 
 
 // Create HTTP server
@@ -107,6 +113,21 @@ async function initializeServices() {
       (global as any).objectDetectionService = objectDetectionService;
     } else {
       console.warn('OpenCV service not available, using stub detection');
+    }
+
+    // Initialize OpenCV facial recognition service
+    console.log('Initializing OpenCV facial recognition service...');
+    try {
+      // Test the facial recognition service
+      const faceRecognitionStatus = facialRecognitionService.isReady();
+      if (faceRecognitionStatus) {
+        console.log('Facial recognition service initialized successfully');
+        (global as any).facialRecognitionService = facialRecognitionService;
+      } else {
+        console.warn('Facial recognition service not ready, using stub detection');
+      }
+    } catch (error) {
+      console.warn('Facial recognition service initialization failed:', error);
     }
     
     console.log('Initializing stream manager...');

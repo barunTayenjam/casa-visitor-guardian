@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
-import fs from 'fs';
-import crypto from 'crypto';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 // Types for OpenCV microservice communication
 export interface DetectionRequest {

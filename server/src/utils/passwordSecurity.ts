@@ -1,6 +1,6 @@
 // File: server/src/utils/passwordSecurity.ts
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 
 // Zod schemas for validation

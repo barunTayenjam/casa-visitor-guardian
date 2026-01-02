@@ -1,7 +1,7 @@
 import * as cv from '@techstark/opencv-js';
 import sharp from 'sharp';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /**
  * OpenCV-based image processing utilities

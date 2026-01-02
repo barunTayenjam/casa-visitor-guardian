@@ -1,12 +1,12 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { StreamManager } from '../streams/rtspManager.js';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import { ObjectDetectionService, DetectionResult } from './objectDetectionOpenCV.js';
-import { FacialRecognitionService, FaceDetection } from './facialRecognition.js';
+import { FacialRecognitionService, FaceDetection } from './facialRecognitionOpenCV.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 
@@ -514,14 +514,37 @@ export class OptimizedMotionDetector extends EventEmitter {
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `motion_${cameraId}_${timestamp}.jpg`;
-      const eventsDir = '/app/public/events';
-      
+      const eventsDir = path.join(process.cwd(), 'public', 'events');
+
       // Ensure directory exists
       if (!fs.existsSync(eventsDir)) {
         fs.mkdirSync(eventsDir, { recursive: true });
       }
-      
+
       const filepath = path.join(eventsDir, filename);
+
+      // Validate frame is complete JPEG
+      const MIN_FRAME_SIZE = 5000; // Minimum 5KB for valid JPEG
+      const JPEG_START = [0xFF, 0xD8];
+      const JPEG_END = [0xFF, 0xD9];
+
+      if (!frame || frame.length < MIN_FRAME_SIZE) {
+        console.warn(`[${cameraId}] Rejected invalid frame size: ${frame?.length || 0} bytes (minimum ${MIN_FRAME_SIZE} bytes)`);
+        reject(new Error(`Invalid frame size: ${frame?.length || 0} bytes (minimum ${MIN_FRAME_SIZE} bytes)`));
+        return;
+      }
+
+      if (frame[0] !== JPEG_START[0] || frame[1] !== JPEG_START[1]) {
+        console.warn(`[${cameraId}] Rejected frame with invalid JPEG start marker`);
+        reject(new Error('Invalid JPEG start marker'));
+        return;
+      }
+
+      if (frame[frame.length - 2] !== JPEG_END[0] || frame[frame.length - 1] !== JPEG_END[1]) {
+        console.warn(`[${cameraId}] Rejected incomplete frame (missing JPEG end marker) - size: ${frame.length} bytes`);
+        reject(new Error('Invalid JPEG end marker - incomplete frame'));
+        return;
+      }
 
       // Async file write
       fs.writeFile(filepath, frame, (error) => {

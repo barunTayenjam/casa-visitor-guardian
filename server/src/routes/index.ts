@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { StreamManager, Camera, streamManager } from '../streams/rtspManager.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
@@ -18,8 +18,8 @@ import { FindManyOptions } from 'typeorm';
 // import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
 // import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
 // Using global variables set up in index.ts
-import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
-import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
+import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetectionOpenCV.js';
+import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognitionOpenCV.js';
 import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 
@@ -28,7 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Define events directory - use absolute path for Docker compatibility
-const EVENTS_DIR = '/app/public/events';
+const EVENTS_DIR = path.join(process.cwd(), 'public', 'events');
 
 // Ensure events directory exists
 if (!fs.existsSync(EVENTS_DIR)) {
@@ -1964,7 +1964,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Use facialRecognitionService for face recognition
       const facialRecognitionService = getFacialRecognitionService();
-      const { faces } = await facialRecognitionService.recognizeFaces(currentFrame);
+      const { faces } = await facialRecognitionService.recognizeFaces(cameraId, currentFrame);
       
       if (faces && faces.length > 0) {
         // Emit face detection event

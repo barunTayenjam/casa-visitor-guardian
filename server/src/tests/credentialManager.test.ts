@@ -1,6 +1,6 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 import { CredentialManager, SecureCredential } from '../utils/credentialManager.js';
 import { EncryptionManager } from '../utils/encryption.js';
 

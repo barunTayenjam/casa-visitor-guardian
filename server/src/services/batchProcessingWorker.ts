@@ -1,6 +1,6 @@
 import { parentPort, workerData } from 'worker_threads';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import { getBatchProcessingDatabase } from './batchProcessingDatabasePostgres.js';
 import { FileHashUtil } from '../utils/fileHash.js';
 import { OpenCVServiceClient } from '../services/opencvServiceClient.js';
@@ -224,7 +224,7 @@ async function saveResultsToDatabase(results: any[], jobId: string): Promise<voi
           id: jobId + "_" + result.filename + "_" + Date.now(),
           job_id: jobId,
           filename: result.filename,
-          file_path: "/app/public/events/" + result.filename,
+          file_path: "/events/" + result.filename,
           camera_id: result.cameraId,
           image_timestamp: result.timestamp,
           file_size: 0,

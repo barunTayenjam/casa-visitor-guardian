@@ -32,6 +32,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import StreamDashboard from './StreamDashboard';
+import AdvancedAnalytics from '@/components/analytics/AdvancedAnalytics';
 
 const Dashboard = () => {
   const [selectedEvent, setSelectedEvent] = useState<MotionEvent | null>(null);
@@ -222,23 +223,9 @@ const Dashboard = () => {
             </TabsContent>
 
             <TabsContent value="analytics" className="h-full">
-              <Card className="bg-slate-800 border border-slate-700 rounded-lg h-full">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center space-x-2">
-                    <TrendingUp className="w-6 h-6 text-green-500" />
-                    Analytics Dashboard
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center py-8 text-white">
-                  <div className="space-y-4">
-                    <TrendingUp className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Analytics Coming Soon</h3>
-                    <p className="text-gray-400">
-                      Comprehensive analytics and reporting will be available here
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="h-full overflow-y-auto">
+                <AdvancedAnalytics />
+              </div>
             </TabsContent>
           </Tabs>
         </div>

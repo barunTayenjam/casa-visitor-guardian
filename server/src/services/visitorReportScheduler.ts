@@ -2,8 +2,8 @@ import cron from 'node-cron';
 import { visitorDatabase } from '../services/visitorDatabase.js';
 import { visitorAnalyticsService } from '../services/visitorAnalyticsService.js';
 import auditLogger from '../utils/auditLogger.js';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface ScheduledReport {
   id: string;

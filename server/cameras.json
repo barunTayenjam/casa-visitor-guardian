@@ -5,7 +5,7 @@
         "rtspUrl": "rtsp://192.168.31.62:554/stream1",
         "username": "***REMOVED-EMAIL***",
         "password": "***REMOVED***",
-        "frameRate": 15,
+        "frameRate": 10,
         "resolution": "1920x1080",
         "nightMode": false,
         "credentialId": null
@@ -16,7 +16,7 @@
         "rtspUrl": "rtsp://192.168.31.61:554/stream1",
         "username": "***REMOVED-EMAIL***",
         "password": "***REMOVED***",
-        "frameRate": 15,
+        "frameRate": 10,
         "resolution": "1920x1080",
         "nightMode": false,
         "credentialId": null

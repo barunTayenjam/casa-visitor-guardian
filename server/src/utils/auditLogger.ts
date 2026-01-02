@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);

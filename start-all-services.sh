@@ -63,7 +63,7 @@ start_service() {
     sleep 3
     
     # Check if service started successfully
-    if ! pgrep -f "$command" "$log_file.pid" >/dev/null 2>&1; then
+    if ! kill -0 $(cat "$log_file.pid") 2>/dev/null; then
         echo -e "${RED}✗ $service_name failed to start${NC}"
         rm -f "$log_file.pid"
         return 1

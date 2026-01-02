@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events';
-import fs from 'fs';
-import path from 'path';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import path from 'node:path';
 import { glob } from 'glob';
 import { getVisitorDatabase, Visitor, VisitorTimeline, VisitorAnalytics } from './visitorDatabasePostgres.js';
-import { FacialRecognitionService, FaceRecognitionEvent, KnownPerson } from '../detection/facialRecognition.js';
+import { FacialRecognitionService, FaceRecognitionEvent, KnownPerson } from '../detection/facialRecognitionOpenCV.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 

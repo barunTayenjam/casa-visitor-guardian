@@ -1,6 +1,6 @@
 import { DataSource, Repository } from 'typeorm';
 import { AuditLog } from '../models';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 
 // Zod schemas for validation

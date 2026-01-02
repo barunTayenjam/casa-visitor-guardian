@@ -1,5 +1,5 @@
 import { performance } from 'perf_hooks';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 export interface PerformanceMetrics {
   responseTime: number;

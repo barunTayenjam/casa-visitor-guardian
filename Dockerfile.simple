@@ -18,7 +18,6 @@ RUN apk add --no-cache \
     py3-numpy \
     lsof \
     opencv-dev \
-    opencv-contrib-dev \
     cmake \
     gfortran \
     build-base \
@@ -40,7 +39,7 @@ RUN cd database && npm install
 COPY . .
 
 # Create data directories
-RUN mkdir -p /app/data/events /app/data/snapshots /app/public/events
+RUN mkdir -p /app/data/events /app/data/snapshots /app/public/events /app/public/events/temp
 
 # Expose ports
 EXPOSE 5173 8082

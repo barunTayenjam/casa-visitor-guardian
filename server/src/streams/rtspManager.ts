@@ -10,7 +10,18 @@ import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.
 
 // Import ffmpeg-static safely
 import ffmpegStatic from "ffmpeg-static";
-const ffmpegPath = ffmpegStatic as unknown as string;
+import { execSync } from "child_process";
+
+// Determine ffmpeg path: prefer system ffmpeg (for Docker/Alpine), fallback to static
+let ffmpegPath = ffmpegStatic as unknown as string;
+try {
+  // Check if ffmpeg is in PATH
+  execSync("which ffmpeg", { stdio: "ignore" });
+  ffmpegPath = "ffmpeg";
+  console.log("Using system ffmpeg");
+} catch (e) {
+  console.log("Using ffmpeg-static: " + ffmpegPath);
+}
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -181,6 +192,9 @@ export class StreamManager {
         "-analyzeduration",
         "3000000", // 3 seconds (increased from 1s for better codec detection)
         "-re", // Force reading input at the native frame rate
+        // Set input frame rate to control the stream rate before processing
+        "-r",
+        "5",
         // Input source
         "-i",
         rtspUrl,
@@ -194,9 +208,9 @@ export class StreamManager {
         // Set high quality (lower value = higher quality, range 1-31)
         "-q:v",
         "3",
-        // Set frameRate to match camera settings
+        // Set output frameRate to 5 FPS to prevent flickering
         "-r",
-        camera.frameRate.toString(),
+        "5",
         // Apply scaling and night mode filter if needed
         "-vf",
         camera.nightMode
@@ -206,7 +220,7 @@ export class StreamManager {
         "pipe:1",
       ];
 
-      // Stream start log disabled - logger.info(`Starting stream for camera ${cameraId} with resolution ${camera.resolution}`, 'StreamManager');
+      console.log(`*** CAMERA ${cameraId} STARTING STREAM WITH FRAME RATE: ${camera.frameRate} FPS ***`);
       // FFMPEG command log disabled - logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
 
       // Reset retry count on successful connection attempt start
@@ -256,8 +270,12 @@ export class StreamManager {
         let frameCount = 0;
 
         // Add frame rate limiting to prevent overwhelming the frontend
-        const FRAME_RATE_LIMIT = camera.frameRate || 15; // Use camera's configured frame rate
+        // Force to 5 FPS to prevent flickering
+        const FRAME_RATE_LIMIT = 5;
         const FRAME_INTERVAL = 1000 / FRAME_RATE_LIMIT; // milliseconds between frames
+        if (frameCount === 1) { // Log only for first frame to avoid spam
+          console.log(`*** CAMERA ${cameraId} FRAME RATE LIMITING: ${FRAME_RATE_LIMIT} FPS, INTERVAL: ${FRAME_INTERVAL}ms ***`);
+        }
         // Use camera object to store last frame sent time to persist between data chunks
         if (camera.lastFrameSentTime === undefined) {
           camera.lastFrameSentTime = Date.now();

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
+import fs from 'node:fs';
 import path from 'path';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import axios from 'axios';
 
 interface BatchDetectionRequest {

@@ -1,6 +1,6 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getVisitorDatabase } from '../services/visitorDatabasePostgres.js';
 import { visitorAnalyticsService } from '../services/visitorAnalyticsService.js';
 

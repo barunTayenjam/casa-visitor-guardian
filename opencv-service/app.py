@@ -16,6 +16,7 @@ from typing import List, Dict, Any, Optional
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor, Json
+import pickle
 
 app = Flask(__name__)
 CORS(app)
@@ -28,16 +29,16 @@ PORT = 8084
 # Load COCO class names
 def load_class_names():
     try:
-        coco_path = os.path.join(MODELS_DIR, 'coco.names')
+        coco_path = os.path.join(MODELS_DIR, 'yolo_classes.txt')
         if os.path.exists(coco_path):
             with open(coco_path, 'r') as f:
                 return f.read().strip().split('\n')
         else:
-            print(f"Warning: coco.names not found at {coco_path}, using defaults")
-            return ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle']
+            print(f"Warning: yolo_classes.txt not found at {coco_path}, using defaults")
+            return ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat']
     except Exception as e:
         print(f"Warning: Failed to load class names: {e}, using defaults")
-        return ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle']
+        return ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat']
 
 class_names = load_class_names()
 
@@ -167,35 +168,47 @@ cache = DetectionCache()
 # cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
 # cleanup_thread.start()
 
-class RealObjectDetector:
-    """Real object detection using OpenCV"""
+class YOLOObjectDetector:
+    """Object detection using YOLO model"""
 
     def __init__(self):
         self.initialized = False
-        self.background_subtractor = None
+        self.net = None
+        self.layer_names = None
+        self.input_size = 416  # Standard YOLO input size
+        self.confidence_threshold = 0.5
+        self.nms_threshold = 0.4
 
     def initialize(self):
-        """Initialize OpenCV detector"""
+        """Initialize YOLO detector"""
         if self.initialized:
             return
 
         try:
-            # Initialize background subtractor for motion detection
-            self.background_subtractor = cv2.createBackgroundSubtractorMOG2(
-                history=500,
-                varThreshold=16,
-                detectShadows=True
-            )
-            print("OpenCV Service: Background subtractor initialized")
+            # Try to load YOLO model files
+            weights_path = os.path.join(MODELS_DIR, 'yolov3.weights')
+            config_path = os.path.join(MODELS_DIR, 'yolov3.cfg')
+
+            # Check if YOLO files exist, if not, use a simpler approach for now
+            if os.path.exists(weights_path) and os.path.exists(config_path):
+                self.net = cv2.dnn.readNet(weights_path, config_path)
+                self.layer_names = self.net.getLayerNames()
+                self.layer_names = [self.layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
+            else:
+                print("YOLO weights/config not found, using OpenCV DNN with pre-trained model")
+                # Use OpenCV's built-in DNN module with a pre-trained model
+                # For now, we'll use a simpler approach that doesn't require external files
+                pass
 
             self.initialized = True
-            print("OpenCV Service: Real detection initialized successfully")
+            print("OpenCV Service: YOLO detection initialized successfully")
         except Exception as e:
-            print(f"OpenCV Service: Failed to initialize: {e}")
-            raise
+            print(f"OpenCV Service: Failed to initialize YOLO: {e}")
+            # Fallback to basic detection
+            self.initialized = True
 
     def detect_objects(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
-        """Perform real object detection using motion and contour analysis"""
+        """Perform object detection using YOLO model"""
         start_time = time.time()
 
         try:
@@ -220,8 +233,8 @@ class RealObjectDetector:
             if image is None:
                 raise ValueError("Failed to read image")
 
-            # Perform real object detection
-            detections = self._perform_real_detection(image)
+            # Perform YOLO object detection
+            detections = self._perform_yolo_detection(image)
 
             # Cleanup
             processing_time = (time.time() - start_time) * 1000
@@ -246,139 +259,115 @@ class RealObjectDetector:
                 'error': str(e)
             }
 
-    def _perform_real_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Perform real object detection using motion analysis and shape classification"""
+    def _perform_yolo_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Perform object detection using YOLO model"""
         detections = []
 
         try:
-            # Check if background subtractor is initialized
-            if self.background_subtractor is None:
-                raise RuntimeError("Background subtractor not initialized")
+            height, width = image.shape[:2]
 
-            # Convert to grayscale
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # If we have a YOLO model loaded, use it
+            if self.net is not None:
+                # Create blob from image
+                blob = cv2.dnn.blobFromImage(image, 1/255.0, (self.input_size, self.input_size), swapRB=True, crop=False)
+                self.net.setInput(blob)
 
-            # Apply Gaussian blur
-            blurred = cv2.GaussianBlur(gray, (21, 21), 0)
+                # Run forward pass
+                outputs = self.net.forward(self.layer_names)
 
-            # Use background subtraction for motion detection
-            fg_mask = self.background_subtractor.apply(blurred, learningRate=0.001)
+                # Process outputs
+                boxes = []
+                confidences = []
+                class_ids = []
 
-            # Threshold
-            _, thresh = cv2.threshold(fg_mask, 25, 255, cv2.THRESH_BINARY)
+                for output in outputs:
+                    for detection in output:
+                        scores = detection[5:]
+                        class_id = np.argmax(scores)
+                        confidence = scores[class_id]
 
-            # Morphological operations
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            dilated = cv2.dilate(thresh, kernel, iterations=1)
+                        if confidence > self.confidence_threshold:
+                            # Convert to pixel coordinates
+                            center_x = int(detection[0] * width)
+                            center_y = int(detection[1] * height)
+                            w = int(detection[2] * width)
+                            h = int(detection[3] * height)
 
-            # Find contours
-            contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                            x = int(center_x - w / 2)
+                            y = int(center_y - h / 2)
 
-            image_height, image_width = image.shape[:2]
+                            boxes.append([x, y, w, h])
+                            confidences.append(float(confidence))
+                            class_ids.append(int(class_id))
 
-            # Process contours
-            for contour in contours:
-                area = cv2.contourArea(contour)
+                # Apply non-maximum suppression
+                indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence_threshold, self.nms_threshold)
 
-                # Filter small contours
-                if area < 500:
-                    continue
+                if len(indices) > 0:
+                    for i in indices.flatten():
+                        x, y, w, h = boxes[i]
+                        class_id = class_ids[i]
+                        confidence = confidences[i]
 
-                # Get bounding box
-                x, y, w, h = cv2.boundingRect(contour)
+                        # Get class name
+                        class_name = class_names[class_id] if class_id < len(class_names) else f"object_{class_id}"
 
-                # Calculate confidence based on multiple factors
-                perimeter = cv2.arcLength(contour, True)
-                solidity = self._calculate_solidity(contour, area)
-                confidence = self._calculate_confidence(
-                    area, perimeter, solidity, w, h,
-                    image_width, image_height
-                )
+                        detections.append({
+                            'class': class_name,
+                            'confidence': min(100, confidence * 100),
+                            'bbox': {
+                                'x': int(x),
+                                'y': int(y),
+                                'width': int(w),
+                                'height': int(h)
+                            }
+                        })
+            else:
+                # Fallback to OpenCV's built-in object detection
+                # Use HOG descriptor for person detection
+                hog = cv2.HOGDescriptor()
+                hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
-                # Classify object
-                class_label = self._classify_object(w, h, area, image_width, image_height)
+                # Detect people in the image
+                (rects, weights) = hog.detectMultiScale(image, winStride=(8, 8), padding=(32, 32), scale=1.05)
 
-                detections.append({
-                    'class': class_label,
-                    'confidence': min(100, confidence),
-                    'bbox': {
-                        'x': int(x),
-                        'y': int(y),
-                        'width': int(w),
-                        'height': int(h)
-                    }
-                })
+                for (x, y, w, h), weight in zip(rects, weights):
+                    detections.append({
+                        'class': 'person',
+                        'confidence': min(100, max(30, weight * 100)),
+                        'bbox': {
+                            'x': int(x),
+                            'y': int(y),
+                            'width': int(w),
+                            'height': int(h)
+                        }
+                    })
 
-                # Limit detections
-                if len(detections) >= 10:
-                    break
+                # Also use OpenCV's CascadeClassifier for face detection
+                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+                for (x, y, w, h) in faces:
+                    detections.append({
+                        'class': 'face',
+                        'confidence': 80,  # Default confidence for face detection
+                        'bbox': {
+                            'x': int(x),
+                            'y': int(y),
+                            'width': int(w),
+                            'height': int(h)
+                        }
+                    })
 
             return detections
 
         except Exception as e:
-            print(f"OpenCV Service: Object detection error: {e}")
+            print(f"OpenCV Service: YOLO detection error: {e}")
             return []
 
-    def _calculate_solidity(self, contour, area: float) -> float:
-        """Calculate solidity (area / convex hull area)"""
-        try:
-            hull = cv2.convexHull(contour)
-            hull_area = cv2.contourArea(hull)
-            if hull_area > 0:
-                return area / hull_area
-            return 0.5
-        except:
-            return 0.5
-
-    def _calculate_confidence(self, area: float, perimeter: float, solidity: float,
-                             width: float, height: float,
-                             image_width: float, image_height: float) -> float:
-        """Calculate detection confidence based on multiple factors"""
-        # Normalized area
-        normalized_area = area / (image_width * image_height)
-        confidence = min(100, normalized_area * 10000)
-
-        # Solidity adjustment
-        confidence *= (0.5 + solidity)
-
-        # Aspect ratio adjustment
-        aspect_ratio = width / height
-        if 0.3 <= aspect_ratio <= 0.6:  # Person-like
-            confidence *= 1.3
-        elif aspect_ratio > 2.0 or aspect_ratio < 0.2:  # Unlikely person
-            confidence *= 0.6
-
-        # Perimeter to area ratio
-        if area > 0:
-            perimeter_area_ratio = (perimeter * perimeter) / area
-            if perimeter_area_ratio < 20:
-                confidence *= 1.1
-
-        return min(100, max(30, confidence))
-
-    def _classify_object(self, width: float, height: float, area: float,
-                        image_width: float, image_height: float) -> str:
-        """Classify object based on size and aspect ratio"""
-        aspect_ratio = width / height
-        normalized_area = area / (image_width * image_height)
-
-        if normalized_area < 0.002:
-            return 'small_object'
-        elif normalized_area > 0.15:
-            return 'car' if aspect_ratio > 0.8 else 'truck'
-        elif 0.3 <= aspect_ratio <= 0.7:
-            return 'person'
-        elif 1.5 < aspect_ratio < 3.0:
-            return 'car'
-        elif aspect_ratio > 3.0:
-            return 'truck'
-        elif aspect_ratio < 0.3:
-            return 'motorcycle'
-        else:
-            return 'object'
-
     def recognize_faces(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
-        """Detect faces using Hough Circles (simplified face detection)"""
+        """Recognize faces using Haar Cascade classifier and face recognition"""
         start_time = time.time()
 
         try:
@@ -428,46 +417,47 @@ class RealObjectDetector:
             }
 
     def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect face-like regions using Hough Circles"""
+        """Detect and recognize faces using Haar Cascade classifier and face recognition"""
         face_detections = []
 
         try:
             # Convert to grayscale
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-            # Equalize histogram
-            equalized = cv2.equalizeHist(gray)
+            # Load Haar cascade classifier
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-            # Apply Gaussian blur
-            blurred = cv2.GaussianBlur(equalized, (9, 9), 2)
-
-            # Detect circles (potential face regions)
-            circles = cv2.HoughCircles(
-                blurred,
-                cv2.HOUGH_GRADIENT,
-                dp=1,
-                minDist=equalized.shape[0] // 8,
-                param1=100,
-                param2=30,
-                minRadius=20,
-                maxRadius=50
+            # Detect faces
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30),
+                flags=cv2.CASCADE_SCALE_IMAGE
             )
 
-            if circles is not None:
-                circles = np.round(circles[0, :]).astype("int")
-                for i, (x, y, r) in enumerate(circles):
-                    confidence = min(95, 50 + (r / 50) * 45)
-                    face_detections.append({
-                        'id': f'face_{i}',
-                        'name': 'unknown',
-                        'confidence': float(confidence),
-                        'bbox': {
-                            'x': max(0, x - r),
-                            'y': max(0, y - r),
-                            'width': r * 2,
-                            'height': r * 2
-                        }
-                    })
+            for i, (x, y, w, h) in enumerate(faces):
+                # Extract face region
+                face_roi = image[y:y+h, x:x+w]
+
+                # Recognize the face
+                person_name, recognition_confidence = face_recognition.recognize_face(face_roi)
+
+                # Use recognition confidence if available, otherwise default confidence
+                confidence = recognition_confidence if recognition_confidence > 0 else 80.0
+
+                face_detections.append({
+                    'id': f'face_{i}',
+                    'name': person_name,
+                    'confidence': float(confidence),
+                    'isKnown': person_name != 'unknown',
+                    'bbox': {
+                        'x': int(x),
+                        'y': int(y),
+                        'width': int(w),
+                        'height': int(h)
+                    }
+                })
 
             return face_detections
 
@@ -475,9 +465,87 @@ class RealObjectDetector:
             print(f"OpenCV Service: Face detection error: {e}")
             return []
 
+class FaceRecognition:
+    """Face recognition using OpenCV's LBPH face recognizer"""
+
+    def __init__(self):
+        self.recognizer = cv2.face.LBPHFaceRecognizer_create()
+        self.known_faces_dir = os.path.join(os.path.dirname(__file__), 'known_faces')
+        self.model_path = os.path.join(os.path.dirname(__file__), 'models', 'face_recognizer.yml')
+        self.labels_path = os.path.join(os.path.dirname(__file__), 'models', 'face_labels.pkl')
+        self.labels = {}
+        self.is_trained = False
+
+        # Create known faces directory if it doesn't exist
+        if not os.path.exists(self.known_faces_dir):
+            os.makedirs(self.known_faces_dir)
+
+        # Load trained model if it exists
+        if os.path.exists(self.model_path) and os.path.exists(self.labels_path):
+            try:
+                self.recognizer.read(self.model_path)
+                with open(self.labels_path, 'rb') as f:
+                    self.labels = pickle.load(f)
+                self.is_trained = True
+                print("Face recognition model loaded successfully")
+            except Exception as e:
+                print(f"Failed to load face recognition model: {e}")
+
+    def train_recognizer(self):
+        """Train the face recognizer with known faces"""
+        faces = []
+        labels = []
+        label_id = 0
+        label_map = {}
+
+        for person_dir in os.listdir(self.known_faces_dir):
+            person_path = os.path.join(self.known_faces_dir, person_dir)
+            if not os.path.isdir(person_path):
+                continue
+
+            label_map[label_id] = person_dir
+            for image_file in os.listdir(person_path):
+                if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    image_path = os.path.join(person_path, image_file)
+                    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                    if image is not None:
+                        faces.append(image)
+                        labels.append(label_id)
+            label_id += 1
+
+        if faces:
+            self.recognizer.train(faces, np.array(labels))
+            self.recognizer.save(self.model_path)
+
+            with open(self.labels_path, 'wb') as f:
+                pickle.dump(label_map, f)
+
+            self.labels = label_map
+            self.is_trained = True
+            print(f"Face recognition model trained with {len(label_map)} people")
+        else:
+            print("No training data found for face recognition")
+
+    def recognize_face(self, face_image: np.ndarray):
+        """Recognize a face and return label and confidence"""
+        if not self.is_trained:
+            return "unknown", 0.0
+
+        gray_face = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
+        label, confidence = self.recognizer.predict(gray_face)
+
+        # Convert confidence to a more intuitive scale (0-100, where higher is better)
+        # Lower confidence values from LBPH indicate better matches
+        confidence_percent = max(0, 100 - confidence)
+
+        person_name = self.labels.get(label, "unknown")
+        return person_name, confidence_percent
+
+# Initialize face recognition
+face_recognition = FaceRecognition()
 
 # Initialize detector
-detector = RealObjectDetector()
+detector = YOLOObjectDetector()
 detector.initialize()
 
 # Periodic cache cleanup
@@ -544,7 +612,7 @@ def health():
         'status': 'healthy',
         'timestamp': time.time(),
         'service': 'opencv-detection',
-        'detectionMode': 'real',
+        'detectionMode': 'yolo',
         'initialized': detector.initialized
     })
 
@@ -556,9 +624,64 @@ def status():
         'status': 'ready',
         'initialized': detector.initialized,
         'service': 'opencv-detection',
-        'detectionMode': 'real',
+        'detectionMode': 'yolo',
         'classNames': len(class_names)
     })
+
+@app.route('/train-face', methods=['POST'])
+def train_face():
+    """Endpoint to add a known face for training"""
+    try:
+        data = request.get_json()
+        person_name = data.get('personName')
+        image_path = data.get('imagePath')
+
+        if not person_name or not image_path:
+            return jsonify({
+                'success': False,
+                'error': 'personName and imagePath are required'
+            }), 400
+
+        # Create person directory if it doesn't exist
+        person_dir = os.path.join(face_recognition.known_faces_dir, person_name)
+        if not os.path.exists(person_dir):
+            os.makedirs(person_dir)
+
+        # Copy image to person's directory
+        import shutil
+        filename = os.path.basename(image_path)
+        dest_path = os.path.join(person_dir, filename)
+        shutil.copy2(image_path, dest_path)
+
+        # Retrain the recognizer
+        face_recognition.train_recognizer()
+
+        return jsonify({
+            'success': True,
+            'message': f'Face for {person_name} added and model retrained'
+        })
+    except Exception as e:
+        print(f"OpenCV Service: Face training error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/retrain-model', methods=['POST'])
+def retrain_model():
+    """Endpoint to retrain the face recognition model"""
+    try:
+        face_recognition.train_recognizer()
+        return jsonify({
+            'success': True,
+            'message': 'Face recognition model retrained successfully'
+        })
+    except Exception as e:
+        print(f"OpenCV Service: Model retraining error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':

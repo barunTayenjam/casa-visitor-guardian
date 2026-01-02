@@ -47,7 +47,7 @@ class DetectionCache {
   private cache: Map<string, CacheEntry>;
 
   constructor() {
-    this.cacheDir = '/app/data/cache';
+    this.cacheDir = path.join(process.cwd(), 'data', 'cache');
     this.cache = new Map();
     this.initCache();
   }
@@ -172,7 +172,7 @@ class OpenCVService {
 
   private loadClassNames(): string[] {
     try {
-      const cocoPath = path.join('/app/models', 'coco.names');
+      const cocoPath = path.join(process.cwd(), 'models', 'coco.names');
       if (fs.existsSync(cocoPath)) {
         const content = fs.readFileSync(cocoPath, 'utf-8');
         return content.trim().split('\n');

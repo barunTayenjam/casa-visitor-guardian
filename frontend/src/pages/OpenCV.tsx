@@ -40,6 +40,7 @@ import apiService from '@/services/ApiService';
 import { useCameras } from '@/contexts/CameraContext';
 import DetectionOverlay from '@/components/detection/DetectionOverlay';
 import DetectionAnalytics from '@/components/analytics/DetectionAnalytics';
+import FaceRecognitionManager from '@/components/analytics/FaceRecognitionManager';
 
 // Type definitions
 interface DetectionEvent {
@@ -462,7 +463,7 @@ const OpenCV: React.FC = () => {
       )}
 
       <Tabs defaultValue="detection" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="detection" className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
             Detection
@@ -474,6 +475,10 @@ const OpenCV: React.FC = () => {
           <TabsTrigger value="batch" className="flex items-center gap-2">
             <Play className="h-4 w-4" />
             Batch
+          </TabsTrigger>
+          <TabsTrigger value="face-recognition" className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            Face Recognition
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -1073,9 +1078,14 @@ const OpenCV: React.FC = () => {
           </div>
         </TabsContent>
 
+        {/* Face Recognition Tab */}
+        <TabsContent value="face-recognition" className="space-y-6">
+          <FaceRecognitionManager />
+        </TabsContent>
+
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <DetectionAnalytics 
+          <DetectionAnalytics
             timeRange={filters.timeRange}
             onTimeRangeChange={(range) => setFilters(prev => ({ ...prev, timeRange: range as any }))}
           />

@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);

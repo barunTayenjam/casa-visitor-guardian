@@ -1,7 +1,7 @@
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'url';
-import { Worker } from 'worker_threads';
+import { Worker } from 'node:worker_threads';
 import EventEmitter from 'events';
 import { getBatchProcessingDatabase, ProcessedImage } from './batchProcessingDatabasePostgres.js';
 import { FileHashUtil } from '../utils/fileHash.js';
@@ -76,9 +76,9 @@ export class BatchProcessingService extends EventEmitter {
 
   constructor() {
     super();
-    this.eventsDir = '/app/public/events';
-    this.outputDir = '/app/public/batch-results';
-    
+    this.eventsDir = path.join(process.cwd(), 'public', 'events');
+    this.outputDir = path.join(process.cwd(), 'public', 'batch-results');
+
     // Ensure directories exist
     if (!fs.existsSync(this.eventsDir)) {
       fs.mkdirSync(this.eventsDir, { recursive: true });

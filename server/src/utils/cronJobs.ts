@@ -1,8 +1,8 @@
 import cron from 'node-cron';
 import { Server as SocketIOServer } from 'socket.io';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 // Get __dirname equivalent in ESM

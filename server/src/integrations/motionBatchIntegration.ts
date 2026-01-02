@@ -1,6 +1,6 @@
 import { motionTriggeredDetection } from '../detection/motionTriggeredDetection.js';
 import { batchProcessingService } from '../services/batchProcessingService.js';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 /**
  * Integrates motion-triggered detection with batch processing

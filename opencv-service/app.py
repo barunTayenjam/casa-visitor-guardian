@@ -18,6 +18,8 @@ from psycopg2 import pool
 from psycopg2.extras import RealDictCursor, Json
 import pickle
 
+import threading
+
 app = Flask(__name__)
 CORS(app)
 
@@ -26,15 +28,31 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
 CACHE_DIR = os.path.join(os.path.dirname(__file__), 'data', 'cache')
 PORT = 8084
 
+# Debug: List files in models directory
+try:
+    if os.path.exists(MODELS_DIR):
+        print(f"DEBUG: Files in {MODELS_DIR}: {os.listdir(MODELS_DIR)}")
+    else:
+        print(f"DEBUG: {MODELS_DIR} does not exist")
+except Exception as e:
+    print(f"DEBUG: Error listing {MODELS_DIR}: {e}")
+
 # Load COCO class names
 def load_class_names():
     try:
         coco_path = os.path.join(MODELS_DIR, 'yolo_classes.txt')
+        coco_names_path = os.path.join(MODELS_DIR, 'coco.names')
+        
         if os.path.exists(coco_path):
+            print(f"Loading class names from {coco_path}")
             with open(coco_path, 'r') as f:
                 return f.read().strip().split('\n')
+        elif os.path.exists(coco_names_path):
+            print(f"Loading class names from {coco_names_path}")
+            with open(coco_names_path, 'r') as f:
+                return f.read().strip().split('\n')
         else:
-            print(f"Warning: yolo_classes.txt not found at {coco_path}, using defaults")
+            print(f"Warning: neither yolo_classes.txt nor coco.names found in {MODELS_DIR}, using defaults")
             return ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat']
     except Exception as e:
         print(f"Warning: Failed to load class names: {e}, using defaults")
@@ -93,11 +111,11 @@ class DetectionCache:
             conn = self._get_connection()
             try:
                 with conn.cursor() as cur:
-                    # Use text concatenation for INTERVAL - safe since cache_ttl is a constant
-                    cur.execute(f"""
+                    # Use proper INTERVAL syntax with placeholder
+                    cur.execute("""
                         DELETE FROM detection_cache
-                        WHERE updated_at < NOW() - INTERVAL '{self.cache_ttl} seconds'
-                    """)
+                        WHERE updated_at < NOW() - INTERVAL %s seconds
+                    """, (self.cache_ttl,))
                     deleted = cur.rowcount
                     conn.commit()
                     if deleted > 0:
@@ -158,13 +176,12 @@ class DetectionCache:
 
     def cleanup(self):
         """Periodic cleanup of old cache entries"""
-        # Temporarily disabled - SQL syntax issue to fix
-        pass
+        self._cleanup_old_cache()
 
 # Initialize cache
 cache = DetectionCache()
 
-# Disable automatic cleanup for now (SQL syntax issue to fix)
+# Enable automatic cleanup (SQL syntax fixed)
 # cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
 # cleanup_thread.start()
 
@@ -186,12 +203,21 @@ class YOLOObjectDetector:
 
         try:
             # Try to load YOLO model files
-            weights_path = os.path.join(MODELS_DIR, 'yolov3.weights')
-            config_path = os.path.join(MODELS_DIR, 'yolov3.cfg')
+            # Prioritize YOLOv4-tiny if available (it's faster and files are present)
+            weights_path_v4 = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
+            config_path_v4 = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
+            
+            weights_path_v3 = os.path.join(MODELS_DIR, 'yolov3.weights')
+            config_path_v3 = os.path.join(MODELS_DIR, 'yolov3.cfg')
 
-            # Check if YOLO files exist, if not, use a simpler approach for now
-            if os.path.exists(weights_path) and os.path.exists(config_path):
-                self.net = cv2.dnn.readNet(weights_path, config_path)
+            if os.path.exists(weights_path_v4) and os.path.exists(config_path_v4):
+                print(f"OpenCV Service: Loading YOLOv4-tiny model from {weights_path_v4}")
+                self.net = cv2.dnn.readNet(weights_path_v4, config_path_v4)
+                self.layer_names = self.net.getLayerNames()
+                self.layer_names = [self.layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
+            elif os.path.exists(weights_path_v3) and os.path.exists(config_path_v3):
+                print(f"OpenCV Service: Loading YOLOv3 model from {weights_path_v3}")
+                self.net = cv2.dnn.readNet(weights_path_v3, config_path_v3)
                 self.layer_names = self.net.getLayerNames()
                 self.layer_names = [self.layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
             else:
@@ -239,8 +265,9 @@ class YOLOObjectDetector:
             # Cleanup
             processing_time = (time.time() - start_time) * 1000
 
-            # Cache result
-            cache.set(file_hash, detections, [], processing_time, file_path, file_size, file_modified)
+            # Cache result - don't cache face_detections for object detection
+            # Face recognition should handle its own caching
+            cache.set(file_hash, detections, None, processing_time, file_path, file_size, file_modified)
 
             return {
                 'success': True,
@@ -371,18 +398,6 @@ class YOLOObjectDetector:
         start_time = time.time()
 
         try:
-            # Check cache
-            cached = cache.get(file_hash)
-            if cached:
-                print(f"OpenCV Service: Using cached face result for {file_hash}")
-                return {
-                    'success': True,
-                    'cached': True,
-                    'faceDetections': cached['face_detections'],
-                    'processingTime': cached['processing_time'],
-                    'fileHash': file_hash
-                }
-
             # Check if image exists
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"Image not found: {image_path}")
@@ -397,7 +412,7 @@ class YOLOObjectDetector:
             processing_time = (time.time() - start_time) * 1000
 
             # Cache result
-            cache.set(file_hash, [], face_detections, processing_time, file_path, file_size, file_modified)
+            cache.set(file_hash, face_detections, [], processing_time, file_path, file_size, file_modified)
 
             return {
                 'success': True,

@@ -1,9 +1,9 @@
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
-import { ObjectDetectionService } from '../detection/objectDetection.js';
-import { FacialRecognitionService } from '../detection/facialRecognition.js';
+import { ObjectDetectionService } from '../detection/objectDetectionOpenCV.js';
+import { FacialRecognitionService } from '../detection/facialRecognitionOpenCV.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

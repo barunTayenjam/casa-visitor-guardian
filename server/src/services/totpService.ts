@@ -1,6 +1,6 @@
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 
 // Zod schemas for validation

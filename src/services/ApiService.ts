@@ -337,14 +337,19 @@ class ApiService {
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     try {
+      const headers: Record<string, string> = {
+        ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {}),
+        ...(options.headers as Record<string, string>),
+      };
+
+      if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.authToken && { 'Authorization': `Bearer ${this.authToken}` }),
-          ...options.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -1851,12 +1856,17 @@ class ApiService {
   async addKnownPerson(personData: {
     name: string;
     description?: string;
-    imagePaths: string[];
+    image: File;
   }): Promise<{ personId: string; message: string }> {
     try {
+      const formData = new FormData();
+      formData.append('name', personData.name);
+      if (personData.description) formData.append('description', personData.description);
+      formData.append('image', personData.image);
+
       const response = await this.fetchWithRetry(`${API_URL}/detection/face/persons`, {
         method: 'POST',
-        body: JSON.stringify(personData)
+        body: formData
       });
       
       const data = await response.json();

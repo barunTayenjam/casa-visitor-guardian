@@ -228,6 +228,7 @@ const Settings = () => {
         <Tabs defaultValue="general" className="space-y-4">
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="detection">Detection</TabsTrigger>
             <TabsTrigger value="storage">Storage</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="logs">System Logs</TabsTrigger>
@@ -279,6 +280,93 @@ const Settings = () => {
                     checked={systemSettings.general.autoBackup}
                     onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, general: { ...prev.general, autoBackup: checked } }))}
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="detection" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Automatic Detection Settings</CardTitle>
+                <CardDescription>
+                  Configure automatic object and face detection during motion events.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Automatically Detect Objects</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Run object detection when motion is detected
+                    </p>
+                  </div>
+                  <Switch
+                    checked={systemSettings.general.autoBackup}
+                    onCheckedChange={(checked) => {
+                      // For now, this is a placeholder - would need proper state management
+                      console.log('Auto detect objects:', checked);
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Automatically Detect Faces</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Run face recognition when motion is detected
+                    </p>
+                  </div>
+                  <Switch
+                    checked={systemSettings.general.autoBackup}
+                    onCheckedChange={(checked) => {
+                      // For now, this is a placeholder - would need proper state management
+                      console.log('Auto detect faces:', checked);
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="detectionPriority">Detection Priority</Label>
+                  <Select 
+                    defaultValue="immediate"
+                    onValueChange={(value) => {
+                      console.log('Detection priority:', value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">Immediate (detect during motion)</SelectItem>
+                      <SelectItem value="deferred">Deferred (process in background)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    When to run detection relative to motion detection
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t">
+                  <h4 className="font-semibold">Detection Information</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Automatic detection runs when motion is detected and saves results directly to events.
+                    This provides a unified view of all detection data in the Gallery.
+                  </p>
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Persons</Badge>
+                      <span className="text-muted-foreground">Detected in motion frames</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Faces</Badge>
+                      <span className="text-muted-foreground">Recognized/Unknown faces</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Objects</Badge>
+                      <span className="text-muted-foreground">Objects detected in scene</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

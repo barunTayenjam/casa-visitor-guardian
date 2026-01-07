@@ -12,11 +12,14 @@ import os
 import json
 import hashlib
 import time
+import tempfile
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor, Json
 import pickle
+import redis
 
 import threading
 
@@ -178,8 +181,45 @@ class DetectionCache:
         """Periodic cleanup of old cache entries"""
         self._cleanup_old_cache()
 
-# Initialize cache
-cache = DetectionCache()
+# Initialize Redis
+redis_client = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'redis'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=0,
+    decode_responses=True,
+    retry_on_timeout=True
+)
+
+class RedisDetectionCache:
+    def __init__(self):
+        self.ttl = 300  # 5 minutes
+
+    def get(self, file_hash: str) -> Optional[Dict]:
+        try:
+            data = redis_client.get(f'detection:{file_hash}')
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            print(f"Redis cache get error: {e}")
+            return None
+
+    def set(self, file_hash: str, object_detections: List, face_detections: List, processing_time: float):
+        try:
+            data = {
+                'file_hash': file_hash,
+                'object_detections': object_detections,
+                'face_detections': face_detections,
+                'processing_time': processing_time,
+                'timestamp': time.time()
+            }
+            redis_client.setex(f'detection:{file_hash}', self.ttl, json.dumps(data))
+        except Exception as e:
+            print(f"Redis cache set error: {e}")
+
+# Initialize caches
+redis_cache = RedisDetectionCache()
+db_cache = DetectionCache()
 
 # Enable automatic cleanup (SQL syntax fixed)
 # cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
@@ -238,10 +278,10 @@ class YOLOObjectDetector:
         start_time = time.time()
 
         try:
-            # Check cache first
-            cached = cache.get(file_hash)
+            # Check Redis cache first
+            cached = redis_cache.get(file_hash)
             if cached:
-                print(f"OpenCV Service: Using cached result for {file_hash}")
+                print(f"OpenCV Service: Using Redis cached result for {file_hash}")
                 return {
                     'success': True,
                     'cached': True,
@@ -265,9 +305,8 @@ class YOLOObjectDetector:
             # Cleanup
             processing_time = (time.time() - start_time) * 1000
 
-            # Cache result - don't cache face_detections for object detection
-            # Face recognition should handle its own caching
-            cache.set(file_hash, detections, None, processing_time, file_path, file_size, file_modified)
+            # Cache in Redis
+            redis_cache.set(file_hash, detections, [], processing_time)
 
             return {
                 'success': True,
@@ -398,6 +437,18 @@ class YOLOObjectDetector:
         start_time = time.time()
 
         try:
+            # Check Redis cache first
+            cached = redis_cache.get(file_hash)
+            if cached:
+                print(f"OpenCV Service: Using Redis cached result for {file_hash}")
+                return {
+                    'success': True,
+                    'cached': True,
+                    'faceDetections': cached['face_detections'],
+                    'processingTime': cached['processing_time'],
+                    'fileHash': file_hash
+                }
+
             # Check if image exists
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"Image not found: {image_path}")
@@ -411,8 +462,8 @@ class YOLOObjectDetector:
 
             processing_time = (time.time() - start_time) * 1000
 
-            # Cache result
-            cache.set(file_hash, face_detections, [], processing_time, file_path, file_size, file_modified)
+            # Cache in Redis
+            redis_cache.set(file_hash, [], face_detections, processing_time)
 
             return {
                 'success': True,
@@ -563,30 +614,28 @@ face_recognition = FaceRecognition()
 detector = YOLOObjectDetector()
 detector.initialize()
 
-# Periodic cache cleanup
-import threading
-def cleanup_task():
-    while True:
-        time.sleep(60)  # Every minute
-        cache.cleanup()
-
-# Temporarily disabled cleanup due to SQL syntax issue
-# cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
-# cleanup_thread.start()
-
 @app.route('/detect-objects', methods=['POST'])
 def detect_objects_route():
-    """Object detection endpoint"""
+    """Object detection endpoint - accepts image data directly"""
     try:
-        data = request.get_json()
-        image_path = data.get('imagePath')
-        file_hash = data.get('fileHash', '')
-        file_size = data.get('fileSize', 0)
-        file_modified = data.get('fileModified', '')
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
 
-        print(f"OpenCV Service: Object detection request for {image_path}")
+        image_file = request.files['image']
+        file_hash = request.form.get('fileHash', '')
+        file_size = request.form.get('fileSize', 0, type=int)
+        file_modified = request.form.get('fileModified', '')
 
-        result = detector.detect_objects(image_path, file_hash, image_path, file_size, file_modified)
+        temp_image_path = os.path.join(tempfile.gettempdir(), f'detect_{file_hash}.jpg')
+        image_file.save(temp_image_path)
+
+        print(f"OpenCV Service: Object detection request for {file_hash}")
+
+        result = detector.detect_objects(temp_image_path, file_hash, '', file_size, file_modified)
+
+        if os.path.exists(temp_image_path):
+            os.unlink(temp_image_path)
+
         return jsonify(result)
 
     except Exception as e:
@@ -599,17 +648,26 @@ def detect_objects_route():
 
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces_route():
-    """Face recognition endpoint"""
+    """Face recognition endpoint - accepts image data directly"""
     try:
-        data = request.get_json()
-        image_path = data.get('imagePath')
-        file_hash = data.get('fileHash', '')
-        file_size = data.get('fileSize', 0)
-        file_modified = data.get('fileModified', '')
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
 
-        print(f"OpenCV Service: Face recognition request for {image_path}")
+        image_file = request.files['image']
+        file_hash = request.form.get('fileHash', '')
+        file_size = request.form.get('fileSize', 0, type=int)
+        file_modified = request.form.get('fileModified', '')
 
-        result = detector.recognize_faces(image_path, file_hash, image_path, file_size, file_modified)
+        temp_image_path = os.path.join(tempfile.gettempdir(), f'face_{file_hash}.jpg')
+        image_file.save(temp_image_path)
+
+        print(f"OpenCV Service: Face recognition request for {file_hash}")
+
+        result = detector.recognize_faces(temp_image_path, file_hash, '', file_size, file_modified)
+
+        if os.path.exists(temp_image_path):
+            os.unlink(temp_image_path)
+
         return jsonify(result)
 
     except Exception as e:
@@ -625,10 +683,19 @@ def health():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'timestamp': time.time(),
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
         'service': 'opencv-detection',
+        'version': os.getenv('SERVICE_VERSION', '1.0.0'),
         'detectionMode': 'yolo',
-        'initialized': detector.initialized
+        'model': {
+            'type': 'YOLO',
+            'initialized': detector.initialized,
+            'classCount': len(class_names)
+        },
+        'cache': {
+            'type': 'redis',
+            'connected': redis_client.ping() if redis_client else False
+        }
     })
 
 

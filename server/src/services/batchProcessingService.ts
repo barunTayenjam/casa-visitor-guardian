@@ -5,6 +5,7 @@ import { Worker } from 'node:worker_threads';
 import EventEmitter from 'events';
 import { getBatchProcessingDatabase, ProcessedImage } from './batchProcessingDatabasePostgres.js';
 import { FileHashUtil } from '../utils/fileHash.js';
+import { getDetectionsPath } from '../config/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,19 +77,10 @@ export class BatchProcessingService extends EventEmitter {
 
   constructor() {
     super();
-    // Use absolute path for Docker compatibility
-    const appRoot = process.cwd().includes('server') ? '/app' : process.cwd();
-    this.eventsDir = path.join(appRoot, 'public', 'events');
-    this.outputDir = path.join(appRoot, 'public', 'batch-results');
+    // Use unified storage structure
+    this.eventsDir = getDetectionsPath('events', new Date());
+    this.outputDir = getDetectionsPath('batch', new Date());
 
-    // Ensure directories exist
-    if (!fs.existsSync(this.eventsDir)) {
-      fs.mkdirSync(this.eventsDir, { recursive: true });
-    }
-    if (!fs.existsSync(this.outputDir)) {
-      fs.mkdirSync(this.outputDir, { recursive: true });
-    }
-    
     // Initialize database asynchronously
     this.initializeDatabase();
   }
@@ -150,92 +142,11 @@ export class BatchProcessingService extends EventEmitter {
   }
 
   private async loadBatchResultFiles(): Promise<void> {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const batchResultsDir = path.join(__dirname, '../../public/batch-results');
-      
-      if (!fs.existsSync(batchResultsDir)) {
-        console.log('Batch results directory not found');
-        return;
-      }
-      
-      const files = fs.readdirSync(batchResultsDir).filter(f => f.endsWith('.json'));
-      console.log(`Found ${files.length} batch result files`);
-      
-      for (const file of files) {
-        try {
-          const filePath = path.join(batchResultsDir, file);
-          const content = fs.readFileSync(filePath, 'utf8');
-          const batchData = JSON.parse(content);
-          
-          // Extract job ID from filename
-          const jobId = batchData.jobId || file.split('_')[1] + '_' + file.split('_')[2];
-          
-          // Check if job already exists
-          if (!this.jobs.has(jobId)) {
-            console.log(`Creating job entry for ${jobId} from file`);
-            
-            const job: BatchProcessingJob = {
-              id: jobId,
-              status: 'completed',
-              startTime: new Date(batchData.timestamp),
-              endTime: new Date(batchData.timestamp),
-              progress: {
-                total: batchData.summary.totalImages,
-                processed: batchData.summary.totalImages,
-                successful: batchData.summary.totalImages,
-                failed: 0
-              },
-              options: batchData.options,
-              results: {
-                totalImages: batchData.summary.totalImages,
-                personDetections: batchData.summary.personDetections,
-                faceDetections: batchData.summary.faceDetections,
-                processingTime: 0, // Not in the batch files
-                details: batchData.results
-              }
-            };
-            
-            this.jobs.set(jobId, job);
-            
-            // Also save to database for persistence
-            if (this.db) {
-              try {
-                await this.db.createJob({
-                  id: job.id,
-                  status: job.status,
-                  start_time: job.startTime?.toISOString(),
-                  end_time: job.endTime?.toISOString(),
-                  total_images: job.progress.total,
-                  processed_images: job.progress.processed,
-                  successful_images: job.progress.successful,
-                  failed_images: job.progress.failed,
-                  person_detections: job.results.personDetections,
-                  face_detections: job.results.faceDetections,
-                  known_faces: batchData.summary.knownFaces,
-                  unknown_faces: batchData.summary.unknownFaces,
-                  processing_time_ms: job.results.processingTime,
-                  options_json: JSON.stringify(job.options),
-                  error_message: job.error
-                });
-              } catch (dbError) {
-                console.warn('Failed to save job to database:', dbError.message);
-              }
-            }
-          }
-        } catch (fileError) {
-          console.error(`Error processing batch result file ${file}:`, fileError);
-        }
-      }
-      
-      console.log(`Total jobs after loading files: ${this.jobs.size}`);
-    } catch (error) {
-      console.error('Error loading batch result files:', error);
-    }
+    // No longer needed - jobs loaded from database only
+    console.log('Batch processing database initialized');
   }
 
-  // Get available motion events for batch processing
+  // Get available motion events for batch processing - now from database
   async getAvailableEvents(options: {
     startTime: Date;
     endTime: Date;
@@ -255,87 +166,60 @@ export class BatchProcessingService extends EventEmitter {
       size: number;
     }> = [];
 
+    if (!this.db) {
+      return events;
+    }
+
     try {
-      const files = fs.readdirSync(this.eventsDir)
-        .filter(file => file.endsWith('.jpg'));
+      // Query from detection_files table
+      let query = `
+        SELECT
+          df.original_filename as filename,
+          df.capture_timestamp as timestamp,
+          df.camera_id as cameraId,
+          df.storage_path as filePath,
+          df.file_size as size
+        FROM detection_files df
+        WHERE df.file_type IN ('event_face', 'event_motion')
+          AND df.is_deleted = false
+      `;
 
-      for (const file of files) {
-        // Parse filename: motion_{cameraId}_{timestamp}.jpg
-        const parts = file.split('_');
-        if (parts.length < 3) continue;
+      const params: any[] = [];
+      let paramIndex = 1;
 
-        const cameraId = parts[1];
-        const timestampPart = parts[2].replace('.jpg', '');
-        
-        // Parse timestamp from filename
-        let timestamp: Date;
-        try {
-          const cleanPart = timestampPart.replace(/Z$/, '');
-          // Check if it's a numeric timestamp (milliseconds)
-          if (/^\d+$/.test(cleanPart)) {
-            timestamp = new Date(Number(cleanPart));
-          } else if (timestampPart.includes('T')) {
-            // Handle formats like: 2025-10-16T12-36-03-998Z
-            let cleanTimestamp = timestampPart;
-            const tIndex = timestampPart.indexOf('T');
-            const datePart = timestampPart.substring(0, tIndex);
-            let timePart = timestampPart.substring(tIndex + 1);
-            
-            // Remove final Z and replace time separators
-            timePart = timePart.replace(/Z$/, ''); // Remove Z
-            const timeComponents = timePart.split('-'); // Split by -
-            
-            if (timeComponents.length >= 3) {
-              // Format: 12-36-03-998 -> 12:36:03.998
-              const fixedTime = `${timeComponents[0]}:${timeComponents[1]}:${timeComponents[2]}.${timeComponents[3] || '000'}`;
-              cleanTimestamp = datePart + 'T' + fixedTime + 'Z';
-            } else {
-              // Fallback: just replace - with :
-              cleanTimestamp = datePart + 'T' + timePart.replace(/-/g, ':') + 'Z';
-            }
-            
-            timestamp = new Date(cleanTimestamp);
-          } else {
-            // Fallback for other formats
-            timestamp = new Date(timestampPart);
-          }
-          
-          console.log(`Parsed timestamp for ${file}: ${timestamp.toISOString()} (Original part: ${timestampPart})`);
-          
-          // Check if date is valid
-          if (isNaN(timestamp.getTime())) {
-            console.warn(`Invalid timestamp parsed for ${file}`);
-            continue;
-          }
-        } catch (err) {
-          console.error(`Error parsing timestamp for ${file}:`, err);
-          continue; 
-        }
-
-        // Filter by time range
-        if (timestamp < options.startTime || timestamp > options.endTime) {
-          continue;
-        }
-
-        // Filter by camera IDs if specified
-        if (options.cameraIds && !options.cameraIds.includes(cameraId)) {
-          continue;
-        }
-
-        const filePath = path.join(this.eventsDir, file);
-        const stats = fs.statSync(filePath);
-
-        events.push({
-          filename: file,
-          timestamp,
-          cameraId,
-          filePath,
-          size: stats.size
-        });
+      // Add time range filters
+      if (options.startTime) {
+        query += ` AND df.capture_timestamp >= $${paramIndex}`;
+        params.push(options.startTime);
+        paramIndex++;
       }
 
-      // Sort by timestamp (newest first)
-      events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      if (options.endTime) {
+        query += ` AND df.capture_timestamp <= $${paramIndex}`;
+        params.push(options.endTime);
+        paramIndex++;
+      }
+
+      // Add camera filter
+      if (options.cameraIds && options.cameraIds.length > 0) {
+        query += ` AND df.camera_id = ANY($${paramIndex})`;
+        params.push(options.cameraIds);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY df.capture_timestamp DESC LIMIT 10000`;
+
+      const result = await (this.db as any).dataSource.query(query, params);
+
+      for (const row of result) {
+        events.push({
+          filename: row.filename,
+          timestamp: new Date(row.timestamp),
+          cameraId: row.cameraid,
+          filePath: row.filepath,
+          size: parseInt(row.size)
+        });
+      }
 
       return events;
     } catch (error) {
@@ -479,35 +363,22 @@ export class BatchProcessingService extends EventEmitter {
       }
     });
 
-    // Custom range - get earliest event
+    // Custom range - get earliest event from database
     try {
-      const files = fs.readdirSync(this.eventsDir)
-        .filter(file => file.endsWith('.jpg'))
-        .map(file => {
-          const parts = file.split('_');
-          if (parts.length < 3) return new Date(0);
-          
-          const timestampPart = parts[2].replace('.jpg', '');
-          try {
-            const datePart = timestampPart.substring(0, 10);
-            const timePart = timestampPart.substring(11).replace(/-/g, ':');
-            const isoTimestamp = `${datePart}T${timePart}Z`;
-            return new Date(isoTimestamp);
-          } catch {
-            return new Date(0);
-          }
-        })
-        .filter(date => date.getTime() > 0)
-        .sort((a, b) => a.getTime() - b.getTime());
+      if (this.db) {
+        const result = await (this.db as any).dataSource.query(
+          'SELECT MIN(capture_timestamp) as min_timestamp FROM detection_files WHERE is_deleted = false'
+        );
 
-      if (files.length > 0) {
-        ranges.push({
-          label: 'All Available',
-          value: {
-            start: files[0],
-            end: now
-          }
-        });
+        if (result && result.length > 0 && result[0].min_timestamp) {
+          ranges.push({
+            label: 'All Available',
+            value: {
+              start: new Date(result[0].min_timestamp),
+              end: now
+            }
+          });
+        }
       }
     } catch (error) {
       console.warn('Error getting earliest event:', error);

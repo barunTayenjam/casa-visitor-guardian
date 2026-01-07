@@ -48,6 +48,11 @@ services:
       - ./data:/app/data                 # Shared data access
     environment:
       - OPENCV_PORT=8084
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=sentryvision
+      - POSTGRES_USER=sentryvision
+      - POSTGRES_PASSWORD=sentryvision123
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/health')"]

@@ -2,8 +2,9 @@ import cron from 'node-cron';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -133,40 +134,68 @@ export function startCronJobs(io: SocketIOServer) {
   // Scheduled tasks log disabled - console.log('Scheduled tasks started');
 }
 
-// Clean up old snapshots and event images
-function cleanupOldFiles() {
+// Clean up old snapshots and event images using database
+async function cleanupOldFiles() {
   try {
     const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
     const now = Date.now();
-    
-    // Directories to clean
-    const directories = [
-      path.join(__dirname, '../../public/snapshots'),
-      path.join(__dirname, '../../public/events')
-    ];
-    
-    for (const directory of directories) {
-      if (!fs.existsSync(directory)) {
-        continue;
-      }
-      
-      const files = fs.readdirSync(directory);
-      
-      for (const file of files) {
-        const filePath = path.join(directory, file);
-        const stats = fs.statSync(filePath);
-        
-        // Check if file is older than max age
-        if (now - stats.mtime.getTime() > maxAge) {
-          fs.unlinkSync(filePath);
-          // File deletion log disabled - console.log(`Deleted old file: ${filePath}`);
-        }
+
+    // Import database dynamically
+    const { getBatchProcessingDatabase } = await import('../services/batchProcessingDatabasePostgres.js');
+    const db = await getBatchProcessingDatabase();
+
+    if (!db) {
+      console.warn('Database not available for cleanup');
+      return;
+    }
+
+    // Mark files as archived in database
+    await (db as any).dataSource.query(
+      `UPDATE detection_files
+       SET is_archived = true
+       WHERE created_at < NOW() - INTERVAL '30 days'
+         AND is_archived = false
+         AND is_deleted = false`
+    );
+
+    // Get archived files for filesystem cleanup
+    const archivedFiles = await (db as any).dataSource.query(
+      `SELECT file_uuid, storage_path, created_at
+       FROM detection_files
+       WHERE is_archived = true
+         AND is_deleted = false
+       LIMIT 10000`
+    );
+
+    // Move files to archive
+    for (const file of archivedFiles) {
+      try {
+        const createdDate = new Date(file.created_at);
+        const archivePath = getArchivePath(createdDate);
+
+        // Create archive directory if needed
+        await fs.promises.mkdir(path.dirname(archivePath), { recursive: true });
+
+        // Move file to archive
+        await fs.promises.rename(file.storage_path, archivePath);
+
+        // Update storage_path in database
+        await (db as any).dataSource.query(
+          `UPDATE detection_files
+           SET storage_path = $1
+           WHERE file_uuid = $2`,
+          [archivePath, file.file_uuid]
+        );
+      } catch (err) {
+        console.error(`Error archiving file ${file.file_uuid}:`, err);
       }
     }
-    
-    // Cleanup completion log disabled - console.log('Cleanup completed');
+
+    // Cleanup completion log disabled
+    console.log(`Archived ${archivedFiles.length} files`);
   } catch (error) {
-    // Cleanup error log disabled - console.error('Error cleaning up old files:', error);
+    // Cleanup error log disabled
+    console.error('Error cleaning up old files:', error);
   }
 }
 

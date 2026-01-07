@@ -26,9 +26,12 @@ services:
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv-service:8084  # OpenCV service endpoint
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - opencv-service
       - postgres
+      - redis
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -60,6 +63,23 @@ services:
       - sentryvision-network
 
   # PostgreSQL database for SentryVision
+  redis:
+    image: redis:7-alpine
+    container_name: sentryvision-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - sentryvision-network
+
   postgres:
     image: postgres:15-alpine
     container_name: sentryvision-db
@@ -88,3 +108,4 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:

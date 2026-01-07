@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import apiService, { ApiError } from '@/services/ApiService';
 import { SystemSettings } from '@/types/security';
+import { FaceRecognitionManager } from '@/components/settings/FaceRecognitionManager';
 
 // Interfaces for system data
 interface LogEntry {
@@ -370,6 +371,8 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+
+            <FaceRecognitionManager />
           </TabsContent>
 
           <TabsContent value="storage" className="space-y-4">

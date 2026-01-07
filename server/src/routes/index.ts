@@ -24,6 +24,15 @@ import { getFacialRecognitionService as getGlobalFacialRecognitionService } from
 import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
+import multer from 'multer';
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -1504,6 +1513,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // NEW: Enhanced events list with detection data from events table
   app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
     try {
+      console.log('AppDataSource initialized:', AppDataSource.isInitialized);
+      console.log('Registered entities:', AppDataSource.entityMetadatas.map(e => e.name));
+      
+      if (!AppDataSource.isInitialized) {
+        await AppDataSource.initialize();
+        console.log('AppDataSource initialized on demand');
+      }
+
       const { limit = 100, event_type, camera_id, start_date, end_date } = req.query;
 
       const eventRepository = AppDataSource.getRepository(Event);
@@ -1551,6 +1568,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       });
     } catch (error) {
       console.error('Failed to fetch events:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
       res.status(500).json({ success: false, error: 'Failed to fetch events' });
     }
   });
@@ -2204,25 +2224,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Add a known person
-  app.post('/api/detection/face/persons', async (req: Request, res: Response) => {
+  app.post('/api/detection/face/persons', upload.single('image'), async (req: Request, res: Response) => {
     try {
-      const { name, description, imagePaths } = req.body;
+      const { name } = req.body;
+      const file = req.file;
       
-      if (!name || !imagePaths || imagePaths.length === 0) {
-        return res.status(400).json({ success: false, error: 'Name and at least one image are required' });
+      if (!name || !file) {
+        return res.status(400).json({ success: false, error: 'Name and image file are required' });
       }
       
       const facialRecognitionService = getGlobalFacialRecognitionService();
-      const personId = facialRecognitionService.addKnownPerson(name, imagePaths[0]);
+      const personName = await facialRecognitionService.addKnownPerson(name, file.buffer);
       
-      res.json({
-        success: true,
-        personId,
-        message: 'Person added successfully'
+      res.json({ 
+        success: true, 
+        personId: personName,
+        message: `Added known person: ${personName}`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding known person:', error);
-      res.status(500).json({ success: false, error: 'Failed to add known person' });
+      res.status(500).json({ success: false, error: error.message || 'Failed to add known person' });
     }
   });
   

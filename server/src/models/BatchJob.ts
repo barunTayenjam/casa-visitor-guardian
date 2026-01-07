@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 @Entity('batch_jobs')
 @Index(['status'])
-@Index(['created_at'])
+@Index(['createdAt'])
 export class BatchJob {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

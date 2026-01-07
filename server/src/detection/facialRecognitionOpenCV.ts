@@ -96,19 +96,55 @@ export class FacialRecognitionService {
     return true;
   }
 
-  getKnownPersons(): KnownPerson[] {
-    return Array.from(this.knownPersons.values());
+  async getKnownPersons(): Promise<KnownPerson[]> {
+    try {
+      const response = await fetch(`${this.openCVServiceUrl}/known-faces`);
+      if (!response.ok) {
+        throw new Error(`OpenCV service returned ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success && data.faces) {
+        // Map the response to KnownPerson format
+        return data.faces.map((f: any) => ({
+          id: f.id.toString(),
+          name: f.name,
+          imagePaths: [] // We don't get image paths back from this endpoint
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching known persons:', error);
+      return [];
+    }
   }
 
-  addKnownPerson(name: string, imagePath: string): string {
-    const id = Date.now().toString();
-    const person: KnownPerson = {
-      id,
-      name,
-      imagePaths: [imagePath]
-    };
-    this.knownPersons.set(id, person);
-    return id;
+  async addKnownPerson(name: string, imageBuffer: Buffer): Promise<string> {
+    try {
+      const formData = new FormData();
+      const uint8Array = new Uint8Array(imageBuffer);
+      const blob = new Blob([uint8Array], { type: 'image/jpeg' });
+      formData.append('image', blob, 'training_image.jpg');
+      formData.append('personName', name);
+
+      const response = await fetch(`${this.openCVServiceUrl}/train-face`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenCV service returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to train face');
+      }
+
+      return name;
+    } catch (error) {
+      console.error('Error adding known person:', error);
+      throw error;
+    }
   }
 }
 

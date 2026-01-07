@@ -18,12 +18,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
-  Video
+  Video,
+  User,
+  Package
 } from 'lucide-react';
 import { format } from 'date-fns';
-import apiService from '@/services/ApiService';
+import apiService, { EnhancedEvent, DetectionData, FaceDetectionData } from '@/services/ApiService';
 
 interface MotionEvent {
+  id?: string;
   filename: string;
   timestamp: Date;
   cameraId: string;
@@ -46,6 +49,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<MotionEvent | null>(null);
+  const [selectedEnhancedEvent, setSelectedEnhancedEvent] = useState<EnhancedEvent | null>(null);
   const [batchResults, setBatchResults] = useState<Map<string, BatchResult>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -82,39 +86,15 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
 
   const loadEvents = async () => {
     try {
-      const files = await apiService.getEventsList();
+      const response = await apiService.getEnhancedEventsList({ limit: 100 });
       
-      const parsedEvents: MotionEvent[] = files.map((filename: string) => {
-        const parts = filename.split('_');
-        const cameraId = parts[1] || 'unknown';
-        let timestamp = new Date();
-        
-        if (parts.length >= 3) {
-          const timestampPart = parts[2]?.replace('.jpg', '');
-          if (timestampPart) {
-            const cleanTimestampPart = timestampPart.replace(/Z$/, '');
-            const numericTimestamp = parseInt(cleanTimestampPart, 10);
-            const isNumeric = !isNaN(numericTimestamp) && /^\d+$/.test(cleanTimestampPart) && cleanTimestampPart.length > 4;
-            if (isNumeric) {
-              timestamp = new Date(numericTimestamp);
-            } else if (timestampPart.includes('T')) {
-              const datePart = timestampPart.substring(0, 10);
-              const timePart = timestampPart.substring(11);
-              const isoTimestamp = `${datePart}T${timePart.replace(/-/g, ':').replace(/:([0-9]{3})Z$/, '.$1Z')}`;
-              timestamp = new Date(isoTimestamp);
-            }
-          }
-        }
-        
-        if (isNaN(timestamp.getTime())) {
-          timestamp = new Date();
-        }
-        
+      const parsedEvents: MotionEvent[] = response.events.map((event) => {
         return {
-          filename,
-          timestamp,
-          cameraId,
-          timestampStr: timestamp.toISOString()
+          id: event.id,
+          filename: event.filename,
+          timestamp: new Date(event.timestamp),
+          cameraId: event.cameraId,
+          timestampStr: new Date(event.timestamp).toISOString()
         };
       }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
       
@@ -185,18 +165,39 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
     return Array.from(cameras).sort();
   };
 
-  const handleImageClick = (event: MotionEvent, index: number) => {
+  const handleImageClick = async (event: MotionEvent, index: number) => {
     setSelectedEvent(event);
     setSelectedIndex(filteredEvents.indexOf(event));
     setIsImageDialogOpen(true);
     
+    // Fetch detailed event info
+    if (event.id) {
+      try {
+        const details = await apiService.getEventDetails(event.id);
+        if (details.success) {
+          setSelectedEnhancedEvent(details.event);
+          setDetectionData({
+            persons: details.event.persons_detected,
+            faces: details.event.faces_detected,
+            knownFaces: details.event.known_faces_count,
+            unknownFaces: details.event.unknown_faces_count
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to fetch event details:', error);
+      }
+    }
+
+    // Fallback to batch results
     const result = batchResults.get(event.filename);
     setDetectionData(result || null);
+    setSelectedEnhancedEvent(null);
   };
 
   const handleDownloadImage = async (event: MotionEvent) => {
     try {
-      const response = await fetch(`http://192.168.31.99:5173/events/${event.filename}`);
+      const response = await fetch(`/api/events/image/${event.filename}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -213,18 +214,16 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
 
   const renderBoundingBoxes = () => {
     if (!detectionData || !imageRef.current) return null;
-    if (detectionData.persons === 0 && detectionData.faces === 0) return null;
+    if (detectionData.persons === 0 && detectionData.faces === 0 && !selectedEnhancedEvent?.object_detections?.length) return null;
     
     const img = imageRef.current;
-    const scaleX = img.naturalWidth / img.clientWidth;
-    const scaleY = img.naturalHeight / img.clientHeight;
     
     return (
       <svg 
         className="absolute inset-0 pointer-events-none"
         style={{ width: img.clientWidth, height: img.clientHeight }}
       >
-        <text x="10" y="20" fill="white" fontSize="12" fontWeight="bold">
+        <text x="10" y="20" fill="white" fontSize="12" fontWeight="bold" stroke="black" strokeWidth="0.5">
           {detectionData.persons} Person(s) • {detectionData.faces} Face(s)
         </text>
       </svg>
@@ -389,7 +388,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                     >
                       <div className="aspect-video bg-muted relative">
                         <img
-                          src={`http://192.168.31.99:5173/events/${event.filename}`}
+                          src={`/api/events/image/${event.filename}`}
                           alt={event.filename}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -469,7 +468,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                     >
                       <div className="w-32 h-20 bg-muted rounded relative overflow-hidden flex-shrink-0">
                         <img
-                          src={`http://192.168.31.99:5173/events/${event.filename}`}
+                          src={`/api/events/image/${event.filename}`}
                           alt={event.filename}
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -528,7 +527,14 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
       </Card>
       
       {/* Image Detail Dialog */}
-      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+      <Dialog open={isImageDialogOpen} onOpenChange={(open) => {
+        setIsImageDialogOpen(open);
+        if (!open) {
+          setSelectedEvent(null);
+          setSelectedEnhancedEvent(null);
+          setDetectionData(null);
+        }
+      }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -547,7 +553,10 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setSelectedIndex(Math.max(0, selectedIndex - 1))}
+                  onClick={() => {
+                    const newIndex = Math.max(0, selectedIndex - 1);
+                    handleImageClick(filteredEvents[newIndex], newIndex);
+                  }}
                   disabled={selectedIndex === 0}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -555,7 +564,10 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setSelectedIndex(Math.min(filteredEvents.length - 1, selectedIndex + 1))}
+                  onClick={() => {
+                    const newIndex = Math.min(filteredEvents.length - 1, selectedIndex + 1);
+                    handleImageClick(filteredEvents[newIndex], newIndex);
+                  }}
                   disabled={selectedIndex === filteredEvents.length - 1}
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -566,12 +578,12 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
           
           {selectedEvent && (
             <div className="space-y-4">
-              <div className="relative inline-block">
+              <div className="relative inline-block bg-black/5 rounded-lg overflow-hidden">
                 <img
                   ref={imageRef}
-                  src={`http://192.168.31.99:5173/events/${selectedEvent.filename}`}
+                  src={`/api/events/image/${selectedEvent.filename}`}
                   alt={selectedEvent.filename}
-                  className="max-w-full h-auto"
+                  className="max-w-full h-auto max-h-[60vh] object-contain mx-auto"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -579,49 +591,144 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                 {renderBoundingBoxes()}
               </div>
               
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="font-medium mb-2">Event Details</div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div>Filename: {selectedEvent.filename}</div>
-                    <div>Camera: {selectedEvent.cameraId}</div>
-                    <div>Time: {format(selectedEvent.timestamp, 'PPpp')}</div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-sm font-medium">Event Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-3 space-y-2">
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-muted-foreground">Filename</span>
+                      <span className="font-mono text-xs">{selectedEvent.filename}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-muted-foreground">Camera</span>
+                      <span>{selectedEvent.cameraId}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-muted-foreground">Time</span>
+                      <span>{format(selectedEvent.timestamp, 'PPP p')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ID</span>
+                      <span className="font-mono text-xs">{selectedEvent.id || 'N/A'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
                 
-                <div>
-                  <div className="font-medium mb-2">Detections</div>
-                  {detectionData ? (
-                    <div className="space-y-2">
-                      {detectionData.persons > 0 && (
-                        <div>
-                          <div className="text-green-600 font-medium">
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-sm font-medium">Detections</CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-3">
+                    {selectedEnhancedEvent ? (
+                      <div className="space-y-4">
+                        {/* Person Detections */}
+                        {selectedEnhancedEvent.persons_detected > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {selectedEnhancedEvent.persons_detected} Person(s)
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Face Detections */}
+                        {selectedEnhancedEvent.faces_detected > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <UserCheck className="h-3 w-3" />
+                                {selectedEnhancedEvent.faces_detected} Face(s)
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedEnhancedEvent.face_detections?.map((face, i) => (
+                                <Badge 
+                                  key={i} 
+                                  className={face.isKnown ? "bg-green-500 hover:bg-green-600" : "bg-yellow-500 hover:bg-yellow-600"}
+                                >
+                                  {face.isKnown ? face.name : "Unknown"} ({Math.round(face.confidence)}%)
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Object Detections */}
+                        {selectedEnhancedEvent.object_detections && selectedEnhancedEvent.object_detections.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <Package className="h-3 w-3" />
+                                {selectedEnhancedEvent.object_detections.length} Object(s)
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedEnhancedEvent.object_detections.map((obj, i) => (
+                                <Badge key={i} className="bg-blue-500 hover:bg-blue-600">
+                                  {obj.class} ({Math.round(obj.confidence)}%)
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedEnhancedEvent.persons_detected === 0 && 
+                         selectedEnhancedEvent.faces_detected === 0 && 
+                         (!selectedEnhancedEvent.object_detections || selectedEnhancedEvent.object_detections.length === 0) && (
+                          <div className="text-muted-foreground text-center py-2">
+                            No objects or faces detected in this event.
+                          </div>
+                        )}
+                      </div>
+                    ) : detectionData ? (
+                      <div className="space-y-2">
+                        {detectionData.persons > 0 && (
+                          <div className="text-green-600 font-medium flex items-center gap-2">
+                            <Users className="h-4 w-4" />
                             {detectionData.persons} Person(s) detected
                           </div>
-                        </div>
-                      )}
-                      {detectionData.faces > 0 && (
-                        <div>
-                          <div className="text-blue-600 font-medium">
-                            {detectionData.faces} Face(s) detected
+                        )}
+                        {detectionData.faces > 0 && (
+                          <div>
+                            <div className="text-blue-600 font-medium flex items-center gap-2">
+                              <UserCheck className="h-4 w-4" />
+                              {detectionData.faces} Face(s) detected
+                            </div>
+                            <div className="text-muted-foreground text-xs mt-1 ml-6">
+                              {detectionData.knownFaces} known, {detectionData.unknownFaces} unknown
+                            </div>
                           </div>
-                          <div className="text-muted-foreground text-xs mt-1">
-                            {detectionData.knownFaces} known, {detectionData.unknownFaces} unknown
+                        )}
+                        {detectionData.persons === 0 && detectionData.faces === 0 && (
+                          <div className="text-muted-foreground text-center py-2">
+                            No detection summary available.
                           </div>
-                        </div>
-                      )}
-                      {detectionData.persons === 0 && detectionData.faces === 0 && (
-                        <div className="text-muted-foreground">
-                          No detection data available. Run batch processing to analyze this image.
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground">
-                      No detection data available. Run batch processing to analyze this image.
-                    </div>
-                  )}
-                </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground text-center py-4">
+                        <p>No detection data available.</p>
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="mt-2"
+                          onClick={() => {
+                            // Close dialog and switch to batch tab
+                            setIsImageDialogOpen(false);
+                            // This would ideally require lifting state up or using context/router
+                            // For now we just show the message
+                          }}
+                        >
+                          Run batch processing to analyze
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
           )}

@@ -11,8 +11,9 @@ import auditLogger from '../utils/auditLogger.js';
 // import logRoutes from './logRoutes.js';
 import { generateTestJpegFrame } from '../utils/testImageGenerator.js';
 import { AppDataSource } from '../database.js';
-// import { Event } from '../models/Event.js'; // Temporarily disabled
+import { Event } from '../models/Event.js';
 import { FindManyOptions } from 'typeorm';
+import { config } from '../config/index.js';
 // Use global detection services initialized in main server file
 // import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
 // import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
@@ -22,18 +23,11 @@ import { getObjectDetectionService as getGlobalObjectDetectionService } from '..
 import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognitionOpenCV.js';
 import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
+import { getDetectionsPath, getEventPath } from '../config/index.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Define events directory - use absolute path for Docker compatibility
-const EVENTS_DIR = path.join(process.cwd(), 'public', 'events');
-
-// Ensure events directory exists
-if (!fs.existsSync(EVENTS_DIR)) {
-  fs.mkdirSync(EVENTS_DIR, { recursive: true });
-}
 
 // Log route configuration
 logger.info('Configuring main API routes', 'ROUTES');
@@ -1036,11 +1030,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Get historical motion events with pagination and filtering (file-based implementation)
+  // Get historical motion events with pagination and filtering (database-based implementation)
   app.get('/api/events/history', async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100); // Max 100 per page
       const cameraIdFilter = req.query.cameraId as string;
       const searchQuery = req.query.searchQuery as string;
       const startDateStr = req.query.startDate as string;
@@ -1048,156 +1042,118 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const sortBy = req.query.sortBy as string || 'newest';
       const detectionType = req.query.detectionType as string || 'all';
 
-      const eventsDir = EVENTS_DIR;
-      let allEvents: any[] = [];
+      // Build query conditions
+      const conditions: string[] = ['df.is_deleted = FALSE'];
+      const values: any[] = [];
+      let paramIndex = 1;
 
-      try {
-        if (fs.existsSync(eventsDir)) {
-          const files = fs.readdirSync(eventsDir)
-            .filter(file => file.endsWith('.jpg'));
+      // Add file type filter for events
+      conditions.push("df.file_type IN ('event_motion', 'event_face')");
 
-          allEvents = files.map(file => {
-            const parts = file.split('_');
-            const eventType = parts[0] || 'motion';
-            const cameraId = parts[1]?.replace('cam', '') || 'unknown';
-            let timestamp = new Date().toISOString();
-
-            if (parts.length >= 3) {
-              const timestampPart = parts[2]?.split('.')[0];
-              if (timestampPart) {
-                // Check if timestampPart is a numeric timestamp (like 1763535628378)
-                // Unix timestamps in milliseconds for 2025 would be ~1700000000000+ (much larger than 9999)
-                const numericTimestamp = parseInt(timestampPart, 10);
-                const isPurelyNumeric = !isNaN(numericTimestamp) && /^\d+$/.test(timestampPart) && timestampPart.length > 4;
-                if (isPurelyNumeric) {
-                  // It's a numeric timestamp in milliseconds (not just a year like 2025)
-                  const parsedDate = new Date(numericTimestamp);
-                  if (!isNaN(parsedDate.getTime())) {
-                    timestamp = parsedDate.toISOString();
-                  }
-                } else {
-                  // It's in format YYYY-MM-DDTHH-mm-ss-msZ
-                  // Convert timestamp format from filename to ISO
-                  if (timestampPart.includes('T')) { // Contains date-time separator
-                    // Split on 'T' to separate date and time parts
-                    const [datePart, timePartWithZ] = timestampPart.split('T');
-                    if (datePart && timePartWithZ) {
-                      // Split time part on hyphens to get hours, minutes, seconds, milliseconds
-                      const timeParts = timePartWithZ.split('-');
-
-                      if (timeParts.length >= 3) {
-                        let hours = timeParts[0].padStart(2, '0');
-                        let minutes = timeParts[1].padStart(2, '0');
-                        let seconds = timeParts[2].padStart(2, '0');
-                        let milliseconds = '000';
-
-                        // Check if there's a milliseconds part (the part after third hyphen, before Z)
-                        if (timeParts.length >= 4) {
-                          // Remove Z from milliseconds if present
-                          milliseconds = timeParts[3].replace('Z', '').padStart(3, '0');
-                        } else if (timeParts.length === 3) {
-                          // The last part (seconds) might have Z attached if no milliseconds
-                          if (timeParts[2].includes('Z')) {
-                            seconds = timeParts[2].replace('Z', '').padStart(2, '0');
-                            milliseconds = '000';
-                          }
-                        }
-
-                        // Create proper ISO timestamp with colons in time part
-                        const isoTimestamp = `${datePart}T${hours}:${minutes}:${seconds}.${milliseconds}Z`;
-                        const parsedDate = new Date(isoTimestamp);
-                        if (!isNaN(parsedDate.getTime())) {
-                          timestamp = parsedDate.toISOString();
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            // Determine event type from filename
-            let labels = ['motion'];
-            if (file.includes('face')) {
-              labels = ['face'];
-            } else if (file.includes('person')) {
-              labels = ['person'];
-            }
-
-            return {
-              id: `evt_${file}`,
-              cameraId,
-              timestamp,
-              imagePath: `/events/${file}`,
-              confidence: 0.75, // Default confidence (75%)
-              labels,
-              location: `Camera ${cameraId}`,
-              duration: 0,
-              cameraName: `Camera ${cameraId}`,
-              event_type: eventType
-            };
-          });
-
-          // Apply filtering
-          allEvents = allEvents.filter(event => {
-            // Camera filter
-            if (cameraIdFilter && cameraIdFilter !== 'all' && event.cameraId !== cameraIdFilter) {
-              return false;
-            }
-
-            // Detection type filter
-            if (detectionType && detectionType !== 'all' && !event.labels.includes(detectionType)) {
-              return false;
-            }
-
-            // Date range filter
-            const eventDate = new Date(event.timestamp);
-            if (startDateStr) {
-              const startDate = new Date(startDateStr);
-              if (eventDate < startDate) return false;
-            }
-            if (endDateStr) {
-              const endDate = new Date(endDateStr);
-              if (eventDate > endDate) return false;
-            }
-
-            // Search query filter (basic implementation)
-            if (searchQuery) {
-              const searchLower = searchQuery.toLowerCase();
-              if (!event.cameraName.toLowerCase().includes(searchLower) &&
-                  !event.labels.some((label: string) => label.toLowerCase().includes(searchLower))) {
-                return false;
-              }
-            }
-
-            return true;
-          });
-
-          console.log(`Filtering events with startDate: ${startDateStr}, endDate: ${endDateStr}. Found ${allEvents.length} events.`);
-
-          // Apply sorting
-          allEvents.sort((a, b) => {
-            if (sortBy === 'oldest') {
-              return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-            } else {
-              return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-            }
-          });
-        }
-      } catch (error) {
-        console.warn('Error reading events directory:', error);
+      // Camera filter
+      if (cameraIdFilter && cameraIdFilter !== 'all') {
+        conditions.push(`df.camera_id = $${paramIndex++}`);
+        values.push(cameraIdFilter);
       }
 
-      // Apply pagination
-      const totalEvents = allEvents.length;
+      // Detection type filter
+      if (detectionType && detectionType !== 'all') {
+        if (detectionType === 'face') {
+          conditions.push(`df.file_type = 'event_face'`);
+        } else if (detectionType === 'motion' || detectionType === 'person') {
+          conditions.push(`df.file_type = 'event_motion'`);
+        }
+      }
+
+      // Date range filter
+      if (startDateStr) {
+        conditions.push(`df.capture_timestamp >= $${paramIndex++}`);
+        values.push(new Date(startDateStr));
+      }
+      if (endDateStr) {
+        conditions.push(`df.capture_timestamp <= $${paramIndex++}`);
+        values.push(new Date(endDateStr));
+      }
+
+      // Search query filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        conditions.push(`(df.camera_id ILIKE $${paramIndex++} OR df.original_filename ILIKE $${paramIndex++})`);
+        values.push(`%${searchLower}%`, `%${searchLower}%`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const orderClause = sortBy === 'oldest' ? 'ORDER BY df.capture_timestamp ASC' : 'ORDER BY df.capture_timestamp DESC';
+
+      // Count total events for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM detection_files df
+        ${whereClause}
+      `;
+      const countResult = await AppDataSource.query(countQuery, values);
+      const totalEvents = parseInt(countResult[0].total);
+
+      // Get paginated events
+      const offset = (page - 1) * pageSize;
+      const eventsQuery = `
+        SELECT
+          df.file_uuid as id,
+          df.camera_id as cameraId,
+          df.capture_timestamp as timestamp,
+          df.storage_path as imagePath,
+          df.metadata,
+          df.original_filename
+        FROM detection_files df
+        ${whereClause}
+        ${orderClause}
+        LIMIT $${paramIndex++} OFFSET $${paramIndex}
+      `;
+      values.push(pageSize, offset);
+
+      const results = await AppDataSource.query(eventsQuery, values);
+
+      // Transform results to match expected format
+      const events = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0.75
+        let confidence = 0.75;
+        if (row.metadata && typeof row.metadata === 'object') {
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0.75;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0.75;
+          }
+        }
+
+        // Determine labels from file type
+        let labels = ['motion'];
+        if (row.file_type === 'event_face') {
+          labels = ['face'];
+        } else if (row.file_type === 'event_motion') {
+          labels = ['motion'];
+        }
+
+        return {
+          id: row.id,
+          cameraId: row.cameraId || 'unknown',
+          timestamp: new Date(row.timestamp).toISOString(),
+          imagePath: row.imagePath,
+          confidence: confidence,
+          labels: labels,
+          location: `Camera ${row.cameraId || 'unknown'}`,
+          duration: 0,
+          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          event_type: row.file_type
+        };
+      });
+
       const totalPages = Math.ceil(totalEvents / pageSize);
-      const startIndex = (page - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const paginatedEvents = allEvents.slice(startIndex, endIndex);
 
       res.json({
         success: true,
-        events: paginatedEvents,
+        events: events,
         pagination: {
           totalEvents,
           totalPages,
@@ -1225,105 +1181,117 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Search events (alias for history with search query)
-  app.get('/api/events/search', (req: Request, res: Response) => {
-    // This endpoint can simply call the history endpoint with the search query
-    // Note: This is a simplified approach. For more complex scenarios, consider refactoring into a shared function.
+  // Search events (database-based implementation)
+  app.get('/api/events/search', async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100); // Max 100 per page
       const cameraIdFilter = req.query.cameraId as string;
       const searchQuery = req.query.searchQuery as string;
-      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
-      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+      const startDateStr = req.query.startDate as string;
+      const endDateStr = req.query.endDate as string;
 
-      const eventsDir = EVENTS_DIR;
-      const allFiles = fs.readdirSync(eventsDir)
-        .filter((file: string) => file.endsWith('.jpg'))
-        .map((file: string) => {
-          const parts = file.split('_');
-          const cameraId = parts[1] || 'unknown';
-          let timestamp = new Date().toISOString();
-          if (parts.length >= 3) {
-        const timestampPart = parts[2]?.split('.')[0]; // e.g., "2025-06-29T07-24-23-640Z"
-        if (timestampPart) {
-          // Convert "YYYY-MM-DDTHH-mm-ss-msZ" to "YYYY-MM-DDTHH:mm:ss.msZ"
-          const datePart = timestampPart.substring(0, 10); // "YYYY-MM-DD"
-          const timePartWithHyphens = timestampPart.substring(11); // "HH-mm-ss-msZ"
-          const timeParts = timePartWithHyphens.split('-'); // ["HH", "mm", "ss", "msZ"]
-          
-          let ms = 0;
-          let formattedTime = '';
+      // Build query conditions
+      const conditions: string[] = ['df.is_deleted = FALSE'];
+      const values: any[] = [];
+      let paramIndex = 1;
 
-          if (timeParts.length === 4) {
-            // Has milliseconds
-            ms = parseInt(timeParts[3].replace('Z', ''), 10);
-            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
-          } else if (timeParts.length === 3) {
-            // No milliseconds
-            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
-          } else {
-            console.warn(`Unexpected time format in filename: ${timestampPart}`);
-            // Fallback to current time or handle error
-            formattedTime = new Date().toISOString().substring(11, 23) + 'Z'; // Just time part
-          }
+      // Add file type filter for events
+      conditions.push("df.file_type IN ('event_motion', 'event_face')");
 
-          const isoTimestamp = `${datePart}T${formattedTime}`;
-          const parsedDate = new Date(isoTimestamp);
+      // Camera filter
+      if (cameraIdFilter && cameraIdFilter !== 'all') {
+        conditions.push(`df.camera_id = $${paramIndex++}`);
+        values.push(cameraIdFilter);
+      }
 
-          if (!isNaN(parsedDate.getTime())) {
-            timestamp = parsedDate.toISOString();
-          } else {
-            console.warn(`Failed to parse timestamp from filename: ${timestampPart}. Using current time.`);
+      // Date range filter
+      if (startDateStr) {
+        conditions.push(`df.capture_timestamp >= $${paramIndex++}`);
+        values.push(new Date(startDateStr));
+      }
+      if (endDateStr) {
+        conditions.push(`df.capture_timestamp <= $${paramIndex++}`);
+        values.push(new Date(endDateStr));
+      }
+
+      // Search query filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        conditions.push(`(df.camera_id ILIKE $${paramIndex++} OR df.original_filename ILIKE $${paramIndex++} OR df.metadata::text ILIKE $${paramIndex++})`);
+        values.push(`%${searchLower}%`, `%${searchLower}%`, `%${searchLower}%`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const orderClause = 'ORDER BY df.capture_timestamp DESC';
+
+      // Count total events for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM detection_files df
+        ${whereClause}
+      `;
+      const countResult = await AppDataSource.query(countQuery, values);
+      const totalEvents = parseInt(countResult[0].total);
+
+      // Get paginated events
+      const offset = (page - 1) * pageSize;
+      const eventsQuery = `
+        SELECT
+          df.file_uuid as id,
+          df.camera_id as cameraId,
+          df.capture_timestamp as timestamp,
+          df.storage_path as imagePath,
+          df.metadata
+        FROM detection_files df
+        ${whereClause}
+        ${orderClause}
+        LIMIT $${paramIndex++} OFFSET $${paramIndex}
+      `;
+      values.push(pageSize, offset);
+
+      const results = await AppDataSource.query(eventsQuery, values);
+
+      // Transform results to match expected format
+      const events = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0.75
+        let confidence = 0.75;
+        if (row.metadata && typeof row.metadata === 'object') {
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0.75;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0.75;
           }
         }
-      }
-          return {
-            id: `evt_${file}`,
-            cameraId,
-            timestamp,
-            imagePath: `/events/${file}`,
-            confidence: 75, // Default confidence
-            labels: ['motion'],
-            location: 'Unknown',
-            duration: 0,
-            cameraName: cameraId // Assuming cameraName is same as cameraId for now
-          };
-        })
-        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Newest first
 
-      let filteredEvents = allFiles;
+        // Determine labels from file type
+        let labels = ['motion'];
+        if (row.file_type === 'event_face') {
+          labels = ['face'];
+        } else if (row.file_type === 'event_motion') {
+          labels = ['motion'];
+        }
 
-      if (cameraIdFilter && cameraIdFilter !== 'all') {
-        filteredEvents = filteredEvents.filter((event: MotionEvent) => event.cameraId === cameraIdFilter);
-      }
+        return {
+          id: row.id,
+          cameraId: row.cameraId || 'unknown',
+          timestamp: new Date(row.timestamp).toISOString(),
+          imagePath: row.imagePath,
+          confidence: confidence,
+          labels: labels,
+          location: `Camera ${row.cameraId || 'unknown'}`,
+          duration: 0,
+          cameraName: `Camera ${row.cameraId || 'unknown'}`
+        };
+      });
 
-      if (searchQuery) {
-        const lowerCaseSearchQuery = searchQuery.toLowerCase();
-        filteredEvents = filteredEvents.filter((event: MotionEvent) =>
-          event.cameraId.toLowerCase().includes(lowerCaseSearchQuery) ||
-          event.labels?.some(label => label.toLowerCase().includes(lowerCaseSearchQuery)) ||
-          event.location?.toLowerCase().includes(lowerCaseSearchQuery)
-        );
-      }
-
-      if (startDate) {
-        filteredEvents = filteredEvents.filter((event: MotionEvent) => new Date(event.timestamp) >= startDate);
-      }
-
-      if (endDate) {
-        filteredEvents = filteredEvents.filter((event: MotionEvent) => new Date(event.timestamp) <= endDate);
-      }
-
-      const totalEvents = filteredEvents.length;
       const totalPages = Math.ceil(totalEvents / pageSize);
-      const startIndex = (page - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
 
       res.json({
         success: true,
-        events: paginatedEvents,
+        events: events,
         pagination: {
           totalEvents,
           totalPages,
@@ -1332,160 +1300,135 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         },
       });
     } catch (error) {
-      console.error('Error getting historical events:', error);
-      res.status(500).json({ success: false, error: 'Failed to get historical events' });
+      console.error('Error searching events:', error);
+      res.status(500).json({ success: false, error: 'Failed to search events' });
     }
   });
 
-  // Get all motion events (what the frontend expects)
-  app.get('/api/motion/events', (req: Request, res: Response) => {
+  // Get all motion events (what the frontend expects) - database-based implementation
+  app.get('/api/motion/events', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
-      
-      // Get events from files in the events directory
-      const eventsDir = EVENTS_DIR;
-      let allEvents: MotionEvent[] = [];
-      
-      try {
-        if (fs.existsSync(eventsDir)) {
-          const files = fs.readdirSync(eventsDir)
-            .filter(file => file.endsWith('.jpg'))
-            .sort((a, b) => {
-              const timeA = parseTimestampFromFilename(a);
-              const timeB = parseTimestampFromFilename(b);
-              return timeB - timeA; // Newest first
-            })
-            .slice(0, limit);
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000); // Max 1000 per request
 
-          allEvents = files.map(file => {
-            const parts = file.split('_');
-            const cameraId = parts[1] || 'unknown';
-            let timestamp = new Date().toISOString();
-            
-            if (parts.length >= 3) {
-              const timestampPart = parts[2]?.split('.')[0];
-              if (timestampPart) {
-                const datePart = timestampPart.substring(0, 10);
-                const timePartWithHyphens = timestampPart.substring(11);
-                const timeParts = timePartWithHyphens.split('-');
-                
-                let formattedTime = '';
-                if (timeParts.length === 4) {
-                  const ms = parseInt(timeParts[3].replace('Z', ''), 10);
-                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
-                } else if (timeParts.length === 3) {
-                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
-                }
-                
-                const isoTimestamp = `${datePart}T${formattedTime}`;
-                const parsedDate = new Date(isoTimestamp);
-                if (!isNaN(parsedDate.getTime())) {
-                  timestamp = parsedDate.toISOString();
-                }
-              }
-            }
-            
-            return {
-              id: `evt_${file}`,
-              cameraId,
-              timestamp,
-              imagePath: `/events/${file}`,
-              confidence: 75,
-              duration: 0,
-              cameraName: cameraId,
-              labels: ['motion'],
-              location: cameraId
-            };
-          });
+      // Query events from database
+      const query = `
+        SELECT
+          df.file_uuid as id,
+          df.camera_id as cameraId,
+          df.capture_timestamp as timestamp,
+          df.storage_path as imagePath,
+          df.metadata
+        FROM detection_files df
+        WHERE df.file_type IN ('event_motion', 'event_face')
+          AND df.is_deleted = FALSE
+        ORDER BY df.capture_timestamp DESC
+        LIMIT $1
+      `;
+
+      const results = await AppDataSource.query(query, [limit]);
+
+      // Transform results to match expected format
+      const events = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0.75
+        let confidence = 0.75;
+        if (row.metadata && typeof row.metadata === 'object') {
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0.75;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0.75;
+          }
         }
-      } catch (error) {
-        console.warn('Error reading events directory:', error);
-      }
-      
-      // Combine and deduplicate - only use file-based events since in-memory events are disabled
-      const combinedEvents = [...allEvents];
-      const uniqueEvents = combinedEvents.filter((event, index, self) => 
-        index === self.findIndex(e => e.id === event.id)
-      ).slice(0, limit);
-      
-      res.json({ success: true, events: uniqueEvents });
+
+        // Determine labels from file type
+        let labels = ['motion'];
+        if (row.file_type === 'event_face') {
+          labels = ['face'];
+        } else if (row.file_type === 'event_motion') {
+          labels = ['motion'];
+        }
+
+        return {
+          id: row.id,
+          cameraId: row.cameraId || 'unknown',
+          timestamp: new Date(row.timestamp).toISOString(),
+          imagePath: row.imagePath,
+          confidence: confidence,
+          duration: 0,
+          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          labels: labels,
+          location: `Camera ${row.cameraId || 'unknown'}`
+        };
+      });
+
+      res.json({ success: true, events: events });
     } catch (error) {
       console.error('Error getting motion events:', error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });
     }
   });
 
-  // Get motion events for a specific camera
-  app.get('/api/motion/:cameraId/events', (req: Request, res: Response) => {
+  // Get motion events for a specific camera - database-based implementation
+  app.get('/api/motion/:cameraId/events', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 1000); // Max 1000 per request
       const cameraId = req.params.cameraId;
-      const eventsDir = EVENTS_DIR;
-      
-      // Get events from files in the events directory for this camera
-      let fileEvents: MotionEvent[] = [];
-      try {
-        if (fs.existsSync(eventsDir)) {
-          const files = fs.readdirSync(eventsDir)
-            .filter(file => file.endsWith('.jpg') && file.includes(`_${cameraId}_`))
-            .sort((a, b) => {
-              const timeA = parseTimestampFromFilename(a);
-              const timeB = parseTimestampFromFilename(b);
-              return timeB - timeA; // Newest first
-            })
-            .slice(0, limit);
 
-          fileEvents = files.map(file => {
-            const parts = file.split('_');
-            let timestamp = new Date().toISOString();
-            
-            if (parts.length >= 3) {
-              const timestampPart = parts[2]?.split('.')[0];
-              if (timestampPart) {
-                const datePart = timestampPart.substring(0, 10);
-                const timePartWithHyphens = timestampPart.substring(11);
-                const timeParts = timePartWithHyphens.split('-');
-                
-                let formattedTime = '';
-                if (timeParts.length === 4) {
-                  const ms = parseInt(timeParts[3].replace('Z', ''), 10);
-                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
-                } else if (timeParts.length === 3) {
-                  formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
-                }
-                
-                const isoTimestamp = `${datePart}T${formattedTime}`;
-                const parsedDate = new Date(isoTimestamp);
-                if (!isNaN(parsedDate.getTime())) {
-                  timestamp = parsedDate.toISOString();
-                }
-              }
-            }
-            
-            return {
-              id: `evt_${file}`,
-              cameraId,
-              timestamp,
-              imagePath: `/events/${file}`,
-              confidence: 75,
-              duration: 0,
-              cameraName: cameraId,
-              labels: ['motion'],
-              location: cameraId
-            };
-          });
+      // Query events from database for this specific camera
+      const query = `
+        SELECT
+          df.file_uuid as id,
+          df.camera_id as cameraId,
+          df.capture_timestamp as timestamp,
+          df.storage_path as imagePath,
+          df.metadata
+        FROM detection_files df
+        WHERE df.file_type IN ('event_motion', 'event_face')
+          AND df.camera_id = $1
+          AND df.is_deleted = FALSE
+        ORDER BY df.capture_timestamp DESC
+        LIMIT $2
+      `;
+
+      const results = await AppDataSource.query(query, [cameraId, limit]);
+
+      // Transform results to match expected format
+      const events = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0.75
+        let confidence = 0.75;
+        if (row.metadata && typeof row.metadata === 'object') {
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0.75;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0.75;
+          }
         }
-      } catch (error) {
-        console.warn(`Error reading events directory for camera ${cameraId}:`, error);
-      }
-      
-      // Combine and deduplicate - only use file-based events since in-memory events are disabled
-      const combinedEvents = [...fileEvents];
-      const uniqueEvents = combinedEvents.filter((event, index, self) => 
-        index === self.findIndex(e => e.id === event.id)
-      ).slice(0, limit);
-      
-      res.json({ success: true, events: uniqueEvents });
+
+        // Determine labels from file type
+        let labels = ['motion'];
+        if (row.file_type === 'event_face') {
+          labels = ['face'];
+        } else if (row.file_type === 'event_motion') {
+          labels = ['motion'];
+        }
+
+        return {
+          id: row.id,
+          cameraId: row.cameraId || 'unknown',
+          timestamp: new Date(row.timestamp).toISOString(),
+          imagePath: row.imagePath,
+          confidence: confidence,
+          duration: 0,
+          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          labels: labels,
+          location: `Camera ${row.cameraId || 'unknown'}`
+        };
+      });
+
+      res.json({ success: true, events: events });
     } catch (error) {
       console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get motion events' });
@@ -1532,16 +1475,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // List event images
-  app.get('/api/events/list', (req: Request, res: Response) => {
+  app.get('/api/events/list', async (req: Request, res: Response) => {
     try {
-      const eventsDir = EVENTS_DIR;
-      const files = fs.readdirSync(eventsDir)
-        .filter(file => file.endsWith('.jpg'))
-        .sort((a, b) => {
-          const timeA = parseTimestampFromFilename(a);
-          const timeB = parseTimestampFromFilename(b);
-          return timeB - timeA;
-        });
+      // Query event files from database
+      const query = `
+        SELECT
+          original_filename,
+          capture_timestamp
+        FROM detection_files
+        WHERE file_type IN ('event_motion', 'event_face')
+          AND is_deleted = FALSE
+        ORDER BY capture_timestamp DESC
+        LIMIT 1000
+      `;
+
+      const results = await AppDataSource.query(query);
+
+      // Transform results to match expected format (just filenames)
+      const files = results.map((row: any) => row.original_filename);
+
       res.json({ success: true, files });
     } catch (error) {
       console.error('Error listing events:', error);
@@ -1549,22 +1501,140 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // NEW: Enhanced events list with detection data from events table
+  app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
+    try {
+      const { limit = 100, event_type, camera_id, start_date, end_date } = req.query;
+
+      const eventRepository = AppDataSource.getRepository(Event);
+
+      const query = eventRepository.createQueryBuilder('event')
+        .select('event')
+        .where('event.event_type IN (:...eventTypes)', {
+          eventTypes: event_type ? [event_type] : ['motion', 'face', 'object', 'batch']
+        })
+        .orderBy('event.timestamp', 'DESC')
+        .limit(Number(limit));
+
+      if (camera_id) {
+        query.andWhere('event.camera_id = :camera_id', { camera_id });
+      }
+
+      if (start_date && end_date) {
+        query.andWhere('event.timestamp BETWEEN :startDate AND :endDate', {
+          startDate: new Date(start_date as string),
+          endDate: new Date(end_date as string)
+        });
+      }
+
+      const events = await query.getMany();
+
+      res.json({
+        success: true,
+        events: events.map(event => ({
+          id: event.id,
+          event_type: event.event_type,
+          filename: event.file_path.split('/').pop(),
+          timestamp: event.timestamp,
+          cameraId: event.camera_id,
+          confidence: event.confidence || 0,
+          metadata: event.metadata ? JSON.parse(event.metadata) : null,
+          
+          // NEW: Detection data
+          persons_detected: event.persons_detected || 0,
+          faces_detected: event.faces_detected || 0,
+          known_faces_count: event.known_faces_count || 0,
+          unknown_faces_count: event.unknown_faces_count || 0,
+          object_detections: event.object_detections || null,
+          face_detections: event.face_detections || null,
+        }))
+      });
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch events' });
+    }
+  });
+
+  // NEW: Get event details with detection data
+  app.get('/api/events/:id/details', async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const eventRepository = AppDataSource.getRepository(Event);
+      const event = await eventRepository.findOne({ where: { id } });
+
+      if (!event) {
+        return res.status(404).json({ success: false, error: 'Event not found' });
+      }
+
+      // Enrich with detection data
+      const result = {
+        success: true,
+        event: {
+          id: event.id,
+          event_type: event.event_type,
+          filename: event.file_path.split('/').pop(),
+          timestamp: event.timestamp,
+          cameraId: event.camera_id,
+          confidence: event.confidence || 0,
+          metadata: event.metadata ? JSON.parse(event.metadata) : null,
+          
+          // Detection details
+          persons_detected: event.persons_detected || 0,
+          faces_detected: event.faces_detected || 0,
+          known_faces_count: event.known_faces_count || 0,
+          unknown_faces_count: event.unknown_faces_count || 0,
+          object_detections: event.object_detections,
+          face_detections: event.face_detections,
+        }
+      };
+
+      res.json(result);
+    } catch (error) {
+      console.error('Failed to fetch event details:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch event details' });
+    }
+  });
+
   // Serve event images via API
-  app.get('/api/events/image/:filename', (req: Request, res: Response) => {
+  app.get('/api/events/image/:filename', async (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
-      const imagePath = path.join(EVENTS_DIR, filename);
-      
+
       // Security check - ensure filename is valid
       if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
         return res.status(400).json({ success: false, error: 'Invalid filename' });
       }
-      
-      // Check if file exists
-      if (!fs.existsSync(imagePath)) {
+
+      // Query the database to get the storage path for this filename
+      const query = `
+        SELECT storage_path
+        FROM detection_files
+        WHERE original_filename = $1
+          AND file_type IN ('event_motion', 'event_face')
+          AND is_deleted = FALSE
+        LIMIT 1
+      `;
+
+      const results = await AppDataSource.query(query, [filename]);
+
+      if (results.length === 0) {
         return res.status(404).json({ success: false, error: 'Image not found' });
       }
-      
+
+      let imagePath = results[0].storage_path;
+
+      // Handle path mapping for Docker container
+      // If the path starts with the host path, map it to the container path
+      if (imagePath.startsWith('/home/barun/Documents/home-security-non-docker/')) {
+        imagePath = imagePath.replace('/home/barun/Documents/home-security-non-docker/', '/app/');
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({ success: false, error: 'Image file not found on disk' });
+      }
+
       // Send the file
       res.sendFile(imagePath);
     } catch (error) {
@@ -1574,16 +1644,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // List snapshots
-  app.get('/api/snapshots/list', (req: Request, res: Response) => {
+  app.get('/api/snapshots/list', async (req: Request, res: Response) => {
     try {
-      const snapshotsDir = path.join(__dirname, '../../public/snapshots');
-      const files = fs.readdirSync(snapshotsDir)
-        .filter(file => file.endsWith('.jpg'))
-        .sort((a, b) => {
-          const timeA = parseTimestampFromFilename(a);
-          const timeB = parseTimestampFromFilename(b);
-          return timeB - timeA;
-        });
+      // Query snapshot files from database
+      const query = `
+        SELECT
+          original_filename,
+          capture_timestamp
+        FROM detection_files
+        WHERE file_type = 'snapshot'
+          AND is_deleted = FALSE
+        ORDER BY capture_timestamp DESC
+        LIMIT 1000
+      `;
+
+      const results = await AppDataSource.query(query);
+
+      // Transform results to match expected format (just filenames)
+      const files = results.map((row: any) => row.original_filename);
+
       res.json({ success: true, files });
     } catch (error) {
       console.error('Error listing snapshots:', error);
@@ -1630,10 +1709,19 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   // System storage endpoint
   app.get('/api/system/storage', (req: Request, res: Response) => {
+    console.log('Storage endpoint called');
     try {
+      console.log('Config object:', JSON.stringify(config, null, 2));
+      console.log('Config.storage:', config.storage);
       // Calculate storage usage for events and snapshots
-      const eventsDir = EVENTS_DIR;
-      const snapshotsDir = path.join(__dirname, '../../public/snapshots');
+      const eventsDir = config.storage?.eventsDir;
+      const snapshotsDir = config.storage?.snapshotsDir;
+      console.log('Events dir:', eventsDir);
+      console.log('Snapshots dir:', snapshotsDir);
+
+      if (!eventsDir || !snapshotsDir) {
+        throw new Error('Storage directories not configured properly');
+      }
       
       let eventsSize = 0;
       let snapshotsSize = 0;
@@ -1674,8 +1762,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         }
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
       console.error('Error getting storage info:', error);
-      res.status(500).json({ success: false, error: 'Failed to get storage info' });
+      console.error('Error details:', errorMessage);
+      console.error('Stack trace:', errorStack);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get storage info',
+        details: errorMessage,
+        stack: errorStack
+      });
     }
   });
 
@@ -2130,15 +2227,106 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Get detection events
-  app.get('/api/detection/events', (req: Request, res: Response) => {
+  app.get('/api/detection/events', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const type = req.query.type as string; // 'person' or 'face'
-      
-      // For now, return empty array - in real implementation, this would query detection event storage
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100); // Max 100 per request
+      const type = req.query.type as string; // 'person', 'face', 'motion', etc.
+      const cameraId = req.query.cameraId as string;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+
+      // Build query conditions
+      const conditions: string[] = ['is_deleted = FALSE'];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (type) {
+        // Map type to file_type in database
+        if (type === 'person' || type === 'motion') {
+          conditions.push(`file_type = $${paramIndex++}`);
+          values.push('event_motion');
+        } else if (type === 'face') {
+          conditions.push(`file_type = $${paramIndex++}`);
+          values.push('event_face');
+        } else {
+          // For other types, use direct mapping
+          conditions.push(`file_type = $${paramIndex++}`);
+          values.push(type);
+        }
+      } else {
+        // If no type specified, get motion and face events (not snapshots)
+        conditions.push(`file_type IN ('event_motion', 'event_face')`);
+      }
+
+      if (cameraId) {
+        conditions.push(`camera_id = $${paramIndex++}`);
+        values.push(cameraId);
+      }
+
+      if (startDate) {
+        conditions.push(`capture_timestamp >= $${paramIndex++}`);
+        values.push(new Date(startDate));
+      }
+
+      if (endDate) {
+        conditions.push(`capture_timestamp <= $${paramIndex++}`);
+        values.push(new Date(endDate));
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const query = `
+        SELECT
+          file_uuid,
+          file_type,
+          camera_id,
+          original_filename,
+          storage_path,
+          file_size,
+          capture_timestamp,
+          metadata,
+          created_at
+        FROM detection_files
+        ${whereClause}
+        ORDER BY capture_timestamp DESC
+        LIMIT $${paramIndex}
+      `;
+
+      values.push(limit);
+
+      const results = await AppDataSource.query(query, values);
+
+      // Transform results to match expected event format (MotionEvent interface)
+      const events = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0
+        let confidence = 0;
+        if (row.metadata && typeof row.metadata === 'object') {
+          // Try to get confidence from various possible locations in metadata
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0;
+          }
+        }
+
+        return {
+          id: row.file_uuid,
+          cameraId: row.camera_id || 'unknown',
+          timestamp: new Date(row.capture_timestamp).toISOString(),
+          imagePath: row.storage_path,
+          confidence: confidence,
+          duration: 0, // Default duration, could be calculated from metadata if needed
+          cameraName: row.camera_id, // Use camera_id as cameraName
+          labels: [], // Could extract from metadata if needed
+          location: 'Unknown' // Could extract from metadata if needed
+        };
+      });
+
       res.json({
         success: true,
-        events: [],
+        events: events,
+        count: events.length,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -2173,14 +2361,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Run person detection if enabled
       if (enablePersonDetection) {
         const objectDetectionService = getGlobalObjectDetectionService();
-        const personResult = await objectDetectionService.detectObjects(currentFrame);
+        const personResult = await objectDetectionService.detectObjects(cameraId, currentFrame);
         analysisResults.persons = personResult.detections.filter((d) => d.class === 'person');
       }
-      
+
       // Run face detection if enabled
       if (enableFaceDetection) {
         const facialRecognitionService = getGlobalFacialRecognitionService();
-        const faceResult = await facialRecognitionService.recognizeFaces(currentFrame);
+        const faceResult = await facialRecognitionService.recognizeFaces(cameraId, currentFrame);
         analysisResults.faces = faceResult.faces;
       }
       
@@ -2233,77 +2421,76 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get events for batch processing - reads from real motion event files
   async function getEventsForBatch(request: BatchDetectionRequest): Promise<any[]> {
     try {
-      const eventsDir = EVENTS_DIR;
-      let allEvents: any[] = [];
+      // Build query conditions
+      const conditions: string[] = ['is_deleted = FALSE', "file_type IN ('event_motion', 'event_face')"];
+      const values: any[] = [];
+      let paramIndex = 1;
 
-      // Read all event files from filesystem
-      if (fs.existsSync(eventsDir)) {
-        const files = fs.readdirSync(eventsDir)
-          .filter(file => file.endsWith('.jpg'));
-
-        // Parse each file to create event objects
-        allEvents = files.map(file => {
-          const parts = file.split('_');
-          const eventType = parts[0] || 'motion';
-          const cameraId = parts[1]?.replace('cam', '') || 'unknown';
-          let timestamp = new Date().toISOString();
-
-          // Parse timestamp from filename
-          if (parts.length >= 3) {
-            const timestampPart = parts[2]?.split('.')[0];
-            if (timestampPart) {
-              const cleanTimestampPart = timestampPart.replace(/Z$/, '');
-              const numericTimestamp = parseInt(cleanTimestampPart, 10);
-              const isNumeric = !isNaN(numericTimestamp) && /^\d+$/.test(cleanTimestampPart) && cleanTimestampPart.length > 4;
-              if (isNumeric) {
-                const parsedDate = new Date(numericTimestamp);
-                if (!isNaN(parsedDate.getTime())) {
-                  timestamp = parsedDate.toISOString();
-                }
-              }
-            }
-          }
-
-          // Determine labels from filename
-          let labels = ['motion'];
-          if (file.includes('face')) {
-            labels = ['face'];
-          } else if (file.includes('person')) {
-            labels = ['person'];
-          }
-
-          return {
-            id: `evt_${file}`,
-            imageId: file,
-            timestamp,
-            imagePath: path.join(EVENTS_DIR, file),
-            type: eventType,
-            confidence: 0.75,
-            labels,
-            cameraName: cameraId
-          };
-        });
-
-        // Sort events by timestamp (newest first)
-        allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      }
-
-      // Filter by date range
       if (request.startDate) {
-        const startDate = new Date(request.startDate);
-        allEvents = allEvents.filter((e: any) => new Date(e.timestamp) >= startDate);
+        conditions.push(`capture_timestamp >= $${paramIndex++}`);
+        values.push(new Date(request.startDate));
       }
-      
+
       if (request.endDate) {
-        const endDate = new Date(request.endDate);
-        allEvents = allEvents.filter((e: any) => new Date(e.timestamp) <= endDate);
+        conditions.push(`capture_timestamp <= $${paramIndex++}`);
+        values.push(new Date(request.endDate));
       }
-      
-      // Apply limit
-      if (request.limit) {
-        allEvents = allEvents.slice(0, request.limit);
-      }
-      
+
+      const limit = request.limit || 1000; // Default limit to prevent too many results
+      const whereClause = `WHERE ${conditions.join(' AND ')}`;
+      const query = `
+        SELECT
+          file_uuid,
+          file_type,
+          camera_id,
+          original_filename,
+          storage_path,
+          capture_timestamp,
+          metadata
+        FROM detection_files
+        ${whereClause}
+        ORDER BY capture_timestamp DESC
+        LIMIT $${paramIndex}
+      `;
+
+      values.push(limit);
+
+      const results = await AppDataSource.query(query, values);
+
+      // Transform results to match expected event format
+      const allEvents = results.map((row: any) => {
+        // Extract confidence from metadata if available, otherwise default to 0.75
+        let confidence = 0.75;
+        if (row.metadata && typeof row.metadata === 'object') {
+          if (row.metadata.confidence !== undefined) {
+            confidence = row.metadata.confidence;
+          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
+            confidence = row.metadata.persons[0].confidence || 0.75;
+          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
+            confidence = row.metadata.faces[0].confidence || 0.75;
+          }
+        }
+
+        // Determine labels from file type and metadata
+        let labels = ['motion'];
+        if (row.file_type === 'event_face') {
+          labels = ['face'];
+        } else if (row.file_type === 'event_motion') {
+          labels = ['motion'];
+        }
+
+        return {
+          id: row.file_uuid,
+          imageId: row.original_filename,
+          timestamp: new Date(row.capture_timestamp).toISOString(),
+          imagePath: row.storage_path,
+          type: row.file_type,
+          confidence: confidence,
+          labels: labels,
+          cameraName: row.camera_id || 'unknown'
+        };
+      });
+
       return allEvents;
     } catch (error) {
       console.error('Error getting events for batch:', error);

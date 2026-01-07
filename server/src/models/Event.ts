@@ -47,4 +47,59 @@ export class Event {
     comment: 'Additional data about the event, as a JSON string'
   })
   metadata!: string | null;
+
+  @Column({
+    type: 'float',
+    default: 0,
+    nullable: true,
+    comment: 'Confidence score of the detection (0-1)'
+  })
+  confidence!: number | null;
+
+  @Column({
+    type: 'integer',
+    default: 0,
+    comment: 'Number of persons detected in the frame'
+  })
+  persons_detected!: number;
+
+  @Column({
+    type: 'integer',
+    default: 0,
+    comment: 'Total number of faces detected'
+  })
+  faces_detected!: number;
+
+  @Column({
+    type: 'integer',
+    default: 0,
+    comment: 'Number of recognized faces'
+  })
+  known_faces_count!: number;
+
+  @Column({
+    type: 'integer',
+    default: 0,
+    comment: 'Number of unknown faces'
+  })
+  unknown_faces_count!: number;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: {},
+    comment: 'JSONB array of object detection results'
+  })
+  object_detections!: any;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: [],
+    comment: 'JSONB array of face detection results'
+  })
+  face_detections!: any;
+
+  @CreateDateColumn({ name: 'created_at' })
+  created_at!: Date;
 }

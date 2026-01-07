@@ -29,11 +29,16 @@ EXPOSE 8084
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8084/health || exit 1
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8084/health')" || exit 1
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV OPENCV_PORT=8084
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+ENV POSTGRES_DB=sentryvision
+ENV POSTGRES_USER=sentryvision
+ENV POSTGRES_PASSWORD=sentryvision123
 
 # Start server
 CMD ["python", "app.py"]

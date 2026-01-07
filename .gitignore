@@ -67,3 +67,4 @@ server/public/batch-results/
 server/test_output.mjpeg
 *.mjpeg
 data/redis/dump.rdb
+data/

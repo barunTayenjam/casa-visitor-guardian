@@ -9,6 +9,7 @@ import { ObjectDetectionService, DetectionResult } from './objectDetectionOpenCV
 import { FacialRecognitionService, FaceDetection } from './facialRecognitionOpenCV.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
+import { getDetectionsPath, getEventPath } from '../config/index.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +26,11 @@ interface OptimizedMotionSettings {
   adaptiveMode: boolean; // Enable adaptive detection
   nightModeSensitivity: number; // Different sensitivity for night
   quietHours: { start: string; end: string }; // Reduce detection during quiet hours
+  
+  // NEW: Automatic detection settings
+  autoDetectObjects: boolean;      // Automatically run object detection
+  autoDetectFaces: boolean;        // Automatically run face detection
+  detectionPriority: 'immediate' | 'deferred'; // When to run detection
 }
 
 // Motion event with enhanced metadata
@@ -116,7 +122,10 @@ export class OptimizedMotionDetector extends EventEmitter {
         maxEventsPerHour: 50, // Rate limiting
         adaptiveMode: true,
         nightModeSensitivity: 50, // Higher sensitivity at night
-        quietHours: { start: '22:00', end: '06:00' } // Reduce alerts at night
+        quietHours: { start: '22:00', end: '06:00' }, // Reduce alerts at night
+        autoDetectObjects: true,      // Automatically run object detection
+        autoDetectFaces: true,        // Automatically run face detection
+        detectionPriority: 'immediate' // When to run detection
       });
     });
   }
@@ -514,7 +523,9 @@ export class OptimizedMotionDetector extends EventEmitter {
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `motion_${cameraId}_${timestamp}.jpg`;
-      const eventsDir = path.join(process.cwd(), 'public', 'events');
+
+      // Use unified storage system with proper subdirectory
+      const eventsDir = getEventPath('motion', new Date());
 
       // Ensure directory exists
       if (!fs.existsSync(eventsDir)) {
@@ -547,17 +558,101 @@ export class OptimizedMotionDetector extends EventEmitter {
       }
 
       // Async file write
-      fs.writeFile(filepath, frame, (error) => {
+      fs.writeFile(filepath, frame, async (error) => {
         if (error) {
           reject(error);
           return;
+        }
+
+        // Calculate file hash for integrity
+        const crypto = await import('node:crypto');
+        const fileHash = crypto.createHash('sha256').update(frame).digest('hex');
+
+        // Save to events table with detection data
+        try {
+          const now = new Date();
+          const event = new Event();
+          event.event_type = 'motion';
+          event.file_path = filepath;
+          event.camera_id = cameraId;
+          event.timestamp = now;
+          event.confidence = motionData.confidence / 100; // Convert to 0-1 range
+          event.metadata = JSON.stringify({
+            confidence: motionData.confidence,
+            motionArea: motionData.motionArea,
+            lightLevel: this.estimateLightLevel(frame),
+            hasPersons: analysisResult?.hasPersons || false,
+            hasFaces: analysisResult?.hasFaces || false
+          });
+          
+          // Detection metadata
+          event.persons_detected = analysisResult?.personCount || 0;
+          event.faces_detected = analysisResult?.faceCount || 0;
+          event.known_faces_count = analysisResult?.knownFaces || 0;
+          event.unknown_faces_count = analysisResult?.unknownFaces || 0;
+          
+          // Save detection data as JSONB
+          event.object_detections = analysisResult?.persons || [];
+          event.face_detections = analysisResult?.faces || [];
+          event.created_at = now;
+
+          await AppDataSource.getRepository(Event).save(event);
+
+          console.log(`Motion event saved to events table: ${filename} (${frame.length} bytes, ${motionData.confidence}% confidence)`);
+        } catch (dbError) {
+          console.error('Error saving motion event to events table:', dbError);
+          // Continue execution even if database save fails
+        }
+
+        // Also index in detection_files table for backward compatibility
+        try {
+          const insertQuery = `
+            INSERT INTO detection_files (
+              file_type,
+              camera_id,
+              original_filename,
+              storage_path,
+              file_size,
+              file_hash,
+              capture_timestamp,
+              metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING file_uuid
+          `;
+
+          const now = new Date();
+          const result = await AppDataSource.query(insertQuery, [
+            'event_motion', // file_type
+            cameraId, // camera_id
+            filename, // original_filename
+            filepath, // storage_path
+            frame.length, // file_size
+            fileHash, // file_hash
+            now, // capture_timestamp
+            {
+              confidence: motionData.confidence,
+              motionArea: motionData.motionArea,
+              lightLevel: this.estimateLightLevel(frame),
+              hasPersons: analysisResult?.hasPersons || false,
+              hasFaces: analysisResult?.hasFaces || false,
+              personCount: analysisResult?.personCount || 0,
+              faceCount: analysisResult?.faceCount || 0,
+              knownFaces: analysisResult?.knownFaces || 0,
+              unknownFaces: analysisResult?.unknownFaces || 0
+            } // metadata
+          ]);
+
+          console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${motionData.confidence}% confidence)`);
+        } catch (dbError) {
+          console.error('Error indexing motion event in database:', dbError);
+          // Continue execution even if database indexing fails
         }
 
         const event: OptimizedMotionEvent = {
           id: `evt_${filename}`,
           cameraId,
           timestamp: new Date().toISOString(),
-          imagePath: `/events/${filename}`,
+          imagePath: `/events/${filename}`, // This will be handled by our new route
           confidence: motionData.confidence,
           duration: 0,
           frameSize: frame.length,
@@ -574,9 +669,7 @@ export class OptimizedMotionDetector extends EventEmitter {
             unknownFaces: analysisResult?.unknownFaces || 0
           }
         };
-        
-        // Skip database save to avoid TypeORM issues - file-based storage is sufficient
-        // The events are stored in the filesystem and accessed via the API endpoints
+
         console.log(`Motion event saved to filesystem: ${filename} (${frame.length} bytes, ${motionData.confidence}% confidence)`);
 
         // Optimize: Only log motion events in development or high confidence events

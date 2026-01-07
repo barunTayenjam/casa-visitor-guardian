@@ -33,7 +33,28 @@ app.use(cors({
 app.use(express.json());
 
 // Serve static files from public directory
-app.use('/events', express.static('public/events'));
+app.use('/events', (req, res, next) => {
+  const filename = path.basename(req.path);
+  const match = filename.match(/(\d{4}-\d{2})/);
+  
+  if (match) {
+    const yearMonth = match[1];
+    const subType = filename.includes('cam') ? 'motion' : 'faces';
+    const detectionsPath = process.env.DETECTIONS_DIR || path.join(process.cwd(), '../data/detections');
+    const filePath = path.join(detectionsPath, yearMonth, 'events', subType, filename);
+    
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+  }
+  
+  const fallbackPath = path.join(process.cwd(), 'public/events', req.path);
+  if (fs.existsSync(fallbackPath)) {
+    return res.sendFile(fallbackPath);
+  }
+  
+  next();
+});
 app.use('/snapshots', express.static('public/snapshots'));
 app.use('/public', express.static('public'));
 

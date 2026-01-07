@@ -120,18 +120,6 @@ export class EventImageClassifier {
           job.results.push(result);
           job.processedImages++;
 
-          // Emit progress update via WebSocket
-          if (emitProgress && this.socket) {
-            this.socket.emit('classificationProgress', {
-              jobId,
-              processed: job.processedImages,
-              total: job.totalImages,
-              progress: Math.round((job.processedImages / job.totalImages) * 100),
-              currentFile: file
-            });
-          }
-
-          // Emit progress update via WebSocket
           if (emitProgress && this.socket) {
             this.socket.emit('classificationProgress', {
               jobId,

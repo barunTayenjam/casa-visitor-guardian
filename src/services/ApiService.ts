@@ -78,6 +78,44 @@ interface HistoricalEventsResponse {
   pagination: PaginationInfo;
 }
 
+// NEW: Detection data types for enhanced events
+export interface DetectionData {
+  class: string;
+  confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
+export interface FaceDetectionData {
+  id: string;
+  name: string;
+  isKnown: boolean;
+  confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
+export interface EnhancedEvent {
+  id: string;
+  event_type: string;
+  filename: string;
+  timestamp: Date;
+  cameraId: string;
+  confidence: number;
+  metadata: any;
+  
+  // NEW: Detection data
+  persons_detected: number;
+  faces_detected: number;
+  known_faces_count: number;
+  unknown_faces_count: number;
+  object_detections: DetectionData[] | null;
+  face_detections: FaceDetectionData[] | null;
+}
+
+interface EnhancedEventsResponse {
+  success: boolean;
+  events: EnhancedEvent[];
+}
+
 interface GeneralSettings {
   systemName: string;
   timezone: string;
@@ -900,6 +938,71 @@ class ApiService {
         'Failed to fetch events list',
         500,
         'GET_EVENTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // NEW: Fetch enhanced events list with detection data
+  async getEnhancedEventsList(options?: {
+    limit?: number;
+    event_type?: string;
+    camera_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<EnhancedEventsResponse> {
+    try {
+      const params = new URLSearchParams(options as any);
+      const response = await this.fetchWithRetry(`${API_URL}/events/list-enhanced?${params}`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to fetch enhanced events list',
+          response.status,
+          'GET_ENHANCED_EVENTS_ERROR',
+          data
+        );
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching enhanced events list:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch enhanced events list',
+        500,
+        'GET_ENHANCED_EVENTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // NEW: Get event details with detection data
+  async getEventDetails(eventId: string): Promise<{ success: boolean; event: EnhancedEvent }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/events/${eventId}/details`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(
+          data.error || 'Failed to fetch event details',
+          response.status,
+          'GET_EVENT_DETAILS_ERROR',
+          data
+        );
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching event details:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch event details',
+        500,
+        'GET_EVENT_DETAILS_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

@@ -298,16 +298,68 @@ export class MotionTriggeredDetection extends EventEmitter {
    * Save motion-detected frame
    */
   private async saveMotionFrame(cameraId: string, frame: Buffer): Promise<string> {
-    const motionDir = path.join(__dirname, '../../public/motion');
-    if (!fs.existsSync(motionDir)) {
-      fs.mkdirSync(motionDir, { recursive: true });
+    // Use unified storage system
+    const { getEventPath } = await import('../config/index.js');
+    const eventsDir = getEventPath('motion', new Date());
+
+    if (!fs.existsSync(eventsDir)) {
+      fs.mkdirSync(eventsDir, { recursive: true });
     }
 
     const filename = `motion_${cameraId}_${Date.now()}.jpg`;
-    const filepath = path.join(motionDir, filename);
-    
+    const filepath = path.join(eventsDir, filename);
+
     await fs.promises.writeFile(filepath, frame);
-    return `/motion/${filename}`;
+
+    // Index the file in the database
+    try {
+      const { AppDataSource } = await import('../database.js');
+      const crypto = await import('node:crypto');
+      const fileHash = crypto.createHash('sha256').update(frame).digest('hex');
+
+      const insertQuery = `
+        INSERT INTO detection_files (
+          file_type,
+          camera_id,
+          original_filename,
+          storage_path,
+          file_size,
+          file_hash,
+          capture_timestamp,
+          metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING file_uuid
+      `;
+
+      const now = new Date();
+      await AppDataSource.query(insertQuery, [
+        'event_motion', // file_type
+        cameraId, // camera_id
+        filename, // original_filename
+        filepath, // storage_path
+        frame.length, // file_size
+        fileHash, // file_hash
+        now, // capture_timestamp
+        {
+          confidence: 0.7, // Default confidence for motion-triggered detection
+          motionArea: 0, // Will be calculated by other systems
+          lightLevel: 50, // Default light level
+          hasPersons: false, // Will be updated by object detection
+          hasFaces: false, // Will be updated by face detection
+          personCount: 0,
+          faceCount: 0,
+          knownFaces: 0,
+          unknownFaces: 0
+        } // metadata
+      ]);
+
+      console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes)`);
+    } catch (dbError) {
+      console.error('Error indexing motion event in database:', dbError);
+      // Continue execution even if database indexing fails
+    }
+
+    return `/events/${filename}`;
   }
 
   /**

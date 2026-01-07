@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
-import { config, getCameraById } from "../config/index.js";
+import { config, getCameraById, getDetectionsPath, getEventPath } from "../config/index.js";
 import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.js";
 
 // Import ffmpeg-static safely
@@ -26,21 +26,6 @@ try {
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Ensure snapshots and events directories exist
-const snapshotsDir = config.storage.snapshotsDir;
-const eventsDir = config.storage.eventsDir;
-
-// Create directories if they don't exist
-if (!fs.existsSync(snapshotsDir)) {
-  fs.mkdirSync(snapshotsDir, { recursive: true });
-  logger.info(`Created snapshots directory: ${snapshotsDir}`, 'StreamManager');
-}
-
-if (!fs.existsSync(eventsDir)) {
-  fs.mkdirSync(eventsDir, { recursive: true });
-  logger.info(`Created events directory: ${eventsDir}`, 'StreamManager');
-}
 
 // Define camera interface
 export interface Camera {
@@ -640,13 +625,24 @@ export class StreamManager {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `snapshot_${cameraId}_${timestamp}.jpg`;
-      const filepath = path.join(snapshotsDir, filename);
+      
+      // Calculate snapshots path dynamically to avoid module-level issues
+      const snapshotDate = new Date();
+      const snapshotsPath = getDetectionsPath('snapshots', snapshotDate);
+      const filepath = path.join(snapshotsPath, filename);
+
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+
+      // Ensure directory exists before writing
+      if (!fs.existsSync(snapshotsPath)) {
+        fs.mkdirSync(snapshotsPath, { recursive: true });
+      }
 
       // Save the current frame as a snapshot
       fs.writeFileSync(filepath, frame);
-      // Snapshot save log disabled - logger.info(`Snapshot saved: ${filepath}`, 'StreamManager');
 
-      return `/snapshots/${filename}`;
+      return `/snapshots/${year}-${month}/${filename}`;
     } catch (error: any) {
       logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'StreamManager');
       return null;

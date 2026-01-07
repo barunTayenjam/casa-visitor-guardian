@@ -53,36 +53,35 @@ class SocketService {
         }
 
 
-        // Prefer polling transport for better proxy compatibility in all environments
         const transports = ['polling', 'websocket'];
-        
+
         this.socket = io(socketUrl, {
           transports,
           reconnection: true,
           reconnectionDelay: 1000,
-          reconnectionDelayMax: 5000,
+          reconnectionDelayMax: 10000,
+          randomizationFactor: 0.5,
+          timeout: 30000,
           reconnectionAttempts: 10,
-          path: '/socket.io',
-          timeout: 20000, // Increased timeout
           forceNew: true,
           autoConnect: true,
-          randomizationFactor: 0.5,
           upgrade: true,
-          rememberUpgrade: false
+          rememberUpgrade: false,
+          path: '/socket.io'
         });
 
         this.socket.on('connect', () => {
           console.log('✅ SocketService: Socket connected successfully');
           this.isConnecting = false;
-          
-          // Re-register all callbacks when socket connects
+
           this.callbacks.forEach((listeners, event) => {
             console.log(`🔄 SocketService: Re-registering ${listeners.size} listeners for event: ${event}`);
+            this.socket?.off(event);
             listeners.forEach(callback => {
               this.socket?.on(event, callback);
             });
           });
-          
+
           resolve();
         });
 

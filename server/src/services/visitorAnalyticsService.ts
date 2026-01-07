@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
 import { getVisitorDatabase, Visitor, VisitorTimeline, VisitorAnalytics } from './visitorDatabasePostgres.js';
-import { FacialRecognitionService, FaceRecognitionEvent, KnownPerson } from '../detection/facialRecognitionOpenCV.js';
+import { FacialRecognitionService, KnownPerson } from '../detection/facialRecognitionOpenCV.js';
+import { getDetectionsPath, getEventPath } from '../config/index.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
@@ -67,8 +68,8 @@ export class VisitorAnalyticsService extends EventEmitter {
 
   constructor() {
     super();
-    this.eventsDir = path.join(__dirname, '../../public/events');
-    this.batchResultsDir = path.join(__dirname, '../../public/batch-results');
+    this.eventsDir = getEventPath('faces', new Date());
+    this.batchResultsDir = getDetectionsPath('batch', new Date());
     this.faceRecognitionService = new FacialRecognitionService();
     this.initializeServices();
   }

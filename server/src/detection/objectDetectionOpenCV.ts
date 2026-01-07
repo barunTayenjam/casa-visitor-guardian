@@ -1,6 +1,6 @@
-import * as fs from 'node:fs';
-import * as path from 'path';
 import { createHash } from 'crypto';
+import { RetryService } from '../services/retryService.js';
+import { opencvCircuitBreaker } from '../services/circuitBreaker.js';
 
 export interface DetectionResult {
   class: string;
@@ -84,89 +84,75 @@ export class ObjectDetectionService {
 
     const fileHash = this.calculateFileHash(imageBuffer);
 
-    // Check cache first
     const cached = this.cache.get(fileHash);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       console.log(`ObjectDetectionService: Using cached result for ${fileHash}`);
       return { detections: cached.result.detections || [] };
     }
 
-    // Save image temporarily to shared location accessible by both containers
-    // Use /app/public which is mounted at /app/public in both sentryvision and opencv-service
-    const tempDir = '/app/public/events/temp';
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
+    return opencvCircuitBreaker.execute(async () => {
+      return RetryService.withRetry(
+        async () => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const tempFilePath = path.join(tempDir, `detect_${fileHash}.jpg`);
-    fs.writeFileSync(tempFilePath, imageBuffer);
+          const formData = new FormData();
+          const uint8Array = new Uint8Array(imageBuffer);
+          const blob = new Blob([uint8Array], { type: 'image/jpeg' });
+          formData.append('image', blob, 'image.jpg');
+          formData.append('fileHash', fileHash);
+          formData.append('fileSize', imageBuffer.length.toString());
+          formData.append('fileModified', new Date().toISOString());
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+          const response = await fetch(`${this.openCVServiceUrl}/detect-objects`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+          });
 
-      const response = await fetch(`${this.openCVServiceUrl}/detect-objects`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`OpenCV service returned ${response.status}`);
+          }
+
+          const data: DetectionResponse = await response.json();
+
+          if (data.success && data.detections) {
+            const settings = this.settings.get(cameraId) || this.settings.get('default')!;
+
+            const filteredDetections = data.detections.filter(d => {
+              const confidenceOK = d.confidence >= (settings.minConfidence || 0.6);
+              const classOK = !settings.targetClasses || settings.targetClasses.includes(d.class);
+              return confidenceOK && classOK;
+            });
+
+            const limitedDetections = filteredDetections.slice(0, settings.maxDetections || 10);
+
+            this.cache.set(fileHash, {
+              result: {
+                ...data,
+                detections: limitedDetections
+              },
+              timestamp: Date.now()
+            });
+
+            console.log(`ObjectDetectionService: Detected ${limitedDetections.length} objects for camera ${cameraId}`);
+            return { detections: limitedDetections };
+          }
+
+          return { detections: [] };
         },
-        body: JSON.stringify({
-          imagePath: tempFilePath,
-          fileHash,
-          fileSize: imageBuffer.length,
-          fileModified: new Date().toISOString()
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      // Clean up temp file
-      fs.unlinkSync(tempFilePath);
-
-      if (!response.ok) {
-        throw new Error(`OpenCV service returned ${response.status}`);
-      }
-
-      const data: DetectionResponse = await response.json();
-
-      if (data.success && data.detections) {
-        const settings = this.settings.get(cameraId) || this.settings.get('default')!;
-
-        // Filter by target classes and confidence
-        const filteredDetections = data.detections.filter(d => {
-          const confidenceOK = d.confidence >= (settings.minConfidence || 0.6);
-          const classOK = !settings.targetClasses || settings.targetClasses.includes(d.class);
-          return confidenceOK && classOK;
-        });
-
-        // Limit number of detections
-        const limitedDetections = filteredDetections.slice(0, settings.maxDetections || 10);
-
-        // Cache the result
-        this.cache.set(fileHash, {
-          result: {
-            ...data,
-            detections: limitedDetections
-          },
-          timestamp: Date.now()
-        });
-
-        console.log(`ObjectDetectionService: Detected ${limitedDetections.length} objects for camera ${cameraId}`);
-        return { detections: limitedDetections };
-      }
-
-      return { detections: [] };
-    } catch (error: any) {
-      console.error(`ObjectDetectionService: Detection failed for camera ${cameraId}:`, error.message);
-      
-      // Clean up temp file if it exists
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-      
-      return { detections: [] };
-    }
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+          backoffFactor: 2,
+          jitter: true
+        },
+        `ObjectDetectionService.detectObjects(${cameraId})`
+      );
+    });
   }
   
   async detectPersons(cameraId: string, imageBuffer: Buffer): Promise<{ detections: DetectionResult[] }> {

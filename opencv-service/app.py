@@ -712,16 +712,18 @@ def status():
 
 @app.route('/train-face', methods=['POST'])
 def train_face():
-    """Endpoint to add a known face for training"""
+    """Endpoint to add a known face for training - accepts image upload"""
     try:
-        data = request.get_json()
-        person_name = data.get('personName')
-        image_path = data.get('imagePath')
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+            
+        image_file = request.files['image']
+        person_name = request.form.get('personName')
 
-        if not person_name or not image_path:
+        if not person_name:
             return jsonify({
                 'success': False,
-                'error': 'personName and imagePath are required'
+                'error': 'personName is required'
             }), 400
 
         # Create person directory if it doesn't exist
@@ -729,11 +731,12 @@ def train_face():
         if not os.path.exists(person_dir):
             os.makedirs(person_dir)
 
-        # Copy image to person's directory
-        import shutil
-        filename = os.path.basename(image_path)
+        # Save image to person's directory with a unique name
+        timestamp = int(time.time() * 1000)
+        filename = f"{timestamp}_{image_file.filename}" if image_file.filename else f"{timestamp}.jpg"
         dest_path = os.path.join(person_dir, filename)
-        shutil.copy2(image_path, dest_path)
+        
+        image_file.save(dest_path)
 
         # Retrain the recognizer
         face_recognition.train_recognizer()
@@ -760,6 +763,31 @@ def retrain_model():
         })
     except Exception as e:
         print(f"OpenCV Service: Model retraining error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/known-faces', methods=['GET'])
+def get_known_faces():
+    """Endpoint to list known faces"""
+    try:
+        # Inverse the labels map to get name -> id
+        faces = []
+        if face_recognition.is_trained:
+            for label_id, name in face_recognition.labels.items():
+                faces.append({
+                    'id': label_id,
+                    'name': name
+                })
+        
+        return jsonify({
+            'success': True,
+            'faces': faces,
+            'count': len(faces)
+        })
+    except Exception as e:
+        print(f"OpenCV Service: Get known faces error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

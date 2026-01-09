@@ -386,8 +386,24 @@ class ApiService {
     async get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
     let url = `${API_URL}${endpoint}`;
     if (params) {
-      const urlParams = new URLSearchParams(params as Record<string, string>);
-      url += `?${urlParams.toString()}`;
+      // Filter out undefined values to prevent "undefined" strings in URL
+      const filteredParams: Record<string, string> = {};
+      Object.keys(params).forEach(key => {
+        const value = params[key];
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            // Handle arrays by joining with commas
+            filteredParams[key] = value.join(',');
+          } else {
+            filteredParams[key] = String(value);
+          }
+        }
+      });
+
+      const urlParams = new URLSearchParams(filteredParams);
+      if (urlParams.toString()) {
+        url += `?${urlParams.toString()}`;
+      }
     }
     const response = await this.fetchWithRetry(url);
     return response.json();
@@ -1989,7 +2005,7 @@ class ApiService {
    */
   async getDetectionHistory(filters: DetectionFilters): Promise<DetectionEvent[]> {
     try {
-      const response = await this.get<{ success: boolean; detections: DetectionEvent[] }>('/detections/history', filters as Record<string, unknown>);
+      const response = await this.get<{ success: boolean; detections: DetectionEvent[] }>('/detection/events', filters as Record<string, unknown>);
       if (response.success) {
         return response.detections;
       }

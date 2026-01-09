@@ -804,7 +804,16 @@ class ApiService {
 
       // Transform backend events to frontend format
       const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => {
-        const filename = event.imagePath?.replace('/events/', '') || '';
+        // Extract just the filename from the full path
+        // The imagePath from backend is like: /app/data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        let filename = '';
+        if (event.imagePath) {
+          // Get the last part after the final slash
+          const pathParts = event.imagePath.split('/');
+          filename = pathParts[pathParts.length - 1];
+        }
+
         return {
           id: event.id,
           cameraId: event.cameraId,
@@ -1439,11 +1448,23 @@ class ApiService {
       }
 
       // Convert timestamp strings back to Date objects
-      const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => ({
-        ...event,
-        timestamp: new Date(event.timestamp),
-        imageUrl: event.imagePath ? this.getEventImageUrl(event.imagePath.replace('/events/', '')) : null,
-      }));
+      const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => {
+        // Extract just the filename from the full path
+        // The imagePath from backend is like: /app/data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        let filename = '';
+        if (event.imagePath) {
+          // Get the last part after the final slash
+          const pathParts = event.imagePath.split('/');
+          filename = pathParts[pathParts.length - 1];
+        }
+
+        return {
+          ...event,
+          timestamp: new Date(event.timestamp),
+          imageUrl: filename ? this.getEventImageUrl(filename) : null,
+        };
+      });
 
       return { events: transformedEvents, pagination: data.pagination };
     } catch (error) {

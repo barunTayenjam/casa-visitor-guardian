@@ -1146,16 +1146,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           labels = ['motion'];
         }
 
+        // Extract just the filename from the full path for frontend compatibility
+        // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
+        let imagePathForFrontend = row.imagepath;
+        if (row.imagepath) {
+          const pathParts = row.imagepath.split('/');
+          imagePathForFrontend = pathParts[pathParts.length - 1];
+        }
+
         return {
           id: row.id,
-          cameraId: row.cameraId || 'unknown',
+          cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
-          imagePath: row.imagePath,
+          imagePath: imagePathForFrontend,
           confidence: confidence,
           labels: labels,
-          location: `Camera ${row.cameraId || 'unknown'}`,
+          location: `Camera ${row.cameraid || 'unknown'}`,
           duration: 0,
-          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          cameraName: `Camera ${row.cameraid || 'unknown'}`,
           event_type: row.file_type
         };
       });
@@ -1285,16 +1295,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           labels = ['motion'];
         }
 
+        // Extract just the filename from the full path for frontend compatibility
+        // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
+        let imagePathForFrontend = row.imagepath;
+        if (row.imagepath) {
+          const pathParts = row.imagepath.split('/');
+          imagePathForFrontend = pathParts[pathParts.length - 1];
+        }
+
         return {
           id: row.id,
-          cameraId: row.cameraId || 'unknown',
+          cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
-          imagePath: row.imagePath,
+          imagePath: imagePathForFrontend,
           confidence: confidence,
           labels: labels,
-          location: `Camera ${row.cameraId || 'unknown'}`,
+          location: `Camera ${row.cameraid || 'unknown'}`,
           duration: 0,
-          cameraName: `Camera ${row.cameraId || 'unknown'}`
+          cameraName: `Camera ${row.cameraid || 'unknown'}`
         };
       });
 
@@ -1360,16 +1380,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           labels = ['motion'];
         }
 
+        // Extract just the filename from the full path for frontend compatibility
+        // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
+        let imagePathForFrontend = row.imagepath;
+        if (row.imagepath) {
+          const pathParts = row.imagepath.split('/');
+          imagePathForFrontend = pathParts[pathParts.length - 1];
+        }
+
         return {
           id: row.id,
-          cameraId: row.cameraId || 'unknown',
+          cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
-          imagePath: row.imagePath,
+          imagePath: imagePathForFrontend,
           confidence: confidence,
           duration: 0,
-          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          cameraName: `Camera ${row.cameraid || 'unknown'}`,
           labels: labels,
-          location: `Camera ${row.cameraId || 'unknown'}`
+          location: `Camera ${row.cameraid || 'unknown'}`
         };
       });
 
@@ -1426,16 +1456,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           labels = ['motion'];
         }
 
+        // Extract just the filename from the full path for frontend compatibility
+        // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
+        let imagePathForFrontend = row.imagepath;
+        if (row.imagepath) {
+          const pathParts = row.imagepath.split('/');
+          imagePathForFrontend = pathParts[pathParts.length - 1];
+        }
+
         return {
           id: row.id,
-          cameraId: row.cameraId || 'unknown',
+          cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
-          imagePath: row.imagePath,
+          imagePath: imagePathForFrontend,
           confidence: confidence,
           duration: 0,
-          cameraName: `Camera ${row.cameraId || 'unknown'}`,
+          cameraName: `Camera ${row.cameraid || 'unknown'}`,
           labels: labels,
-          location: `Camera ${row.cameraId || 'unknown'}`
+          location: `Camera ${row.cameraid || 'unknown'}`
         };
       });
 
@@ -1515,8 +1555,51 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // NEW: Enhanced events list with detection data from unified storage (detection_files + events + processed_images)
   app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
     try {
-      const { limit = 1000, event_type, camera_id, start_date, end_date } = req.query;
-      const limitNum = Number(limit);
+      const { 
+        limit, 
+        page = 1, 
+        pageSize = 20,
+        event_type, 
+        camera_id, 
+        start_date, 
+        end_date 
+      } = req.query;
+
+      // Use limit if provided (for backward compatibility), otherwise use pagination
+      const size = limit ? parseInt(limit as string) : parseInt(pageSize as string);
+      const currentPage = parseInt(page as string);
+      const offset = (currentPage - 1) * size;
+      
+      const conditions: string[] = ["df.file_type IN ('event_motion', 'event_face')", "df.is_deleted = FALSE"];
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (camera_id && camera_id !== 'all') {
+        conditions.push(`df.camera_id = $${paramIndex}`);
+        queryParams.push(camera_id);
+        paramIndex++;
+      }
+
+      if (start_date && end_date) {
+        conditions.push(`df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+        queryParams.push(new Date(start_date as string), new Date(end_date as string));
+        paramIndex += 2;
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Count total events for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM detection_files df
+        ${whereClause}
+      `;
+      
+      // We need a separate parameter array for count query because it uses the same WHERE clause
+      // but doesn't need LIMIT/OFFSET params
+      const countResult = await AppDataSource.query(countQuery, queryParams);
+      const totalEvents = parseInt(countResult[0].total);
+      const totalPages = Math.ceil(totalEvents / size);
 
       // Query detection_files table to get all event files
       let detectionQuery = `
@@ -1543,31 +1626,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         FROM detection_files df
         LEFT JOIN events event ON df.storage_path = event.file_path
         LEFT JOIN processed_images pi ON df.original_filename = pi.filename AND pi.status = 'success'
-        WHERE df.file_type IN ('event_motion', 'event_face')
-          AND df.is_deleted = FALSE
+        ${whereClause}
+        ORDER BY df.capture_timestamp DESC 
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
-      const queryParams: any[] = [];
-      let paramIndex = 1;
-
-      if (camera_id) {
-        detectionQuery += ` AND df.camera_id = $${paramIndex}`;
-        queryParams.push(camera_id);
-        paramIndex++;
-      }
-
-      if (start_date && end_date) {
-        detectionQuery += ` AND df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-        queryParams.push(new Date(start_date as string), new Date(end_date as string));
-        paramIndex += 2;
-      }
-
-      detectionQuery += ` ORDER BY df.capture_timestamp DESC LIMIT $${paramIndex}`;
-      queryParams.push(limitNum);
+      // Add pagination params
+      queryParams.push(size, offset);
 
       const results = await AppDataSource.query(detectionQuery, queryParams);
 
-      console.log(`[EventsList] Found ${results.length} events`);
+      console.log(`[EventsList] Found ${results.length} events (Page ${currentPage} of ${totalPages})`);
 
       // Transform results to match expected format
       const events = results.map((row: any) => {
@@ -1611,16 +1680,18 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           face_detections: face_detections || [],
         };
 
-        if (persons_detected > 0 || faces_detected > 0) {
-          console.log(`[EventsList] Event ${eventData.filename}: ${persons_detected} persons, ${faces_detected} faces`);
-        }
-
         return eventData;
       });
 
       res.json({
         success: true,
-        events
+        events,
+        pagination: {
+          totalEvents,
+          totalPages,
+          currentPage,
+          pageSize: size
+        }
       });
     } catch (error) {
       console.error('Failed to fetch events:', error);

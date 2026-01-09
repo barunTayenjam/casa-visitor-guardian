@@ -129,10 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await ApiService.getProfile();
       
       if (response.success && response.user) {
-        logger.info('Authentication successful', 'AUTH', { 
-          userId: response.user.id, 
+        logger.info('Authentication successful', 'AUTH', {
+          userId: response.user.id,
           username: response.user.username,
-          role: response.user.role 
+          role: response.user.role
         });
         dispatch({
           type: 'AUTH_SUCCESS',
@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success && response.user && response.token) {
         localStorage.setItem('auth_token', response.token);
         ApiService.setAuthToken(response.token);
-        
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {
@@ -229,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success && response.user && response.token) {
         localStorage.setItem('auth_token', response.token);
         ApiService.setAuthToken(response.token);
-        
+
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: {

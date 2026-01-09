@@ -9,10 +9,8 @@ import { SocketProvider } from "./contexts/SocketContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import non-lazy components that are critical for initial render
 import { ProtectedApp } from "./components/ProtectedApp";
 
-// Lazy load page components to improve initial load time
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CameraConfig = lazy(() => import("./pages/CameraConfig"));
@@ -21,11 +19,9 @@ const Settings = lazy(() => import("./pages/Settings"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
 const VisitorReports = lazy(() => import("./pages/VisitorReports"));
 const SystemLogs = lazy(() => import("./pages/SystemLogs"));
-const OpenCV = lazy(() => import("./pages/OpenCV.tsx"));
-const Debug = lazy(() => import("./pages/Debug"));
+const OpenCV = lazy(() => import("./pages/OpenCV"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Auth redirect component
 const AuthRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
@@ -38,7 +34,6 @@ const AuthRedirect = () => {
 
 const queryClient = new QueryClient();
 
-// Enhanced error fallback component
 const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () => void }) => (
   <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
     <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full text-center">
@@ -67,7 +62,6 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
   </div>
 );
 
-// Enhanced loading fallback
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-900">
     <div className="text-center">
@@ -89,47 +83,19 @@ const App = () => {
                 <Toaster />
               <Suspense fallback={<LoadingFallback />}>
                   <Routes>
-                  {/* Default redirect - if authenticated go to /app, otherwise login */}
-                  <Route 
-                    index 
+                  <Route path="/login" element={
+                    <ErrorBoundary fallback={ErrorFallback}>
+                      <Login />
+                    </ErrorBoundary>
+                  } />
+
+                  <Route
+                    index
                     element={
                       <AuthRedirect />
-                    } 
+                    }
                   />
-                  
-                  {/* Public routes */}
-                  <Route 
-                    path="/login" 
-                    element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <Login />
-                      </ErrorBoundary>
-                    } 
-                  />
-                  
-                  {/* Development debug route */}
-                  {import.meta.env.DEV && (
-                    <Route 
-                      path="/debug" 
-                      element={
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <Debug />
-                        </ErrorBoundary>
-                    } 
-                    />
-                  )}
-                  
-                  {/* OpenCV route */}
-                  <Route 
-                    path="/opencv" 
-                    element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <OpenCV />
-                      </ErrorBoundary>
-                    } 
-                  />
-                  
-                  {/* Protected routes with nested layout */}
+
                   <Route path="/app" element={
                     <ProtectedRoute>
                       <ProtectedApp />
@@ -138,6 +104,11 @@ const App = () => {
                     <Route index element={
                       <ErrorBoundary fallback={ErrorFallback}>
                         <Dashboard />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="opencv" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <OpenCV />
                       </ErrorBoundary>
                     } />
                     <Route path="camera-config" element={
@@ -170,16 +141,15 @@ const App = () => {
                       </ErrorBoundary>
                     } />
 
-                    <Route path="settings" element={
-                      <ErrorBoundary fallback={ErrorFallback}>
-                        <ProtectedRoute requiredRole="user">
-                          <Settings />
-                        </ProtectedRoute>
-                      </ErrorBoundary>
-                    } />
-                  </Route>
+                   <Route path="settings" element={
+                       <ErrorBoundary fallback={ErrorFallback}>
+                         <ProtectedRoute requiredRole="user">
+                           <Settings />
+                         </ProtectedRoute>
+                       </ErrorBoundary>
+                     } />
+                   </Route>
                   
-                  {/* Catch all */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

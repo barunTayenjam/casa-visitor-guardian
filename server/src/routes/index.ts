@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { StreamManager, Camera, streamManager } from '../streams/rtspManager.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
 import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLimit.js';
+import { requireUser, requireAdmin, optionalAuth } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import auditLogger from '../utils/auditLogger.js';
 // import logRoutes from './logRoutes.js';
@@ -24,6 +25,7 @@ import { getFacialRecognitionService as getGlobalFacialRecognitionService } from
 import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
+import { DetectionDataNormalizer } from '../utils/detectionDataNormalizer.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -254,7 +256,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // API endpoints
   
   // Get all alerts
-  app.get('/api/alerts', (req: Request, res: Response) => {
+  app.get('/api/alerts', requireUser, (req: Request, res: Response) => {
     try {
       res.json({ success: true, alerts: alerts.map(alert => ({
         ...alert,
@@ -267,7 +269,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Acknowledge an alert
-  app.post('/api/alerts/:id/acknowledge', (req: Request, res: Response) => {
+  app.post('/api/alerts/:id/acknowledge', requireUser, (req: Request, res: Response) => {
     try {
       const alertId = req.params.id;
       const alertIndex = alerts.findIndex(alert => alert.id === alertId);
@@ -283,7 +285,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Delete an alert
-  app.delete('/api/alerts/:id', (req: Request, res: Response) => {
+  app.delete('/api/alerts/:id', requireUser, (req: Request, res: Response) => {
     try {
       const alertId = req.params.id;
       const initialLength = alerts.length;
@@ -299,7 +301,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get system settings
-  app.get('/api/settings', (req: Request, res: Response) => {
+  app.get('/api/settings', requireUser, (req: Request, res: Response) => {
     try {
       res.json({ success: true, settings: systemSettings });
     } catch (error) {
@@ -309,7 +311,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update system settings
-  app.put('/api/settings', (req: Request, res: Response) => {
+  app.put('/api/settings', requireUser, (req: Request, res: Response) => {
     try {
       const { general, storage, notifications } = req.body;
       if (general) {
@@ -1510,61 +1512,115 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // NEW: Enhanced events list with detection data from events table
+  // NEW: Enhanced events list with detection data from unified storage (detection_files + events + processed_images)
   app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
     try {
-      console.log('AppDataSource initialized:', AppDataSource.isInitialized);
-      console.log('Registered entities:', AppDataSource.entityMetadatas.map(e => e.name));
-      
-      if (!AppDataSource.isInitialized) {
-        await AppDataSource.initialize();
-        console.log('AppDataSource initialized on demand');
-      }
+      const { limit = 1000, event_type, camera_id, start_date, end_date } = req.query;
+      const limitNum = Number(limit);
 
-      const { limit = 100, event_type, camera_id, start_date, end_date } = req.query;
+      // Query detection_files table to get all event files
+      let detectionQuery = `
+        SELECT 
+          df.original_filename as filename,
+          df.storage_path,
+          df.camera_id,
+          df.capture_timestamp as timestamp,
+          df.file_type,
+          df.metadata,
+          df.file_size,
+          COALESCE(event.persons_detected, 0) as persons_detected,
+          COALESCE(event.faces_detected, 0) as faces_detected,
+          COALESCE(event.known_faces_count, 0) as known_faces_count,
+          COALESCE(event.unknown_faces_count, 0) as unknown_faces_count,
+          event.object_detections,
+          event.face_detections,
+          event.id as event_id,
+          COALESCE(pi.person_count, 0) as batch_person_count,
+          COALESCE(pi.face_count, 0) as batch_face_count,
+          COALESCE(pi.known_face_count, 0) as batch_known_face_count,
+          COALESCE(pi.unknown_face_count, 0) as batch_unknown_face_count,
+          pi.detection_json as batch_detection_json
+        FROM detection_files df
+        LEFT JOIN events event ON df.storage_path = event.file_path
+        LEFT JOIN processed_images pi ON df.original_filename = pi.filename AND pi.status = 'success'
+        WHERE df.file_type IN ('event_motion', 'event_face')
+          AND df.is_deleted = FALSE
+      `;
 
-      const eventRepository = AppDataSource.getRepository(Event);
-
-      const query = eventRepository.createQueryBuilder('event')
-        .select('event')
-        .where('event.event_type IN (:...eventTypes)', {
-          eventTypes: event_type ? [event_type] : ['motion', 'face', 'object', 'batch']
-        })
-        .orderBy('event.timestamp', 'DESC')
-        .limit(Number(limit));
+      const queryParams: any[] = [];
+      let paramIndex = 1;
 
       if (camera_id) {
-        query.andWhere('event.camera_id = :camera_id', { camera_id });
+        detectionQuery += ` AND df.camera_id = $${paramIndex}`;
+        queryParams.push(camera_id);
+        paramIndex++;
       }
 
       if (start_date && end_date) {
-        query.andWhere('event.timestamp BETWEEN :startDate AND :endDate', {
-          startDate: new Date(start_date as string),
-          endDate: new Date(end_date as string)
-        });
+        detectionQuery += ` AND df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        queryParams.push(new Date(start_date as string), new Date(end_date as string));
+        paramIndex += 2;
       }
 
-      const events = await query.getMany();
+      detectionQuery += ` ORDER BY df.capture_timestamp DESC LIMIT $${paramIndex}`;
+      queryParams.push(limitNum);
+
+      const results = await AppDataSource.query(detectionQuery, queryParams);
+
+      console.log(`[EventsList] Found ${results.length} events`);
+
+      // Transform results to match expected format
+      const events = results.map((row: any) => {
+        // Use batch processing data if events table has no detection data
+        let persons_detected = row.persons_detected || row.batch_person_count || 0;
+        let faces_detected = row.faces_detected || row.batch_face_count || 0;
+        let known_faces_count = row.known_faces_count || row.batch_known_face_count || 0;
+        let unknown_faces_count = row.unknown_faces_count || row.batch_unknown_face_count || 0;
+        let object_detections = row.object_detections;
+        let face_detections = row.face_detections;
+
+        // If events table has no data, use batch data
+        if ((!object_detections || !Array.isArray(object_detections)) && row.batch_detection_json) {
+          try {
+            const batchData = typeof row.batch_detection_json === 'string'
+              ? JSON.parse(row.batch_detection_json)
+              : row.batch_detection_json;
+            object_detections = batchData.persons || [];
+            face_detections = batchData.faces || [];
+          } catch (e) {
+            object_detections = [];
+            face_detections = [];
+          }
+        }
+
+        const eventData = {
+          id: row.event_id || row.filename,
+          event_type: row.file_type === 'event_face' ? 'face' : 'motion',
+          filename: row.filename,
+          timestamp: row.timestamp,
+          cameraId: row.camera_id,
+          confidence: 0,
+          metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : null,
+
+          // Detection data
+          persons_detected,
+          faces_detected,
+          known_faces_count,
+          unknown_faces_count,
+          object_detections: object_detections || [],
+          face_detections: face_detections || [],
+        };
+
+        if (persons_detected > 0 || faces_detected > 0) {
+          console.log(`[EventsList] Event ${eventData.filename}: ${persons_detected} persons, ${faces_detected} faces`);
+        }
+
+        return eventData;
+      });
 
       res.json({
         success: true,
-        events: events.map(event => ({
-          id: event.id,
-          event_type: event.event_type,
-          filename: event.file_path.split('/').pop(),
-          timestamp: event.timestamp,
-          cameraId: event.camera_id,
-          confidence: event.confidence || 0,
-          metadata: event.metadata ? JSON.parse(event.metadata) : null,
-          
-          // NEW: Detection data
-          persons_detected: event.persons_detected || 0,
-          faces_detected: event.faces_detected || 0,
-          known_faces_count: event.known_faces_count || 0,
-          unknown_faces_count: event.unknown_faces_count || 0,
-          object_detections: event.object_detections || null,
-          face_detections: event.face_detections || null,
-        }))
+        events
       });
     } catch (error) {
       console.error('Failed to fetch events:', error);
@@ -1587,25 +1643,83 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(404).json({ success: false, error: 'Event not found' });
       }
 
+      const filename = event.file_path.split('/').pop();
+      
+      let persons_detected = event.persons_detected || 0;
+      let faces_detected = event.faces_detected || 0;
+      let known_faces_count = event.known_faces_count || 0;
+      let unknown_faces_count = event.unknown_faces_count || 0;
+      let object_detections = event.object_detections;
+      let face_detections = event.face_detections;
+
+      // If events table doesn't have detection data, check processed_images table
+      if (persons_detected === 0 && faces_detected === 0 && filename) {
+        try {
+          const processedQuery = `
+            SELECT person_count, face_count, known_face_count, unknown_face_count, detection_json
+            FROM processed_images
+            WHERE filename = $1 AND status = 'success'
+            ORDER BY processed_at DESC
+            LIMIT 1
+          `;
+          const processedResults = await AppDataSource.query(processedQuery, [filename]);
+          
+          if (processedResults.length > 0) {
+            const processed = processedResults[0];
+            persons_detected = processed.person_count || 0;
+            faces_detected = processed.face_count || 0;
+            known_faces_count = processed.known_face_count || 0;
+            unknown_faces_count = processed.unknown_face_count || 0;
+            
+            try {
+              const detectionData = typeof processed.detection_json === 'string' 
+                ? JSON.parse(processed.detection_json)
+                : processed.detection_json;
+              
+              object_detections = detectionData.persons || [];
+              face_detections = detectionData.faces || [];
+            } catch {
+              object_detections = [];
+              face_detections = [];
+            }
+          }
+        } catch (error) {
+          console.error('Error querying processed_images:', error);
+        }
+      }
+
+      // Normalize detection data
+      const normalizedData = DetectionDataNormalizer.createDetectionStorageFormat(
+        object_detections || [],
+        face_detections || []
+      );
+
+      console.log(`[EventDetails] Event ${id}:`, {
+        persons_detected: normalizedData.persons_detected,
+        faces_detected: normalizedData.faces_detected,
+        objects: normalizedData.object_detections.length,
+        faces: normalizedData.face_detections.length
+      });
+
       // Enrich with detection data
       const result = {
         success: true,
         event: {
           id: event.id,
           event_type: event.event_type,
-          filename: event.file_path.split('/').pop(),
+          filename: filename,
           timestamp: event.timestamp,
           cameraId: event.camera_id,
           confidence: event.confidence || 0,
           metadata: event.metadata ? JSON.parse(event.metadata) : null,
           
-          // Detection details
-          persons_detected: event.persons_detected || 0,
-          faces_detected: event.faces_detected || 0,
-          known_faces_count: event.known_faces_count || 0,
-          unknown_faces_count: event.unknown_faces_count || 0,
-          object_detections: event.object_detections,
-          face_detections: event.face_detections,
+          // Detection details (normalized)
+          persons_detected: normalizedData.persons_detected,
+          faces_detected: normalizedData.faces_detected,
+          known_faces_count: normalizedData.known_faces_count,
+          unknown_faces_count: normalizedData.unknown_faces_count,
+          object_detections: normalizedData.object_detections,
+          face_detections: normalizedData.face_detections,
         }
       };
 
@@ -1660,6 +1774,116 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error('Error serving event image:', error);
       res.status(500).json({ success: false, error: 'Failed to serve image' });
+    }
+  });
+
+  // TEST ENDPOINT: Add mock detection data to events
+  app.post('/api/test/add-detection-data', async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.body;
+
+      if (!filename) {
+        return res.status(400).json({ success: false, error: 'Filename is required' });
+      }
+
+      // Check if file exists
+      const query = `
+        SELECT storage_path, camera_id, capture_timestamp
+        FROM detection_files
+        WHERE original_filename = $1
+          AND file_type IN ('event_motion', 'event_face')
+          AND is_deleted = FALSE
+        LIMIT 1
+      `;
+
+      const results = await AppDataSource.query(query, [filename]);
+
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, error: 'Event not found' });
+      }
+
+      const event = results[0];
+
+      // Create mock detection data
+      const mockDetections = {
+        persons_detected: Math.floor(Math.random() * 3) + 1, // 1-3 persons
+        faces_detected: Math.floor(Math.random() * 2), // 0-1 faces
+        known_faces_count: Math.floor(Math.random() * 2),
+        unknown_faces_count: 0,
+        object_detections: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => ({
+          class: 'person',
+          confidence: 0.85 + Math.random() * 0.14,
+          bbox: {
+            x: Math.floor(Math.random() * 400),
+            y: Math.floor(Math.random() * 300),
+            width: Math.floor(Math.random() * 100) + 50,
+            height: Math.floor(Math.random() * 200) + 100
+          }
+        })),
+        face_detections: Math.random() > 0.5 ? [{
+          id: 'test-face-' + Date.now(),
+          name: 'Test Person',
+          isKnown: true,
+          confidence: 0.90 + Math.random() * 0.09,
+          bbox: {
+            x: Math.floor(Math.random() * 400),
+            y: Math.floor(Math.random() * 300),
+            width: 80,
+            height: 100
+          }
+        }] : []
+      };
+
+      // Update events table
+      const updateEventQuery = `
+        UPDATE events
+        SET 
+          persons_detected = $1,
+          faces_detected = $2,
+          known_faces_count = $3,
+          unknown_faces_count = $4,
+          object_detections = $5,
+          face_detections = $6,
+          confidence = $7
+        WHERE file_path = $8
+        RETURNING id
+      `;
+
+      const updatedEvents = await AppDataSource.query(updateEventQuery, [
+        mockDetections.persons_detected,
+        mockDetections.faces_detected,
+        mockDetections.known_faces_count,
+        mockDetections.unknown_faces_count,
+        JSON.stringify(mockDetections.object_detections),
+        JSON.stringify(mockDetections.face_detections),
+        0.85,
+        event.storage_path
+      ]);
+
+      // Update detection_files metadata as well
+      const updateDetectionFilesQuery = `
+        UPDATE detection_files
+        SET metadata = jsonb_set(
+          COALESCE(metadata, '{}'::jsonb),
+          '{detectionAddedAt}',
+          to_jsonb(NOW())
+        )
+        WHERE original_filename = $1
+      `;
+
+      await AppDataSource.query(updateDetectionFilesQuery, [filename]);
+
+      console.log(`[TestData] Added detection data to ${filename}:`, mockDetections);
+
+      res.json({
+        success: true,
+        message: 'Detection data added successfully',
+        eventId: updatedEvents[0]?.id,
+        detectionData: mockDetections
+      });
+    } catch (error) {
+      console.error('Error adding test detection data:', error);
+      res.status(500).json({ success: false, error: 'Failed to add detection data' });
     }
   });
 

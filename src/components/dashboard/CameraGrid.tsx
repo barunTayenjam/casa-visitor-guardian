@@ -1,11 +1,7 @@
-import { Camera as CameraIcon, Eye, Settings } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { useCameras } from '@/contexts/CameraContext';
-import { CameraStream } from './CameraStream';
-import { DetectionControl } from './DetectionControl';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera } from '@/types/security';
+import apiService from '@/services/ApiService';
+import { useSocketContext } from '@/contexts/SocketContext';
 
 interface CameraGridProps {
   compact?: boolean;
@@ -13,177 +9,363 @@ interface CameraGridProps {
 }
 
 export const CameraGrid = ({ compact = false, singleView = false }: CameraGridProps) => {
-  const { cameras, loading, error } = useCameras();
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
-  const currentCamera = cameras.find(c => c.id === selectedCamera);
+  const { socket: socketService, connected: isConnected } = useSocketContext();
 
-  console.log('*** CameraGrid RENDERING WITH ORIGINAL CameraStream COMPONENT ***', { cameras, loading, error });
+  // Fetch cameras
+  const fetchCameras = useCallback(async () => {
+    try {
+      setError(null);
+      const cameraData = await apiService.getCameras();
+      setCameras(cameraData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch cameras';
+      setError(errorMessage);
+      console.error('CameraGrid: Failed to fetch cameras:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle camera stream control
+  const handleStreamToggle = async (cameraId: string, isActive: boolean) => {
+    try {
+      if (isActive) {
+        await apiService.startCameraStream(cameraId);
+      } else {
+        await apiService.stopCameraStream(cameraId);
+      }
+      // Refresh cameras to update status
+      await fetchCameras();
+    } catch (err) {
+      console.error(`Failed to ${isActive ? 'start' : 'stop'} stream for camera ${cameraId}:`, err);
+    }
+  };
+
+  // Handle snapshot
+  const handleSnapshot = async (cameraId: string) => {
+    try {
+      await apiService.takeSnapshot(cameraId);
+    } catch (err) {
+      console.error(`Failed to take snapshot for camera ${cameraId}:`, err);
+    }
+  };
+
+  // Get stream URL for camera
+  const getStreamUrl = (cameraId: string) => {
+    // Use the snapshot endpoint for MJPEG streaming
+    return `/stream/${cameraId}`;
+  };
+
+  // Get snapshot URL for camera thumbnail
+  const getSnapshotUrl = (cameraId: string) => {
+    return `/snapshot/${cameraId}.jpg`;
+  };
+
+  // Handle camera selection
+  const handleCameraClick = (cameraId: string) => {
+    setSelectedCamera(selectedCamera === cameraId ? null : cameraId);
+  };
+
+  // Setup WebSocket listeners for real-time updates
+  useEffect(() => {
+    if (!socketService) return;
+
+    const handleCameraStatus = (data: any) => {
+      setCameras(prev => prev.map(camera => 
+        camera.id === data.cameraId 
+          ? { ...camera, status: data.status as 'online' | 'offline' | 'warning' }
+          : camera
+      ));
+    };
+
+    const handleFrame = (data: any) => {
+      // Frames are handled by individual camera components
+      // This can be used for global frame processing if needed
+    };
+
+    const handleCameraError = (data: any) => {
+      setCameras(prev => prev.map(camera => 
+        camera.id === data.cameraId 
+          ? { ...camera, error: data.error, status: 'warning' as const }
+          : camera
+      ));
+    };
+
+    socketService.on('camera-status', handleCameraStatus);
+    socketService.on('frame', handleFrame);
+    socketService.on('camera-error', handleCameraError);
+
+    return () => {
+      socketService.off('camera-status', handleCameraStatus);
+      socketService.off('frame', handleFrame);
+      socketService.off('camera-error', handleCameraError);
+    };
+  }, [socketService]);
+
+  // Initial fetch and periodic updates
+  useEffect(() => {
+    fetchCameras();
+
+    // Refresh camera status every 30 seconds
+    const interval = setInterval(fetchCameras, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCameras]);
+
+  // Request streams for cameras when they come online
+  useEffect(() => {
+    if (socketService && isConnected) {
+      cameras.forEach(camera => {
+        if (camera.status === 'online') {
+          socketService.requestStream(camera.id);
+        }
+      });
+    }
+  }, [socketService, isConnected, cameras]);
 
   if (loading) {
     return (
-      <Card className="p-6 text-center">
-        <div className="mb-4 flex justify-center">
-          <CameraIcon className="h-12 w-12 text-muted-foreground animate-pulse" />
+      <div className="flex items-center justify-center h-full bg-black">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading cameras...</p>
         </div>
-        <h3 className="text-lg font-medium">Loading Cameras...</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Please wait while we load your camera configuration.
-        </p>
-      </Card>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="p-6 text-center">
-        <div className="mb-4 flex justify-center">
-          <CameraIcon className="h-12 w-12 text-red-500" />
+      <div className="flex items-center justify-center h-full bg-black">
+        <div className="text-center text-white">
+          <h2 className="text-xl mb-4 text-red-400">Error Loading Cameras</h2>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={fetchCameras}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
-        <h3 className="text-lg font-medium text-red-600">Error Loading Cameras</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {error}
-        </p>
-      </Card>
+      </div>
     );
   }
 
+  if (cameras.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full bg-black">
+        <div className="text-center text-white">
+          <h2 className="text-xl mb-4">No Cameras Configured</h2>
+          <p className="text-gray-400">Add cameras to start monitoring.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Single camera view
+  if (singleView && cameras.length > 0) {
+    const camera = cameras[0];
+    return <CameraFeed key={camera.id} camera={camera} />;
+  }
+
+  // Grid layout
+  const gridCols = cameras.length === 1 ? 'grid-cols-1' : 
+                   cameras.length === 2 ? 'grid-cols-2' : 
+                   cameras.length === 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+
   return (
-    <>
-      {cameras.length === 0 ? (
-        <Card className="p-6 text-center">
-          <div className="mb-4 flex justify-center">
-            <CameraIcon className="h-12 w-12 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-medium">No Cameras Configured</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            No cameras are currently configured in the system.
-          </p>
-        </Card>
-      ) : singleView ? (
-          /* Single view mode - show one large camera with thumbnails */
-          <div className="h-full flex flex-col gap-2">
-            <div className="flex-1 relative bg-black rounded-lg overflow-hidden">
-              <CameraStream camera={selectedCamera ? currentCamera! : cameras[0]} />
-              <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                {(selectedCamera ? currentCamera?.name : cameras[0]?.name) || 'No Camera'}
-              </div>
-            </div>
-            {cameras.length > 1 && (
-              <div className="flex gap-2 h-20">
-                {cameras.map((camera) => (
-                  <div
-                    key={camera.id}
-                    className={`relative bg-black rounded overflow-hidden cursor-pointer flex-1 ${
-                      (selectedCamera || cameras[0].id) === camera.id ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => setSelectedCamera(camera.id)}
-                  >
-                    <CameraStream camera={camera} autoStart={false} />
-                    <div className="absolute bottom-1 left-1 bg-black/50 text-white px-1 py-0.5 rounded text-xs">
-                      {camera.name}
-                    </div>
-                  </div>
-                ))}
+    <div className={`h-full w-full bg-black p-2 ${compact ? 'p-1' : 'p-2'}`}>
+      <div className={`grid ${gridCols} gap-2 h-full`}>
+        {cameras.map((camera) => (
+          <CameraFeed 
+            key={camera.id} 
+            camera={camera}
+            compact={compact}
+            onStreamToggle={handleStreamToggle}
+            onSnapshot={handleSnapshot}
+            onClick={() => handleCameraClick(camera.id)}
+            isSelected={selectedCamera === camera.id}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Individual camera feed component
+interface CameraFeedProps {
+  camera: Camera;
+  compact?: boolean;
+  onStreamToggle?: (cameraId: string, isActive: boolean) => void;
+  onSnapshot?: (cameraId: string) => void;
+  onClick?: () => void;
+  isSelected?: boolean;
+}
+
+const CameraFeed: React.FC<CameraFeedProps> = ({ 
+  camera, 
+  compact = false, 
+  onStreamToggle, 
+  onSnapshot,
+  onClick,
+  isSelected = false
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const [showControls, setShowControls] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Reset image error when camera status changes
+  useEffect(() => {
+    if (camera.status === 'online') {
+      setImageError(false);
+    }
+  }, [camera.status]);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const getStreamUrl = () => {
+    return `/stream/${camera.id}`;
+  };
+
+  const getSnapshotUrl = () => {
+    return `/snapshot/${camera.id}.jpg`;
+  };
+
+  const getStatusColor = () => {
+    switch (camera.status) {
+      case 'online': return 'bg-green-500';
+      case 'offline': return 'bg-red-500';
+      case 'warning': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (camera.status) {
+      case 'online': return 'Live';
+      case 'offline': return 'Offline';
+      case 'warning': return 'Warning';
+      default: return 'Unknown';
+    }
+  };
+
+  return (
+    <div 
+      className={`relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
+        compact ? 'aspect-video' : 'aspect-video'
+      } ${isSelected ? 'ring-2 ring-blue-500' : ''} ${
+        showControls ? 'ring-2 ring-white' : ''
+      }`}
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+      onClick={onClick}
+    >
+      {/* Camera stream or snapshot */}
+      <div className="relative w-full h-full">
+        {camera.status === 'online' && !imageError ? (
+          <img
+            ref={imgRef}
+            src={getStreamUrl()}
+            alt={camera.name}
+            className="w-full h-full object-cover"
+            onError={handleImageError}
+            // Add key to force re-render when stream starts/stops
+            key={`${camera.id}-${camera.status}`}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-800">
+            <img
+              src={getSnapshotUrl()}
+              alt={camera.name}
+              className="max-w-full max-h-full object-contain"
+              onError={handleImageError}
+            />
+            {imageError && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <div className="text-4xl mb-2">📹</div>
+                  <p className="text-sm">No Signal</p>
+                </div>
               </div>
             )}
           </div>
-        ) : (
-          /* Grid mode */
-          <div 
-            className={`grid gap-2 ${compact ? 'h-full' : 'h-[calc(100vh-4rem)]'}`}
-            style={{ 
-              gridTemplateColumns: cameras.length === 1 ? '1fr' : 
-                                  cameras.length === 2 ? 'repeat(2, 1fr)' : 
-                                  compact ? 'repeat(2, 1fr)' :
-                                  'repeat(3, 1fr)',
-              gridTemplateRows: cameras.length <= 3 ? '1fr' : 
-                                cameras.length <= 6 ? 'repeat(2, 1fr)' : 
-                                compact ? 'repeat(2, 1fr)' :
-                                'repeat(3, 1fr)'
-            }}
-          >
-            {cameras.map((camera) => (
-              <div
-                key={camera.id}
-                className="relative bg-black rounded-lg overflow-hidden cursor-pointer aspect-video"
-                onClick={() => setSelectedCamera(camera.id)}
-              >
-                <CameraStream camera={camera} />
-                <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                  {camera.name}
-                </div>
-                {/* Status indicator */}
-                <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
-                  camera.status === 'online' ? 'bg-green-500' : 
-                  camera.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                }`} />
+        )}
+
+        {/* Status indicator */}
+        <div className="absolute top-2 left-2 flex items-center space-x-2">
+          <div className={`w-3 h-3 rounded-full ${getStatusColor()} animate-pulse`}></div>
+          <span className="text-xs text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+            {getStatusText()}
+          </span>
+        </div>
+
+        {/* Camera name and info */}
+        <div className="absolute bottom-2 left-2 right-2">
+          <div className="bg-black bg-opacity-70 text-white p-2 rounded">
+            <h3 className="text-sm font-semibold truncate">{camera.name}</h3>
+            {!compact && (
+              <div className="text-xs text-gray-300">
+                <p>{camera.resolution} • {camera.fps}fps</p>
+                {camera.location && <p>{camera.location}</p>}
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Controls overlay */}
+        {showControls && onStreamToggle && (
+          <div className="absolute top-2 right-2 flex flex-col space-y-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStreamToggle(camera.id, camera.status !== 'online');
+              }}
+              className={`p-2 rounded-full bg-black bg-opacity-70 text-white hover:bg-opacity-90 transition-colors ${
+                camera.status === 'online' ? 'text-red-400' : 'text-green-400'
+              }`}
+              title={camera.status === 'online' ? 'Stop Stream' : 'Start Stream'}
+            >
+              {camera.status === 'online' ? (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <rect x="6" y="6" width="8" height="8" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                </svg>
+              )}
+            </button>
+            
+            {onSnapshot && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSnapshot(camera.id);
+                }}
+                className="p-2 rounded-full bg-black bg-opacity-70 text-white hover:bg-opacity-90 transition-colors"
+                title="Take Snapshot"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            )}
           </div>
         )}
 
-      <Dialog open={!!selectedCamera} onOpenChange={(open) => !open && setSelectedCamera(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] w-full">
-          {currentCamera && (
-            <div className="flex flex-col h-full">
-              <DialogHeader className="pb-4">
-                <DialogTitle className="flex items-center gap-2">
-                  <CameraIcon className="h-5 w-5" />
-                  {currentCamera.name}
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    currentCamera.status === 'online' ? 'bg-green-100 text-green-800' : 
-                    currentCamera.status === 'warning' ? 'bg-yellow-100 text-yellow-800' : 
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {currentCamera.status}
-                  </span>
-                </DialogTitle>
-              </DialogHeader>
-              
-              <Tabs defaultValue="stream" className="flex-1 flex flex-col">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="stream" className="flex items-center gap-2">
-                    <Eye className="h-4 w-4" />
-                    Live Stream
-                  </TabsTrigger>
-                  <TabsTrigger value="detection" className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Detection Controls
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="stream" className="flex-1 mt-4">
-                  <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: 'calc(90vh - 200px)' }}>
-                    <CameraStream camera={currentCamera} fullscreen />
-                    <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-2 rounded-lg">
-                      {currentCamera.name} - Live
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="detection" className="flex-1 mt-4">
-                  <div className="space-y-4">
-                    <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: '400px' }}>
-                      <CameraStream camera={currentCamera} />
-                      <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-2 rounded-lg">
-                        {currentCamera.name} - Detection View
-                      </div>
-                    </div>
-                    
-                    <DetectionControl 
-                      camera={currentCamera}
-                      onDetectionResult={(result) => {
-                        console.log('Detection result:', result);
-                        // You can show a toast or update state here
-                      }}
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+        {/* Error indicator */}
+        {camera.error && (
+          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs p-2 rounded max-w-xs">
+            <p className="truncate">{camera.error}</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };

@@ -1,19 +1,31 @@
+version: '3.8'
+
 services:
-  sentryvision:
+  # PostgreSQL Database
+  postgres:
     build:
-      context: .
-      dockerfile: Dockerfile.simple
-    container_name: sentryvision-dev
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: sentryvision-postgres
     ports:
-      - "5173:5173"  # Frontend dev server
-      - "8082:8082"  # Backend API
+      - "5432:5432"
     volumes:
-      - .:/app                    # Mount source code for live reload
-      - /app/node_modules         # Prevent overwriting node_modules
-      - /app/server/node_modules  # Prevent overwriting server node_modules
-      - /app/database/node_modules # Prevent overwriting database node_modules
-      - ./data:/app/data          # Persistent data
-      - ./server/cameras.json:/app/server/cameras.json  # Camera config
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_DB=sentryvision
+      - POSTGRES_USER=sentryvision
+      - POSTGRES_PASSWORD=sentryvision123
+    restart: always
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sentryvision-backend
+    ports:
+      - "8082:8082"
     environment:
       - NODE_ENV=development
       - PORT=8082
@@ -25,86 +37,75 @@ services:
       - JWT_ACCESS_SECRET=dev-jwt-access-secret
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
-      - OPENCV_SERVICE_URL=http://opencv-service:8084  # OpenCV service endpoint
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      - opencv-service
-      - postgres
-      - redis
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    networks:
-      - sentryvision-network
-
-  opencv-service:
-    build:
-      context: ./opencv-service
-      dockerfile: Dockerfile.python
-    container_name: opencv-service
-    ports:
-      - "8084:8084"  # OpenCV service API
     volumes:
-      - ./server/models:/app/models:ro  # Read-only access to models
-      - ./data:/app/data                 # Shared data access
-      - ./data/logs:/app/data/logs       # Logs directory
-      - ./public:/app/public             # Shared public directory for temporary files
-    environment:
-      - OPENCV_PORT=8084
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sentryvision-network
+      - ./server:/app
+      - ./server/node_modules:/app/node_modules
+      - ./data/events:/app/data/events
+      - ./data/snapshots:/app/data/snapshots
+      - ./public/events:/app/public/events
+    working_dir: /app
+    command: ["npx", "tsx", "src/index.ts"]
+    depends_on:
+      - postgres
+    restart: always
 
-  # PostgreSQL database for SentryVision
+  # Frontend Development Server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentryvision-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8082
+    volumes:
+      - ./frontend:/app
+      - ./frontend/node_modules:/app/node_modules
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    depends_on:
+      - backend
+    restart: always
+
+  # Redis (for caching and sessions)
   redis:
-    image: redis:7-alpine
+    image: "redis:7-alpine"
     container_name: sentryvision-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    restart: unless-stopped
-    networks:
-      - sentryvision-network
+    restart: always
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: sentryvision-db
+  # OpenCV Python Detection Service
+  opencv:
+    build:
+      context: ./opencv-service
+      dockerfile: Dockerfile
+    container_name: sentryvision-opencv
     ports:
-      - "5432:5432"
+      - "8084:8084"
     environment:
+      - PORT=8084
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
       - POSTGRES_DB=sentryvision
       - POSTGRES_USER=sentryvision
       - POSTGRES_PASSWORD=sentryvision123
-      - PGDATA=/var/lib/postgresql/data/pgdata
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentryvision -d sentryvision"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - sentryvision-network
-
-networks:
-  sentryvision-network:
-    driver: bridge
+      - ./opencv-service:/app
+      - ./opencv-service/node_modules:/app/node_modules
+      - ./opencv-service/models:/app/models
+      - ./opencv-service/data:/app/data
+      - ./opencv-service/known_faces:/app/known_faces
+    depends_on:
+      - postgres
+      - redis
+    restart: always
 
 volumes:
   postgres_data:

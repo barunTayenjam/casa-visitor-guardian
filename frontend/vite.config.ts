@@ -8,22 +8,22 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:8082",
+        target: process.env.VITE_BACKEND_URL || "http://172.26.0.5:8082",
         changeOrigin: true,
         secure: false,
       },
       "/events": {
-        target: "http://localhost:8082",
+        target: process.env.VITE_BACKEND_URL || "http://172.26.0.5:8082",
         changeOrigin: true,
         secure: false,
       },
       "/snapshots": {
-        target: "http://localhost:8082",
+        target: process.env.VITE_BACKEND_URL || "http://172.26.0.5:8082",
         changeOrigin: true,
         secure: false,
       },
       "/socket.io": {
-        target: "http://localhost:8082",
+        target: process.env.VITE_BACKEND_URL || "http://172.26.0.5:8082",
         changeOrigin: true,
         secure: false,
         ws: true,

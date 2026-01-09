@@ -338,6 +338,264 @@ export function configureVisitorRoutes(app: express.Application): void {
     }
   });
 
+  // Enhanced analytics endpoint
+  router.get('/analytics/enhanced', async (req, res) => {
+    try {
+      console.log('*** ENHANCED VISITOR ANALYTICS API CALLED ***');
+
+      const { startDate, endDate, includeTrends, includePatterns, includeSecurity, includePerformance } = req.query;
+
+      // Parse dates or use defaults
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+      const end = endDate ? new Date(endDate as string) : new Date();
+
+      console.log(`Getting enhanced visitor analytics from ${start.toISOString()} to ${end.toISOString()}`);
+
+      // Import the enhanced analytics service
+      const { EnhancedAnalyticsService } = await import('../services/enhancedAnalyticsService.js');
+      const enhancedAnalyticsService = new EnhancedAnalyticsService();
+
+      // Parse query parameters for options
+      const options = {
+        includeTrends: includeTrends !== 'false',
+        includePatterns: includePatterns !== 'false',
+        includeSecurity: includeSecurity !== 'false',
+        includePerformance: includePerformance !== 'false',
+      };
+
+      // Generate enhanced analytics
+      const enhancedAnalytics = await enhancedAnalyticsService.generateEnhancedAnalytics(start, end, options);
+
+      res.json({
+        success: true,
+        analytics: enhancedAnalytics,
+        query: { startDate: start.toISOString(), endDate: end.toISOString(), ...options },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error getting enhanced visitor analytics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get enhanced visitor analytics',
+        code: 'ENHANCED_ANALYTICS_FETCH_FAILED',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Export analytics endpoint
+  router.post('/analytics/export', async (req, res) => {
+    try {
+      console.log('*** ANALYTICS EXPORT API CALLED ***');
+
+      const { startDate, endDate, format = 'json', includeTrends, includePatterns, includeSecurity, includePerformance } = req.body;
+
+      // Parse dates or use defaults
+      const start = startDate ? new Date(startDate) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+      const end = endDate ? new Date(endDate) : new Date();
+
+      console.log(`Exporting analytics from ${start.toISOString()} to ${end.toISOString()} in ${format} format`);
+
+      // Import the enhanced analytics service
+      const { EnhancedAnalyticsService } = await import('../services/enhancedAnalyticsService.js');
+      const enhancedAnalyticsService = new EnhancedAnalyticsService();
+
+      // Parse options
+      const options = {
+        includeTrends: includeTrends !== 'false',
+        includePatterns: includePatterns !== 'false',
+        includeSecurity: includeSecurity !== 'false',
+        includePerformance: includePerformance !== 'false',
+      };
+
+      // Generate enhanced analytics
+      const enhancedAnalytics = await enhancedAnalyticsService.generateEnhancedAnalytics(start, end, options);
+
+      // Export in requested format
+      const exportedData = await enhancedAnalyticsService.exportAnalytics(enhancedAnalytics, format as any);
+
+      // Set appropriate headers based on format
+      switch (format) {
+        case 'csv':
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="analytics_${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}.csv"`);
+          break;
+        case 'pdf':
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="analytics_${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}.pdf"`);
+          break;
+        case 'excel':
+          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          res.setHeader('Content-Disposition', `attachment; filename="analytics_${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}.xlsx"`);
+          break;
+        case 'json':
+        default:
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Content-Disposition', `attachment; filename="analytics_${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}.json"`);
+          break;
+      }
+
+      res.send(exportedData);
+
+    } catch (error) {
+      console.error('Error exporting analytics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to export analytics',
+        code: 'ANALYTICS_EXPORT_FAILED',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Advanced face recognition endpoints
+  router.post('/faces/recognize', async (req, res) => {
+    try {
+      console.log('*** ADVANCED FACE RECOGNITION API CALLED ***');
+
+      const { imagePath, knownFacesOnly = false } = req.body;
+
+      if (!imagePath) {
+        return res.status(400).json({
+          success: false,
+          error: 'Image path is required',
+          code: 'MISSING_IMAGE_PATH'
+        });
+      }
+
+      // Import the advanced face recognition service
+      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
+      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+
+      console.log(`Recognizing faces in image: ${imagePath}`);
+
+      // Recognize faces in the image
+      const recognitionResults = await advancedFaceRecognitionService.recognizeFacesInImage(imagePath);
+
+      // Filter results if requested
+      const results = knownFacesOnly
+        ? recognitionResults.filter(result => result.isKnown)
+        : recognitionResults;
+
+      res.json({
+        success: true,
+        results,
+        count: results.length,
+        knownCount: results.filter(r => r.isKnown).length,
+        unknownCount: results.filter(r => !r.isKnown).length,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error in advanced face recognition:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to recognize faces',
+        code: 'FACE_RECOGNITION_FAILED',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Register a known person with face embeddings
+  router.post('/faces/register', async (req, res) => {
+    try {
+      console.log('*** FACE REGISTRATION API CALLED ***');
+
+      const { personName, imagePaths } = req.body;
+
+      if (!personName || !imagePaths || !Array.isArray(imagePaths) || imagePaths.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Person name and at least one image path are required',
+          code: 'MISSING_REGISTRATION_DATA'
+        });
+      }
+
+      // Import the advanced face recognition service
+      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
+      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+
+      console.log(`Registering person: ${personName} with ${imagePaths.length} images`);
+
+      // Extract embeddings from all provided images
+      let allEmbeddings: number[][] = [];
+      for (const imagePath of imagePaths) {
+        const embeddings = await advancedFaceRecognitionService.extractFaceEmbeddings(imagePath);
+        allEmbeddings = allEmbeddings.concat(embeddings);
+      }
+
+      if (allEmbeddings.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No faces found in provided images',
+          code: 'NO_FACES_FOUND'
+        });
+      }
+
+      // Register the person with their embeddings
+      const success = await advancedFaceRecognitionService.registerPerson(personName, allEmbeddings);
+
+      if (success) {
+        // Retrain the model with new data
+        await advancedFaceRecognitionService.trainModel();
+
+        res.json({
+          success: true,
+          message: `Successfully registered ${personName} with ${allEmbeddings.length} face embeddings`,
+          personName,
+          embeddingCount: allEmbeddings.length,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to register person',
+          code: 'REGISTRATION_FAILED'
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in face registration:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to register person',
+        code: 'FACE_REGISTRATION_FAILED',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Get known people
+  router.get('/faces/known', async (req, res) => {
+    try {
+      console.log('*** GET KNOWN FACES API CALLED ***');
+
+      // Import the advanced face recognition service
+      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
+      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+
+      const knownPeople = await advancedFaceRecognitionService.getKnownPeople();
+
+      res.json({
+        success: true,
+        knownPeople,
+        count: knownPeople.length,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error getting known faces:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get known faces',
+        code: 'GET_KNOWN_FACES_FAILED',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Get visitor schedules
   router.get('/schedule', async (req, res) => {
     try {

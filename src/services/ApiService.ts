@@ -114,6 +114,12 @@ export interface EnhancedEvent {
 interface EnhancedEventsResponse {
   success: boolean;
   events: EnhancedEvent[];
+  pagination?: {
+    totalEvents: number;
+    totalPages: number;
+    currentPage: number;
+    pageSize: number;
+  };
 }
 
 interface GeneralSettings {
@@ -428,8 +434,24 @@ class ApiService {
     async get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
     let url = `${API_URL}${endpoint}`;
     if (params) {
-      const urlParams = new URLSearchParams(params as Record<string, string>);
-      url += `?${urlParams.toString()}`;
+      // Filter out undefined values to prevent "undefined" strings in URL
+      const filteredParams: Record<string, string> = {};
+      Object.keys(params).forEach(key => {
+        const value = params[key];
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            // Handle arrays by joining with commas
+            filteredParams[key] = value.join(',');
+          } else {
+            filteredParams[key] = String(value);
+          }
+        }
+      });
+
+      const urlParams = new URLSearchParams(filteredParams);
+      if (urlParams.toString()) {
+        url += `?${urlParams.toString()}`;
+      }
     }
     const response = await this.fetchWithRetry(url);
     return response.json();
@@ -951,14 +973,26 @@ class ApiService {
   // NEW: Fetch enhanced events list with detection data
   async getEnhancedEventsList(options?: {
     limit?: number;
+    page?: number;
+    pageSize?: number;
     event_type?: string;
     camera_id?: string;
     start_date?: string;
     end_date?: string;
   }): Promise<EnhancedEventsResponse> {
     try {
-      const params = new URLSearchParams(options as any);
-      const response = await this.fetchWithRetry(`${API_URL}/events/list-enhanced?${params}`);
+      const params = new URLSearchParams();
+      if (options) {
+        if (options.limit) params.append('limit', options.limit.toString());
+        if (options.page) params.append('page', options.page.toString());
+        if (options.pageSize) params.append('pageSize', options.pageSize.toString());
+        if (options.event_type) params.append('event_type', options.event_type);
+        if (options.camera_id) params.append('camera_id', options.camera_id);
+        if (options.start_date) params.append('start_date', options.start_date);
+        if (options.end_date) params.append('end_date', options.end_date);
+      }
+
+      const response = await this.fetchWithRetry(`${API_URL}/events/list-enhanced?${params.toString()}`);
       const data = await response.json();
       
       if (!data.success) {

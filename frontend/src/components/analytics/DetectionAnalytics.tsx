@@ -73,9 +73,54 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
   const [selectedMetric, setSelectedMetric] = useState<'detections' | 'confidence' | 'accuracy'>('detections');
 
   // Load analytics data
+  const loadAnalyticsData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // In a real implementation, these would be actual API calls
+      // For now, we'll simulate with mock data
+      const mockStats: DetectionStats = {
+        totalDetections: 1247,
+        personDetections: 856,
+        faceDetections: 391,
+        knownFaces: 156,
+        unknownFaces: 235,
+        averageConfidence: 0.82,
+        accuracy: 0.94,
+        processingTime: 0.23,
+        uptime: 98.5,
+      };
+
+      const mockHourlyData = Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        detections: Math.floor(Math.random() * 50) + 10,
+      }));
+
+      const mockCameraData = [
+        { camera: 'Front Door', detections: 245 },
+        { camera: 'Back Yard', detections: 189 },
+        { camera: 'Garage', detections: 156 },
+        { camera: 'Driveway', detections: 134 },
+      ];
+
+      const mockDetectionTypes: DetectionTypeDistribution[] = [
+        { type: 'Person', count: 856, percentage: 68.8 },
+        { type: 'Face', count: 391, percentage: 31.4 },
+      ];
+
+      setStats(mockStats);
+      setHourlyData(mockHourlyData);
+      setCameraData(mockCameraData);
+      setDetectionTypes(mockDetectionTypes);
+    } catch (error) {
+      console.error('Failed to load analytics data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadAnalyticsData();
-  }, [timeRange]);
+  }, [loadAnalyticsData, timeRange]);
 
   const loadAnalyticsData = async () => {
     setIsLoading(true);

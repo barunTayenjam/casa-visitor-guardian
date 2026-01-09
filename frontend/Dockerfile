@@ -1,20 +1,23 @@
-# Simple multi-stage build for SentryVision Frontend
+# Frontend Dockerfile with vite pre-installed
+FROM node:20-alpine
 
-FROM node:20-alpine AS builder
+# Install system dependencies
+RUN apk add --no-cache
+
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+# Copy package files
+COPY package.json .
+COPY package-lock.json .
+
+# Install dependencies
+RUN npm install --force
+
+# Copy source code
 COPY . .
-RUN npm run build
 
-FROM nginx:1.25-alpine
-RUN apk add --no-cache curl
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY docker/nginx/working.conf /etc/nginx/conf.d/default.conf
-COPY docker/nginx/simple-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Expose port
+EXPOSE 5173
 
-ENV NODE_ENV=production
-EXPOSE 80
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Start development server
+CMD ["npm", "run", "dev"]

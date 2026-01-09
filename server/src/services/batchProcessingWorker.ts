@@ -209,47 +209,49 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
   }
 }
 
-async function saveResultsToDatabase(results: any[], jobId: string): Promise<void> {
-  try {
-    const db = await getBatchProcessingDatabase();
-
-    for (const result of results) {
-      try {
-        const hash = FileHashUtil.generateQuickHash(
-          result.filename,
-          result.timestamp
-        );
-
-        const processedImage = {
-          id: jobId + "_" + result.filename + "_" + Date.now(),
-          job_id: jobId,
-          filename: result.filename,
-          file_path: "/events/" + result.filename,
-          camera_id: result.cameraId,
-          image_timestamp: result.timestamp,
-          file_size: 0,
-          person_count: result.persons.length,
-          face_count: result.faces.length,
-          known_face_count: result.faces.filter((f: any) => f.isKnown).length,
-          unknown_face_count: result.faces.filter((f: any) => !f.isKnown).length,
-          processing_time_ms: 0,
-          status: 'success' as 'success' | 'failed',
-          detection_json: JSON.stringify(result),
-          file_hash: hash
-        };
-
-        await db.addProcessedImage(processedImage);
-      } catch (error) {
-        console.error('Error saving result for ' + result.filename + ':', error);
+  async function saveResultsToDatabase(results: any[], jobId: string): Promise<void> {
+    try {
+      const db = await getBatchProcessingDatabase();
+      
+      let savedCount = 0;
+      for (const result of results) {
+        try {
+          const hash = FileHashUtil.generateQuickHash(
+            result.filename,
+            result.timestamp
+          );
+          
+          const processedImage = {
+            id: jobId + "_" + result.filename + "_" + Date.now(),
+            job_id: jobId,
+            filename: result.filename,
+            file_path: "/events/" + result.filename,
+            camera_id: result.cameraId,
+            image_timestamp: result.timestamp,
+            file_size: 0,
+            person_count: result.persons.length,
+            face_count: result.faces.length,
+            known_face_count: result.faces.filter((f: any) => f.isKnown).length,
+            unknown_face_count: result.faces.filter((f: any) => !f.isKnown).length,
+            processing_time_ms: 0,
+            status: 'success' as 'success' | 'failed',
+            detection_json: JSON.stringify(result),
+            file_hash: hash
+          };
+          
+          await db.addProcessedImage(processedImage);
+          savedCount++;
+        } catch (error) {
+          console.error('Error saving result for ' + result.filename + ':', error);
+        }
       }
+      
+      console.log('Saved ' + savedCount + '/' + results.length + ' processed images to database for job ' + jobId);
+    } catch (error) {
+      console.error('Error saving results to database:', error);
+      throw error;
     }
-
-    console.log('Saved ' + results.length + ' processed images to database for job ' + jobId);
-  } catch (error) {
-    console.error('Error saving results to database:', error);
-    throw error;
   }
-}
 
 async function main() {
   const { events, options, jobId, outputDir } = workerData as WorkerData;

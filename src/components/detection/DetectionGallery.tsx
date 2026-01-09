@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,8 @@ import {
   Package
 } from 'lucide-react';
 import { format } from 'date-fns';
-import apiService, { EnhancedEvent, DetectionData, FaceDetectionData } from '@/services/ApiService';
+import apiService, { EnhancedEvent } from '@/services/ApiService';
+import ImageDetectionDetails from './ImageDetectionDetails';
 
 interface MotionEvent {
   id?: string;
@@ -57,8 +58,8 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
   const [cameraFilter, setCameraFilter] = useState<string>('all');
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const [detectionData, setDetectionData] = useState<any>(null);
+  const [objectDetections, setObjectDetections] = useState<any[]>([]);
+  const [faceDetections, setFaceDetections] = useState<any[]>([]);
   
   const timeRangeLabels = {
     '1h': 'Last Hour',
@@ -86,7 +87,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
 
   const loadEvents = async () => {
     try {
-      const response = await apiService.getEnhancedEventsList({ limit: 100 });
+      const response = await apiService.getEnhancedEventsList({ limit: 1000 });
       
       const parsedEvents: MotionEvent[] = response.events.map((event) => {
         return {
@@ -170,18 +171,33 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
     setSelectedIndex(filteredEvents.indexOf(event));
     setIsImageDialogOpen(true);
     
+    // Reset detections
+    setObjectDetections([]);
+    setFaceDetections([]);
+    
     // Fetch detailed event info
     if (event.id) {
       try {
         const details = await apiService.getEventDetails(event.id);
         if (details.success) {
           setSelectedEnhancedEvent(details.event);
-          setDetectionData({
-            persons: details.event.persons_detected,
-            faces: details.event.faces_detected,
-            knownFaces: details.event.known_faces_count,
-            unknownFaces: details.event.unknown_faces_count
-          });
+          
+          // Process object detections
+          const objects = details.event.object_detections || [];
+          setObjectDetections(objects.map((obj: any) => ({
+            confidence: obj.confidence || 1,
+            boundingBox: obj.bbox || obj.boundingBox || { x: 0, y: 0, width: 0, height: 0 }
+          })));
+          
+          // Process face detections
+          const faces = details.event.face_detections || [];
+          setFaceDetections(faces.map((face: any) => ({
+            confidence: face.confidence || 1,
+            boundingBox: face.bbox || face.boundingBox || { x: 0, y: 0, width: 0, height: 0 },
+            personId: face.id,
+            personName: face.name || (face.isKnown ? 'Known' : 'Unknown'),
+            isKnown: face.isKnown || face.name !== 'Unknown'
+          })));
           return;
         }
       } catch (error) {
@@ -191,7 +207,13 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
 
     // Fallback to batch results
     const result = batchResults.get(event.filename);
-    setDetectionData(result || null);
+    if (result) {
+      setObjectDetections(Array(result.persons).fill({}).map(() => ({
+        confidence: 1,
+        boundingBox: { x: 0, y: 0, width: 0, height: 0 }
+      })));
+      setFaceDetections([]);
+    }
     setSelectedEnhancedEvent(null);
   };
 
@@ -210,24 +232,6 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
     } catch (error) {
       console.error('Error downloading image:', error);
     }
-  };
-
-  const renderBoundingBoxes = () => {
-    if (!detectionData || !imageRef.current) return null;
-    if (detectionData.persons === 0 && detectionData.faces === 0 && !selectedEnhancedEvent?.object_detections?.length) return null;
-    
-    const img = imageRef.current;
-    
-    return (
-      <svg 
-        className="absolute inset-0 pointer-events-none"
-        style={{ width: img.clientWidth, height: img.clientHeight }}
-      >
-        <text x="10" y="20" fill="white" fontSize="12" fontWeight="bold" stroke="black" strokeWidth="0.5">
-          {detectionData.persons} Person(s) • {detectionData.faces} Face(s)
-        </text>
-      </svg>
-    );
   };
 
   const stats = {
@@ -532,15 +536,16 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
         if (!open) {
           setSelectedEvent(null);
           setSelectedEnhancedEvent(null);
-          setDetectionData(null);
+          setObjectDetections([]);
+          setFaceDetections([]);
         }
       }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span className="truncate max-w-[400px]" title={selectedEvent?.filename}>
+        <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="truncate max-w-[500px]" title={selectedEvent?.filename}>
                 {selectedEvent?.filename}
-              </span>
+              </DialogTitle>
               <div className="flex gap-2 flex-shrink-0">
                 <Button
                   size="sm"
@@ -572,165 +577,63 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
+                {/* Test button to add mock detection data */}
+                {(objectDetections.length === 0 && faceDetections.length === 0) && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/test/add-detection-data', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ filename: selectedEvent?.filename })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                          alert('Test detection data added! Click the image again to see detections.');
+                          // Reload event details
+                          if (selectedEvent?.id && selectedEvent.id !== selectedEvent?.filename) {
+                            const details = await apiService.getEventDetails(selectedEvent.id);
+                            if (details.success) {
+                              setObjectDetections(details.event.object_detections?.map((obj: any) => ({
+                                confidence: obj.confidence,
+                                boundingBox: obj.bbox || obj.boundingBox
+                              })) || []);
+                              setFaceDetections(details.event.face_detections?.map((face: any) => ({
+                                confidence: face.confidence,
+                                boundingBox: face.bbox || face.boundingBox,
+                                personId: face.id,
+                                personName: face.name,
+                                isKnown: face.isKnown
+                              })) || []);
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error adding test data:', error);
+                        alert('Failed to add test detection data. Check console for details.');
+                      }
+                    }}
+                  >
+                    Add Test Data
+                  </Button>
+                )}
               </div>
-            </DialogTitle>
+            </div>
           </DialogHeader>
           
           {selectedEvent && (
-            <div className="space-y-4">
-              <div className="relative inline-block bg-black/5 rounded-lg overflow-hidden">
-                <img
-                  ref={imageRef}
-                  src={`/api/events/image/${selectedEvent.filename}`}
-                  alt={selectedEvent.filename}
-                  className="max-w-full h-auto max-h-[60vh] object-contain mx-auto"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                {renderBoundingBoxes()}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm font-medium">Event Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-3 space-y-2">
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-muted-foreground">Filename</span>
-                      <span className="font-mono text-xs">{selectedEvent.filename}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-muted-foreground">Camera</span>
-                      <span>{selectedEvent.cameraId}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                      <span className="text-muted-foreground">Time</span>
-                      <span>{format(selectedEvent.timestamp, 'PPP p')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ID</span>
-                      <span className="font-mono text-xs">{selectedEvent.id || 'N/A'}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm font-medium">Detections</CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-3">
-                    {selectedEnhancedEvent ? (
-                      <div className="space-y-4">
-                        {/* Person Detections */}
-                        {selectedEnhancedEvent.persons_detected > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {selectedEnhancedEvent.persons_detected} Person(s)
-                              </Badge>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Face Detections */}
-                        {selectedEnhancedEvent.faces_detected > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className="flex items-center gap-1">
-                                <UserCheck className="h-3 w-3" />
-                                {selectedEnhancedEvent.faces_detected} Face(s)
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedEnhancedEvent.face_detections?.map((face, i) => (
-                                <Badge 
-                                  key={i} 
-                                  className={face.isKnown ? "bg-green-500 hover:bg-green-600" : "bg-yellow-500 hover:bg-yellow-600"}
-                                >
-                                  {face.isKnown ? face.name : "Unknown"} ({Math.round(face.confidence)}%)
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Object Detections */}
-                        {selectedEnhancedEvent.object_detections && selectedEnhancedEvent.object_detections.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className="flex items-center gap-1">
-                                <Package className="h-3 w-3" />
-                                {selectedEnhancedEvent.object_detections.length} Object(s)
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedEnhancedEvent.object_detections.map((obj, i) => (
-                                <Badge key={i} className="bg-blue-500 hover:bg-blue-600">
-                                  {obj.class} ({Math.round(obj.confidence)}%)
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedEnhancedEvent.persons_detected === 0 && 
-                         selectedEnhancedEvent.faces_detected === 0 && 
-                         (!selectedEnhancedEvent.object_detections || selectedEnhancedEvent.object_detections.length === 0) && (
-                          <div className="text-muted-foreground text-center py-2">
-                            No objects or faces detected in this event.
-                          </div>
-                        )}
-                      </div>
-                    ) : detectionData ? (
-                      <div className="space-y-2">
-                        {detectionData.persons > 0 && (
-                          <div className="text-green-600 font-medium flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            {detectionData.persons} Person(s) detected
-                          </div>
-                        )}
-                        {detectionData.faces > 0 && (
-                          <div>
-                            <div className="text-blue-600 font-medium flex items-center gap-2">
-                              <UserCheck className="h-4 w-4" />
-                              {detectionData.faces} Face(s) detected
-                            </div>
-                            <div className="text-muted-foreground text-xs mt-1 ml-6">
-                              {detectionData.knownFaces} known, {detectionData.unknownFaces} unknown
-                            </div>
-                          </div>
-                        )}
-                        {detectionData.persons === 0 && detectionData.faces === 0 && (
-                          <div className="text-muted-foreground text-center py-2">
-                            No detection summary available.
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground text-center py-4">
-                        <p>No detection data available.</p>
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => {
-                            // Close dialog and switch to batch tab
-                            setIsImageDialogOpen(false);
-                            // This would ideally require lifting state up or using context/router
-                            // For now we just show the message
-                          }}
-                        >
-                          Run batch processing to analyze
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <ScrollArea className="flex-1 p-4">
+              <ImageDetectionDetails
+                imageUrl={`/api/events/image/${selectedEvent.filename}`}
+                objectDetections={objectDetections}
+                faceDetections={faceDetections}
+                filename={selectedEvent.filename}
+                timestamp={selectedEvent.timestamp.toISOString()}
+                cameraId={selectedEvent.cameraId}
+              />
+            </ScrollArea>
           )}
         </DialogContent>
       </Dialog>

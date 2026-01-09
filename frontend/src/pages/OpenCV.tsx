@@ -774,7 +774,7 @@ const OpenCV: React.FC = () => {
                   Detection History
                 </span>
                 <Badge variant="outline">
-                  {detectionHistory.length} events
+                  {(detectionHistory || []).length} events
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -784,7 +784,7 @@ const OpenCV: React.FC = () => {
                   <RefreshCw className="mx-auto h-8 w-8 animate-spin" />
                   <p className="mt-2">Loading detection history...</p>
                 </div>
-              ) : detectionHistory.length === 0 ? (
+              ) : (detectionHistory || []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <History className="mx-auto h-12 w-12 mb-4 opacity-50" />
                   <p>No detection history found</p>
@@ -794,7 +794,7 @@ const OpenCV: React.FC = () => {
                 <ScrollArea className="h-96">
                   {viewMode === 'grid' ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {detectionHistory.map((event) => (
+                      {(detectionHistory || []).map((event) => (
                         <div key={event.id} className="border rounded-lg p-4 space-y-2">
                           <div className="flex items-center justify-between">
                             <Badge className={getDetectionTypeColor(event.detectionType)}>
@@ -834,7 +834,7 @@ const OpenCV: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {detectionHistory.map((event) => (
+                      {(detectionHistory || []).map((event) => (
                         <div key={event.id} className="flex items-center justify-between p-3 border rounded">
                           <div className="flex items-center space-x-3">
                             <div className="w-16 h-12 bg-muted rounded relative overflow-hidden">

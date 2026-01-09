@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Users, 
@@ -25,42 +25,31 @@ import {
 import { format } from 'date-fns';
 import apiService, { EnhancedEvent } from '@/services/ApiService';
 import ImageDetectionDetails from './ImageDetectionDetails';
-
-interface MotionEvent {
-  id?: string;
-  filename: string;
-  timestamp: Date;
-  cameraId: string;
-  timestampStr: string;
-}
-
-interface BatchResult {
-  filename: string;
-  persons: number;
-  faces: number;
-  knownFaces: number;
-  unknownFaces: number;
-}
+import { useSocketContext } from '@/contexts/SocketContext';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 
 interface DetectionGalleryProps {
   className?: string;
 }
 
 const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
-  const [events, setEvents] = useState<MotionEvent[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<MotionEvent | null>(null);
-  const [selectedEnhancedEvent, setSelectedEnhancedEvent] = useState<EnhancedEvent | null>(null);
-  const [batchResults, setBatchResults] = useState<Map<string, BatchResult>>(new Map());
+  const [events, setEvents] = useState<EnhancedEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EnhancedEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | 'all'>('24h');
   const [cameraFilter, setCameraFilter] = useState<string>('all');
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [objectDetections, setObjectDetections] = useState<any[]>([]);
-  const [faceDetections, setFaceDetections] = useState<any[]>([]);
+  const [availableCameras, setAvailableCameras] = useState<string[]>([]);
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEvents, setTotalEvents] = useState(0);
+  
+  const { socket } = useSocketContext();
+
   const timeRangeLabels = {
     '1h': 'Last Hour',
     '6h': 'Last 6 Hours',
@@ -70,154 +59,149 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
   };
 
   useEffect(() => {
-    loadEvents();
-    loadBatchResults();
-    
-    const interval = setInterval(() => {
-      loadEvents();
-      loadBatchResults();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+  }, [timeRange, cameraFilter]);
 
   useEffect(() => {
-    filterEvents();
-  }, [events, timeRange, cameraFilter]);
+    loadEvents();
+    loadCameras();
+  }, [timeRange, cameraFilter, currentPage, viewMode]);
 
-  const loadEvents = async () => {
-    try {
-      const response = await apiService.getEnhancedEventsList({ limit: 1000 });
-      
-      const parsedEvents: MotionEvent[] = response.events.map((event) => {
-        return {
-          id: event.id,
-          filename: event.filename,
-          timestamp: new Date(event.timestamp),
-          cameraId: event.cameraId,
-          timestampStr: new Date(event.timestamp).toISOString()
-        };
-      }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-      
-      setEvents(parsedEvents);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Failed to load events:', error);
-      setIsLoading(false);
-    }
-  };
+  // Real-time updates via Socket.IO
+  useEffect(() => {
+    if (!socket) return;
 
-  const loadBatchResults = async () => {
-    try {
-      const jobs = await apiService.getBatchJobs();
-      const resultsMap = new Map<string, BatchResult>();
-      
-      for (const job of jobs) {
-        if (job.status === 'completed' && job.results) {
-          const detailResults = await apiService.getBatchResults(job.id);
-          if (detailResults && detailResults.results) {
-            for (const result of detailResults.results) {
-              const filename = result.filename || result.timestamp?.split('/').pop();
-              resultsMap.set(filename, {
-                filename,
-                persons: result.persons?.length || 0,
-                faces: result.faces?.length || 0,
-                knownFaces: result.faces?.filter((f: any) => f.isKnown).length || 0,
-                unknownFaces: result.faces?.filter((f: any) => !f.isKnown).length || 0
-              });
-            }
-          }
+    const handleMotionDetected = (data: any) => {
+      // Create a temporary EnhancedEvent from the motion event data
+      // Note: Real-time events might initially lack full detection details until processed
+      const newEvent: EnhancedEvent = {
+        id: data.id || `evt_${Date.now()}`,
+        event_type: 'motion', // Default to motion
+        filename: data.imagePath ? data.imagePath.split('/').pop() : `motion_${Date.now()}.jpg`,
+        timestamp: new Date(data.timestamp || Date.now()),
+        cameraId: data.cameraId || 'unknown',
+        confidence: data.confidence || 0,
+        metadata: data.metadata || {},
+        persons_detected: data.metadata?.personCount || 0,
+        faces_detected: data.metadata?.faceCount || 0,
+        known_faces_count: data.metadata?.knownFaces || 0,
+        unknown_faces_count: data.metadata?.unknownFaces || 0,
+        object_detections: [],
+        face_detections: []
+      };
+
+      // Only add if it matches current camera filter
+      if (cameraFilter === 'all' || cameraFilter === newEvent.cameraId) {
+        // Only prepend if on first page
+        if (currentPage === 1) {
+          setEvents(prev => [newEvent, ...prev].slice(0, viewMode === 'grid' ? 12 : 20));
         }
       }
-      
-      setBatchResults(resultsMap);
-    } catch (error) {
-      console.error('Failed to load batch results:', error);
-    }
-  };
-
-  const filterEvents = () => {
-    const now = new Date();
-    let filtered = [...events];
-    
-    const timeRanges = {
-      '1h': 60 * 60 * 1000,
-      '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      'all': Infinity
     };
+
+    socket.on('motionDetected', handleMotionDetected);
     
-    const timeLimit = timeRanges[timeRange];
-    if (timeLimit !== Infinity) {
-      const cutoff = new Date(now.getTime() - timeLimit);
-      filtered = filtered.filter(e => e.timestamp >= cutoff);
+    return () => {
+      socket.off('motionDetected', handleMotionDetected);
+    };
+  }, [socket, cameraFilter, currentPage, viewMode]);
+
+  const loadCameras = async () => {
+    try {
+      const cameras = await apiService.getCameras();
+      setAvailableCameras(cameras.map(c => c.id));
+    } catch (error) {
+      console.error('Failed to load cameras:', error);
     }
-    
-    if (cameraFilter !== 'all') {
-      filtered = filtered.filter(e => e.cameraId === cameraFilter);
-    }
-    
-    setFilteredEvents(filtered);
   };
 
-  const getUniqueCameras = () => {
-    const cameras = new Set(events.map(e => e.cameraId));
-    return Array.from(cameras).sort();
+  const loadEvents = async () => {
+    setIsLoading(true);
+    try {
+      // Calculate start/end dates based on timeRange
+      let startDate: string | undefined;
+      const now = new Date();
+      
+      switch (timeRange) {
+        case '1h':
+          startDate = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+          break;
+        case '6h':
+          startDate = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
+          break;
+        case '24h':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+          break;
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          break;
+        default:
+          startDate = undefined;
+      }
+
+      const pageSize = viewMode === 'grid' ? 12 : 20;
+
+      const response = await apiService.getEnhancedEventsList({ 
+        page: currentPage,
+        pageSize: pageSize,
+        camera_id: cameraFilter !== 'all' ? cameraFilter : undefined,
+        start_date: startDate
+      });
+      
+      if (response.success && response.events) {
+        // Ensure dates are Date objects
+        const parsedEvents = response.events.map(e => ({
+          ...e,
+          timestamp: new Date(e.timestamp)
+        }));
+        setEvents(parsedEvents);
+        
+        if (response.pagination) {
+          setTotalPages(response.pagination.totalPages);
+          setTotalEvents(response.pagination.totalEvents);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load events:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleImageClick = async (event: MotionEvent, index: number) => {
-    setSelectedEvent(event);
-    setSelectedIndex(filteredEvents.indexOf(event));
-    setIsImageDialogOpen(true);
-    
-    // Reset detections
-    setObjectDetections([]);
-    setFaceDetections([]);
-    
-    // Fetch detailed event info
-    if (event.id) {
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of list/grid
+    const container = document.querySelector('.scroll-area-content');
+    if (container) {
+      container.scrollTop = 0;
+    }
+  };
+
+  const handleImageClick = async (event: EnhancedEvent, index: number) => {
+    // If we have full details already, just show them. 
+    // Otherwise fetch details to get bounding boxes if missing.
+    if (!event.object_detections || !event.face_detections) {
       try {
         const details = await apiService.getEventDetails(event.id);
         if (details.success) {
-          setSelectedEnhancedEvent(details.event);
-          
-          // Process object detections
-          const objects = details.event.object_detections || [];
-          setObjectDetections(objects.map((obj: any) => ({
-            confidence: obj.confidence || 1,
-            boundingBox: obj.bbox || obj.boundingBox || { x: 0, y: 0, width: 0, height: 0 }
-          })));
-          
-          // Process face detections
-          const faces = details.event.face_detections || [];
-          setFaceDetections(faces.map((face: any) => ({
-            confidence: face.confidence || 1,
-            boundingBox: face.bbox || face.boundingBox || { x: 0, y: 0, width: 0, height: 0 },
-            personId: face.id,
-            personName: face.name || (face.isKnown ? 'Known' : 'Unknown'),
-            isKnown: face.isKnown || face.name !== 'Unknown'
-          })));
-          return;
+          setSelectedEvent(details.event);
+        } else {
+          setSelectedEvent(event);
         }
-      } catch (error) {
-        console.error('Failed to fetch event details:', error);
+      } catch (e) {
+        console.error("Error fetching details", e);
+        setSelectedEvent(event);
       }
+    } else {
+      setSelectedEvent(event);
     }
-
-    // Fallback to batch results
-    const result = batchResults.get(event.filename);
-    if (result) {
-      setObjectDetections(Array(result.persons).fill({}).map(() => ({
-        confidence: 1,
-        boundingBox: { x: 0, y: 0, width: 0, height: 0 }
-      })));
-      setFaceDetections([]);
-    }
-    setSelectedEnhancedEvent(null);
+    
+    setSelectedIndex(index);
+    setIsImageDialogOpen(true);
   };
 
-  const handleDownloadImage = async (event: MotionEvent) => {
+  const handleDownloadImage = async (event: EnhancedEvent) => {
     try {
       const response = await fetch(`/api/events/image/${event.filename}`);
       const blob = await response.blob();
@@ -235,10 +219,10 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
   };
 
   const stats = {
-    total: filteredEvents.length,
-    withPersons: filteredEvents.filter(e => batchResults.get(e.filename)?.persons! > 0).length,
-    withFaces: filteredEvents.filter(e => batchResults.get(e.filename)?.faces! > 0).length,
-    cameras: new Set(filteredEvents.map(e => e.cameraId)).size
+    total: totalEvents, // Use total from pagination
+    withPersons: events.filter(e => e.persons_detected > 0).length, // Current page only stats
+    withFaces: events.filter(e => e.faces_detected > 0).length,
+    cameras: new Set(events.map(e => e.cameraId)).size
   };
 
   return (
@@ -261,7 +245,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               <Users className="h-4 w-4 inline mr-2" />
-              With Persons
+              With Persons (Page)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -273,7 +257,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               <UserCheck className="h-4 w-4 inline mr-2" />
-              With Faces
+              With Faces (Page)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -285,7 +269,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               <Video className="h-4 w-4 inline mr-2" />
-              Cameras
+              Cameras (Page)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -322,15 +306,11 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Cameras</SelectItem>
-                    {getUniqueCameras().map(camera => (
+                    {availableCameras.map(camera => (
                       <SelectItem key={camera} value={camera}>{camera}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="text-sm text-muted-foreground">
-                Showing {filteredEvents.length} of {events.length} events
               </div>
             </div>
             
@@ -362,32 +342,36 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
               <Calendar className="h-5 w-5 inline mr-2" />
               Detection Events
             </span>
-            <Badge variant="outline">
-              {timeRangeLabels[timeRange]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-normal">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Badge variant="outline">
+                {timeRangeLabels[timeRange]}
+              </Badge>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && events.length === 0 ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               <p className="mt-4 text-muted-foreground">Loading events...</p>
             </div>
-          ) : filteredEvents.length === 0 ? (
+          ) : events.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ImageIcon className="mx-auto h-16 w-16 mb-4 opacity-50" />
               <p className="text-lg font-medium">No events found</p>
-              <p className="text-sm mt-2">Try adjusting time range or camera filter, or run batch processing to analyze images</p>
+              <p className="text-sm mt-2">Try adjusting time range or camera filter</p>
             </div>
-          ) : viewMode === 'grid' ? (
-            <ScrollArea className="h-[600px]">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredEvents.map((event, index) => {
-                  const detection = batchResults.get(event.filename);
-                  return (
+          ) : (
+            <>
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 min-h-[500px]">
+                  {events.map((event, index) => (
                     <div
-                      key={event.filename}
-                      className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+                      key={event.id || event.filename}
+                      className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer group h-fit"
                       onClick={() => handleImageClick(event, index)}
                     >
                       <div className="aspect-video bg-muted relative">
@@ -402,18 +386,18 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                         />
                         
                         {/* Detection badges */}
-                        {detection && (detection.persons > 0 || detection.faces > 0) && (
+                        {(event.persons_detected > 0 || event.faces_detected > 0) && (
                           <div className="absolute top-2 left-2 flex gap-1">
-                            {detection.persons > 0 && (
+                            {event.persons_detected > 0 && (
                               <Badge className="bg-green-500 text-white">
                                 <Users className="h-3 w-3 mr-1" />
-                                {detection.persons}
+                                {event.persons_detected}
                               </Badge>
                             )}
-                            {detection.faces > 0 && (
+                            {event.faces_detected > 0 && (
                               <Badge className="bg-blue-500 text-white">
                                 <UserCheck className="h-3 w-3 mr-1" />
-                                {detection.faces}
+                                {event.faces_detected}
                               </Badge>
                             )}
                           </div>
@@ -439,34 +423,27 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                             {format(event.timestamp, 'MMM dd, HH:mm')}
                           </span>
                         </div>
-                        {detection && (
-                          <div className="flex gap-2 mt-1 text-xs">
-                            {detection.persons > 0 && (
-                              <span className="text-green-600">
-                                {detection.persons} person(s)
-                              </span>
-                            )}
-                            {detection.faces > 0 && (
-                              <span className="text-blue-600">
-                                {detection.knownFaces} known, {detection.unknownFaces} unknown
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex gap-2 mt-1 text-xs">
+                          {event.persons_detected > 0 && (
+                            <span className="text-green-600">
+                              {event.persons_detected} person(s)
+                            </span>
+                          )}
+                          {event.faces_detected > 0 && (
+                            <span className="text-blue-600">
+                              {event.known_faces_count} known, {event.unknown_faces_count} unknown
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-2">
-                {filteredEvents.map((event, index) => {
-                  const detection = batchResults.get(event.filename);
-                  return (
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2 min-h-[500px]">
+                  {events.map((event, index) => (
                     <div
-                      key={event.filename}
+                      key={event.id || event.filename}
                       className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-pointer"
                       onClick={() => handleImageClick(event, index)}
                     >
@@ -487,14 +464,14 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                             {event.filename}
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            {detection && detection.persons > 0 && (
+                            {event.persons_detected > 0 && (
                               <Badge className="bg-green-500 text-white text-xs">
-                                {detection.persons}P
+                                {event.persons_detected}P
                               </Badge>
                             )}
-                            {detection && detection.faces > 0 && (
+                            {event.faces_detected > 0 && (
                               <Badge className="bg-blue-500 text-white text-xs">
-                                {detection.faces}F
+                                {event.faces_detected}F
                               </Badge>
                             )}
                           </div>
@@ -506,26 +483,79 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                           <span>{format(event.timestamp, 'MMM dd, yyyy HH:mm:ss')}</span>
                         </div>
                         
-                        {detection && (
-                          <div className="flex gap-3 mt-1 text-xs">
-                            <span className="text-green-600">
-                              {detection.persons} person(s)
-                            </span>
-                            <span className="text-blue-600">
-                              {detection.knownFaces} known, {detection.unknownFaces} unknown
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex gap-3 mt-1 text-xs">
+                          <span className="text-green-600">
+                            {event.persons_detected} person(s)
+                          </span>
+                          <span className="text-blue-600">
+                            {event.known_faces_count} known, {event.unknown_faces_count} unknown
+                          </span>
+                        </div>
                       </div>
                       
                       <Button variant="ghost" size="sm" className="flex-shrink-0">
                         <ZoomIn className="h-4 w-4" />
                       </Button>
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          href="#" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage > 1) handlePageChange(currentPage - 1);
+                          }}
+                          className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
+                        />
+                      </PaginationItem>
+                      
+                      {/* Simple pagination logic for brevity */}
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum = i + 1;
+                        if (totalPages > 5 && currentPage > 3) {
+                          pageNum = currentPage - 2 + i;
+                          if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                        }
+                        
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink 
+                              href="#" 
+                              isActive={currentPage === pageNum}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handlePageChange(pageNum);
+                              }}
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext 
+                          href="#" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                          }}
+                          className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -542,10 +572,13 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
       }}>
         <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="truncate max-w-[500px]" title={selectedEvent?.filename}>
-                {selectedEvent?.filename}
-              </DialogTitle>
+            <DialogTitle className="truncate max-w-[500px]" title={selectedEvent?.filename}>
+              {selectedEvent?.filename}
+            </DialogTitle>
+            <DialogDescription>
+              View detailed information about the selected detection event
+            </DialogDescription>
+          </DialogHeader>
               <div className="flex gap-2 flex-shrink-0">
                 <Button
                   size="sm"
@@ -560,7 +593,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                   variant="outline"
                   onClick={() => {
                     const newIndex = Math.max(0, selectedIndex - 1);
-                    handleImageClick(filteredEvents[newIndex], newIndex);
+                    handleImageClick(events[newIndex], newIndex);
                   }}
                   disabled={selectedIndex === 0}
                 >
@@ -570,55 +603,13 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const newIndex = Math.min(filteredEvents.length - 1, selectedIndex + 1);
-                    handleImageClick(filteredEvents[newIndex], newIndex);
+                    const newIndex = Math.min(events.length - 1, selectedIndex + 1);
+                    handleImageClick(events[newIndex], newIndex);
                   }}
-                  disabled={selectedIndex === filteredEvents.length - 1}
+                  disabled={selectedIndex === events.length - 1}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                {/* Test button to add mock detection data */}
-                {(objectDetections.length === 0 && faceDetections.length === 0) && (
-                  <Button
-                    size="sm"
-                    variant="default"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/test/add-detection-data', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ filename: selectedEvent?.filename })
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                          alert('Test detection data added! Click the image again to see detections.');
-                          // Reload event details
-                          if (selectedEvent?.id && selectedEvent.id !== selectedEvent?.filename) {
-                            const details = await apiService.getEventDetails(selectedEvent.id);
-                            if (details.success) {
-                              setObjectDetections(details.event.object_detections?.map((obj: any) => ({
-                                confidence: obj.confidence,
-                                boundingBox: obj.bbox || obj.boundingBox
-                              })) || []);
-                              setFaceDetections(details.event.face_detections?.map((face: any) => ({
-                                confidence: face.confidence,
-                                boundingBox: face.bbox || face.boundingBox,
-                                personId: face.id,
-                                personName: face.name,
-                                isKnown: face.isKnown
-                              })) || []);
-                            }
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error adding test data:', error);
-                        alert('Failed to add test detection data. Check console for details.');
-                      }
-                    }}
-                  >
-                    Add Test Data
-                  </Button>
-                )}
               </div>
             </div>
           </DialogHeader>
@@ -627,8 +618,17 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
             <ScrollArea className="flex-1 p-4">
               <ImageDetectionDetails
                 imageUrl={`/api/events/image/${selectedEvent.filename}`}
-                objectDetections={objectDetections}
-                faceDetections={faceDetections}
+                objectDetections={selectedEvent.object_detections?.map(obj => ({
+                  confidence: obj.confidence,
+                  boundingBox: obj.bbox || (obj as any).boundingBox
+                })) || []}
+                faceDetections={selectedEvent.face_detections?.map(face => ({
+                  confidence: face.confidence,
+                  boundingBox: face.bbox || (face as any).boundingBox,
+                  personId: face.id,
+                  personName: face.name,
+                  isKnown: face.isKnown
+                })) || []}
                 filename={selectedEvent.filename}
                 timestamp={selectedEvent.timestamp.toISOString()}
                 cameraId={selectedEvent.cameraId}

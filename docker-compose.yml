@@ -37,9 +37,12 @@ services:
       - JWT_ACCESS_SECRET=dev-jwt-access-secret
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
+      - OPENCV_SERVICE_URL=http://opencv:8084
+      - DETECTIONS_DIR=/app/data/detections
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
+      - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
@@ -47,6 +50,7 @@ services:
     command: ["npx", "tsx", "src/index.ts"]
     depends_on:
       - postgres
+      - opencv
     restart: always
 
   # Frontend Development Server

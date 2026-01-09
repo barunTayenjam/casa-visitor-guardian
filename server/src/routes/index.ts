@@ -1138,6 +1138,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           }
         }
 
+        // Normalize confidence to 0-1 range if it's in 0-100 range (greater than 1)
+        if (confidence > 1) {
+          confidence = confidence / 100;
+        }
+
         // Determine labels from file type
         let labels = ['motion'];
         if (row.file_type === 'event_face') {
@@ -1287,6 +1292,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           }
         }
 
+        // Normalize confidence to 0-1 range if it's in 0-100 range (greater than 1)
+        if (confidence > 1) {
+          confidence = confidence / 100;
+        }
+
         // Determine labels from file type
         let labels = ['motion'];
         if (row.file_type === 'event_face') {
@@ -1372,6 +1382,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           }
         }
 
+        // Normalize confidence to 0-1 range if it's in 0-100 range (greater than 1)
+        if (confidence > 1) {
+          confidence = confidence / 100;
+        }
+
         // Determine labels from file type
         let labels = ['motion'];
         if (row.file_type === 'event_face') {
@@ -1446,6 +1461,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           } else if (row.metadata.faces && row.metadata.faces.length > 0) {
             confidence = row.metadata.faces[0].confidence || 0.75;
           }
+        }
+
+        // Normalize confidence to 0-1 range if it's in 0-100 range (greater than 1)
+        if (confidence > 1) {
+          confidence = confidence / 100;
         }
 
         // Determine labels from file type

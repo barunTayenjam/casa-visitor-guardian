@@ -8,6 +8,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Import configuration
 import { config } from './config/index.js';
 
@@ -27,7 +31,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173', 'http://192.168.31.99:5173', 'http://192.168.31.99:8082'],
   credentials: true
 }));
 app.use(express.json());
@@ -35,27 +39,120 @@ app.use(express.json());
 // Serve static files from public directory
 app.use('/events', (req, res, next) => {
   const filename = path.basename(req.path);
+  console.log(`Events middleware: Processing request for ${filename}`);
+
+  // Try to extract Unix timestamp from filename (e.g., faces_cam1_1760618163997.jpg)
+  // Unix timestamps are typically 13 digits for millisecond precision
+  const timestampMatch = filename.match(/(\d{13})\.(jpg|png|gif|jpeg)$/i);
+
+  if (timestampMatch) {
+    const timestamp = parseInt(timestampMatch[1]);
+    if (!isNaN(timestamp)) {
+      // Convert timestamp to date to determine year-month directory
+      const date = new Date(timestamp);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+      const yearMonth = `${year}-${month}`;
+
+      const subType = filename.startsWith('faces_') ? 'faces' : (filename.includes('cam') ? 'motion' : 'faces');
+      const detectionsPath = process.env.DETECTIONS_DIR || path.join(__dirname, '../../data/detections');
+      const filePath = path.join(detectionsPath, yearMonth, 'events', subType, filename);
+
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    }
+  }
+
+  // Fallback: try the original pattern matching
   const match = filename.match(/(\d{4}-\d{2})/);
-  
   if (match) {
     const yearMonth = match[1];
-    const subType = filename.includes('cam') ? 'motion' : 'faces';
-    const detectionsPath = process.env.DETECTIONS_DIR || path.join(process.cwd(), '../data/detections');
+    const subType = filename.startsWith('faces_') ? 'faces' : (filename.includes('cam') ? 'motion' : 'faces');
+    const detectionsPath = process.env.DETECTIONS_DIR || path.join(__dirname, '../../data/detections');
     const filePath = path.join(detectionsPath, yearMonth, 'events', subType, filename);
-    
+
+    console.log(`Events middleware: Pattern match found. YearMonth: ${yearMonth}, SubType: ${subType}, FilePath: ${filePath}, File exists: ${fs.existsSync(filePath)}`);
+
     if (fs.existsSync(filePath)) {
+      console.log(`Events middleware: Sending file ${filePath}`);
       return res.sendFile(filePath);
     }
   }
-  
+
+  // Ultimate fallback: scan all year-month directories for the file
+  const detectionsPath = process.env.DETECTIONS_DIR || path.join(__dirname, '../../data/detections');
+  if (fs.existsSync(detectionsPath)) {
+    try {
+      const yearMonthDirs = fs.readdirSync(detectionsPath).filter(item =>
+        fs.statSync(path.join(detectionsPath, item)).isDirectory() && /^\d{4}-\d{2}$/.test(item)
+      );
+
+      for (const yearMonth of yearMonthDirs) {
+        const subTypes = ['faces', 'motion']; // Common subtypes
+        for (const subType of subTypes) {
+          const filePath = path.join(detectionsPath, yearMonth, 'events', subType, filename);
+          if (fs.existsSync(filePath)) {
+            return res.sendFile(filePath);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error scanning for event files:', err);
+    }
+  }
+
   const fallbackPath = path.join(process.cwd(), 'public/events', req.path);
   if (fs.existsSync(fallbackPath)) {
     return res.sendFile(fallbackPath);
   }
-  
+
   next();
 });
-app.use('/snapshots', express.static('public/snapshots'));
+// Serve snapshots - both from public directory and from detections organized by date
+app.use('/snapshots', (req, res, next) => {
+  const parsedPath = path.parse(req.path);
+  const filename = path.basename(req.path);
+  const dirName = parsedPath.dir.split('/').pop(); // Get the directory name from the path
+
+  // If the directory name looks like a year-month (e.g., 2026-01), use it directly
+  if (dirName && /^\d{4}-\d{2}$/.test(dirName)) {
+    const snapshotsPath = process.env.SNAPSHOTS_DIR || path.join(__dirname, '../../data/detections');
+    const filePath = path.join(snapshotsPath, dirName, 'snapshots', filename);
+
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+  } else {
+    // If no yearMonth in URL path, scan all year-month directories
+    const snapshotsPath = process.env.SNAPSHOTS_DIR || path.join(__dirname, '../../data/detections');
+
+    if (fs.existsSync(snapshotsPath)) {
+      try {
+        const yearMonthDirs = fs.readdirSync(snapshotsPath).filter(item =>
+          fs.statSync(path.join(snapshotsPath, item)).isDirectory() && /^\d{4}-\d{2}$/.test(item)
+        );
+
+        for (const yearMonth of yearMonthDirs) {
+          const filePath = path.join(snapshotsPath, yearMonth, 'snapshots', filename);
+          if (fs.existsSync(filePath)) {
+            return res.sendFile(filePath);
+          }
+        }
+      } catch (err) {
+        console.error('Error scanning for snapshot files:', err);
+      }
+    }
+  }
+
+  // Fallback to public snapshots directory
+  const fallbackPath = path.join(process.cwd(), 'public/snapshots', req.path);
+  if (fs.existsSync(fallbackPath)) {
+    return res.sendFile(fallbackPath);
+  }
+
+  next();
+});
 app.use('/public', express.static('public'));
 
 // Serve frontend static files
@@ -73,7 +170,7 @@ const server = http.createServer(app);
 // Configure Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173', 'http://192.168.31.99:5173', 'http://192.168.31.99:8082'],
     credentials: true
   }
 });

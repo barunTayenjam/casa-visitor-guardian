@@ -109,7 +109,7 @@ echo -e "${GREEN}✓ All ports are available${NC}"
 # Start OpenCV Microservice
 echo -e "${BLUE}Starting OpenCV Microservice...${NC}"
 cd opencv-service
-if start_service "npm run dev" "OpenCV Service" "../opencv-service.log" "../opencv-service.pid"; then
+if start_service "python app.py" "OpenCV Service" "../opencv-service.log" "../opencv-service.pid"; then
     echo -e "${GREEN}✓ OpenCV Microservice started${NC}"
 else
     echo -e "${RED}✗ OpenCV Microservice failed to start${NC}"
@@ -169,3 +169,47 @@ echo -e "${BLUE}💡 To stop all services:${NC}"
 echo -e "${YELLOW}   ./start-all-services.sh stop${NC}"
 echo -e "${YELLOW}   Or kill PID files in logs directory${NC}"
 echo ""
+
+# Stop services function
+elif [ "$1" = "stop" ]; then
+    echo -e "${BLUE}Stopping all services...${NC}"
+
+    # Stop frontend
+    if [ -f "frontend.pid" ]; then
+        FRONTEND_PID=$(cat frontend.pid)
+        if kill -0 $FRONTEND_PID 2>/dev/null; then
+            kill $FRONTEND_PID
+            rm -f frontend.pid
+            echo -e "${GREEN}✓ Frontend stopped${NC}"
+        else
+            echo -e "${YELLOW}⚠ Frontend was not running${NC}"
+        fi
+    fi
+
+    # Stop main server
+    if [ -f "server.pid" ]; then
+        SERVER_PID=$(cat server.pid)
+        if kill -0 $SERVER_PID 2>/dev/null; then
+            kill $SERVER_PID
+            rm -f server.pid
+            echo -e "${GREEN}✓ Main server stopped${NC}"
+        else
+            echo -e "${YELLOW}⚠ Main server was not running${NC}"
+        fi
+    fi
+
+    # Stop OpenCV service
+    if [ -f "opencv-service.pid" ]; then
+        OPENCV_PID=$(cat opencv-service.pid)
+        if kill -0 $OPENCV_PID 2>/dev/null; then
+            kill $OPENCV_PID
+            rm -f opencv-service.pid
+            echo -e "${GREEN}✓ OpenCV service stopped${NC}"
+        else
+            echo -e "${YELLOW}⚠ OpenCV service was not running${NC}"
+        fi
+    fi
+
+    echo -e "${GREEN}🎉 All services stopped${NC}"
+    exit 0
+fi

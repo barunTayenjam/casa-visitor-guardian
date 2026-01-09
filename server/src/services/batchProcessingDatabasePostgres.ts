@@ -258,27 +258,36 @@ export class BatchProcessingDatabasePostgres {
   }
 
   // Processed image management methods
-  async isImageProcessed(fileHash: string): Promise<boolean> {
+  async isImageProcessed(fileHash: string, jobId: string): Promise<boolean> {
     await this.ensureInitialized();
     
-    const query = 'SELECT COUNT(*) as count FROM processed_images WHERE file_hash = $1';
-    const result = await this.dataSource.query(query, [fileHash]);
+    // Check if this exact image was processed in this specific job
+    // This prevents cross-job deduplication collisions
+    const query = 'SELECT COUNT(*) as count FROM processed_images WHERE file_hash = $1 AND job_id = $2';
+    const result = await this.dataSource.query(query, [fileHash, jobId]);
     
     return (result[0]?.count || 0) > 0;
   }
 
-  async addProcessedImage(imageData: Omit<ProcessedImage, 'processed_at'>): Promise<string> {
+  async addProcessedImage(imageData: Omit<ProcessedImage, 'processed_at'>, checkDuplicates: boolean = false): Promise<string> {
     await this.ensureInitialized();
 
     const processedAt = new Date().toISOString();
+    const conflictClause = checkDuplicates ? 
+      `ON CONFLICT (file_hash) DO NOTHING` : 
+      `ON CONFLICT (file_hash) DO UPDATE SET 
+        processed_at = EXCLUDED.processed_at, 
+        status = EXCLUDED.status,
+        error_message = COALESCE(processed_images.error_message, 'Skipped: duplicate in current job')`;
+    
     const query = `
       INSERT INTO processed_images (
         id, job_id, filename, file_path, camera_id, image_timestamp,
         file_size, processed_at, person_count, face_count, known_face_count,
         unknown_face_count, processing_time_ms, status, error_message,
         detection_json, file_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-      ON CONFLICT (file_hash) DO NOTHING
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ${conflictClause}
     `;
 
     await this.dataSource.query(query, [

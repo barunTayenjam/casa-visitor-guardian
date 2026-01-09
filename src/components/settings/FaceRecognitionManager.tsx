@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ export const FaceRecognitionManager = () => {
   const [newName, setNewName] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const loadPersons = async () => {
+  const loadPersons = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.getKnownPersons();
@@ -38,11 +38,11 @@ export const FaceRecognitionManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadPersons();
-  }, []);
+  }, [loadPersons]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {

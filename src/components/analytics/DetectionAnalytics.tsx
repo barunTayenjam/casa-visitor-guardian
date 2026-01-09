@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,12 +72,7 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<'detections' | 'confidence' | 'accuracy'>('detections');
 
-  // Load analytics data
-  useEffect(() => {
-    loadAnalyticsData();
-  }, [timeRange]);
-
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = useCallback(async () => {
     setIsLoading(true);
     try {
       let stats: DetectionStats | null = null;
@@ -154,7 +149,12 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Load analytics data
+  useEffect(() => {
+    loadAnalyticsData();
+  }, [loadAnalyticsData, timeRange]);
 
   const exportAnalytics = async () => {
     try {

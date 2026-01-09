@@ -19,17 +19,17 @@ export const SecuritySidebar = () => {
       icon: MonitorCog,
     },
     {
-      title: 'Events',
-      href: '/app/events',
-      icon: Bell,
+      title: 'Gallery',
+      href: '/app/gallery',
+      icon: Activity,
     },
     {
-      title: 'OpenCV Detection',
+      title: 'Detection',
       href: '/app/opencv',
       icon: Eye,
     },
     {
-      title: '🔍 Batch Detection',
+      title: 'Batch Detection',
       href: '/app/batch-detection',
       icon: Layers,
     },

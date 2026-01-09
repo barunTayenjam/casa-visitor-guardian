@@ -23,7 +23,9 @@
     "test:setup": "jest --testPathPatterns=setup.test.ts",
     "test:services": "jest --testPathPattern=services/*.test.ts",
     "test:utils": "jest --testPathPattern=utils/*.test.ts",
-    "test:all": "jest --coverage"
+    "test:all": "jest --coverage",
+    "docker:dev": "docker-compose -f ../docker-compose.dev.yml up frontend --build",
+    "docker:dev:logs": "docker-compose -f ../docker-compose.dev.yml logs -f frontend"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -64,7 +64,7 @@ export const config: AppConfig = {
   jwtSecret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   database: {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || '172.26.0.3',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'sentryvision',
     username: process.env.DB_USER || process.env.DB_USERNAME,

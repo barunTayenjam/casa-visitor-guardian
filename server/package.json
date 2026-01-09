@@ -10,7 +10,12 @@
     "dev:old": "nodemon --exec node --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts",
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
-    "init-batch-db": "tsx scripts/init-batch-db.js"
+    "init-batch-db": "tsx scripts/init-batch-db.js",
+    "batch-process": "tsx scripts/runBatchProcessing.ts",
+    "add-test-detections": "tsx scripts/addTestDetectionData.ts",
+    "detect-from-files": "tsx scripts/detectFromFiles.ts",
+    "docker:dev": "docker-compose -f ../docker-compose.dev.yml up backend --build",
+    "docker:dev:logs": "docker-compose -f ../docker-compose.dev.yml logs -f backend"
   },
   "dependencies": {
     "@techstark/opencv-js": "^4.12.0-release.1",

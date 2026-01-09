@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './User.js';
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('user_sessions')
 @Index(['userId'])
@@ -12,9 +11,8 @@ export class UserSession {
   @Column({ type: 'uuid' })
   userId!: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user!: User;
+  // No ManyToOne decorator to avoid circular dependency with User model
+  // The relationship is defined in User.ts
 
   @Column({ type: 'varchar', length: 255, unique: true })
   refreshToken!: string;

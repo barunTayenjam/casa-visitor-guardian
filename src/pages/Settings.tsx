@@ -14,24 +14,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Loader2,
-  RefreshCw,
-  Download,
-  Trash2
+  Loader2
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import apiService, { ApiError } from '@/services/ApiService';
 import { SystemSettings } from '@/types/security';
 import { FaceRecognitionManager } from '@/components/settings/FaceRecognitionManager';
-
-// Interfaces for system data
-interface LogEntry {
-  timestamp: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  source?: string;
-}
 
 const Settings = () => {
   const { toast } = useToast();
@@ -53,24 +40,14 @@ const Settings = () => {
       maxStorageGB: 0,
       autoCleanup: false,
       compressionEnabled: false,
-      compressionQuality: 0,
     },
     notifications: {
       emailEnabled: false,
       emailAddress: '',
       pushEnabled: false,
       pushSoundEnabled: false,
-      quietHoursEnabled: false,
-      quietHoursStart: '',
-      quietHoursEnd: '',
     },
   });
-
-  // Logging and diagnostics state
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [autoRefreshLogs, setAutoRefreshLogs] = useState(false);
-  const [logLevel, setLogLevel] = useState<'all' | 'info' | 'warn' | 'error' | 'debug'>('all');
 
   const loadSettings = useCallback(async () => {
     setIsLoadingSettings(true);
@@ -86,105 +63,9 @@ const Settings = () => {
     }
   }, []);
 
-  // Load logs
-  const loadLogs = useCallback(async () => {
-    setIsLoadingLogs(true);
-    try {
-      const logs = await apiService.getSystemLogs(logLevel === 'all' ? undefined : logLevel, 50);
-      setLogs(logs as LogEntry[]);
-    } catch (error) {
-      console.error('Failed to load logs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load system logs',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingLogs(false);
-    }
-  }, [logLevel, toast]);
-
-  // Clear logs
-  const clearLogs = async () => {
-    try {
-      await apiService.clearSystemLogs();
-      setLogs([]);
-      toast({
-        title: 'Logs cleared',
-        description: 'All system logs have been cleared.',
-      });
-    } catch (error) {
-      console.error('Failed to clear logs:', error);
-      // Still clear local logs even if API fails
-      setLogs([]);
-      toast({
-        title: 'Warning',
-        description: 'Local logs cleared, but backend clear may have failed',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Download logs
-  const downloadLogs = () => {
-    const logText = logs.map(log => 
-      `[${log.timestamp}] [${log.level.toUpperCase()}] [${log.source || 'SYSTEM'}] ${log.message}`
-    ).join('\n');
-    
-    const blob = new Blob([logText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `system-logs-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: 'Logs downloaded',
-      description: 'System logs have been downloaded successfully.',
-    });
-  };
-
-  // Filter logs based on level
-  const filteredLogs = logs.filter(log => 
-    logLevel === 'all' || log.level === logLevel
-  );
-
-
-  // Get log level badge color
-  const getLogLevelColor = (level: string) => {
-    switch (level) {
-      case 'error':
-        return 'destructive';
-      case 'warn':
-        return 'secondary';
-      case 'info':
-        return 'default';
-      case 'debug':
-        return 'outline';
-      default:
-        return 'default';
-    }
-  };
-
-  // Load data on component mount
   useEffect(() => {
     loadSettings();
-    loadLogs();
-  }, [loadSettings, loadLogs]);
-
-  // Auto-refresh logs
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefreshLogs) {
-      interval = setInterval(loadLogs, 5000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefreshLogs, loadLogs]);
+  }, [loadSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -212,7 +93,7 @@ const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">
-          Configure your security system preferences and monitor system health.
+          Configure your security system preferences.
         </p>
       </div>
 
@@ -232,7 +113,6 @@ const Settings = () => {
             <TabsTrigger value="detection">Detection</TabsTrigger>
             <TabsTrigger value="storage">Storage</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="logs">System Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-4">
@@ -305,7 +185,6 @@ const Settings = () => {
                   <Switch
                     checked={systemSettings.general.autoBackup}
                     onCheckedChange={(checked) => {
-                      // For now, this is a placeholder - would need proper state management
                       console.log('Auto detect objects:', checked);
                     }}
                   />
@@ -321,7 +200,6 @@ const Settings = () => {
                   <Switch
                     checked={systemSettings.general.autoBackup}
                     onCheckedChange={(checked) => {
-                      // For now, this is a placeholder - would need proper state management
                       console.log('Auto detect faces:', checked);
                     }}
                   />
@@ -351,21 +229,21 @@ const Settings = () => {
                 <div className="space-y-2 pt-4 border-t">
                   <h4 className="font-semibold">Detection Information</h4>
                   <p className="text-sm text-muted-foreground">
-                    Automatic detection runs when motion is detected and saves results directly to events.
-                    This provides a unified view of all detection data in the Gallery.
+                    Automatic detection runs when motion is detected and saves results directly to Gallery.
+                    This provides a unified view of all detection data.
                   </p>
                   <div className="grid gap-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">Persons</Badge>
-                      <span className="text-muted-foreground">Detected in motion frames</span>
+                      <div className="w-4 h-4 rounded bg-blue-500"></div>
+                      <span className="text-muted-foreground">Persons</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">Faces</Badge>
-                      <span className="text-muted-foreground">Recognized/Unknown faces</span>
+                      <div className="w-4 h-4 rounded bg-green-500"></div>
+                      <span className="text-muted-foreground">Faces</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">Objects</Badge>
-                      <span className="text-muted-foreground">Objects detected in scene</span>
+                      <div className="w-4 h-4 rounded bg-purple-500"></div>
+                      <span className="text-muted-foreground">Objects</span>
                     </div>
                   </div>
                 </div>
@@ -467,89 +345,6 @@ const Settings = () => {
                     onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, notifications: { ...prev.notifications, pushEnabled: checked } }))}
                   />
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="logs" className="space-y-4">
-            {/* System Logs */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>System Logs</CardTitle>
-                    <CardDescription>
-                      Real-time system logs and activity monitoring
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="autoRefresh" className="text-sm">Auto-refresh</Label>
-                      <Switch
-                        id="autoRefresh"
-                        checked={autoRefreshLogs}
-                        onCheckedChange={setAutoRefreshLogs}
-                      />
-                    </div>
-                    <Select value={logLevel} onValueChange={(value: 'all' | 'info' | 'warn' | 'error' | 'debug') => setLogLevel(value)}>
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="error">Error</SelectItem>
-                        <SelectItem value="warn">Warn</SelectItem>
-                        <SelectItem value="info">Info</SelectItem>
-                        <SelectItem value="debug">Debug</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="sm" onClick={downloadLogs}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearLogs}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={loadLogs} disabled={isLoadingLogs}>
-                      {isLoadingLogs ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-96 w-full border rounded-lg p-4">
-                  {filteredLogs.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-muted-foreground">
-                      No logs available
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {filteredLogs.map((log, index) => (
-                        <div key={index} className="flex items-start gap-3 text-sm">
-                          <Badge variant={getLogLevelColor(log.level)} className="text-xs">
-                            {log.level.toUpperCase()}
-                          </Badge>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-muted-foreground text-xs">
-                                {new Date(log.timestamp).toLocaleTimeString()}
-                              </span>
-                              {log.source && (
-                                <span className="text-muted-foreground text-xs">
-                                  [{log.source}]
-                                </span>
-                              )}
-                            </div>
-                            <p className="break-words">{log.message}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
               </CardContent>
             </Card>
           </TabsContent>

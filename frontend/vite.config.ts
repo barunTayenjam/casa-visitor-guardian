@@ -28,6 +28,18 @@ export default defineConfig({
         secure: false,
         ws: true,
       },
+      "/batch": {
+        target: process.env.VITE_BACKEND_URL || "http://backend:8082",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/batch/, "/api/batch"),
+      },
+      "/detection": {
+        target: process.env.VITE_BACKEND_URL || "http://backend:8082",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/detection/, "/api/detection"),
+      },
     },
   },
   plugins: [

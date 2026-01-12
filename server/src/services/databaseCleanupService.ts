@@ -10,7 +10,7 @@ export class DatabaseCleanupService {
     return DatabaseCleanupService.instance;
   }
 
-  async startScheduledCleanup(): void {
+  async startScheduledCleanup(): Promise<void> {
     setInterval(async () => {
       await this.cleanupOldRecords();
     }, 60 * 60 * 1000);

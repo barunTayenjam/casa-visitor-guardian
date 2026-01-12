@@ -145,67 +145,58 @@ export class StreamManager {
       }
 
       // Prepare optimized ffmpeg arguments for the camera stream
-      // These settings are tuned for better reliability and performance
+      // These settings are tuned for good quality with balanced CPU usage
       const ffmpegArgs = [
         "-loglevel",
-        "debug", // Increased logging for debugging
+        "error", // Reduced logging to minimize overhead
         // Use TCP for RTSP as it's much more reliable than UDP
         "-rtsp_transport",
         "tcp",
-        // Set timeout for connection (10 seconds = 10,000,000 microseconds)
-        // Increased from 3s to handle slower networks and initialization
+        // Set timeout for connection (5 seconds = 5,000,000 microseconds)
         "-timeout",
-        "10000000",
-
+        "5000000",
         // Error tolerance flags
         "-err_detect",
         "ignore_err",
         "-fflags",
-        "+discardcorrupt",
-
-        // More aggressive keyframe seeking to improve startup
-        "-flags",
-        "low_delay",
-        // Set maximum delay for better synchronization
+        "+discardcorrupt+genpts+genpts",
+        // Allow buffering to reduce CPU spikes
         "-max_delay",
-        "300000",
-        // Probing and analysis settings
-        // Increased probesize for better compatibility with unreliable streams
+        "1000000",
+        // Probing and analysis settings - reduced for faster startup
         "-probesize",
-        "5000000", // 5MB (increased from 64KB for better stream detection)
-        // Analyze duration - balance between startup speed and reliability
+        "32768", // 32KB (reduced from 5MB for faster connection)
         "-analyzeduration",
-        "3000000", // 3 seconds (increased from 1s for better codec detection)
-        "-re", // Force reading input at the native frame rate
-        // Set input frame rate to control the stream rate before processing
-        "-r",
-        "5",
-        // Input source
+        "500000", // 0.5 seconds (reduced from 3s for better codec detection)
+        // Input source - request fewer frames from camera to reduce processing
         "-i",
         rtspUrl,
         // Output format as image pipe for streaming
         "-f",
-        "mjpeg", // Explicitly set output format to MJPEG
+        "mjpeg",
         "-pix_fmt",
         "yuvj420p",
         "-vcodec",
         "mjpeg",
-        // Set high quality (lower value = higher quality, range 1-31)
+        // Quality settings - balanced for quality and CPU (lower q:v = better quality)
         "-q:v",
-        "3",
-        // Set output frameRate to 5 FPS to prevent flickering
+        "5", // High quality (range 1-31, 1=best)
+        // Use 8 threads for parallel processing (HD encoding needs more CPU)
+        "-threads",
+        "8",
+        // Set output frameRate to 5 FPS for HD quality
         "-r",
         "5",
-        // Apply scaling and night mode filter if needed
+        // Apply scaling with good quality algorithm and night mode filter if needed
         "-vf",
         camera.nightMode
-          ? "scale=854:480,eq=gamma=1.5:contrast=1.2:brightness=0.2"
-          : "scale=854:480",
+          ? "scale=1280:720,eq=gamma=1.5:contrast=1.2:brightness=0.2"
+          : "scale=1280:720",
         // Output pipe
         "pipe:1",
       ];
 
-      console.log(`*** CAMERA ${cameraId} STARTING STREAM WITH FRAME RATE: ${camera.frameRate} FPS ***`);
+      console.log(`*** CAMERA ${cameraId} STARTING OPTIMIZED STREAM (5 FPS, 1280x720, q:v 5, 8 threads) ***`);
       // FFMPEG command log disabled - logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
 
       // Reset retry count on successful connection attempt start
@@ -254,8 +245,7 @@ export class StreamManager {
         let endMarkerPos = -1;
         let frameCount = 0;
 
-        // Add frame rate limiting to prevent overwhelming the frontend
-        // Force to 5 FPS to prevent flickering
+        // Frame rate limiting for consistent output
         const FRAME_RATE_LIMIT = 5;
         const FRAME_INTERVAL = 1000 / FRAME_RATE_LIMIT; // milliseconds between frames
         if (frameCount === 1) { // Log only for first frame to avoid spam

@@ -15,13 +15,7 @@ import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { FindManyOptions } from 'typeorm';
 import { config } from '../config/index.js';
-// Use global detection services initialized in main server file
-// import { getMotionDetector as getGlobalMotionDetector } from '../detection/simpleMotionDetection.js';
-// import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetection.js';
-// import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognition.js';
-// Using global variables set up in index.ts
-import { getObjectDetectionService as getGlobalObjectDetectionService } from '../detection/objectDetectionOpenCV.js';
-import { getFacialRecognitionService as getGlobalFacialRecognitionService } from '../detection/facialRecognitionOpenCV.js';
+import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
@@ -2443,7 +2437,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Use facialRecognitionService for face recognition
       const facialRecognitionService = getFacialRecognitionService();
-      const { faces } = await facialRecognitionService.recognizeFaces(cameraId, currentFrame);
+      const { faces } = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
       
       if (faces && faces.length > 0) {
         // Emit face detection event
@@ -2491,7 +2485,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get person detection settings
   app.get('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
-      const objectDetectionService = getGlobalObjectDetectionService();
+      const objectDetectionService = consolidatedDetectionService();
       const settings = objectDetectionService.getSettings('default');
       res.json({ success: true, settings });
     } catch (error) {
@@ -2529,7 +2523,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
       const { minConfidence, maxDetections, targetClasses } = req.body;
-      const objectDetectionService = getGlobalObjectDetectionService();
+      const objectDetectionService = consolidatedDetectionService();
       const updated = objectDetectionService.updateSettings('default', {
         minConfidence: minConfidence || 0.5,
         maxDetections: maxDetections || 10,
@@ -2546,7 +2540,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get facial recognition settings
   app.get('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
-      const facialRecognitionService = getGlobalFacialRecognitionService();
+      const facialRecognitionService = consolidatedDetectionService();
       const settings = facialRecognitionService.getSettings();
       res.json({ success: true, settings });
     } catch (error) {
@@ -2559,7 +2553,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
       const { recognitionThreshold, minFaceSize, livenessDetection } = req.body;
-      const facialRecognitionService = getGlobalFacialRecognitionService();
+      const facialRecognitionService = consolidatedDetectionService();
       const updated = facialRecognitionService.updateSettings({
         recognitionThreshold: recognitionThreshold || 0.6,
         minFaceSize: minFaceSize || 48,
@@ -2576,7 +2570,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get known persons
   app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
     try {
-      const facialRecognitionService = getGlobalFacialRecognitionService();
+      const facialRecognitionService = consolidatedDetectionService();
       const persons = await facialRecognitionService.getKnownPersons();
       res.json({ success: true, persons });
     } catch (error) {
@@ -2595,7 +2589,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'Name and image file are required' });
       }
       
-      const facialRecognitionService = getGlobalFacialRecognitionService();
+      const facialRecognitionService = consolidatedDetectionService();
       const personName = await facialRecognitionService.addKnownPerson(name, file.buffer);
       
       res.json({ 
@@ -2743,15 +2737,15 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Run person detection if enabled
       if (enablePersonDetection) {
-        const objectDetectionService = getGlobalObjectDetectionService();
+        const objectDetectionService = consolidatedDetectionService();
         const personResult = await objectDetectionService.detectObjects(cameraId, currentFrame);
         analysisResults.persons = personResult.detections.filter((d) => d.class === 'person');
       }
 
       // Run face detection if enabled
       if (enableFaceDetection) {
-        const facialRecognitionService = getGlobalFacialRecognitionService();
-        const faceResult = await facialRecognitionService.recognizeFaces(cameraId, currentFrame);
+        const facialRecognitionService = consolidatedDetectionService();
+        const faceResult = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
         analysisResults.faces = faceResult.faces;
       }
       
@@ -2964,10 +2958,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           }
 
           // Run object detection
-          const detectionResult = await openCVClient.detectObjects(imagePath);
+          const detectionResult = await consolidatedDetectionService.detectObjects(imagePath);
           
           // Run face recognition
-          const faceResult = await openCVClient.recognizeFaces(imagePath);
+          const faceResult = await consolidatedDetectionService.detectFaces(imagePath);
           
           results.push({
             eventId: event.id,

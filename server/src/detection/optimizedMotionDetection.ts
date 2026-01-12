@@ -5,8 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
 import { EventEmitter } from 'node:events';
-import { ObjectDetectionService, DetectionResult } from './objectDetectionOpenCV.js';
-import { FacialRecognitionService, FaceDetection } from './facialRecognitionOpenCV.js';
+import { consolidatedDetectionService, DetectionResult, FaceDetection } from './consolidatedDetectionService.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
@@ -499,9 +498,9 @@ export class OptimizedMotionDetector extends EventEmitter {
       } else {
         // Fallback to global services if detection service not available
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const objectDetectionService = (global as any).objectDetectionService as ObjectDetectionService;
+        const objectDetectionService = consolidatedDetectionService;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const facialRecognitionService = (global as any).facialRecognitionService as FacialRecognitionService;
+        const facialRecognitionService = consolidatedDetectionService;
         
         // Run person detection if available
         if (objectDetectionService) {
@@ -524,7 +523,7 @@ export class OptimizedMotionDetector extends EventEmitter {
         // Run face detection if available
         if (facialRecognitionService) {
           try {
-            const faceResult = await facialRecognitionService.recognizeFaces(cameraId, frame);
+            const faceResult = await consolidatedDetectionService.detectFaces(cameraId, frame);
             
             if (faceResult && faceResult.faces) {
               if (faceResult.faces.length > 0) {

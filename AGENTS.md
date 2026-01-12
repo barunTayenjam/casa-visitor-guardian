@@ -8,7 +8,7 @@ SentryVision is a comprehensive home security system with real-time camera strea
 
 ## Architecture
 
-### Frontend (`/src`)
+### Frontend (`/frontend/src`)
 - React 18 with TypeScript
 - Vite for build tooling
 - TailwindCSS + Radix UI components
@@ -22,13 +22,20 @@ SentryVision is a comprehensive home security system with real-time camera strea
 - PostgreSQL with TypeORM
 - Socket.io for real-time communication
 - FFmpeg for RTSP stream processing
-- OpenCV for motion detection and facial recognition
+- Python OpenCV service for motion detection and facial recognition (via HTTP)
 - JWT authentication with MFA support
 
 ### Database (`/database`)
 - PostgreSQL with migration system
 - Comprehensive user management with roles
 - Audit trails and session tracking
+
+### Python OpenCV Service (`/opencv-service`)
+- Python Flask server with native OpenCV
+- YOLO-based object detection
+- Face recognition with embeddings
+- Runs on port 8084
+- Accessed via HTTP from Node.js backend
 
 ## Essential Commands
 
@@ -103,12 +110,12 @@ createdb sentryvision
 ## Code Organization
 
 ### Frontend Structure
-- `/src/components` - Reusable UI components
-- `/src/pages` - Route-level page components
-- `/src/contexts` - React context providers
-- `/src/services` - API service layer
-- `/src/types` - TypeScript type definitions
-- `/src/hooks` - Custom React hooks
+- `/frontend/src/components` - Reusable UI components
+- `/frontend/src/pages` - Route-level page components
+- `/frontend/src/contexts` - React context providers
+- `/frontend/src/services` - API service layer
+- `/frontend/src/types` - TypeScript type definitions
+- `/frontend/src/hooks` - Custom React hooks
 
 ### Backend Structure
 - `/server/src/routes` - Express route handlers
@@ -124,7 +131,7 @@ createdb sentryvision
 ### Frontend Tests
 - Jest for unit/integration tests
 - Test files follow `*.test.ts` pattern
-- Test setup in `/src/tests/setup.ts`
+- Test setup in `/frontend/src/tests/setup.ts`
 
 ### Backend Tests
 - Jest with Supertest for API testing
@@ -145,9 +152,9 @@ createdb sentryvision
 ## Key Configuration Files
 
 ### Frontend
-- `vite.config.ts` - Build configuration and proxy setup
-- `tailwind.config.ts` - TailwindCSS configuration
-- `components.json` - shadcn/ui component configuration
+- `frontend/vite.config.ts` - Build configuration and proxy setup
+- `frontend/tailwind.config.ts` - TailwindCSS configuration
+- `frontend/components.json` - shadcn/ui component configuration
 
 ### Backend
 - `server/.env.example` - Environment variable template
@@ -223,8 +230,8 @@ Key tables:
 
 ## Common Gotchas
 
-1. **Port Conflicts**: Ensure ports 5173 and 9753 are available
-2. **OpenCV Dependencies**: Required for motion detection functionality
+1. **Port Conflicts**: Ensure ports 5173, 9753, and 8084 (OpenCV service) are available
+2. **Python OpenCV**: Required for motion detection functionality (runs in Docker on port 8084)
 3. **FFmpeg Installation**: Required for RTSP stream processing
 4. **Database Setup**: PostgreSQL must be running before migrations
 5. **File Permissions**: Ensure write permissions for snapshots and events directories
@@ -255,7 +262,7 @@ Key tables:
 
 ## Adding New Features
 
-1. **Frontend Components**: Follow shadcn/ui patterns in `/src/components/ui`
+1. **Frontend Components**: Follow shadcn/ui patterns in `/frontend/src/components/ui`
 2. **API Endpoints**: Add to appropriate route files in `/server/src/routes`
 3. **Database Models**: Create new TypeORM entities in `/server/src/models`
 4. **Tests**: Add corresponding tests for new functionality

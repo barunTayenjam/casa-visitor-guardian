@@ -2,8 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Server as SocketIOServer } from 'socket.io';
-import { ObjectDetectionService } from '../detection/objectDetectionOpenCV.js';
-import { FacialRecognitionService } from '../detection/facialRecognitionOpenCV.js';
+import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +26,7 @@ export class EventImageClassifier {
   private jobs: Map<string, ClassificationJob> = new Map();
   private socket: SocketIOServer | null = null;
 
-  constructor(private objectDetectionService: ObjectDetectionService, private facialRecognitionService: FacialRecognitionService) {}
+  constructor() {}
 
   setSocketServer(socket: SocketIOServer) {
     this.socket = socket;
@@ -85,35 +84,23 @@ export class EventImageClassifier {
 
           // Run person detection if requested
           if (options.classifyPerson) {
-            // Check if object detection service is ready
-            if (this.objectDetectionService.isReady()) {
-              const personResult = await this.objectDetectionService.detectObjects('batch', imageBuffer);
-              if (personResult && personResult.detections) {
-                result.detections.push(...personResult.detections.map(d => ({
-                  ...d,
-                  type: 'person'
-                })));
-              }
-            } else {
-              console.warn('Object detection service not ready, skipping person detection for', file);
-              job.errors.push(`Object detection model not ready for ${file}`);
+            const personResult = await consolidatedDetectionService.detectObjects('batch', imageBuffer);
+            if (personResult && personResult.detections) {
+              result.detections.push(...personResult.detections.map(d => ({
+                ...d,
+                type: 'person'
+              })));
             }
           }
 
           // Run face detection if requested
           if (options.classifyFace) {
-            // Check if facial recognition service is ready
-            if (this.facialRecognitionService.isReady()) {
-              const faceResult = await this.facialRecognitionService.recognizeFaces('batch', imageBuffer);
-              if (faceResult && faceResult.faces) {
-                result.detections.push(...faceResult.faces.map(f => ({
-                  ...f,
-                  type: 'face'
-                })));
-              }
-            } else {
-              console.warn('Facial recognition service not ready, skipping face detection for', file);
-              job.errors.push(`Facial recognition model not ready for ${file}`);
+            const faceResult = await consolidatedDetectionService.detectFaces('batch', imageBuffer);
+            if (faceResult && faceResult.faces) {
+              result.detections.push(...faceResult.faces.map(f => ({
+                ...f,
+                type: 'face'
+              })));
             }
           }
 

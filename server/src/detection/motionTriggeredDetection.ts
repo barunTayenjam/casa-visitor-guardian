@@ -2,9 +2,10 @@ import { EventEmitter } from 'events';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import OpenCVProcessor from './opencvProcessor.js';
 import { DetectionResult, ObjectDetectionSettings } from './objectDetection.js';
 import sharp from 'sharp';
+import axios from 'axios';
+import { getOpenCVServiceUrl } from '../config/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,9 +210,15 @@ export class MotionTriggeredDetection extends EventEmitter {
       }
       this.motionFrameQueue.get(cameraId)!.push(framePath);
 
-      // Run full detection using OpenCV
-      const imageMat = await OpenCVProcessor.bufferToMat(frame);
-      const detections = await this.performObjectDetection(imageMat);
+      // Run full detection using OpenCV service
+      const response = await axios.post(`${getOpenCVServiceUrl()}/detect`, frame, {
+        headers: {
+          'Content-Type': 'image/jpeg'
+        },
+        timeout: 30000
+      });
+      
+      const detections = response.data.detections;
       
       // Calculate event metadata
       const personCount = detections.filter(d => d.class === 'person').length;
@@ -255,8 +262,7 @@ export class MotionTriggeredDetection extends EventEmitter {
         this.cleanupOldFrames(oldFrames);
       }
 
-      // Cleanup OpenCV resources
-      OpenCVProcessor.cleanup(imageMat);
+      // No OpenCV resources to cleanup - handled by the service
 
     } catch (error) {
       console.error(`Full detection failed for ${cameraId}:`, error);
@@ -266,33 +272,7 @@ export class MotionTriggeredDetection extends EventEmitter {
     }
   }
 
-  /**
-   * Perform object detection using OpenCV
-   */
-  private async performObjectDetection(imageMat: any): Promise<DetectionResult[]> {
-    const detections: DetectionResult[] = [];
-
-    try {
-      // Use HOG people detector
-      const peopleDetections = await OpenCVProcessor.detectPeople(imageMat);
-      
-      for (const person of peopleDetections) {
-        detections.push({
-          class: 'person',
-          confidence: person.confidence,
-          boundingBox: person.bbox
-        });
-      }
-
-      // Could add other detectors here (vehicles, etc.)
-
-      return detections.filter(d => d.confidence > 0.5); // Filter low confidence
-
-    } catch (error) {
-      console.error('Object detection error:', error);
-      return [];
-    }
-  }
+  // Object detection is now handled via HTTP requests to the opencv service
 
   /**
    * Save motion-detected frame
@@ -308,8 +288,6 @@ export class MotionTriggeredDetection extends EventEmitter {
 
     const filename = `motion_${cameraId}_${Date.now()}.jpg`;
     const filepath = path.join(eventsDir, filename);
-
-    await fs.promises.writeFile(filepath, frame);
 
     // Index the file in the database
     try {
@@ -359,7 +337,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       // Continue execution even if database indexing fails
     }
 
-    return `/events/${filename}`;
+    return `/api/events/image/${filename}`;
   }
 
   /**

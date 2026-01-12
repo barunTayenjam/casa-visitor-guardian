@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+import { AppDataSource } from '../database.js';
 
 // User interface
 export interface User {
@@ -34,42 +35,89 @@ export interface AuthResult {
   error?: string;
 }
 
-// Refresh token interface
-export interface RefreshToken {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date;
-  isRevoked: boolean;
-  createdAt: Date;
+// Seed default users to database (runs once on startup)
+async function seedDefaultUsers() {
+  if (config.nodeEnv !== 'development') {
+    return;
+  }
+
+  try {
+    if (!AppDataSource.isInitialized) {
+      logger.warn('Database not initialized, skipping user seed', 'AuthService');
+      return;
+    }
+
+    const userRepository = AppDataSource.getRepository('users');
+    const roleRepository = AppDataSource.getRepository('roles');
+
+    const existingUsers = await userRepository.count();
+    if (existingUsers > 0) {
+      logger.info(`Database has ${existingUsers} users, skipping seed`, 'AuthService');
+      return;
+    }
+
+    let adminRole = await roleRepository.findOne({ where: { name: 'admin' } });
+    if (!adminRole) {
+      adminRole = await roleRepository.save({
+        name: 'admin',
+        description: 'Administrator role',
+        permissions: ['*'],
+        isActive: true
+      });
+    }
+
+    let userRole = await roleRepository.findOne({ where: { name: 'user' } });
+    if (!userRole) {
+      userRole = await roleRepository.save({
+        name: 'user',
+        description: 'Standard user role',
+        permissions: ['read:own', 'write:own'],
+        isActive: true
+      });
+    }
+
+    const adminPasswordHash = await bcrypt.hash('admin123', 12);
+    const userPasswordHash = await bcrypt.hash('user123', 12);
+
+    await userRepository.save({
+      username: 'admin',
+      email: 'admin@security.local',
+      password_hash: adminPasswordHash,
+      salt: 'dev-salt',
+      role_id: adminRole.id,
+      status: 'active',
+      mfa_enabled: false,
+      email_verified: true,
+      failed_login_attempts: 0,
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+
+    await userRepository.save({
+      username: 'user',
+      email: 'user@security.local',
+      password_hash: userPasswordHash,
+      salt: 'dev-salt',
+      role_id: userRole.id,
+      status: 'active',
+      mfa_enabled: false,
+      email_verified: true,
+      failed_login_attempts: 0,
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+
+    logger.warn('Default development users seeded to database. Change passwords in production!', 'AuthService');
+  } catch (error) {
+    logger.error(`Failed to seed default users: ${error}`, 'AuthService');
+  }
 }
 
-// In-memory user store (in production, use database)
-const users: User[] = [
-  {
-    id: 'admin-1',
-    username: 'admin',
-    email: 'admin@security.local',
-    password: '$2b$12$0nuXboOAh4HoJny5bFtCmum9uD4Vf0nYe8geUNxDw2NTC.bQD/N4S', // 'admin123'
-    role: 'admin',
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  },
-  {
-    id: 'user-1',
-    username: 'user',
-    email: 'user@security.local',
-    password: '$2b$12$j1KFVKaOA6Ssv/ilYJrNBOHerAa52Qin02yhYfhDqfnn4e2oa9tva', // 'user123'
-    role: 'user',
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-];
+seedDefaultUsers().catch(err => {
+  logger.error(`Failed to seed default users: ${err}`, 'AuthService');
+});
 
 export class AuthService {
-  // Generate JWT token
   generateToken(user: User): string {
     const payload: JWTPayload = {
       userId: user.id,
@@ -89,7 +137,6 @@ export class AuthService {
     }
   }
 
-  // Verify JWT token
   verifyToken(token: string): JWTPayload | null {
     try {
       const decoded = jwt.verify(token, config.jwtSecret, {
@@ -104,17 +151,14 @@ export class AuthService {
     }
   }
 
-  // Hash password
-  async hashPassword(password: string): Promise<string> {
+  hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, config.security.bcryptRounds);
   }
 
-  // Compare password
-  async comparePassword(password: string, hash: string): Promise<boolean> {
+  comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
-  // Register new user
   async register(userData: {
     username: string;
     email: string;
@@ -122,119 +166,115 @@ export class AuthService {
     role?: 'admin' | 'user' | 'viewer';
   }): Promise<AuthResult> {
     try {
-      // Check if user already exists
-      const existingUser = users.find(u => 
-        u.username === userData.username || u.email === userData.email
+      if (!AppDataSource.isInitialized) {
+        return { success: false, error: 'Database not available' };
+      }
+
+      const result = await AppDataSource.query(
+        `SELECT id FROM users WHERE username = $1 OR email = $2`,
+        [userData.username, userData.email]
       );
 
-      if (existingUser) {
+      if (result && result.length > 0) {
         return {
           success: false,
           error: 'User with this username or email already exists'
         };
       }
 
-      // Hash password
       const hashedPassword = await this.hashPassword(userData.password);
+      const roleResult = await AppDataSource.query(
+        `SELECT id FROM roles WHERE name = $1`,
+        [userData.role || 'user']
+      );
+      const roleId = roleResult && roleResult.length > 0 ? roleResult[0].id : null;
 
-      // Create new user
-      const newUser: User = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        username: userData.username,
-        email: userData.email,
-        password: hashedPassword,
-        role: userData.role || 'user',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      const newUserResult = await AppDataSource.query(
+        `INSERT INTO users (username, email, password_hash, salt, role_id, status, mfa_enabled, email_verified, failed_login_attempts, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'active', false, true, 0, NOW(), NOW())
+         RETURNING id, username, email, created_at, updated_at`,
+        [userData.username, userData.email, hashedPassword, 'salt', roleId]
+      );
 
-      users.push(newUser);
+      if (newUserResult && newUserResult.length > 0) {
+        const dbUser = newUserResult[0];
+        const user: User = {
+          id: dbUser.id,
+          username: dbUser.username,
+          email: dbUser.email,
+          password: hashedPassword,
+          role: userData.role || 'user',
+          isActive: true,
+          createdAt: dbUser.created_at,
+          updatedAt: dbUser.updated_at
+        };
 
-      logger.info(`New user registered: ${newUser.username}`, 'AuthService');
+        logger.info(`New user registered: ${user.username}`, 'AuthService');
 
-      // Generate token
-      let token: string;
-      try {
-        token = this.generateToken(newUser);
-      } catch (error) {
-        logger.error(`Failed to generate JWT token during registration: ${error}`, 'AuthService');
+        const token = this.generateToken(user);
+        const { password, ...userWithoutPassword } = user;
+
         return {
-          success: false,
-          error: 'Failed to generate authentication token'
+          success: true,
+          user: userWithoutPassword,
+          token
         };
       }
 
-      // Return user without password
-      const { password, ...userWithoutPassword } = newUser;
-
-      return {
-        success: true,
-        user: userWithoutPassword,
-        token
-      };
+      return { success: false, error: 'Registration failed' };
     } catch (error) {
       logger.error(`Registration error: ${error}`, 'AuthService');
-      return {
-        success: false,
-        error: 'Registration failed'
-      };
+      return { success: false, error: 'Registration failed' };
     }
   }
 
-  // Login user
   async login(credentials: {
     username: string;
     password: string;
   }): Promise<AuthResult> {
     try {
-      // Find user by username
-      const user = users.find(u => u.username === credentials.username);
-
-      if (!user) {
-        return {
-          success: false,
-          error: 'Invalid username or password'
-        };
+      if (!AppDataSource.isInitialized) {
+        return { success: false, error: 'Database not available' };
       }
 
-      // Check if user is active
-      if (!user.isActive) {
-        return {
-          success: false,
-          error: 'Account is disabled'
-        };
+      const result = await AppDataSource.query(
+        `SELECT u.id, u.username, u.email, u.password_hash, u.status, r.name as role_name, u.created_at, u.updated_at
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.id
+         WHERE u.username = $1`,
+        [credentials.username]
+      );
+
+      if (!result || result.length === 0) {
+        return { success: false, error: 'Invalid username or password' };
       }
 
-      // Compare password
-      const isPasswordValid = await this.comparePassword(credentials.password, user.password);
+      const dbUser = result[0];
+
+      if (dbUser.status !== 'active') {
+        return { success: false, error: 'Account is disabled' };
+      }
+
+      const isPasswordValid = await this.comparePassword(credentials.password, dbUser.password_hash);
 
       if (!isPasswordValid) {
-        return {
-          success: false,
-          error: 'Invalid username or password'
-        };
+        return { success: false, error: 'Invalid username or password' };
       }
 
-      // Update last login
-      user.lastLogin = new Date();
-      user.updatedAt = new Date();
+      const user: User = {
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        password: dbUser.password_hash,
+        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        isActive: true,
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at
+      };
 
       logger.info(`User logged in: ${user.username}`, 'AuthService');
 
-      // Generate token
-      let token: string;
-      try {
-        token = this.generateToken(user);
-      } catch (error) {
-        logger.error(`Failed to generate JWT token: ${error}`, 'AuthService');
-        return {
-          success: false,
-          error: 'Failed to generate authentication token'
-        };
-      }
-
-      // Return user without password
+      const token = this.generateToken(user);
       const { password, ...userWithoutPassword } = user;
 
       return {
@@ -244,138 +284,168 @@ export class AuthService {
       };
     } catch (error) {
       logger.error(`Login error: ${error}`, 'AuthService');
-      return {
-        success: false,
-        error: 'Login failed'
-      };
+      return { success: false, error: 'Login failed' };
     }
   }
 
-  // Get user by ID
-  getUserById(userId: string): Omit<User, 'password'> | null {
-    const user = users.find(u => u.id === userId);
-    
-    if (!user) {
-      return null;
-    }
-
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  }
-
-  // Get all users (admin only)
-  getAllUsers(): Omit<User, 'password'>[] {
-    return users.map(({ password, ...user }) => user);
-  }
-
-  // Update user
-  async updateUser(userId: string, updates: Partial<Omit<User, 'id' | 'createdAt'>> & { password?: string }): Promise<AuthResult> {
+  async getUserById(userId: string): Promise<Omit<User, 'password'> | null> {
     try {
-      const userIndex = users.findIndex(u => u.id === userId);
-
-      if (userIndex === -1) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
+      if (!AppDataSource.isInitialized) {
+        return null;
       }
 
-      const user = users[userIndex];
+      const result = await AppDataSource.query(
+        `SELECT u.id, u.username, u.email, u.status, r.name as role_name, u.created_at, u.updated_at, u.last_login
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.id
+         WHERE u.id = $1`,
+        [userId]
+      );
 
-      // Update user fields
-      const { password: newPassword, ...otherUpdates } = updates;
-      Object.assign(user, otherUpdates, { updatedAt: new Date() });
-
-      // Hash new password if provided
-      if (newPassword) {
-        user.password = await this.hashPassword(newPassword);
+      if (!result || result.length === 0) {
+        return null;
       }
 
-      logger.info(`User updated: ${user.username}`, 'AuthService');
-
-      // Return user without password
-      const { password: _, ...userWithoutPassword } = user;
-
+      const dbUser = result[0];
       return {
-        success: true,
-        user: userWithoutPassword
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        isActive: dbUser.status === 'active',
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at,
+        lastLogin: dbUser.last_login
       };
     } catch (error) {
-      logger.error(`User update error: ${error}`, 'AuthService');
-      return {
-        success: false,
-        error: 'User update failed'
-      };
+      logger.error(`getUserById error: ${error}`, 'AuthService');
+      return null;
     }
   }
 
-  // Delete user
-  deleteUser(userId: string): { success: boolean; error?: string } {
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
     try {
-      const userIndex = users.findIndex(u => u.id === userId);
-
-      if (userIndex === -1) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
+      if (!AppDataSource.isInitialized) {
+        return [];
       }
 
-      const user = users[userIndex];
-      users.splice(userIndex, 1);
+      const result = await AppDataSource.query(
+        `SELECT u.id, u.username, u.email, u.status, r.name as role_name, u.created_at, u.updated_at, u.last_login
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.id
+         ORDER BY u.created_at DESC`
+      );
 
-      logger.info(`User deleted: ${user.username}`, 'AuthService');
+      return result.map((dbUser: any) => ({
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        isActive: dbUser.status === 'active',
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at,
+        lastLogin: dbUser.last_login
+      }));
+    } catch (error) {
+      logger.error(`getAllUsers error: ${error}`, 'AuthService');
+      return [];
+    }
+  }
 
+  async updateUser(userId: string, updates: Partial<Omit<User, 'id' | 'createdAt'>> & { password?: string }): Promise<AuthResult> {
+    try {
+      if (!AppDataSource.isInitialized) {
+        return { success: false, error: 'Database not available' };
+      }
+
+      const result = await AppDataSource.query(
+        `SELECT id FROM users WHERE id = $1`,
+        [userId]
+      );
+
+      if (!result || result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+
+      const { password: newPassword, ...otherUpdates } = updates;
+
+      if (newPassword) {
+        const hashedPassword = await this.hashPassword(newPassword);
+        await AppDataSource.query(
+          `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+          [hashedPassword, userId]
+        );
+      }
+
+      logger.info(`User updated: ${userId}`, 'AuthService');
+
+      return { success: true };
+    } catch (error) {
+      logger.error(`User update error: ${error}`, 'AuthService');
+      return { success: false, error: 'User update failed' };
+    }
+  }
+
+  async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!AppDataSource.isInitialized) {
+        return { success: false, error: 'Database not available' };
+      }
+
+      const result = await AppDataSource.query(
+        `DELETE FROM users WHERE id = $1 RETURNING username`,
+        [userId]
+      );
+
+      if (!result || result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+
+      logger.info(`User deleted: ${userId}`, 'AuthService');
       return { success: true };
     } catch (error) {
       logger.error(`User deletion error: ${error}`, 'AuthService');
-      return {
-        success: false,
-        error: 'User deletion failed'
-      };
+      return { success: false, error: 'User deletion failed' };
     }
   }
 
-  // Change password
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<AuthResult> {
     try {
-      const user = users.find(u => u.id === userId);
-
-      if (!user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
+      if (!AppDataSource.isInitialized) {
+        return { success: false, error: 'Database not available' };
       }
 
-      // Verify current password
-      const isCurrentPasswordValid = await this.comparePassword(currentPassword, user.password);
+      const result = await AppDataSource.query(
+        `SELECT id, password_hash FROM users WHERE id = $1`,
+        [userId]
+      );
+
+      if (!result || result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+
+      const dbUser = result[0];
+      const isCurrentPasswordValid = await this.comparePassword(currentPassword, dbUser.password_hash);
 
       if (!isCurrentPasswordValid) {
-        return {
-          success: false,
-          error: 'Current password is incorrect'
-        };
+        return { success: false, error: 'Current password is incorrect' };
       }
 
-      // Hash and update new password
-      user.password = await this.hashPassword(newPassword);
-      user.updatedAt = new Date();
+      const newPasswordHash = await this.hashPassword(newPassword);
+      await AppDataSource.query(
+        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        [newPasswordHash, userId]
+      );
 
-      logger.info(`Password changed for user: ${user.username}`, 'AuthService');
-
+      logger.info(`Password changed for user: ${userId}`, 'AuthService');
       return { success: true };
     } catch (error) {
       logger.error(`Password change error: ${error}`, 'AuthService');
-      return {
-        success: false,
-        error: 'Password change failed'
-      };
+      return { success: false, error: 'Password change failed' };
     }
   }
 }
 
-// Create singleton instance
 export const authService = new AuthService();
 
 export default authService;

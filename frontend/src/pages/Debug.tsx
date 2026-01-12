@@ -11,6 +11,21 @@ import { useSocketContext } from '@/contexts/SocketContext';
 import { useCameras } from '@/contexts/CameraContext';
 
 const Debug = () => {
+  if (!import.meta.env.DEV) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Page Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">The debug page is only available in development mode.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const { user, isAuthenticated, login, logout } = useAuth();
   const { connected: socketConnected } = useSocketContext();
   const { cameras, refreshCameras } = useCameras();

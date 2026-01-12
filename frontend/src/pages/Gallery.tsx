@@ -608,6 +608,34 @@ const Gallery = () => {
                     <p className="text-xs text-white/60 mt-1">
                       Event {selectedEventIndex + 1} of {events.length} • {selectedEvent.confidence >= 1 ? Math.round(selectedEvent.confidence) + '%' : Math.round(selectedEvent.confidence * 100) + '%'} confidence
                     </p>
+
+                    {/* Detailed metadata display */}
+                    <div className="mt-2 text-xs space-y-1">
+                      {selectedEvent.personCount !== undefined && selectedEvent.personCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Persons:</span>
+                          <span>{selectedEvent.personCount}</span>
+                        </div>
+                      )}
+                      {selectedEvent.faceCount !== undefined && selectedEvent.faceCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Faces:</span>
+                          <span>{selectedEvent.faceCount}</span>
+                        </div>
+                      )}
+                      {selectedEvent.lightLevel !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Light:</span>
+                          <span>{selectedEvent.lightLevel}%</span>
+                        </div>
+                      )}
+                      {selectedEvent.motionArea !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Motion Area:</span>
+                          <span>{selectedEvent.motionArea}%</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button

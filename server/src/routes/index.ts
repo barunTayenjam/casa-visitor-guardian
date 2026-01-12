@@ -34,6 +34,26 @@ const upload = multer({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Camera ID validation regex - only allows alphanumeric, underscore, hyphen
+const CAMERA_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+// Validate cameraId parameter
+function validateCameraId(cameraId: string): boolean {
+  return CAMERA_ID_PATTERN.test(cameraId) && cameraId.length <= 100;
+}
+
+// Validate and sanitize cameraId, return error response if invalid
+function validateCameraIdParam(cameraId: string, res: Response): boolean {
+  if (!cameraId || !validateCameraId(cameraId)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid camera ID format'
+    });
+    return false;
+  }
+  return true;
+}
+
 // Log route configuration
 logger.info('Configuring main API routes', 'ROUTES');
 
@@ -359,6 +379,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/snapshot/:cameraId.jpg', (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
       
       if (!camera) {
@@ -795,6 +820,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/stream/:cameraId', (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
       
       if (!camera) {
@@ -1676,7 +1706,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
         // Extract just the filename from the full path for frontend compatibility
         // Use the API endpoint format that serves images from the detection directory
-        let imageUrl = `/events/${row.filename}`;
+        let imageUrl = `/api/events/image/${row.filename}`;
 
         const eventData = {
           id: row.filename, // Use filename as ID since we're not joining with events table
@@ -2553,6 +2583,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.post('/api/detection/person/:cameraId/trigger', async (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
       
       if (!camera) {

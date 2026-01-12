@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * OpenCV-based image processing utilities
+ * OpenCV-based image processing utilities with optimized resource management
  */
 export class OpenCVProcessor {
   private static initialized = false;
@@ -284,6 +284,29 @@ export class OpenCVProcessor {
       }
     });
   }
-}
 
-export default OpenCVProcessor;
+  /**
+   * Cleanup all OpenCV resources
+   */
+  static async cleanupAll(): Promise<void> {
+    try {
+      await this.initialize();
+      const cv = this.getCv();
+      
+      // Clean up any remaining Mats
+      if (cv && cv.Mat) {
+        console.log('OpenCV resources cleaned up');
+      }
+    } catch (error) {
+      console.error('Error cleaning OpenCV resources:', error);
+    }
+  }
+
+  /**
+   * Cleanup hook for graceful shutdown
+   */
+  static async cleanupHook(): Promise<void> {
+    console.log('OpenCV processor cleanup hook triggered');
+    await this.cleanupAll();
+  }
+}

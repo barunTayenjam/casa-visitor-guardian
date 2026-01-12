@@ -172,6 +172,7 @@ interface BackendMotionEvent {
   labels?: string[];
   location?: string;
   archived?: boolean;
+  metadata?: any;
 }
 
 // ==================== BATCH PROCESSING TYPES ====================
@@ -1505,6 +1506,16 @@ class ApiService {
           ...event,
           timestamp: new Date(event.timestamp),
           imageUrl: filename ? this.getEventImageUrl(filename) : null,
+          // Add metadata fields from the backend response
+          hasPersons: event.metadata?.hasPersons,
+          personCount: event.metadata?.personCount,
+          hasFaces: event.metadata?.hasFaces,
+          faceCount: event.metadata?.faceCount,
+          knownFaces: event.metadata?.knownFaces,
+          unknownFaces: event.metadata?.unknownFaces,
+          lightLevel: event.metadata?.lightLevel,
+          motionArea: event.metadata?.motionArea,
+          metadata: event.metadata,
         };
       });
 

@@ -408,18 +408,6 @@ export default function Login() {
             </p>
           </CardFooter>
         </Card>
-
-        {/* Demo Credentials Notice */}
-        <div className="mt-6 text-center">
-          <Alert className="bg-blue-900/20 border-blue-800 text-blue-400">
-            <Shield className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              <strong>Demo Credentials:</strong><br />
-              Admin: username <code>admin</code>, password <code>admin123</code><br />
-              User: username <code>user</code>, password <code>user123</code>
-            </AlertDescription>
-          </Alert>
-        </div>
       </div>
     </div>
   );

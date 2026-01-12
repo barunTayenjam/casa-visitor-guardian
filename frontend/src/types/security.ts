@@ -24,6 +24,16 @@ export interface MotionEvent {
   location: string;
   duration: number;
   archived: boolean;
+  // Additional metadata from detection
+  hasPersons?: boolean;
+  personCount?: number;
+  hasFaces?: boolean;
+  faceCount?: number;
+  knownFaces?: number;
+  unknownFaces?: number;
+  lightLevel?: number;
+  motionArea?: number;
+  metadata?: any; // Raw metadata object
 }
 
 export interface SystemStatus {

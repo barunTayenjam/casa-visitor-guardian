@@ -48,6 +48,8 @@ services:
       - ./public/events:/app/public/events
     working_dir: /app
     command: ["npx", "tsx", "src/index.ts"]
+    cap_add:
+      - NET_RAW
     depends_on:
       - postgres
       - opencv

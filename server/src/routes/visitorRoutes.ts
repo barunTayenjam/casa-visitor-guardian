@@ -464,14 +464,14 @@ export function configureVisitorRoutes(app: express.Application): void {
         });
       }
 
-      // Import the advanced face recognition service
-      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
-      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+      // Use the consolidated detection service
+      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
+      const detectionService = consolidatedDetectionService;
 
       console.log(`Recognizing faces in image: ${imagePath}`);
 
       // Recognize faces in the image
-      const recognitionResults = await advancedFaceRecognitionService.recognizeFacesInImage(imagePath);
+      const recognitionResults = await detectionService.recognizeFaces(imagePath);
 
       // Filter results if requested
       const results = knownFacesOnly
@@ -513,16 +513,16 @@ export function configureVisitorRoutes(app: express.Application): void {
         });
       }
 
-      // Import the advanced face recognition service
-      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
-      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+      // Use the consolidated detection service
+      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
+      const detectionService = consolidatedDetectionService;
 
       console.log(`Registering person: ${personName} with ${imagePaths.length} images`);
 
       // Extract embeddings from all provided images
       let allEmbeddings: number[][] = [];
       for (const imagePath of imagePaths) {
-        const embeddings = await advancedFaceRecognitionService.extractFaceEmbeddings(imagePath);
+        const embeddings = await detectionService.extractFaceEmbeddings(imagePath);
         allEmbeddings = allEmbeddings.concat(embeddings);
       }
 
@@ -535,11 +535,11 @@ export function configureVisitorRoutes(app: express.Application): void {
       }
 
       // Register the person with their embeddings
-      const success = await advancedFaceRecognitionService.registerPerson(personName, allEmbeddings);
+      const success = await detectionService.registerPerson(personName, allEmbeddings);
 
       if (success) {
         // Retrain the model with new data
-        await advancedFaceRecognitionService.trainModel();
+        await detectionService.trainModel();
 
         res.json({
           success: true,
@@ -572,11 +572,11 @@ export function configureVisitorRoutes(app: express.Application): void {
     try {
       console.log('*** GET KNOWN FACES API CALLED ***');
 
-      // Import the advanced face recognition service
-      const { AdvancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
-      const advancedFaceRecognitionService = new AdvancedFaceRecognitionService();
+      // Use the consolidated detection service
+      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
+      const detectionService = consolidatedDetectionService;
 
-      const knownPeople = await advancedFaceRecognitionService.getKnownPeople();
+      const knownPeople = await detectionService.getKnownPeople();
 
       res.json({
         success: true,

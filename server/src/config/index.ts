@@ -10,6 +10,10 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
+export function getOpenCVServiceUrl(): string {
+  return process.env.OPENCV_SERVICE_URL || 'http://opencv:8084';
+}
+
 export interface CameraConfig {
   id: string;
   name: string;

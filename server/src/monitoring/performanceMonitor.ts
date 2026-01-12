@@ -46,7 +46,7 @@ interface Alert {
   metrics: Partial<PerformanceMetrics>;
 }
 
-class PerformanceMonitor extends EventEmitter {
+ class PerformanceMonitor extends EventEmitter {
   private redisClient: any;
   private metrics: PerformanceMetrics;
   private detectionService: any;
@@ -54,6 +54,7 @@ class PerformanceMonitor extends EventEmitter {
   private alerts: Alert[];
   private monitoringInterval: NodeJS.Timeout | null;
   private alertHistory: Map<string, number[]>;
+  private connectionAttemptComplete: boolean = false;
 
   constructor() {
     super();
@@ -62,7 +63,7 @@ class PerformanceMonitor extends EventEmitter {
     this.alerts = [];
     this.alertHistory = new Map();
     this.alertThresholds = this.getDefaultThresholds();
-    
+
     this.initializeRedis();
     this.startMonitoring();
   }
@@ -98,14 +99,47 @@ class PerformanceMonitor extends EventEmitter {
   }
 
   private async initializeRedis() {
-    try {
-      this.redisClient = createClient({
-        url: process.env.REDIS_URL || 'redis://localhost:6379'
-      });
-      await this.redisClient.connect();
-      logger.info('Redis connected for performance monitoring');
-    } catch (error) {
-      logger.error('Failed to connect to Redis for monitoring:', error);
+    const maxRetries = 5;
+    const initialDelay = 1000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.redisClient = createClient({
+          url: process.env.REDIS_URL || 'redis://redis:6379',
+          socket: {
+            connectTimeout: 5000,
+            reconnectStrategy: (retries: number) => {
+              if (retries > 10) {
+                console.error('PerformanceMonitor: Max reconnection attempts reached');
+                return new Error('Max reconnection attempts');
+              }
+              return retries * 1000;
+            }
+          }
+        });
+
+        // Add error handler that only logs after initial attempt complete
+        this.redisClient.on('error', (err: any) => {
+          if (this.connectionAttemptComplete) {
+            logger.error('Redis error in performance monitoring:', err);
+          }
+        });
+
+        await this.redisClient.connect();
+        logger.info('Redis connected for performance monitoring');
+        this.connectionAttemptComplete = true;
+        return;
+      } catch (error: any) {
+        const delay = initialDelay * attempt;
+        logger.error(`Redis connection attempt ${attempt}/${maxRetries} failed: ${error.code || error.message}`);
+        if (attempt === maxRetries) {
+          logger.warn('PerformanceMonitor: Using memory cache, Redis not available');
+          this.connectionAttemptComplete = true;
+          return;
+        }
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
 

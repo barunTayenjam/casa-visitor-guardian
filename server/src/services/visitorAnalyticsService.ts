@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
 import { getVisitorDatabase, Visitor, VisitorTimeline, VisitorAnalytics } from './visitorDatabasePostgres.js';
-import { FacialRecognitionService, KnownPerson } from '../detection/facialRecognitionOpenCV.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
@@ -62,7 +61,6 @@ export interface VisitorAnalysis {
 export class VisitorAnalyticsService extends EventEmitter {
   private eventsDir: string;
   private batchResultsDir: string;
-  private faceRecognitionService: FacialRecognitionService;
   private processingQueue: VisitorDetectionEvent[] = [];
   private isProcessing = false;
 
@@ -70,7 +68,6 @@ export class VisitorAnalyticsService extends EventEmitter {
     super();
     this.eventsDir = getEventPath('faces', new Date());
     this.batchResultsDir = getDetectionsPath('batch', new Date());
-    this.faceRecognitionService = new FacialRecognitionService();
     this.initializeServices();
   }
 
@@ -78,7 +75,6 @@ export class VisitorAnalyticsService extends EventEmitter {
     try {
       const visitorDatabase = await getVisitorDatabase();
       // Already initialized by getVisitorDatabase()
-      // Don't call initialize on faceRecognitionService as it doesn't have that method
       console.log('Visitor analytics service initialized');
     } catch (error) {
       console.error('Failed to initialize visitor analytics service:', error);
@@ -257,7 +253,7 @@ export class VisitorAnalyticsService extends EventEmitter {
     try {
       // This would integrate with the real-time facial recognition events
       // For now, we'll simulate by checking recent face recognition events
-      const recentEvents = await this.getRecentFaceRecognitionEvents(startDate, endDate);
+      const recentEvents = await this.getRecentVisitorDetectionEvents(startDate, endDate);
       
       for (const event of recentEvents) {
         for (const face of event.knownFaces) {
@@ -716,7 +712,7 @@ export class VisitorAnalyticsService extends EventEmitter {
   }
 
   // Get recent face recognition events (placeholder)
-  private async getRecentFaceRecognitionEvents(startDate: Date, endDate: Date): Promise<FaceRecognitionEvent[]> {
+  private async getRecentVisitorDetectionEvents(startDate: Date, endDate: Date): Promise<VisitorDetectionEvent[]> {
     // This would integrate with the facial recognition service
     // For now, return empty array
     return [];

@@ -51,28 +51,78 @@ export class ConsolidatedDetectionService {
   };
   private redisCache = new Map<string, { result: DetectionResponse; timestamp: number }>();
   private redisClient: any;
+  private redisConnected: boolean = false;
   private readonly CACHE_DURATION = 300000; // 5 minutes
   private initialized = false;
+  private connectionAttemptComplete: boolean = false;
 
   constructor() {
     this.initializeDefaultSettings();
     setInterval(() => this.cleanupCache(), 60000);
-    
-    // Initialize Redis client
-    this.redisClient = redis.createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
-    });
-    
-    this.redisClient.on('error', (err) => {
-      console.error('Redis Client Error:', err);
-    });
-    
-    this.redisClient.connect().catch(err => {
-      console.error('Failed to connect to Redis:', err);
-    });
-    
+
+    // Initialize Redis client with retry logic
+    this.initializeRedisWithRetry();
+
     // Mark as initialized
     this.initialized = true;
+  }
+
+  private async initializeRedisWithRetry(retries = 5, delay = 1000): Promise<void> {
+    this.redisClient = redis.createClient({
+      url: process.env.REDIS_URL || 'redis://redis:6379',
+      socket: {
+        connectTimeout: 5000,
+        reconnectStrategy: (retries: number) => {
+          if (retries > 10) {
+            console.error('Redis: Max reconnection attempts reached, using memory cache only');
+            return new Error('Max reconnection attempts');
+          }
+          return retries * 1000;
+        }
+      }
+    });
+
+    this.redisClient.on('error', (err: any) => {
+      // Only log errors after initial connection attempt is complete
+      if (this.connectionAttemptComplete) {
+        if (this.redisConnected) {
+          console.warn('Redis: Connection error, switching to memory cache temporarily');
+        }
+        this.redisConnected = false;
+      }
+    });
+
+    this.redisClient.on('connect', () => {
+      console.log('Redis: Connected successfully');
+      this.redisConnected = true;
+    });
+
+    this.redisClient.on('disconnect', () => {
+      if (this.connectionAttemptComplete) {
+        console.warn('Redis: Disconnected');
+      }
+      this.redisConnected = false;
+    });
+
+    // Retry connection with exponential backoff
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await this.redisClient.connect();
+        this.redisConnected = true;
+        console.log('Redis: Connected successfully');
+        this.connectionAttemptComplete = true;
+        return;
+      } catch (err: any) {
+        console.error(`Redis: Connection attempt ${attempt}/${retries} failed - ${err.code || err.message}`);
+        if (attempt === retries) {
+          console.warn('Redis: Could not connect after maximum retries, using memory cache');
+          this.connectionAttemptComplete = true;
+          return;
+        }
+        // Exponential backoff: wait longer between retries
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+      }
+    }
   }
 
   private initializeDefaultSettings() {
@@ -119,19 +169,21 @@ export class ConsolidatedDetectionService {
     }
 
     const fileHash = this.calculateFileHash(imageBuffer);
-    
-    // Check Redis cache first
-    try {
-      const cachedData = await this.redisClient.get(`detection:${fileHash}`);
-      if (cachedData) {
-        const data = JSON.parse(cachedData);
-        if (Date.now() - data.timestamp < this.CACHE_DURATION) {
-          console.log(`ConsolidatedDetectionService: Using Redis cached result for ${fileHash}`);
-          return { detections: data.detections || [] };
+
+    // Check Redis cache first (only if connected)
+    if (this.redisConnected) {
+      try {
+        const cachedData = await this.redisClient.get(`detection:${fileHash}`);
+        if (cachedData) {
+          const data = JSON.parse(cachedData);
+          if (Date.now() - data.timestamp < this.CACHE_DURATION) {
+            console.log(`ConsolidatedDetectionService: Using Redis cached result for ${fileHash}`);
+            return { detections: data.detections || [] };
+          }
         }
+      } catch (error) {
+        console.error('Error checking Redis cache:', error);
       }
-    } catch (error) {
-      console.error('Error checking Redis cache:', error);
     }
 
     return opencvCircuitBreaker.execute(async () => {
@@ -165,24 +217,26 @@ export class ConsolidatedDetectionService {
               return confidenceOK && classOK;
             });
 
-            const limitedDetections = filteredDetections.slice(0, settings.maxDetections || 10);
+             const limitedDetections = filteredDetections.slice(0, settings.maxDetections || 10);
 
-            // Store in Redis cache
-            try {
-              await this.redisClient.set(
-                `detection:${fileHash}`,
-                JSON.stringify({
-                  result: {
-                    ...data,
-                    detections: limitedDetections
-                  },
-                  timestamp: Date.now()
-                }),
-                'EX',
-                this.CACHE_DURATION / 1000
-              );
-            } catch (error) {
-              console.error('Error storing in Redis cache:', error);
+            // Store in Redis cache (only if connected)
+            if (this.redisConnected) {
+              try {
+                await this.redisClient.set(
+                  `detection:${fileHash}`,
+                  JSON.stringify({
+                    result: {
+                      ...data,
+                      detections: limitedDetections
+                    },
+                    timestamp: Date.now()
+                  }),
+                  'EX',
+                  this.CACHE_DURATION / 1000
+                );
+              } catch (error) {
+                console.error('Error storing in Redis cache:', error);
+              }
             }
 
             console.log(`ConsolidatedDetectionService: Detected ${limitedDetections.length} objects for camera ${cameraId}`);
@@ -209,21 +263,23 @@ export class ConsolidatedDetectionService {
     }
 
     const fileHash = this.calculateFileHash(imageBuffer);
-    // Check Redis cache first
-    try {
-      const cachedData = await this.redisClient.get(`face:${fileHash}`);
-      if (cachedData) {
-        const data = JSON.parse(cachedData);
-        if (Date.now() - data.timestamp < this.CACHE_DURATION) {
-          console.log(`ConsolidatedDetectionService: Using Redis cached face result for ${fileHash}`);
-          const faces = data.result.faceDetections || [];
-          const knownFaces = faces.filter((face: FaceDetection) => face.name !== 'Unknown');
-          const unknownFaces = faces.filter((face: FaceDetection) => face.name === 'Unknown');
-          return { faces, knownFaces, unknownFaces };
+    // Check Redis cache first (only if connected)
+    if (this.redisConnected) {
+      try {
+        const cachedData = await this.redisClient.get(`face:${fileHash}`);
+        if (cachedData) {
+          const data = JSON.parse(cachedData);
+          if (Date.now() - data.timestamp < this.CACHE_DURATION) {
+            console.log(`ConsolidatedDetectionService: Using Redis cached face result for ${fileHash}`);
+            const faces = data.result.faceDetections || [];
+            const knownFaces = faces.filter((face: FaceDetection) => face.name !== 'Unknown');
+            const unknownFaces = faces.filter((face: FaceDetection) => face.name === 'Unknown');
+            return { faces, knownFaces, unknownFaces };
+          }
         }
+      } catch (error) {
+        console.error('Error checking Redis cache for faces:', error);
       }
-    } catch (error) {
-      console.error('Error checking Redis cache for faces:', error);
     }
 
     return opencvCircuitBreaker.execute(async () => {
@@ -259,22 +315,24 @@ export class ConsolidatedDetectionService {
             const knownFaces = faces.filter((face: FaceDetection) => face.name !== 'Unknown');
             const unknownFaces = faces.filter((face: FaceDetection) => face.name === 'Unknown');
 
-            // Store in Redis cache
-            try {
-              await this.redisClient.set(
-                `face:${fileHash}`,
-                JSON.stringify({
-                  result: {
-                    ...data,
-                    faceDetections: faces
-                  },
-                  timestamp: Date.now()
-                }),
-                'EX',
-                this.CACHE_DURATION / 1000
-              );
-            } catch (error) {
-              console.error('Error storing face data in Redis cache:', error);
+            // Store in Redis cache (only if connected)
+            if (this.redisConnected) {
+              try {
+                await this.redisClient.set(
+                  `face:${fileHash}`,
+                  JSON.stringify({
+                    result: {
+                      ...data,
+                      faceDetections: faces
+                    },
+                    timestamp: Date.now()
+                  }),
+                  'EX',
+                  this.CACHE_DURATION / 1000
+                );
+              } catch (error) {
+                console.error('Error storing face data in Redis cache:', error);
+              }
             }
 
             return { faces, knownFaces, unknownFaces };

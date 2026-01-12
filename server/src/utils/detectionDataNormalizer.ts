@@ -1,4 +1,4 @@
-import { DetectionResult, FaceDetection } from '../detection/objectDetectionOpenCV';
+import { DetectionResult, FaceDetection } from '../detection/consolidatedDetectionService.js';
 
 export interface NormalizedDetection {
   class: string;

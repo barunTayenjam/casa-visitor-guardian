@@ -101,7 +101,8 @@ export interface EnhancedEvent {
   cameraId: string;
   confidence: number;
   metadata: any;
-  
+  imageUrl: string;
+
   // NEW: Detection data
   persons_detected: number;
   faces_detected: number;

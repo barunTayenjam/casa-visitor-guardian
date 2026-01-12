@@ -1,7 +1,8 @@
 import { DataSource, Repository } from 'typeorm';
-import { User } from '../models';
-import { JWTService } from '../utils/jwtService';
-import { AuditService } from '../utils/auditService';
+import { User } from '../models/index.js';
+import { UserSession } from '../models/UserSession.js';
+import { JWTService } from '../utils/jwtService.js';
+import { AuditService } from '../utils/auditService.js';
 import { z } from 'zod';
 import crypto from 'crypto';
 
@@ -79,7 +80,7 @@ export interface SessionPolicy {
 }
 
 export class SessionManager {
-  private sessionRepository: Repository<Session>;
+  private sessionRepository: Repository<UserSession>;
   private userRepository: Repository<User>;
   private jwtService: JWTService;
   private auditService: AuditService;
@@ -93,7 +94,7 @@ export class SessionManager {
     auditService?: AuditService,
     sessionPolicy?: Partial<SessionPolicy>
   ) {
-    this.sessionRepository = dataSource.getRepository(Session);
+    this.sessionRepository = dataSource.getRepository(UserSession);
     this.userRepository = dataSource.getRepository(User);
     this.jwtService = jwtService || new JWTService();
     this.auditService = auditService || new AuditService(dataSource);

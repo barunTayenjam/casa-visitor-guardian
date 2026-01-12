@@ -1,8 +1,8 @@
 import { DataSource, Repository } from 'typeorm';
 import { User, Role, AuditLog, PasswordHistory } from '../models';
-import { PasswordSecurityService, defaultPasswordPolicy } from '../utils/passwordSecurity';
-import { JWTService } from '../utils/jwtService';
-import { AuditService } from '../utils/auditService';
+import { PasswordSecurityService, defaultPasswordPolicy } from '../utils/passwordSecurity.js';
+import { JWTService } from '../utils/jwtService.js';
+import { AuditService } from '../utils/auditService.js';
 import { z } from 'zod';
 import crypto from 'crypto';
 

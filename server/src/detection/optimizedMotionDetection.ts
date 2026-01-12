@@ -692,7 +692,7 @@ export class OptimizedMotionDetector extends EventEmitter {
           id: `evt_${filename}`,
           cameraId,
           timestamp: new Date().toISOString(),
-          imagePath: `/api/events/image/${filename}`, // Updated to use API endpoint that will fetch from DB
+          imagePath: `/events/${filename}`, // Updated to use correct path format for frontend
           confidence: motionData.confidence,
           duration: 0,
           frameSize: frame.length,

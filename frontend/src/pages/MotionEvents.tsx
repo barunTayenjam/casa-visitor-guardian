@@ -57,20 +57,31 @@ const MotionEvents = () => {
     console.log('Loading events for MotionEvents page...');
     setLoading(true);
     try {
-      const response = await apiService.getHistoricalEvents({
+      const response = await apiService.getEnhancedEventsList({
         page: currentPage,
         pageSize: 12, // Fixed to 12 for 4x3 grid
-        cameraId: selectedCamera === 'all' ? undefined : selectedCamera,
-        searchQuery: searchQuery || undefined,
-        startDate: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0) : undefined,
-        endDate: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999) : undefined,
+        camera_id: selectedCamera === 'all' ? undefined : selectedCamera,
+        start_date: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0).toISOString() : undefined,
+        end_date: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999).toISOString() : undefined,
         sortBy: sortBy,
-        detectionType: selectedDetectionType
+        event_type: selectedDetectionType === 'all' ? undefined : selectedDetectionType
       });
       console.log("Fetched motion events:", response.events);
-      setEvents(response.events);
-      setTotalPages(response.pagination.totalPages);
-      setTotalEvents(response.pagination.totalEvents);
+      const transformedEvents = response.events.map((event: any): MotionEvent => ({
+        id: event.id,
+        cameraId: event.cameraId,
+        cameraName: `Camera ${event.cameraId}`,
+        timestamp: new Date(event.timestamp),
+        imageUrl: event.imageUrl || null,
+        confidence: event.confidence || 0,
+        labels: [event.event_type || 'motion'],
+        location: `Camera ${event.cameraId}`,
+        duration: 0,
+        archived: false
+      }));
+      setEvents(transformedEvents);
+      setTotalPages(response.pagination?.totalPages || 1);
+      setTotalEvents(response.pagination?.totalEvents || 0);
     } catch (error) {
       console.error('Failed to load events:', error);
       toast({
@@ -84,7 +95,7 @@ const MotionEvents = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, selectedCamera, searchQuery, selectedDate, sortBy, toast]);
+  }, [currentPage, selectedCamera, searchQuery, selectedDate, sortBy, toast, selectedDetectionType]);
 
   useEffect(() => {
     loadEvents();
@@ -371,61 +382,66 @@ const MotionEvents = () => {
               {events.map((event, index) => (
                 <div
                   key={event.id}
-                  className="relative w-full h-48 bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all group"
+                  className="flex flex-col"
                   onClick={() => setSelectedEventIndex(index)}
                 >
-                  {event.imageUrl ? (
-                    <img
-                      src={event.imageUrl}
-                      alt={`Motion event at ${event.timestamp.toLocaleString()}`}
-                      className="object-cover w-full h-full"
-                      loading="lazy"
-                      onError={(e) => {
-                        console.error("Image failed to load:", event.imageUrl, e);
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAxNkMxOC40MDMyIDE2IDE3LjE5ODIgMTUuODAzNSAxNS44MDM1IDE1LjgwMzVDMTQuNDA5OCAxNS44MDM1IDE0IDE2LjQwMzUgMTQgMTdDMTQgMTcuNTk2NSAxNC40MDk4IDE4LjE5NjUgMTMuODAzNSAxOC4xOTY1QzEzLjE5NzMgMTguMTk2NSAxMi41OTY1IDE3LjU5NjUgMTIgMTZDMTIgMTQuNDAzNSAxMy4xOTczIDEzLjgwMzUgMTMuODAzNSAxMy44MDM1QzE0LjQwOTggMTMuODAzNSAxNSAxNC40MDM1IDE1IDE2WiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4K';
-                        target.alt = 'Image not available';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <CameraIcon className="h-8 w-8 text-gray-400" />
-                      <div className="text-xs text-gray-500 mt-2">{event.cameraName}</div>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <CameraIcon className="h-3 w-3" />
-                          <span className="text-xs font-medium truncate">{event.cameraName}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs">
-                            {format(event.timestamp, 'HH:mm:ss')}
-                          </span>
+                  <div className="relative w-full h-48 bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all group">
+                    {event.imageUrl ? (
+                      <img
+                        src={event.imageUrl}
+                        alt={`Motion event at ${event.timestamp.toLocaleString()}`}
+                        className="object-cover w-full h-full"
+                        loading="lazy"
+                        onError={(e) => {
+                          console.error("Image failed to load:", event.imageUrl, e);
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0MCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjI0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAxNkMxOC40MDMyIDE2IDE3LjE5ODIgMTUuODAzNSAxNS44MDM1IDE1LjgwMzVDMTQuNDA5OCAxNS44MDM1IDE0IDE2LjQwMzUgMTQgMTdDMTQgMTcuNTk2NSAxNC40MDk4IDE4LjE5NjUgMTMuODAzNSAxOC4xOTY1QzEzLjE5NzMgMTguMTk2NSAxMi41OTY1IDE3LjU5NjUgMTIgMTZDMTIgMTQuNDAzNSAxMy4xOTczIDEzLjgwMzUgMTMuODAzNSAxMy44MDM1QzE0LjQwOTggMTMuODAzNSAxNSAxNC40MDM1IDE1IDE2WiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4K';
+                          target.alt = 'Image not available';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <CameraIcon className="h-8 w-8 text-gray-400" />
+                        <div className="text-xs text-gray-500 mt-2">{event.cameraName}</div>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <CameraIcon className="h-3 w-3" />
+                            <span className="text-xs font-medium truncate">{event.cameraName}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">
+                              {format(event.timestamp, 'HH:mm:ss')}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    {event.confidence > 0 && (
+                      <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded-full">
+                        {Math.round(event.confidence * 100)}%
+                      </div>
+                    )}
+                    {/* Show badge for face detection events */}
+                    {event.labels?.includes('face') && (
+                      <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded-full">
+                        Face
+                      </div>
+                    )}
+                    {/* Show badge for person detection events */}
+                    {event.labels?.includes('person') && !event.labels?.includes('face') && (
+                      <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1 py-0.5 rounded-full">
+                        Person
+                      </div>
+                    )}
                   </div>
-                  {event.confidence > 0 && (
-                    <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded-full">
-                      {Math.round(event.confidence * 100)}%
-                    </div>
-                  )}
-                  {/* Show badge for face detection events */}
-                  {event.labels?.includes('face') && (
-                    <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded-full">
-                      Face
-                    </div>
-                  )}
-                  {/* Show badge for person detection events */}
-                  {event.labels?.includes('person') && !event.labels?.includes('face') && (
-                    <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1 py-0.5 rounded-full">
-                      Person
-                    </div>
-                  )}
+                  <div className="mt-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400 font-mono truncate rounded">
+                    {event.imageUrl}
+                  </div>
                 </div>
               ))}
             </div>

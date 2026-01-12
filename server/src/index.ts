@@ -35,26 +35,187 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Serve events from public directory (simplified approach)
-app.use('/events', express.static(path.join(process.cwd(), 'public/events'), {
+// Serve events from data directory with scanning fallback
+app.get('/events/:filename', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    // First, try to query database to get storage path for this filename
+    const AppDataSource = (global as any).AppDataSource;
+    let results = [];
+
+    if (AppDataSource) {
+      try {
+        const query = `
+          SELECT storage_path
+          FROM detection_files
+          WHERE original_filename = $1
+            AND (file_type = 'event' OR file_type = 'motion')
+            AND is_deleted = FALSE
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+
+        results = await AppDataSource.query(query, [filename]);
+      } catch (dbError) {
+        console.warn('Database query failed, falling back to file system scan:', dbError.message);
+      }
+    }
+
+    if (results.length === 0) {
+      // If not found in database or DB unavailable, try scanning across year-month directories
+      const years = Array.from({length: 5}, (_, i) => new Date().getFullYear() - i); // Last 5 years
+
+      for (const year of years) {
+        for (let month = 12; month >= 1; month--) {
+          const monthStr = month.toString().padStart(2, '0');
+          const directPath = path.join(process.cwd(), 'data', 'detections', `${year}-${monthStr}`, 'events', 'motion', filename);
+
+          if (fs.existsSync(directPath)) {
+            return res.sendFile(directPath);
+          }
+        }
+      }
+
+      // If still not found, try direct path in current month
+      const currentYear = new Date().getFullYear();
+      const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const directPath = path.join(process.cwd(), 'data', 'detections', `${currentYear}-${currentMonth}`, 'events', 'motion', filename);
+
+      if (fs.existsSync(directPath)) {
+        return res.sendFile(directPath);
+      }
+
+      return res.status(404).json({ success: false, error: 'Image not found' });
+    }
+
+    let imagePath = results[0].storage_path;
+
+    // If the path is relative, resolve it relative to the data directory
+    if (!path.isAbsolute(imagePath)) {
+      imagePath = path.join(process.cwd(), 'data', 'detections', imagePath);
+    }
+
+    if (fs.existsSync(imagePath)) {
+      res.sendFile(imagePath);
+    } else {
+      // If file doesn't exist at the stored path, try scanning fallback
+      const currentYear = new Date().getFullYear();
+      const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const fallbackPath = path.join(process.cwd(), 'data', 'detections', `${currentYear}-${currentMonth}`, 'events', 'motion', filename);
+
+      if (fs.existsSync(fallbackPath)) {
+        res.sendFile(fallbackPath);
+      } else {
+        res.status(404).json({ success: false, error: 'Image file not found at stored path' });
+      }
+    }
+  } catch (error) {
+    console.error('Error serving event image:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Serve snapshots from data directory with scanning fallback
+app.get('/snapshots/:filename', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    // First, try to query database to get storage path for this filename
+    const AppDataSource = (global as any).AppDataSource;
+    let results = [];
+
+    if (AppDataSource) {
+      try {
+        const query = `
+          SELECT storage_path
+          FROM detection_files
+          WHERE original_filename = $1
+            AND file_type = 'snapshot'
+            AND is_deleted = FALSE
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+
+        results = await AppDataSource.query(query, [filename]);
+      } catch (dbError) {
+        console.warn('Database query failed, falling back to file system scan:', dbError.message);
+      }
+    }
+
+    if (results.length === 0) {
+      // If not found in database or DB unavailable, try scanning across year-month directories
+      const years = Array.from({length: 5}, (_, i) => new Date().getFullYear() - i); // Last 5 years
+
+      for (const year of years) {
+        for (let month = 12; month >= 1; month--) {
+          const monthStr = month.toString().padStart(2, '0');
+          const directPath = path.join(process.cwd(), 'data', 'detections', `${year}-${monthStr}`, 'snapshots', filename);
+
+          if (fs.existsSync(directPath)) {
+            return res.sendFile(directPath);
+          }
+        }
+      }
+
+      // If still not found, try direct path in current month
+      const currentYear = new Date().getFullYear();
+      const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const directPath = path.join(process.cwd(), 'data', 'detections', `${currentYear}-${currentMonth}`, 'snapshots', filename);
+
+      if (fs.existsSync(directPath)) {
+        return res.sendFile(directPath);
+      }
+
+      return res.status(404).json({ success: false, error: 'Image not found' });
+    }
+
+    let imagePath = results[0].storage_path;
+
+    // If the path is relative, resolve it relative to the data directory
+    if (!path.isAbsolute(imagePath)) {
+      imagePath = path.join(process.cwd(), 'data', 'detections', imagePath);
+    }
+
+    if (fs.existsSync(imagePath)) {
+      res.sendFile(imagePath);
+    } else {
+      // If file doesn't exist at the stored path, try scanning fallback
+      const currentYear = new Date().getFullYear();
+      const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const fallbackPath = path.join(process.cwd(), 'data', 'detections', `${currentYear}-${currentMonth}`, 'snapshots', filename);
+
+      if (fs.existsSync(fallbackPath)) {
+        res.sendFile(fallbackPath);
+      } else {
+        res.status(404).json({ success: false, error: 'Image file not found at stored path' });
+      }
+    }
+  } catch (error) {
+    console.error('Error serving snapshot image:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Serve images from detections directory (where motion events are actually stored)
+app.use('/events', express.static(path.join(process.cwd(), 'data/detections'), {
   maxAge: '1d',
-  setHeaders: (res, path) => {
-    if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg')) {
+  setHeaders: (res, filepath) => {
+    if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg') || filepath.endsWith('.png')) {
       res.setHeader('Content-Type', 'image/jpeg');
-    } else if (path.endsWith('.json')) {
-      res.setHeader('Content-Type', 'application/json');
     }
   }
 }));
-// Serve snapshots from public directory (simplified approach)
+
 app.use('/snapshots', express.static(path.join(process.cwd(), 'public/snapshots'), {
   maxAge: '1d',
-  setHeaders: (res, path) => {
-    if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg')) {
+  setHeaders: (res, filepath) => {
+    if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg') || filepath.endsWith('.png')) {
       res.setHeader('Content-Type', 'image/jpeg');
     }
   }
 }));
+
 app.use('/public', express.static('public'));
 
 // Serve frontend static files
@@ -124,7 +285,13 @@ async function initializeServices() {
   try {
     await initializeDatabase();
     console.log('Database initialized successfully');
-    
+
+    // Store AppDataSource in global for use in image serving routes
+    const AppDataSource = (global as any).AppDataSource;
+    if (AppDataSource) {
+      (global as any).AppDataSource = AppDataSource;
+    }
+
 // Initialize consolidated detection service
         console.log('Initializing consolidated detection service...');
         const detectionStatus = await consolidatedDetectionService.getServiceStatus();
@@ -134,7 +301,7 @@ async function initializeServices() {
         } else {
           console.warn('Detection service not available, using stub detection');
         }
-    
+
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');

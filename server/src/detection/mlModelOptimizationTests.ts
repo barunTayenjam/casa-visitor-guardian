@@ -1,6 +1,4 @@
 import { detectionCleanupService } from './cleanupService.js';
-import { OpenCVProcessor } from './opencvProcessor.js';
-import { facialRecognitionService } from './facialRecognition.js';
 import { consolidatedDetectionService } from './consolidatedDetectionService.js';
 import { setupOptimizedMotionDetection, cleanupOptimizedMotionDetection } from './optimizedMotionDetection.js';
 
@@ -27,23 +25,17 @@ export class MLModelOptimizationTests {
    */
   async runAllTests(): Promise<Map<string, boolean>> {
     console.log('Running ML Model Optimization resource management tests...');
-    
+
     try {
-      // Test OpenCV processor cleanup
-      await this.testOpenCVProcessor();
-      
-      // Test facial recognition cleanup
-      await this.testFacialRecognition();
-      
       // Test consolidated detection cleanup
       await this.testConsolidatedDetection();
-      
+
       // Test optimized motion detection cleanup
       await this.testOptimizedMotionDetection();
-      
+
       // Test cleanup service
       await this.testCleanupService();
-      
+
       console.log('All ML Model Optimization tests completed');
       return this.testResults;
     } catch (error) {
@@ -53,54 +45,15 @@ export class MLModelOptimizationTests {
   }
 
   /**
-   * Test OpenCV processor resource management
-   */
-  private async testOpenCVProcessor(): Promise<void> {
-    const testName = 'OpenCVProcessorCleanup';
-    
-    try {
-      // Initialize OpenCV
-      await OpenCVProcessor.initialize();
-      
-      // Test cleanup hook
-      await OpenCVProcessor.cleanupHook();
-      
-      this.testResults.set(testName, true);
-      console.log(`✓ ${testName} passed`);
-    } catch (error) {
-      this.testResults.set(testName, false);
-      console.error(`✗ ${testName} failed:`, error);
-    }
-  }
-
-  /**
-   * Test facial recognition resource management
-   */
-  private async testFacialRecognition(): Promise<void> {
-    const testName = 'FacialRecognitionCleanup';
-    
-    try {
-      // Test cleanup hook
-      await facialRecognitionService.cleanupHook();
-      
-      this.testResults.set(testName, true);
-      console.log(`✓ ${testName} passed`);
-    } catch (error) {
-      this.testResults.set(testName, false);
-      console.error(`✗ ${testName} failed:`, error);
-    }
-  }
-
-  /**
    * Test consolidated detection resource management
    */
   private async testConsolidatedDetection(): Promise<void> {
     const testName = 'ConsolidatedDetectionCleanup';
-    
+
     try {
       // Test cleanup hook
       await consolidatedDetectionService.cleanupHook();
-      
+
       this.testResults.set(testName, true);
       console.log(`✓ ${testName} passed`);
     } catch (error) {
@@ -114,11 +67,11 @@ export class MLModelOptimizationTests {
    */
   private async testOptimizedMotionDetection(): Promise<void> {
     const testName = 'OptimizedMotionDetectionCleanup';
-    
+
     try {
       // Test cleanup function
       await cleanupOptimizedMotionDetection();
-      
+
       this.testResults.set(testName, true);
       console.log(`✓ ${testName} passed`);
     } catch (error) {
@@ -132,14 +85,14 @@ export class MLModelOptimizationTests {
    */
   private async testCleanupService(): Promise<void> {
     const testName = 'CleanupService';
-    
+
     try {
       // Initialize cleanup service
       await detectionCleanupService.initialize();
-      
+
       // Test cleanup all
       await detectionCleanupService.cleanupAll();
-      
+
       this.testResults.set(testName, true);
       console.log(`✓ ${testName} passed`);
     } catch (error) {
@@ -161,16 +114,16 @@ export class MLModelOptimizationTests {
   printSummary(): void {
     console.log('\nML Model Optimization Test Summary:');
     console.log('==============================');
-    
+
     let passed = 0;
     let failed = 0;
-    
+
     for (const [testName, result] of this.testResults) {
       console.log(`${result ? '✓' : '✗'} ${testName}`);
       if (result) passed++;
       else failed++;
     }
-    
+
     console.log(`\nPassed: ${passed}/${this.testResults.size}`);
     console.log(`Failed: ${failed}/${this.testResults.size}`);
     console.log(`Success rate: ${((passed / this.testResults.size) * 100).toFixed(1)}%`);

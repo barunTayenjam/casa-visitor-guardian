@@ -1,7 +1,6 @@
 import { VisitorAnalyticsService, VisitorAnalysis } from './visitorAnalyticsService.js';
 import { getVisitorDatabase } from './visitorDatabasePostgres.js';
-import { DetectionResult } from '../detection/objectDetectionOpenCV.js';
-import { FaceDetection } from '../detection/facialRecognitionOpenCV.js';
+import { DetectionResult, FaceDetection } from '../detection/consolidatedDetectionService.js';
 
 export interface EnhancedAnalytics {
   summary: {

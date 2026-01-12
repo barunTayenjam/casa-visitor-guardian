@@ -121,8 +121,8 @@ interface SystemSettings {
   notifications: NotificationSettings;
 }
 
-// Store system settings in memory
-let systemSettings: SystemSettings = {
+// Default settings as fallback
+const defaultSystemSettings: SystemSettings = {
   general: {
     systemName: 'Security System',
     timezone: 'UTC',
@@ -148,6 +148,118 @@ let systemSettings: SystemSettings = {
     quietHoursEnd: '07:00',
   },
 };
+
+// Store system settings in memory (cached)
+let cachedSystemSettings: SystemSettings | null = null;
+
+// Load settings from database
+async function loadSystemSettings(): Promise<SystemSettings> {
+  if (cachedSystemSettings) {
+    return cachedSystemSettings;
+  }
+
+  try {
+    if (!AppDataSource.isInitialized) {
+      return defaultSystemSettings;
+    }
+
+    const result = await AppDataSource.query(`SELECT * FROM system_settings ORDER BY created_at DESC LIMIT 1`);
+
+    if (result && result.length > 0) {
+      const db = result[0];
+      cachedSystemSettings = {
+        general: {
+          systemName: db.system_name || 'Security System',
+          timezone: db.timezone || 'UTC',
+          language: db.language || 'en',
+          theme: db.theme || 'system',
+          autoBackup: db.auto_backup !== false,
+          backupFrequency: db.backup_frequency || 'daily',
+        },
+        storage: {
+          retentionDays: db.retention_days || 30,
+          maxStorageGB: parseFloat(db.max_storage_gb) || 100,
+          autoCleanup: db.auto_cleanup !== false,
+          compressionEnabled: db.compression_enabled !== false,
+          compressionQuality: db.compression_quality || 80,
+        },
+        notifications: {
+          emailEnabled: db.email_enabled === true,
+          emailAddress: db.email_address || '',
+          pushEnabled: db.push_enabled !== false,
+          pushSoundEnabled: db.push_sound_enabled !== false,
+          quietHoursEnabled: db.quiet_hours_enabled === true,
+          quietHoursStart: db.quiet_hours_start || '22:00',
+          quietHoursEnd: db.quiet_hours_end || '07:00',
+        },
+      };
+      return cachedSystemSettings;
+    }
+  } catch (error) {
+    console.error('Error loading system settings from database:', error);
+  }
+
+  return defaultSystemSettings;
+}
+
+// Save settings to database
+async function saveSystemSettings(settings: SystemSettings): Promise<boolean> {
+  try {
+    if (!AppDataSource.isInitialized) {
+      return false;
+    }
+
+    await AppDataSource.query(
+      `UPDATE system_settings SET
+        system_name = $1,
+        timezone = $2,
+        language = $3,
+        theme = $4,
+        auto_backup = $5,
+        backup_frequency = $6,
+        retention_days = $7,
+        max_storage_gb = $8,
+        auto_cleanup = $9,
+        compression_enabled = $10,
+        compression_quality = $11,
+        email_enabled = $12,
+        email_address = $13,
+        push_enabled = $14,
+        push_sound_enabled = $15,
+        quiet_hours_enabled = $16,
+        quiet_hours_start = $17,
+        quiet_hours_end = $18,
+        updated_at = NOW()
+      WHERE id = (SELECT id FROM system_settings LIMIT 1)`,
+      [
+        settings.general.systemName,
+        settings.general.timezone,
+        settings.general.language,
+        settings.general.theme,
+        settings.general.autoBackup,
+        settings.general.backupFrequency,
+        settings.storage.retentionDays,
+        settings.storage.maxStorageGB,
+        settings.storage.autoCleanup,
+        settings.storage.compressionEnabled,
+        settings.storage.compressionQuality,
+        settings.notifications.emailEnabled,
+        settings.notifications.emailAddress,
+        settings.notifications.pushEnabled,
+        settings.notifications.pushSoundEnabled,
+        settings.notifications.quietHoursEnabled,
+        settings.notifications.quietHoursStart,
+        settings.notifications.quietHoursEnd,
+      ]
+    );
+
+    cachedSystemSettings = settings;
+    return true;
+  } catch (error) {
+    console.error('Error saving system settings to database:', error);
+    return false;
+  }
+}
 
 // Helper to add alerts
 const addAlert = (alert: Omit<Alert, 'id' | 'timestamp' | 'acknowledged'>) => {
@@ -315,9 +427,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get system settings
-  app.get('/api/settings', requireUser, (req: Request, res: Response) => {
+  app.get('/api/settings', requireUser, async (req: Request, res: Response) => {
     try {
-      res.json({ success: true, settings: systemSettings });
+      const settings = await loadSystemSettings();
+      res.json({ success: true, settings });
     } catch (error) {
       console.error('Error getting system settings:', error);
       res.status(500).json({ success: false, error: 'Failed to get system settings' });
@@ -325,19 +438,27 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update system settings
-  app.put('/api/settings', requireUser, (req: Request, res: Response) => {
+  app.put('/api/settings', requireUser, async (req: Request, res: Response) => {
     try {
+      const currentSettings = await loadSystemSettings();
       const { general, storage, notifications } = req.body;
+
       if (general) {
-        systemSettings.general = { ...systemSettings.general, ...general };
+        currentSettings.general = { ...currentSettings.general, ...general };
       }
       if (storage) {
-        systemSettings.storage = { ...systemSettings.storage, ...storage };
+        currentSettings.storage = { ...currentSettings.storage, ...storage };
       }
       if (notifications) {
-        systemSettings.notifications = { ...systemSettings.notifications, ...notifications };
+        currentSettings.notifications = { ...currentSettings.notifications, ...notifications };
       }
-      res.json({ success: true, message: 'Settings updated successfully', settings: systemSettings });
+
+      const saved = await saveSystemSettings(currentSettings);
+      if (saved) {
+        res.json({ success: true, message: 'Settings updated successfully', settings: currentSettings });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to save settings to database' });
+      }
     } catch (error) {
       console.error('Error updating system settings:', error);
       res.status(500).json({ success: false, error: 'Failed to update system settings' });

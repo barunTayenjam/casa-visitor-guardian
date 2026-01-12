@@ -79,6 +79,48 @@ interface HistoricalEventsResponse {
   pagination: PaginationInfo;
 }
 
+interface DetectionData {
+  confidence: number;
+  boundingBox?: number[];
+  class?: string;
+}
+
+interface FaceDetectionData {
+  confidence: number;
+  boundingBox?: number[];
+  personId?: string;
+  personName?: string;
+  isKnown?: boolean;
+}
+
+interface EnhancedEvent {
+  id: string;
+  event_type: string;
+  filename: string;
+  timestamp: string;
+  cameraId: string;
+  confidence: number;
+  metadata: any;
+  imageUrl: string;
+  persons_detected: number;
+  faces_detected: number;
+  known_faces_count: number;
+  unknown_faces_count: number;
+  object_detections: DetectionData[] | null;
+  face_detections: FaceDetectionData[] | null;
+}
+
+interface EnhancedEventsResponse {
+  success: boolean;
+  events: EnhancedEvent[];
+  pagination?: {
+    totalEvents: number;
+    totalPages: number;
+    currentPage: number;
+    pageSize: number;
+  };
+}
+
 interface GeneralSettings {
   systemName: string;
   timezone: string;
@@ -2014,6 +2056,50 @@ class ApiService {
         `Failed to download batch results for job ${jobId}`,
         500,
         'DOWNLOAD_BATCH_RESULTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async getEnhancedEventsList(options?: {
+    limit?: number;
+    page?: number;
+    pageSize?: number;
+    event_type?: string;
+    camera_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<EnhancedEventsResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (options) {
+        if (options.limit) params.append('limit', options.limit.toString());
+        if (options.page) params.append('page', options.page.toString());
+        if (options.pageSize) params.append('pageSize', options.pageSize.toString());
+        if (options.event_type) params.append('event_type', options.event_type);
+        if (options.camera_id) params.append('camera_id', options.camera_id);
+        if (options.start_date) params.append('start_date', options.start_date);
+        if (options.end_date) params.append('end_date', options.end_date);
+      }
+
+      const response = await this.get<EnhancedEventsResponse>(`/events/list-enhanced?${params.toString()}`);
+      if (!response.success) {
+        throw new ApiError(
+          response as any,
+          400,
+          'GET_ENHANCED_EVENTS_ERROR'
+        );
+      }
+      return response;
+    } catch (error) {
+      console.error('Error fetching enhanced events list:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to fetch enhanced events list',
+        500,
+        'GET_ENHANCED_EVENTS_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

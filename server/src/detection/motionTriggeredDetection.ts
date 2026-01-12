@@ -337,7 +337,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       // Continue execution even if database indexing fails
     }
 
-    return `/api/events/image/${filename}`;
+    return `/events/${filename}`;
   }
 
   /**

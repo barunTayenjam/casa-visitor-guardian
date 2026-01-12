@@ -376,7 +376,7 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                     >
                       <div className="aspect-video bg-muted relative">
                         <img
-                          src={`/api/events/image/${event.filename}`}
+                          src={`/events/${event.filename}`}
                           alt={event.filename}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -407,6 +407,10 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <ZoomIn className="h-8 w-8 text-white" />
                         </div>
+                      </div>
+                      
+                      <div className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400 font-mono truncate border-t">
+                        /events/{event.filename}
                       </div>
                       
                       <div className="p-3">
@@ -447,15 +451,20 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
                       className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-pointer"
                       onClick={() => handleImageClick(event, index)}
                     >
-                      <div className="w-32 h-20 bg-muted rounded relative overflow-hidden flex-shrink-0">
-                        <img
-                          src={`/api/events/image/${event.filename}`}
-                          alt={event.filename}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
+                      <div className="flex-shrink-0">
+                        <div className="w-32 h-20 bg-muted rounded relative overflow-hidden">
+                          <img
+                            src={`/events/${event.filename}`}
+                            alt={event.filename}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500 font-mono mt-1 truncate w-32">
+                          /events/{event.filename}
+                        </div>
                       </div>
                       
                       <div className="flex-1 min-w-0">
@@ -565,59 +574,56 @@ const DetectionGallery: React.FC<DetectionGalleryProps> = ({ className }) => {
         setIsImageDialogOpen(open);
         if (!open) {
           setSelectedEvent(null);
-          setSelectedEnhancedEvent(null);
-          setObjectDetections([]);
-          setFaceDetections([]);
         }
       }}>
         <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="truncate max-w-[500px]" title={selectedEvent?.filename}>
-              {selectedEvent?.filename}
-            </DialogTitle>
-            <DialogDescription>
-              View detailed information about the selected detection event
-            </DialogDescription>
-          </DialogHeader>
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => selectedEvent && handleDownloadImage(selectedEvent)}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const newIndex = Math.max(0, selectedIndex - 1);
-                    handleImageClick(events[newIndex], newIndex);
-                  }}
-                  disabled={selectedIndex === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const newIndex = Math.min(events.length - 1, selectedIndex + 1);
-                    handleImageClick(events[newIndex], newIndex);
-                  }}
-                  disabled={selectedIndex === events.length - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+          <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="truncate max-w-[500px]" title={selectedEvent?.filename}>
+                {selectedEvent?.filename}
+              </DialogTitle>
+              <DialogDescription>
+                View detailed information about the selected detection event
+              </DialogDescription>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => selectedEvent && handleDownloadImage(selectedEvent)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const newIndex = Math.max(0, selectedIndex - 1);
+                  handleImageClick(events[newIndex], newIndex);
+                }}
+                disabled={selectedIndex === 0}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const newIndex = Math.min(events.length - 1, selectedIndex + 1);
+                  handleImageClick(events[newIndex], newIndex);
+                }}
+                disabled={selectedIndex === events.length - 1}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </DialogHeader>
           
           {selectedEvent && (
             <ScrollArea className="flex-1 p-4">
               <ImageDetectionDetails
-                imageUrl={`/api/events/image/${selectedEvent.filename}`}
+                imageUrl={`/events/${selectedEvent.filename}`}
                 objectDetections={selectedEvent.object_detections?.map(obj => ({
                   confidence: obj.confidence,
                   boundingBox: obj.bbox || (obj as any).boundingBox

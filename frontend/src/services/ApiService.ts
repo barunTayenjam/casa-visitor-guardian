@@ -1435,7 +1435,7 @@ class ApiService {
       if (options?.sortBy) params.append('sortBy', options.sortBy);
       if (options?.detectionType && options.detectionType !== 'all') params.append('detectionType', options.detectionType);
 
-      const response = await this.fetchWithRetry(`${API_URL}/events/history?${params.toString()}`);
+      const response = await this.fetchWithRetry(`${API_URL}/events/list-enhanced?${params.toString()}`);
       const data = await response.json();
 
       if (!data.success || !data.events || !data.pagination) {

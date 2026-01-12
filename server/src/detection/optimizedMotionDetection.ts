@@ -84,6 +84,7 @@ interface FaceDetectedEvent {
 export class OptimizedMotionDetector extends EventEmitter {
   private streamManager: StreamManager;
   private io: SocketIOServer;
+  private detectionService: any;
   private detectionInterval: NodeJS.Timeout | null = null;
   private cameraSettings = new Map<string, OptimizedMotionSettings>();
   private lastEventTimes = new Map<string, number>();
@@ -92,11 +93,13 @@ export class OptimizedMotionDetector extends EventEmitter {
   private workers: Worker[] = [];
   private metrics: PerformanceMetrics;
   private isOptimized = false;
+  private initialized = false;
 
-  constructor(streamManager: StreamManager, io: SocketIOServer) {
+  constructor(streamManager: StreamManager, io: SocketIOServer, detectionService?: any) {
     super();
     this.streamManager = streamManager;
     this.io = io;
+    this.detectionService = detectionService;
     this.metrics = {
       totalDetections: 0,
       falsePositives: 0,
@@ -108,6 +111,7 @@ export class OptimizedMotionDetector extends EventEmitter {
 
     this.initializeDefaultSettings();
     this.setupPerformanceMonitoring();
+    this.initialized = true;
   }
 
   // Initialize optimized default settings
@@ -458,16 +462,11 @@ export class OptimizedMotionDetector extends EventEmitter {
     };
 
     try {
-      // Get detection services from global scope
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const objectDetectionService = (global as any).objectDetectionService as ObjectDetectionService;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const facialRecognitionService = (global as any).facialRecognitionService as FacialRecognitionService;
-      
-      // Run person detection if available
-      if (objectDetectionService) {
+      // Use the detection service if available
+      if (this.detectionService) {
+        // Run person detection
         try {
-          const personResult = await objectDetectionService.detectObjects(cameraId, frame);
+          const personResult = await this.detectionService.detectObjects(cameraId, frame);
           
           if (personResult && personResult.detections) {
             const persons = personResult.detections.filter((d: DetectionResult) => d.class === 'person');
@@ -480,12 +479,10 @@ export class OptimizedMotionDetector extends EventEmitter {
         } catch (error) {
           console.warn(`Person detection failed for ${cameraId}:`, error);
         }
-      }
-      
-      // Run face detection if available
-      if (facialRecognitionService) {
+        
+        // Run face detection
         try {
-          const faceResult = await facialRecognitionService.recognizeFaces(cameraId, frame);
+          const faceResult = await this.detectionService.detectFaces(cameraId, frame);
           
           if (faceResult && faceResult.faces) {
             if (faceResult.faces.length > 0) {
@@ -498,6 +495,49 @@ export class OptimizedMotionDetector extends EventEmitter {
           }
         } catch (error) {
           console.warn(`Face detection failed for ${cameraId}:`, error);
+        }
+      } else {
+        // Fallback to global services if detection service not available
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const objectDetectionService = (global as any).objectDetectionService as ObjectDetectionService;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const facialRecognitionService = (global as any).facialRecognitionService as FacialRecognitionService;
+        
+        // Run person detection if available
+        if (objectDetectionService) {
+          try {
+            const personResult = await objectDetectionService.detectObjects(cameraId, frame);
+            
+            if (personResult && personResult.detections) {
+              const persons = personResult.detections.filter((d: DetectionResult) => d.class === 'person');
+              if (persons.length > 0) {
+                result.hasPersons = true;
+                result.personCount = persons.length;
+                result.persons = persons;
+              }
+            }
+          } catch (error) {
+            console.warn(`Person detection failed for ${cameraId}:`, error);
+          }
+        }
+        
+        // Run face detection if available
+        if (facialRecognitionService) {
+          try {
+            const faceResult = await facialRecognitionService.recognizeFaces(cameraId, frame);
+            
+            if (faceResult && faceResult.faces) {
+              if (faceResult.faces.length > 0) {
+                result.hasFaces = true;
+                result.faceCount = faceResult.faces.length;
+                result.faces = faceResult.faces;
+                result.knownFaces = faceResult.knownFaces.length;
+                result.unknownFaces = faceResult.unknownFaces.length;
+              }
+            }
+          } catch (error) {
+            console.warn(`Face detection failed for ${cameraId}:`, error);
+          }
         }
       }
     } catch (error) {
@@ -573,7 +613,7 @@ export class OptimizedMotionDetector extends EventEmitter {
           const now = new Date();
           const event = new Event();
           event.event_type = 'motion';
-          event.file_path = filepath;
+          event.file_path = filepath; // Keep original path for internal reference
           event.camera_id = cameraId;
           event.timestamp = now;
           event.confidence = motionData.confidence / 100; // Convert to 0-1 range
@@ -584,13 +624,13 @@ export class OptimizedMotionDetector extends EventEmitter {
             hasPersons: analysisResult?.hasPersons || false,
             hasFaces: analysisResult?.hasFaces || false
           });
-          
+
           // Detection metadata
           event.persons_detected = analysisResult?.personCount || 0;
           event.faces_detected = analysisResult?.faceCount || 0;
           event.known_faces_count = analysisResult?.knownFaces || 0;
           event.unknown_faces_count = analysisResult?.unknownFaces || 0;
-          
+
           // Save detection data as JSONB
           event.object_detections = analysisResult?.persons || [];
           event.face_detections = analysisResult?.faces || [];
@@ -652,7 +692,7 @@ export class OptimizedMotionDetector extends EventEmitter {
           id: `evt_${filename}`,
           cameraId,
           timestamp: new Date().toISOString(),
-          imagePath: `/events/${filename}`, // This will be handled by our new route
+          imagePath: `/api/events/image/${filename}`, // Updated to use API endpoint that will fetch from DB
           confidence: motionData.confidence,
           duration: 0,
           frameSize: frame.length,
@@ -718,8 +758,32 @@ export class OptimizedMotionDetector extends EventEmitter {
     return this.cameraSettings.get(cameraId) || null;
   }
 
+  // Cleanup all resources
+  async cleanup(): Promise<void> {
+    try {
+      // Stop detection
+      this.stop();
+      
+      // Clear frame buffers
+      this.frameBuffer.clear();
+      
+      // Terminate workers
+      this.workers.forEach(worker => worker.terminate());
+      this.workers = [];
+      
+      // Force garbage collection
+      if (global.gc) {
+        global.gc();
+      }
+      
+      console.log('Optimized motion detection resources cleaned up');
+    } catch (error) {
+      console.error('Error cleaning optimized motion detection resources:', error);
+    }
+  }
+
   // Cleanup old frames and optimize memory
-  cleanup(): void {
+  cleanupMemory(): void {
     // Clear old frame buffers
     this.frameBuffer.forEach((buffer, cameraId) => {
       if (buffer.length > 3) {
@@ -737,19 +801,29 @@ export class OptimizedMotionDetector extends EventEmitter {
 // Factory function
 export function setupOptimizedMotionDetection(
   streamManager: StreamManager, 
-  io: SocketIOServer
+  io: SocketIOServer,
+  detectionService?: any
 ): OptimizedMotionDetector {
   const detector = new OptimizedMotionDetector(streamManager, io);
   detector.start();
   
   // Setup periodic cleanup
-  setInterval(() => detector.cleanup(), 300000); // Every 5 minutes
+  setInterval(() => detector.cleanupMemory(), 300000); // Every 5 minutes
   
     // Make available globally
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).optimizedMotionDetector = detector;
   
   return detector;
+}
+
+// Cleanup function for graceful shutdown
+export async function cleanupOptimizedMotionDetection(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const detector = (global as any).optimizedMotionDetector as OptimizedMotionDetector;
+  if (detector) {
+    await detector.cleanup();
+  }
 }
 
 export default OptimizedMotionDetector;

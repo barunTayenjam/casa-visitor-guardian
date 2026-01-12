@@ -1398,11 +1398,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         // Extract just the filename from the full path for frontend compatibility
         // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
         // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Then format it as an API endpoint for the frontend
         // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
         let imagePathForFrontend = row.imagepath;
         if (row.imagepath) {
           const pathParts = row.imagepath.split('/');
-          imagePathForFrontend = pathParts[pathParts.length - 1];
+          const filename = pathParts[pathParts.length - 1];
+          // Format as API endpoint that serves the image from the detection directory
+          imagePathForFrontend = `/api/events/image/${filename}`;
         }
 
         return {
@@ -1479,11 +1482,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         // Extract just the filename from the full path for frontend compatibility
         // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
         // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
+        // Then format it as an API endpoint for the frontend
         // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
         let imagePathForFrontend = row.imagepath;
         if (row.imagepath) {
           const pathParts = row.imagepath.split('/');
-          imagePathForFrontend = pathParts[pathParts.length - 1];
+          const filename = pathParts[pathParts.length - 1];
+          // Format as API endpoint that serves the image from the detection directory
+          imagePathForFrontend = `/api/events/image/${filename}`;
         }
 
         return {
@@ -1609,89 +1615,83 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Count total events for pagination
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM detection_files df
-        ${whereClause}
-      `;
-      
-      // We need a separate parameter array for count query because it uses the same WHERE clause
-      // but doesn't need LIMIT/OFFSET params
-      const countResult = await AppDataSource.query(countQuery, queryParams);
-      const totalEvents = parseInt(countResult[0].total);
-      const totalPages = Math.ceil(totalEvents / size);
+      let totalEvents = 0;
+      let totalPages = 0;
+      let results = [];
 
-      // Query detection_files table to get all event files
-      let detectionQuery = `
-        SELECT 
-          df.original_filename as filename,
-          df.storage_path,
-          df.camera_id,
-          df.capture_timestamp as timestamp,
-          df.file_type,
-          df.metadata,
-          df.file_size,
-          COALESCE(event.persons_detected, 0) as persons_detected,
-          COALESCE(event.faces_detected, 0) as faces_detected,
-          COALESCE(event.known_faces_count, 0) as known_faces_count,
-          COALESCE(event.unknown_faces_count, 0) as unknown_faces_count,
-          event.object_detections,
-          event.face_detections,
-          event.id as event_id,
-          COALESCE(pi.person_count, 0) as batch_person_count,
-          COALESCE(pi.face_count, 0) as batch_face_count,
-          COALESCE(pi.known_face_count, 0) as batch_known_face_count,
-          COALESCE(pi.unknown_face_count, 0) as batch_unknown_face_count,
-          pi.detection_json as batch_detection_json
-        FROM detection_files df
-        LEFT JOIN events event ON df.storage_path = event.file_path
-        LEFT JOIN processed_images pi ON df.original_filename = pi.filename AND pi.status = 'success'
-        ${whereClause}
-        ORDER BY df.capture_timestamp DESC 
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `;
+      try {
+        const countQuery = `
+          SELECT COUNT(*) as total
+          FROM detection_files df
+          ${whereClause}
+        `;
 
-      // Add pagination params
-      queryParams.push(size, offset);
+        // We need a separate parameter array for count query because it uses the same WHERE clause
+        // but doesn't need LIMIT/OFFSET params
+        const countResult = await AppDataSource.query(countQuery, queryParams);
+        totalEvents = parseInt(countResult[0].total);
+        totalPages = Math.ceil(totalEvents / size);
 
-      const results = await AppDataSource.query(detectionQuery, queryParams);
+        // Query detection_files table to get all event files
+        let detectionQuery = `
+          SELECT
+            df.original_filename as filename,
+            df.storage_path,
+            df.camera_id,
+            df.capture_timestamp as timestamp,
+            df.file_type,
+            df.metadata,
+            df.file_size
+          FROM detection_files df
+          ${whereClause}
+          ORDER BY df.capture_timestamp DESC
+          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        // Add pagination params
+        queryParams.push(size, offset);
+
+        results = await AppDataSource.query(detectionQuery, queryParams);
+      } catch (dbError) {
+        console.error('Database error in enhanced events endpoint:', dbError);
+        // Return empty results if database query fails
+        totalEvents = 0;
+        totalPages = 0;
+        results = [];
+      }
 
       console.log(`[EventsList] Found ${results.length} events (Page ${currentPage} of ${totalPages})`);
 
       // Transform results to match expected format
       const events = results.map((row: any) => {
-        // Use batch processing data if events table has no detection data
-        let persons_detected = row.persons_detected || row.batch_person_count || 0;
-        let faces_detected = row.faces_detected || row.batch_face_count || 0;
-        let known_faces_count = row.known_faces_count || row.batch_known_face_count || 0;
-        let unknown_faces_count = row.unknown_faces_count || row.batch_unknown_face_count || 0;
-        let object_detections = row.object_detections;
-        let face_detections = row.face_detections;
+        // Extract detection data from metadata
+        let metadata = row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {};
 
-        // If events table has no data, use batch data
-        if ((!object_detections || !Array.isArray(object_detections)) && row.batch_detection_json) {
-          try {
-            const batchData = typeof row.batch_detection_json === 'string'
-              ? JSON.parse(row.batch_detection_json)
-              : row.batch_detection_json;
-            object_detections = batchData.persons || [];
-            face_detections = batchData.faces || [];
-          } catch (e) {
-            object_detections = [];
-            face_detections = [];
-          }
-        }
+        // Extract detection counts from metadata
+        let persons_detected = metadata.personCount || metadata.persons?.length || 0;
+        let faces_detected = metadata.faceCount || metadata.faces?.length || 0;
+        let known_faces_count = metadata.knownFaces || 0;
+        let unknown_faces_count = metadata.unknownFaces || 0;
+
+        // Extract detection arrays from metadata
+        let object_detections = metadata.persons || [];
+        let face_detections = metadata.faces || [];
+
+        // Extract just the filename from the full path for frontend compatibility
+        // Use the API endpoint format that serves images from the detection directory
+        let imageUrl = `/api/events/image/${row.filename}`;
 
         const eventData = {
-          id: row.event_id || row.filename,
+          id: row.filename, // Use filename as ID since we're not joining with events table
           event_type: row.file_type === 'event_face' ? 'face' : 'motion',
           filename: row.filename,
           timestamp: row.timestamp,
           cameraId: row.camera_id,
-          confidence: 0,
-          metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : null,
+          confidence: metadata.confidence || 0,
+          metadata: metadata,
+          imageUrl: imageUrl, // Add imageUrl field for frontend
 
-          // Detection data
+          // Detection data extracted from metadata
           persons_detected,
           faces_detected,
           known_faces_count,
@@ -1821,7 +1821,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Serve event images via API
+// Serve event images via API
   app.get('/api/events/image/:filename', async (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
@@ -1831,37 +1831,81 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'Invalid filename' });
       }
 
-      // Query the database to get the storage path for this filename
-      const query = `
-        SELECT storage_path
-        FROM detection_files
-        WHERE original_filename = $1
-          AND file_type IN ('event_motion', 'event_face')
-          AND is_deleted = FALSE
-        LIMIT 1
-      `;
-
-      const results = await AppDataSource.query(query, [filename]);
-
-      if (results.length === 0) {
-        return res.status(404).json({ success: false, error: 'Image not found' });
+      // First, try to find the file in the public directory (for backward compatibility)
+      const publicImagePath = path.join(process.cwd(), 'public', 'events', filename);
+      if (fs.existsSync(publicImagePath)) {
+        console.log('Serving image from public directory:', publicImagePath);
+        return res.sendFile(publicImagePath);
       }
 
-      let imagePath = results[0].storage_path;
+      // If not in public, try to find it in the detection files database to get the actual path
+      try {
+        const query = `
+          SELECT storage_path
+          FROM detection_files
+          WHERE original_filename = $1
+          LIMIT 1
+        `;
+        const results = await AppDataSource.query(query, [filename]);
 
-      // Handle path mapping for Docker container
-      // If the path starts with the host path, map it to the container path
-      if (imagePath.startsWith('/home/barun/Documents/home-security-non-docker/')) {
-        imagePath = imagePath.replace('/home/barun/Documents/home-security-non-docker/', '/app/');
+        if (results.length > 0 && results[0].storage_path) {
+          const actualImagePath = results[0].storage_path;
+
+          // Security check - ensure the path is within allowed directories
+          const allowedPaths = [
+            path.join(process.cwd(), 'public'),
+            path.join(process.cwd(), '..', 'public'),
+            '/app/data/detections',
+            '/app/public'
+          ];
+
+          const isAllowedPath = allowedPaths.some(allowedPath =>
+            actualImagePath.startsWith(allowedPath)
+          );
+
+          if (!isAllowedPath) {
+            console.log('Blocked access to unauthorized path:', actualImagePath);
+            return res.status(403).json({ success: false, error: 'Unauthorized file access' });
+          }
+
+          console.log('Serving image from database-stored path:', actualImagePath);
+
+          if (fs.existsSync(actualImagePath)) {
+            return res.sendFile(actualImagePath);
+          } else {
+            console.log('Image file not found at stored path:', actualImagePath);
+          }
+        }
+      } catch (dbError) {
+        console.error('Error querying database for image path:', dbError);
+        // Continue to try other locations
       }
 
-      // Check if file exists
-      if (!fs.existsSync(imagePath)) {
-        return res.status(404).json({ success: false, error: 'Image file not found on disk' });
+      // If not found in database, try common detection paths based on current date
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const yearMonth = `${year}-${month}`;
+
+      const possiblePaths = [
+        path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', 'motion', filename),
+        path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', 'faces', filename),
+        path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', 'motion', filename),
+        path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', 'faces', filename),
+        `/app/data/detections/${yearMonth}/events/motion/${filename}`,
+        `/app/data/detections/${yearMonth}/events/faces/${filename}`
+      ];
+
+      for (const imagePath of possiblePaths) {
+        if (fs.existsSync(imagePath)) {
+          console.log('Serving image from fallback path:', imagePath);
+          return res.sendFile(imagePath);
+        }
       }
 
-      // Send the file
-      res.sendFile(imagePath);
+      // If still not found, return 404
+      console.log('Image file not found in any location:', filename);
+      return res.status(404).json({ success: false, error: 'Image file not found on disk' });
     } catch (error) {
       console.error('Error serving event image:', error);
       res.status(500).json({ success: false, error: 'Failed to serve image' });

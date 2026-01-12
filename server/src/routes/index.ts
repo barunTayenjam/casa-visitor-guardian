@@ -1166,6 +1166,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
           imagePath: imagePathForFrontend,
+          imageUrl: `/events/${imagePathForFrontend}`,
           confidence: confidence,
           labels: labels,
           location: `Camera ${row.cameraid || 'unknown'}`,
@@ -1320,6 +1321,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           cameraId: row.cameraid || 'unknown',
           timestamp: new Date(row.timestamp).toISOString(),
           imagePath: imagePathForFrontend,
+          imageUrl: `/events/${imagePathForFrontend}`,
           confidence: confidence,
           labels: labels,
           location: `Camera ${row.cameraid || 'unknown'}`,
@@ -1405,7 +1407,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const pathParts = row.imagepath.split('/');
           const filename = pathParts[pathParts.length - 1];
           // Format as API endpoint that serves the image from the detection directory
-          imagePathForFrontend = `/api/events/image/${filename}`;
+          imagePathForFrontend = `/events/${filename}`;
         }
 
         return {
@@ -1489,7 +1491,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const pathParts = row.imagepath.split('/');
           const filename = pathParts[pathParts.length - 1];
           // Format as API endpoint that serves the image from the detection directory
-          imagePathForFrontend = `/api/events/image/${filename}`;
+          imagePathForFrontend = `/events/${filename}`;
         }
 
         return {
@@ -1499,10 +1501,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           imagePath: imagePathForFrontend,
           confidence: confidence,
           duration: 0,
-          cameraName: `Camera ${row.cameraid || 'unknown'}`,
-          labels: labels,
-          location: `Camera ${row.cameraid || 'unknown'}`
-        };
+           cameraName: `Camera ${row.cameraid || 'unknown'}`,
+           labels: labels,
+           location: `Camera ${row.cameraid || 'unknown'}`,
+           imageUrl: imagePathForFrontend
+         };
       });
 
       res.json({ success: true, events: events });
@@ -1679,7 +1682,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
         // Extract just the filename from the full path for frontend compatibility
         // Use the API endpoint format that serves images from the detection directory
-        let imageUrl = `/api/events/image/${row.filename}`;
+        let imageUrl = `/events/${row.filename}`;
 
         const eventData = {
           id: row.filename, // Use filename as ID since we're not joining with events table

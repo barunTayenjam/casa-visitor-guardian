@@ -465,13 +465,13 @@ export function configureVisitorRoutes(app: express.Application): void {
       }
 
       // Use the consolidated detection service
-      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
-      const detectionService = consolidatedDetectionService;
+      const { advancedFaceRecognitionService } = await import('../services/advancedFaceRecognitionService.js');
+      const detectionService = advancedFaceRecognitionService;
 
       console.log(`Recognizing faces in image: ${imagePath}`);
 
-      // Recognize faces in the image
-      const recognitionResults = await detectionService.recognizeFaces(imagePath);
+      // Recognize faces in image
+      const recognitionResults = await detectionService.recognizeFacesInImage(imagePath);
 
       // Filter results if requested
       const results = knownFacesOnly
@@ -514,8 +514,8 @@ export function configureVisitorRoutes(app: express.Application): void {
       }
 
       // Use the consolidated detection service
-      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
-      const detectionService = consolidatedDetectionService;
+      const { advancedFaceRecognitionService } = await import('../detection/advancedFaceRecognitionService.js');
+      const detectionService = advancedFaceRecognitionService;
 
       console.log(`Registering person: ${personName} with ${imagePaths.length} images`);
 
@@ -573,8 +573,8 @@ export function configureVisitorRoutes(app: express.Application): void {
       console.log('*** GET KNOWN FACES API CALLED ***');
 
       // Use the consolidated detection service
-      const { consolidatedDetectionService } = await import('../detection/consolidatedDetectionService.js');
-      const detectionService = consolidatedDetectionService;
+      const { advancedFaceRecognitionService } = await import('../detection/advancedFaceRecognitionService.js');
+      const detectionService = advancedFaceRecognitionService;
 
       const knownPeople = await detectionService.getKnownPeople();
 

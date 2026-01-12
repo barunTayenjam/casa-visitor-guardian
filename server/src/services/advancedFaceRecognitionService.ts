@@ -1,6 +1,6 @@
 import * as cv from '@techstark/opencv-js';
-import { FaceDetection } from '../detection/facialRecognitionOpenCV.js';
-import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
+import { FaceDetection } from '../detection/consolidatedDetectionService.js';
+import { getOpenCVClient } from './opencvMicroserviceClient.js';
 
 export interface FaceEmbedding {
   id: string;

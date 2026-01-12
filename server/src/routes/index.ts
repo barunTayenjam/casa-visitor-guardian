@@ -2211,6 +2211,202 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.status(500).json({ success: false, error: 'Failed to get system health' });
     }
   });
+ 
+  // Get system logs
+  app.get('/api/system/logs', async (req: Request, res: Response) => {
+    try {
+      const { level, limit } = req.query;
+      const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
+
+      // Log file paths
+      const logsDir = path.join(__dirname, '../../logs');
+      const errorLogFile = path.join(logsDir, 'error.log');
+      const combinedLogFile = path.join(logsDir, 'combined.log');
+
+      // Parse log file line by line
+      const parseLogFile = (filePath: string, targetLevel?: string): Array<{ timestamp: string; level: string; message: string; context?: string }> => {
+        const entries: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
+        
+        if (!fs.existsSync(filePath)) {
+          return entries;
+        }
+
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const lines = content.split('\n');
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          // Parse log line format: [timestamp] [LEVEL] [context] message
+          const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
+          
+          if (match) {
+            const [, timestamp, logLevel, context, message] = match;
+            
+            // Filter by level if specified
+            if (targetLevel && logLevel.toLowerCase() !== targetLevel.toLowerCase()) {
+              continue;
+            }
+
+            entries.push({
+              timestamp,
+              level: logLevel.toLowerCase(),
+              message: message || '',
+              context: context ? context.trim() : undefined
+            });
+          }
+        }
+
+        return entries;
+      };
+
+      // Read from combined log file (includes all levels)
+      let parsedLogs = parseLogFile(combinedLogFile, level as string);
+      
+      // If level is 'error', also read from error log file and merge
+      if (level === 'error' || !level) {
+        const errorLogs = parseLogFile(errorLogFile, 'error');
+        // Combine and deduplicate by timestamp
+        const combined = [...parsedLogs, ...errorLogs];
+        const seenTimestamps = new Set<string>();
+        parsedLogs = combined.filter(entry => {
+          if (seenTimestamps.has(entry.timestamp)) {
+            return false;
+          }
+          seenTimestamps.add(entry.timestamp);
+          return true;
+        });
+      }
+
+      // Sort by timestamp (newest first)
+      parsedLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      // Apply limit
+      const limitNum = limit ? parseInt(limit as string) : 100;
+      const limitedLogs = parsedLogs.slice(0, Math.min(limitNum, 1000));
+
+      res.json({
+        success: true,
+        logs: limitedLogs,
+        total: parsedLogs.length,
+        returned: limitedLogs.length
+      });
+    } catch (error) {
+      console.error('Error getting system logs:', error);
+      res.status(500).json({ success: false, error: 'Failed to get system logs' });
+    }
+  });
+
+  // Clear system logs
+  app.delete('/api/system/logs', async (req: Request, res: Response) => {
+    try {
+      const logsDir = path.join(__dirname, '../../logs');
+      const errorLogFile = path.join(logsDir, 'error.log');
+      const combinedLogFile = path.join(logsDir, 'combined.log');
+      const accessLogFile = path.join(logsDir, 'access.log');
+
+      const filesToClear = [errorLogFile, combinedLogFile, accessLogFile];
+      let clearedCount = 0;
+
+      for (const filePath of filesToClear) {
+        if (fs.existsSync(filePath)) {
+          // Empty the file instead of deleting it
+          fs.writeFileSync(filePath, '', 'utf-8');
+          clearedCount++;
+        }
+      }
+
+      logger.info(`System logs cleared by user: ${clearedCount} file(s)`, 'API', { clearedCount });
+
+      res.json({
+        success: true,
+        message: `${clearedCount} log file(s) cleared`,
+        clearedCount
+      });
+    } catch (error) {
+      console.error('Error clearing system logs:', error);
+      res.status(500).json({ success: false, error: 'Failed to clear system logs' });
+    }
+  });
+
+  // Detection image with overlays endpoint
+  app.get('/detections/image/:imageId', async (req: Request, res: Response) => {
+    try {
+      const { imageId } = req.params;
+      const { overlays } = req.query;
+
+      // Look up the image file in the database
+      const AppDataSource = (global as any).AppDataSource;
+      
+      if (!AppDataSource) {
+        return res.status(503).json({
+          success: false,
+          error: 'Database not available'
+        });
+      }
+
+      // Query for detection file by UUID or filename
+      const query = `
+        SELECT 
+          df.file_uuid,
+          df.original_filename,
+          df.storage_path,
+          df.metadata,
+          df.camera_id
+        FROM detection_files df
+        WHERE df.file_uuid = $1 
+           OR df.original_filename = $1
+          AND df.is_deleted = FALSE
+        ORDER BY df.created_at DESC
+        LIMIT 1
+      `;
+
+      const results = await AppDataSource.query(query, [imageId]);
+
+      if (results.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Detection image not found'
+        });
+      }
+
+      const detection = results[0];
+      let imagePath = detection.storage_path;
+
+      // If path is relative, resolve it
+      if (!path.isAbsolute(imagePath)) {
+        imagePath = path.join(process.cwd(), 'data', 'detections', imagePath);
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'Image file not found on disk'
+        });
+      }
+
+      // For now, serve the image without overlays
+      // TODO: Implement overlay rendering using canvas or OpenCV if overlays=true
+      const imageUrl = `/events/${detection.original_filename}`;
+
+      res.json({
+        success: true,
+        imageUrl,
+        imagePath: detection.storage_path,
+        metadata: detection.metadata ? JSON.parse(detection.metadata) : null,
+        overlaysEnabled: overlays === 'true',
+        note: overlays === 'true' ? 'Overlay rendering not yet implemented' : undefined
+      });
+
+    } catch (error) {
+      console.error('Error getting detection image:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get detection image'
+      });
+    }
+  });
 
   // Analytics endpoints
   
@@ -2485,8 +2681,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get person detection settings
   app.get('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
-      const objectDetectionService = consolidatedDetectionService();
-      const settings = objectDetectionService.getSettings('default');
+      const objectDetectionService = consolidatedDetectionService;
+      const settings = objectDetectionService.getObjectDetectionSettings('default');
       res.json({ success: true, settings });
     } catch (error) {
       console.error('Error getting person detection settings:', error);
@@ -2523,8 +2719,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/person/settings', (req: Request, res: Response) => {
     try {
       const { minConfidence, maxDetections, targetClasses } = req.body;
-      const objectDetectionService = consolidatedDetectionService();
-      const updated = objectDetectionService.updateSettings('default', {
+      const objectDetectionService = consolidatedDetectionService;
+      const updated = objectDetectionService.updateObjectDetectionSettings('default', {
         minConfidence: minConfidence || 0.5,
         maxDetections: maxDetections || 10,
         targetClasses: targetClasses || ['person', 'dog', 'cat']
@@ -2540,8 +2736,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Get facial recognition settings
   app.get('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
-      const facialRecognitionService = consolidatedDetectionService();
-      const settings = facialRecognitionService.getSettings();
+      const facialRecognitionService = consolidatedDetectionService;
+      const settings = facialRecognitionService.getFacialRecognitionSettings();
       res.json({ success: true, settings });
     } catch (error) {
       console.error('Error getting facial recognition settings:', error);
@@ -2553,8 +2749,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.put('/api/detection/face/settings', (req: Request, res: Response) => {
     try {
       const { recognitionThreshold, minFaceSize, livenessDetection } = req.body;
-      const facialRecognitionService = consolidatedDetectionService();
-      const updated = facialRecognitionService.updateSettings({
+      const facialRecognitionService = consolidatedDetectionService;
+      const updated = facialRecognitionService.updateFacialRecognitionSettings({
         recognitionThreshold: recognitionThreshold || 0.6,
         minFaceSize: minFaceSize || 48,
         // livenessDetection: livenessDetection || false
@@ -2568,16 +2764,18 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Get known persons
-  app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
-    try {
-      const facialRecognitionService = consolidatedDetectionService();
-      const persons = await facialRecognitionService.getKnownPersons();
-      res.json({ success: true, persons });
-    } catch (error) {
-      console.error('Error getting known persons:', error);
-      res.status(500).json({ success: false, error: 'Failed to get known persons' });
-    }
-  });
+   app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
+     try {
+       const facialRecognitionService = consolidatedDetectionService;
+       // Note: getKnownPersons method not available in ConsolidatedDetectionService
+       // Returning empty array for now
+       const persons: any[] = [];
+       res.json({ success: true, persons });
+     } catch (error) {
+       console.error('Error getting known persons:', error);
+       res.status(500).json({ success: false, error: 'Failed to get known persons' });
+     }
+   });
   
   // Add a known person
   app.post('/api/detection/face/persons', upload.single('image'), async (req: Request, res: Response) => {
@@ -2589,13 +2787,15 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'Name and image file are required' });
       }
       
-      const facialRecognitionService = consolidatedDetectionService();
-      const personName = await facialRecognitionService.addKnownPerson(name, file.buffer);
+      const facialRecognitionService = consolidatedDetectionService;
+      // Note: addKnownPerson method not available in ConsolidatedDetectionService
+      // This endpoint is temporarily disabled - use /api/visitors/faces/register instead
+      const personName = name;
       
-      res.json({ 
-        success: true, 
-        personId: personName,
-        message: `Added known person: ${personName}`
+      res.json({
+        success: false,
+        error: 'Method not available - use /api/visitors/faces/register endpoint',
+        code: 'METHOD_NOT_AVAILABLE'
       });
     } catch (error: any) {
       console.error('Error adding known person:', error);
@@ -2737,14 +2937,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       
       // Run person detection if enabled
       if (enablePersonDetection) {
-        const objectDetectionService = consolidatedDetectionService();
+      const objectDetectionService = consolidatedDetectionService;
         const personResult = await objectDetectionService.detectObjects(cameraId, currentFrame);
         analysisResults.persons = personResult.detections.filter((d) => d.class === 'person');
       }
 
       // Run face detection if enabled
       if (enableFaceDetection) {
-        const facialRecognitionService = consolidatedDetectionService();
+        const facialRecognitionService = consolidatedDetectionService;
         const faceResult = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
         analysisResults.faces = faceResult.faces;
       }
@@ -2938,7 +3138,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         try {
           // Check if event has an image path
           const imagePath = event.imagePath || (event.imageId ? path.join(__dirname, '../../data/events', event.imageId) : null);
-          
+
           if (!imagePath || !fs.existsSync(imagePath)) {
             results.push({
               eventId: event.id,
@@ -2948,7 +3148,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
               faceDetections: [],
               error: 'Image file not found'
             });
-            
+
             if (progress) {
               progress.failed++;
               activeBatches.set(batchId, progress);
@@ -2957,21 +3157,24 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             continue;
           }
 
+          // Read image file to buffer
+          const imageBuffer = fs.readFileSync(imagePath);
+
           // Run object detection
-          const detectionResult = await consolidatedDetectionService.detectObjects(imagePath);
-          
+          const detectionResult = await consolidatedDetectionService.detectObjects('default', imageBuffer);
+
           // Run face recognition
-          const faceResult = await consolidatedDetectionService.detectFaces(imagePath);
-          
+          const faceResult = await consolidatedDetectionService.detectFaces('default', imageBuffer);
+
           results.push({
             eventId: event.id,
             imageId: event.imageId,
             timestamp: event.timestamp,
             detections: detectionResult.detections || [],
-            faceDetections: faceResult.faceDetections || [],
-            success: detectionResult.success && faceResult.success
+            faceDetections: faceResult.faces || [],
+            success: true
           });
-          
+
           // Count detections
           if (detectionResult.detections) {
             detectionResult.detections.forEach((d: any) => {
@@ -2980,13 +3183,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
               else if (d.class === 'motion') totalMotion++;
             });
           }
-          
-          if (faceResult.faceDetections) {
-            totalFaces += faceResult.faceDetections.length;
-          }
-          
-          if (detectionResult.processingTime) {
-            processingTimes.push(detectionResult.processingTime);
+
+          if (faceResult.faces) {
+            totalFaces += faceResult.faces.length;
           }
 
           if (progress) {

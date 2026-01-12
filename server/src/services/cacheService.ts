@@ -90,7 +90,22 @@ class CacheService {
     return !!(this.client && this.isConnected && this.redisAvailable);
   }
 
-  async get(key: string): Promise<any> {
+  async get(key: string): Promise<string | null> {
+    if (!this.isRedisAvailable()) {
+      return this.getMemoryCacheString(key);
+    }
+
+    try {
+      if (!this.client) throw new Error('Client not initialized');
+      const value = await this.client.get(key);
+      return value || null;
+    } catch (error) {
+      console.warn('Redis get error, falling back to memory:', error);
+      return this.getMemoryCacheString(key);
+    }
+  }
+
+  async getJSON(key: string): Promise<any> {
     if (!this.isRedisAvailable()) {
       return this.getMemoryCache(key);
     }
@@ -103,6 +118,18 @@ class CacheService {
       console.warn('Redis get error, falling back to memory:', error);
       return this.getMemoryCache(key);
     }
+  }
+
+  private getMemoryCacheString(key: string): string | null {
+    const item = this.memoryCache.get(key);
+    if (!item) return null;
+
+    if (Date.now() > item.expiry) {
+      this.memoryCache.delete(key);
+      return null;
+    }
+
+    return typeof item.value === 'string' ? item.value : JSON.stringify(item.value);
   }
 
   async set(key: string, value: any, customTtl?: number): Promise<void> {

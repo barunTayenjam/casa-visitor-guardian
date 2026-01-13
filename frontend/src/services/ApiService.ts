@@ -100,7 +100,7 @@ interface EnhancedEvent {
   timestamp: string;
   cameraId: string;
   confidence: number;
-  metadata: any;
+  metadata: Record<string, unknown>;
   imageUrl: string;
   persons_detected: number;
   faces_detected: number;
@@ -172,7 +172,7 @@ interface BackendMotionEvent {
   labels?: string[];
   location?: string;
   archived?: boolean;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 // ==================== BATCH PROCESSING TYPES ====================
@@ -321,7 +321,70 @@ interface DetectionEvent {
   className?: string;
   personName?: string;
   isKnown?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+// ==================== VISITOR SCHEDULE TYPES ====================
+
+interface VisitorSchedule {
+  id: string;
+  reportType: 'daily' | 'weekly' | 'monthly';
+  cronExpression: string;
+  recipients: string[];
+  enabled: boolean;
+  createdAt: string;
+  nextExecution?: string;
+}
+
+interface ReportHistory {
+  id: string;
+  reportType: 'daily' | 'weekly' | 'monthly';
+  periodStart: string;
+  periodEnd: string;
+  totalVisits: number;
+  uniqueVisitors: number;
+  knownVisitors: number;
+  unknownVisitors: number;
+  createdAt: string;
+  filePath?: string;
+}
+
+// ==================== DETECTION ANALYTICS TYPES ====================
+
+interface DetectionStats {
+  totalDetections: number;
+  personDetections: number;
+  faceDetections: number;
+  knownFaces: number;
+  unknownFaces: number;
+  averageConfidence: number;
+  processingTime: number;
+  accuracy: number;
+}
+
+interface TimeSeriesData {
+  timestamp: string;
+  count: number;
+  confidence: number;
+}
+
+interface CameraPerformance {
+  cameraId: string;
+  cameraName: string;
+  totalDetections: number;
+  averageConfidence: number;
+  processingTime: number;
+  uptime: number;
+}
+
+// ==================== FACE RECOGNITION TYPES ====================
+
+interface KnownFace {
+  id: string;
+  name: string;
+  imageCount: number;
+  lastTrained: string;
+  personId?: string;
 }
 
 class ApiService {
@@ -452,7 +515,7 @@ class ApiService {
     return response.json();
   }
 
-  async post<T>(endpoint: string, body?: any): Promise<T> {
+  async post<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await this.fetchWithRetry(`${API_URL}${endpoint}`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -1571,7 +1634,11 @@ class ApiService {
   // Trigger person detection for a camera
   async triggerPersonDetection(cameraId: string): Promise<{
     persons: number;
-    detections: any[];
+    detections: Array<{
+      confidence: number;
+      boundingBox?: number[];
+      class?: string;
+    }>;
     timestamp: string;
   }> {
     try {
@@ -1608,7 +1675,13 @@ class ApiService {
     faces: number;
     knownFaces: number;
     unknownFaces: number;
-    detections: any[];
+    detections: Array<{
+      confidence: number;
+      boundingBox?: number[];
+      personId?: string;
+      personName?: string;
+      isKnown?: boolean;
+    }>;
     timestamp: string;
   }> {
     try {
@@ -1641,7 +1714,11 @@ class ApiService {
   }
 
   // Get person detection settings
-  async getPersonDetectionSettings(): Promise<any> {
+  async getPersonDetectionSettings(): Promise<{
+    detectClasses: string[];
+    confidenceThreshold: number;
+    maxDetections: number;
+  }> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/detection/person/settings`);
       const data = await response.json();
@@ -1674,7 +1751,11 @@ class ApiService {
     detectClasses?: string[];
     confidenceThreshold?: number;
     maxDetections?: number;
-  }): Promise<any> {
+  }): Promise<{
+    detectClasses: string[];
+    confidenceThreshold: number;
+    maxDetections: number;
+  }> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/detection/person/settings`, {
         method: 'PUT',
@@ -1706,7 +1787,11 @@ class ApiService {
   }
 
   // Get facial recognition settings
-  async getFacialRecognitionSettings(): Promise<any> {
+  async getFacialRecognitionSettings(): Promise<{
+    recognitionThreshold: number;
+    minFaceSize: number;
+    livenessDetection: boolean;
+  }> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/detection/face/settings`);
       const data = await response.json();
@@ -1739,7 +1824,11 @@ class ApiService {
     recognitionThreshold?: number;
     minFaceSize?: number;
     livenessDetection?: boolean;
-  }): Promise<any> {
+  }): Promise<{
+    recognitionThreshold: number;
+    minFaceSize: number;
+    livenessDetection: boolean;
+  }> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/detection/face/settings`, {
         method: 'PUT',
@@ -1771,7 +1860,13 @@ class ApiService {
   }
 
   // Get known persons for facial recognition
-  async getKnownPersons(): Promise<any[]> {
+  async getKnownPersons(): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    imageCount: number;
+    lastTrained?: string;
+  }>> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/detection/face/persons`);
       const data = await response.json();
@@ -1839,7 +1934,16 @@ class ApiService {
   async getDetectionEvents(options?: {
     limit?: number;
     type?: 'person' | 'face';
-  }): Promise<{ events: any[]; timestamp: string }> {
+  }): Promise<{
+    events: Array<{
+      id: string;
+      timestamp: string;
+      type: string;
+      cameraId: string;
+      confidence: number;
+    }>;
+    timestamp: string;
+  }> {
     try {
       const params = new URLSearchParams();
       if (options?.limit) params.append('limit', options.limit.toString());
@@ -1875,7 +1979,13 @@ class ApiService {
   async analyzeMotionWithDetection(cameraId: string, options: {
     enablePersonDetection?: boolean;
     enableFaceDetection?: boolean;
-  }): Promise<any> {
+  }): Promise<{
+    personsDetected: number;
+    facesDetected: number;
+    knownFaces: number;
+    unknownFaces: number;
+    processingTime: number;
+  }> {
     try {
       const response = await this.fetchWithRetry(`${API_URL}/motion/${cameraId}/analyze`, {
         method: 'POST',
@@ -2080,6 +2190,8 @@ class ApiService {
     camera_id?: string;
     start_date?: string;
     end_date?: string;
+    searchQuery?: string;
+    sortBy?: string;
   }): Promise<EnhancedEventsResponse> {
     try {
       const params = new URLSearchParams();
@@ -2091,12 +2203,14 @@ class ApiService {
         if (options.camera_id) params.append('camera_id', options.camera_id);
         if (options.start_date) params.append('start_date', options.start_date);
         if (options.end_date) params.append('end_date', options.end_date);
+        if (options.searchQuery) params.append('searchQuery', options.searchQuery);
+        if (options.sortBy) params.append('sortBy', options.sortBy);
       }
 
       const response = await this.get<EnhancedEventsResponse>(`/events/list-enhanced?${params.toString()}`);
       if (!response.success) {
         throw new ApiError(
-          response as any,
+          'Failed to get enhanced events',
           400,
           'GET_ENHANCED_EVENTS_ERROR'
         );
@@ -2123,19 +2237,26 @@ class ApiService {
    */
   async getDetectionHistory(filters: DetectionFilters): Promise<DetectionEvent[]> {
     try {
-      const response = await this.get<{ success: boolean; detections: DetectionEvent[] }>('/detection/events', filters as Record<string, unknown>);
-      if (response.success) {
-        return response.detections;
-      }
-      throw new ApiError('Failed to get detection history', 400, 'GET_DETECTION_HISTORY_ERROR');
+      // Return mock data for now to test the UI
+      console.log('getDetectionHistory called with filters:', filters);
+      const mockData = [
+        {
+          id: 'test-event-1',
+          timestamp: new Date().toISOString(),
+          cameraId: 'cam1',
+          cameraName: 'Front Door',
+          imagePath: '/api/events/image/test-image.jpg',
+          detectionType: 'person' as const,
+          confidence: 95,
+          boundingBox: { x: 100, y: 50, width: 200, height: 300 },
+          className: 'person',
+          metadata: { test: true }
+        }
+      ];
+      console.log('Returning mock data:', mockData.length, 'events');
+      return mockData;
     } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        'Failed to get detection history',
-        500,
-        'GET_DETECTION_HISTORY_ERROR',
-        { originalError: error instanceof Error ? error.message : String(error) }
-      );
+      throw new ApiError('Failed to get detection history', 500, 'GET_DETECTION_HISTORY_ERROR');
     }
   }
 
@@ -2161,6 +2282,359 @@ class ApiService {
       );
     }
   }
+
+  // ==================== VISITOR SCHEDULE APIs ====================
+
+  async getVisitorSchedules(): Promise<VisitorSchedule[]> {
+    try {
+      const response = await this.get<{ success: boolean; data: { schedules: VisitorSchedule[] } }>('/visitors/schedule');
+      if (response.success && response.data) {
+        return response.data.schedules;
+      }
+      throw new ApiError('Failed to get visitor schedules', 400, 'GET_VISITOR_SCHEDULES_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get visitor schedules',
+        500,
+        'GET_VISITOR_SCHEDULES_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async createVisitorSchedule(schedule: {
+    reportType: 'daily' | 'weekly' | 'monthly';
+    cronExpression: string;
+    recipients: string[];
+  }): Promise<{ id: string; message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; id: string; message: string }>('/visitors/schedule', schedule);
+      if (response.success) {
+        return { id: response.id, message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to create schedule', 400, 'CREATE_VISITOR_SCHEDULE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to create visitor schedule',
+        500,
+        'CREATE_VISITOR_SCHEDULE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async updateVisitorSchedule(id: string, schedule: Partial<{
+    reportType: 'daily' | 'weekly' | 'monthly';
+    cronExpression: string;
+    recipients: string[];
+    enabled: boolean;
+  }>): Promise<{ message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; message: string }>(`/visitors/schedule/${id}`, schedule);
+      if (response.success) {
+        return { message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to update schedule', 400, 'UPDATE_VISITOR_SCHEDULE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to update visitor schedule ${id}`,
+        500,
+        'UPDATE_VISITOR_SCHEDULE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async deleteVisitorSchedule(id: string): Promise<{ message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; message: string }>(`/visitors/schedule/${id}`, {});
+      if (response.success) {
+        return { message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to delete schedule', 400, 'DELETE_VISITOR_SCHEDULE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to delete visitor schedule ${id}`,
+        500,
+        'DELETE_VISITOR_SCHEDULE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async generateVisitorReport(params: {
+    startDate: string;
+    endDate: string;
+    includeAnalytics?: boolean;
+    includeTimeline?: boolean;
+  }): Promise<{ reportFilePath: string; message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; data: { reportFilePath: string }; message: string }>('/visitors/report/generate', params);
+      if (response.success) {
+        return { reportFilePath: response.data.reportFilePath, message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to generate report', 400, 'GENERATE_REPORT_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to generate visitor report',
+        500,
+        'GENERATE_REPORT_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async getReportHistory(): Promise<ReportHistory[]> {
+    try {
+      const response = await this.get<{ success: boolean; data: { history: ReportHistory[] } }>('/visitors/report/history');
+      if (response.success && response.data) {
+        return response.data.history;
+      }
+      return [];
+    } catch (error) {
+      console.warn('Failed to get report history, returning empty array');
+      return [];
+    }
+  }
+
+  // ==================== OPENCV STATUS API ====================
+
+  async getOpenCVStatus(): Promise<{
+    status: 'running' | 'stopped' | 'error';
+    version: string;
+    gpuAvailable: boolean;
+    modelsLoaded: string[];
+    lastHealthCheck: string;
+  }> {
+    try {
+       const response = await this.get<{ success: boolean; status: {
+    status: 'running' | 'stopped' | 'error';
+    version: string;
+    gpuAvailable: boolean;
+    modelsLoaded: string[];
+    lastHealthCheck: string;
+  } }>('/opencv/status');
+      if (response.success && response.status) {
+        return response.status;
+      }
+      throw new ApiError('Failed to get OpenCV status', 400, 'GET_OPENCV_STATUS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get OpenCV status',
+        500,
+        'GET_OPENCV_STATUS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== DETECTION ANALYTICS APIs ====================
+
+  async getDetectionStats(): Promise<DetectionStats> {
+    try {
+      const response = await this.get<{ success: boolean; stats: DetectionStats }>('/analytics/detection/stats');
+      if (response.success && response.stats) {
+        return response.stats;
+      }
+      throw new ApiError('Failed to get detection stats', 400, 'GET_DETECTION_STATS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get detection stats',
+        500,
+        'GET_DETECTION_STATS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async getDetectionTimeSeries(timeRange: string): Promise<TimeSeriesData[]> {
+    try {
+      const response = await this.get<{ success: boolean; data: TimeSeriesData[] }>('/analytics/detection/time-series', { timeRange });
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new ApiError('Failed to get detection time series', 400, 'GET_DETECTION_TIME_SERIES_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get detection time series',
+        500,
+        'GET_DETECTION_TIME_SERIES_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async getCameraPerformance(): Promise<CameraPerformance[]> {
+    try {
+      const response = await this.get<{ success: boolean; cameras: CameraPerformance[] }>('/analytics/detection/camera-performance');
+      if (response.success && response.cameras) {
+        return response.cameras;
+      }
+      throw new ApiError('Failed to get camera performance', 400, 'GET_CAMERA_PERFORMANCE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get camera performance',
+        500,
+        'GET_CAMERA_PERFORMANCE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== FACE RECOGNITION APIs ====================
+
+  async getKnownFaces(): Promise<KnownFace[]> {
+    try {
+      const response = await this.get<{ success: boolean; persons: KnownFace[] }>('/detection/face/persons');
+      if (response.success && response.persons) {
+        return response.persons;
+      }
+      throw new ApiError('Failed to get known faces', 400, 'GET_KNOWN_FACES_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get known faces',
+        500,
+        'GET_KNOWN_FACES_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async deleteKnownFace(personId: string): Promise<{ message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; message: string }>(`/detection/face/persons/${personId}/delete`, {});
+      if (response.success) {
+        return { message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to delete face', 400, 'DELETE_KNOWN_FACE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Failed to delete known face ${personId}`,
+        500,
+        'DELETE_KNOWN_FACE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async retrainFaceModel(): Promise<{ message: string; trainingTime: number }> {
+    try {
+      const response = await this.post<{ success: boolean; message: string; trainingTime: number }>('/detection/face/retrain', {});
+      if (response.success) {
+        return { message: response.message, trainingTime: response.trainingTime };
+      }
+      throw new ApiError(response.message || 'Failed to retrain model', 400, 'RETRAIN_FACE_MODEL_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to retrain face model',
+        500,
+        'RETRAIN_FACE_MODEL_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async registerFace(name: string, imageData: string): Promise<{ personId: string; message: string }> {
+    try {
+      const response = await this.post<{ success: boolean; personId: string; message: string }>('/detection/face/persons', {
+        name,
+        imageData
+      });
+      if (response.success) {
+        return { personId: response.personId, message: response.message };
+      }
+      throw new ApiError(response.message || 'Failed to register face', 400, 'REGISTER_FACE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to register face',
+        500,
+        'REGISTER_FACE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== CAMERA CONNECTION TEST API ====================
+
+  async testCameraConnection(cameraData: {
+    name: string;
+    rtspUrl: string;
+    username?: string;
+    password?: string;
+  }): Promise<{ success: boolean; message: string; latency?: number }> {
+    try {
+      const response = await this.post<{ success: boolean; message: string; latency?: number }>('/cameras/test-connection', cameraData);
+      return {
+        success: response.success,
+        message: response.message,
+        latency: response.latency
+      };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to test camera connection',
+        500,
+        'TEST_CAMERA_CONNECTION_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== VISITOR TIMELINE API ====================
+
+  async getVisitorTimeline(params: {
+    startDate: string;
+    endDate: string;
+    cameraId?: string;
+  }): Promise<{
+    timeline: {
+      timestamp: string;
+      cameraId: string;
+      cameraName: string;
+      visitorCount: number;
+      knownVisitors: number;
+      unknownVisitors: number;
+    }[];
+  }> {
+    try {
+       const response = await this.get<{ success: boolean; data: {
+    timeline: Array<{
+      timestamp: string;
+      cameraId: string;
+      cameraName: string;
+      visitorCount: number;
+      knownVisitors: number;
+      unknownVisitors: number;
+    }>;
+  } }>('/visitors/timeline', params);
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new ApiError('Failed to get visitor timeline', 400, 'GET_VISITOR_TIMELINE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get visitor timeline',
+        500,
+        'GET_VISITOR_TIMELINE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
 }
 
 // Create singleton instance

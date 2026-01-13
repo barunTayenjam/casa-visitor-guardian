@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,7 +73,7 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
   const [selectedMetric, setSelectedMetric] = useState<'detections' | 'confidence' | 'accuracy'>('detections');
 
   // Load analytics data
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = useCallback(async () => {
     setIsLoading(true);
     try {
       // In a real implementation, these would be actual API calls
@@ -143,11 +143,11 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadAnalyticsData();
-  }, [timeRange]);
+  }, [loadAnalyticsData, timeRange]);
 
   const exportAnalytics = async () => {
     try {
@@ -307,7 +307,7 @@ export const DetectionAnalytics: React.FC<DetectionAnalyticsProps> = ({
                 <TrendingUp className="mr-2 h-5 w-5" />
                 Detection Trends
               </span>
-              <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+              <Select value={selectedMetric} onValueChange={(value: 'detections' | 'confidence' | 'accuracy') => setSelectedMetric(value)}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>

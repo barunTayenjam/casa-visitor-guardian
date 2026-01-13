@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,11 +30,7 @@ export const FaceRecognitionManager: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadKnownFaces();
-  }, []);
-
-  const loadKnownFaces = async () => {
+  const loadKnownFaces = useCallback(async () => {
     try {
       setIsLoading(true);
       // In a real implementation, we would fetch from the backend
@@ -48,14 +44,18 @@ export const FaceRecognitionManager: React.FC = () => {
     } catch (error) {
       console.error('Error loading known faces:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load known faces',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to load known faces",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadKnownFaces();
+  }, [loadKnownFaces]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

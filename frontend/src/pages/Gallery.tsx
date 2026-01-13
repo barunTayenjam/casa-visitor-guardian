@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import apiService, { ApiError } from '@/services/ApiService';
 import { MotionEvent } from '@/types/security';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Download,
   X,
@@ -21,7 +22,13 @@ import {
   ChevronRight,
   Grid3X3,
   List,
-  Archive
+  Archive,
+  Info,
+  UserCheck,
+  PersonStanding,
+  ScanFace,
+  Sun,
+  Activity
 } from 'lucide-react';
 import {
   Select,
@@ -598,69 +605,159 @@ const Gallery = () => {
                 className="max-w-full max-h-full object-contain"
               />
 
-              <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">{selectedEvent.cameraName}</h3>
-                    <p className="text-sm text-white/80">
-                      {selectedEvent.timestamp.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-white/60 mt-1">
-                      Event {selectedEventIndex + 1} of {events.length} • {selectedEvent.confidence >= 1 ? Math.round(selectedEvent.confidence) + '%' : Math.round(selectedEvent.confidence * 100) + '%'} confidence
-                    </p>
+              {/* Info Overlay - Top Left */}
+              <div className="absolute top-4 left-4 bg-black/50 text-white p-4 rounded-lg max-w-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="h-4 w-4" />
+                  <span className="font-medium">Event {selectedEventIndex + 1} of {events.length}</span>
+                </div>
+                <h3 className="font-medium text-lg">{selectedEvent.cameraName}</h3>
+                <p className="text-sm text-white/80">{selectedEvent.timestamp.toLocaleString()}</p>
+                <p className="text-xs text-white/60 mt-1">
+                  Confidence: {selectedEvent.confidence >= 1 ? Math.round(selectedEvent.confidence) + '%' : Math.round(selectedEvent.confidence * 100)}%
+                </p>
+                {selectedEvent.labels && selectedEvent.labels.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedEvent.labels.map((label) => (
+                      <Badge key={label} variant="secondary" className="text-xs">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                    {/* Detailed metadata display */}
-                    <div className="mt-2 text-xs space-y-1">
-                      {selectedEvent.personCount !== undefined && selectedEvent.personCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Persons:</span>
-                          <span>{selectedEvent.personCount}</span>
-                        </div>
-                      )}
-                      {selectedEvent.faceCount !== undefined && selectedEvent.faceCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Faces:</span>
-                          <span>{selectedEvent.faceCount}</span>
-                        </div>
-                      )}
-                      {selectedEvent.lightLevel !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Light:</span>
-                          <span>{selectedEvent.lightLevel}%</span>
-                        </div>
-                      )}
-                      {selectedEvent.motionArea !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Motion Area:</span>
-                          <span>{selectedEvent.motionArea}%</span>
-                        </div>
-                      )}
+              {/* Action Buttons - Top Right */}
+              <div className="absolute top-4 right-4 flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-white/20"
+                  onClick={() => downloadImage(selectedEvent)}
+                >
+                  <Download className="h-4 w-4 text-white" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-white/20 text-red-400"
+                  onClick={() => handleArchiveEvent(selectedEvent.id)}
+                >
+                  <Archive className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Detailed Metadata Panel - Bottom */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/80 to-transparent text-white p-6 pt-20">
+                <div className="max-w-6xl mx-auto">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="h-5 w-5" />
+                    <h4 className="font-medium text-lg">Detection Metadata</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {/* Basic Info */}
+                    <div className="bg-white/10 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                        <CameraIcon className="h-3 w-3" />
+                        Camera
+                      </div>
+                      <div className="font-medium truncate">{selectedEvent.cameraId}</div>
                     </div>
+
+                    <div className="bg-white/10 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        Time
+                      </div>
+                      <div className="font-medium text-sm">{selectedEvent.timestamp.toLocaleTimeString()}</div>
+                    </div>
+
+                    <div className="bg-white/10 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Confidence
+                      </div>
+                      <div className="font-medium">
+                        {selectedEvent.confidence >= 1 ? Math.round(selectedEvent.confidence) + '%' : Math.round(selectedEvent.confidence * 100)}%
+                      </div>
+                    </div>
+
+                    {/* Person Detection */}
+                    {selectedEvent.personCount !== undefined && selectedEvent.personCount > 0 && (
+                      <div className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                          <PersonStanding className="h-3 w-3" />
+                          Persons
+                        </div>
+                        <div className="font-medium">{selectedEvent.personCount}</div>
+                      </div>
+                    )}
+
+                    {/* Face Detection */}
+                    {selectedEvent.faceCount !== undefined && selectedEvent.faceCount > 0 && (
+                      <div className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                          <ScanFace className="h-3 w-3" />
+                          Faces
+                        </div>
+                        <div className="font-medium">{selectedEvent.faceCount}</div>
+                      </div>
+                    )}
+
+                    {/* Known Faces */}
+                    {selectedEvent.knownFaces !== undefined && (
+                      <div className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                          <UserCheck className="h-3 w-3" />
+                          Known Faces
+                        </div>
+                        <div className="font-medium">{selectedEvent.knownFaces}</div>
+                      </div>
+                    )}
+
+                    {/* Light Level */}
+                    {selectedEvent.lightLevel !== undefined && (
+                      <div className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                          <Sun className="h-3 w-3" />
+                          Light Level
+                        </div>
+                        <div className="font-medium">{selectedEvent.lightLevel}%</div>
+                      </div>
+                    )}
+
+                    {/* Motion Area */}
+                    {selectedEvent.motionArea !== undefined && (
+                      <div className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-white/60 text-xs mb-1">
+                          <Activity className="h-3 w-3" />
+                          Motion Area
+                        </div>
+                        <div className="font-medium">{selectedEvent.motionArea}%</div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-white/20"
-                      onClick={() => downloadImage(selectedEvent)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-white/20 text-red-400"
-                      onClick={() => handleArchiveEvent(selectedEvent.id)}
-                    >
-                      <Archive className="h-4 w-4" />
-                    </Button>
-                  </div>
+
+                  {/* All Metadata JSON */}
+                  {selectedEvent.metadata && Object.keys(selectedEvent.metadata).length > 0 && (
+                    <div className="mt-4 bg-white/5 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-white/60 text-xs mb-2">
+                        <Info className="h-3 w-3" />
+                        Full Metadata
+                      </div>
+                      <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto max-h-32">
+                        {JSON.stringify(selectedEvent.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-2 rounded-lg text-xs">
-                <div>← → Navigate</div>
-                <div>ESC Close</div>
+              {/* Keyboard Navigation Hints */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-2 rounded-lg text-xs hidden md:block">
+                <span className="mx-2">← → Navigate</span>
+                <span className="mx-2">ESC Close</span>
               </div>
             </div>
           )}

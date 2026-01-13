@@ -24,16 +24,38 @@ export interface MotionEvent {
   location: string;
   duration: number;
   archived: boolean;
-  // Additional metadata from detection
-  hasPersons?: boolean;
+  // Detection metadata from API
+  metadata?: Record<string, unknown>;
+  // Bounding boxes for detections
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  // Multiple detections (persons, faces, objects)
+  detections?: Array<{
+    type: 'person' | 'face' | 'object';
+    confidence: number;
+    name?: string;
+    isKnown?: boolean;
+    boundingBox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  }>;
+  // Count fields
   personCount?: number;
-  hasFaces?: boolean;
   faceCount?: number;
   knownFaces?: number;
   unknownFaces?: number;
+  // Environmental data
   lightLevel?: number;
   motionArea?: number;
-  metadata?: any; // Raw metadata object
+  // Raw metadata object
+  rawMetadata?: Record<string, unknown>;
 }
 
 export interface SystemStatus {

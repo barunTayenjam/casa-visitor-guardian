@@ -646,11 +646,11 @@ const VisitorTimeline: React.FC = () => {
                       <div className="flex-1 bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-500 h-2 rounded-full"
-                          style={{ width: `${Math.round(selectedVisitor.confidence * 100)}%` }}
+                          style={{ width: `${selectedVisitor.confidence >= 1 ? Math.round(selectedVisitor.confidence) : Math.round(selectedVisitor.confidence * 100)}%` }}
                         ></div>
                       </div>
                       <span className="text-sm font-medium">
-                        {Math.round(selectedVisitor.confidence * 100)}%
+                        {selectedVisitor.confidence >= 1 ? Math.round(selectedVisitor.confidence) + '%' : Math.round(selectedVisitor.confidence * 100) + '%'}
                       </span>
                     </div>
                   </div>

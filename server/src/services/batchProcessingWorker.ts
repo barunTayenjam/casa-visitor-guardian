@@ -1,9 +1,9 @@
 import { parentPort, workerData } from 'worker_threads';
 import path from 'node:path';
 import fs from 'node:fs';
-import { getBatchProcessingDatabase } from './batchProcessingDatabasePostgres.js';
-import { FileHashUtil } from '../utils/fileHash.js';
-import { OpenCVServiceClient } from '../services/opencvServiceClient.js';
+import crypto from 'node:crypto';
+import pkg from 'pg';
+const { Client } = pkg;
 
 interface WorkerMessage {
   type: 'progress' | 'completed' | 'error';
@@ -72,93 +72,58 @@ interface WorkerData {
   outputDir: string;
 }
 
-const opencvService = new OpenCVServiceClient(process.env.OPENCV_SERVICE_URL || 'http://opencv-service:8084');
+// Simple hash function for files
+function generateFileHash(filename: string, timestamp: string): string {
+  const data = filename + timestamp;
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
 
-async function processImage(event: any, options: any): Promise<{
-  filename: string;
-  timestamp: string;
-  cameraId: string;
-  persons: Array<{
-    confidence: number;
-    boundingBox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-  }>;
-  faces: Array<{
-    confidence: number;
-    boundingBox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-    personId?: string;
-    personName?: string;
-    isKnown: boolean;
-  }>;
-}> {
-  const result = {
-    filename: event.filename,
-    timestamp: event.timestamp.toISOString(),
-    cameraId: event.cameraId,
-    persons: [] as any[],
-    faces: [] as any[]
-  };
+// Simple OpenCV service client for worker
+class SimpleOpenCVClient {
+  private serviceUrl: string;
 
-  try {
-    const fileHash = FileHashUtil.generateQuickHash(event.filename, event.timestamp);
-    const fileStats = fs.statSync(event.filePath);
-    const fileModified = fileStats.mtime.toISOString();
-
-    if (options.detectionTypes.includes('person') || options.detectionTypes.includes('both')) {
-      const personResult = await opencvService.detectObjects({
-        imagePath: event.filePath,
-        fileHash,
-        fileSize: event.size,
-        fileModified
-      });
-
-      if (personResult.success && personResult.detections) {
-        result.persons = personResult.detections
-          .filter((d: any) => d.class === 'person')
-          .filter((d: any) => d.confidence >= options.confidenceThreshold)
-          .map((d: any) => ({
-            confidence: d.confidence,
-            boundingBox: d.bbox
-          }));
-      }
-    }
-
-    if (options.detectionTypes.includes('face') || options.detectionTypes.includes('both')) {
-      const faceResult = await opencvService.recognizeFaces({
-        imagePath: event.filePath,
-        fileHash,
-        fileSize: event.size,
-        fileModified
-      });
-
-      if (faceResult.success && faceResult.faceDetections) {
-        result.faces = faceResult.faceDetections
-          .filter((f: any) => f.confidence >= options.confidenceThreshold)
-          .map((f: any) => ({
-            confidence: f.confidence,
-            boundingBox: f.bbox,
-            personId: f.name,
-            personName: f.name,
-            isKnown: !!f.id
-          }));
-      }
-    }
-  } catch (error) {
-    console.error('Error processing image ' + event.filename + ':', error);
-    throw error;
+  constructor(serviceUrl: string = 'http://opencv:8084') {
+    this.serviceUrl = serviceUrl;
   }
 
-  return result;
+  async detectBatch(imagePaths: string[]): Promise<any> {
+    try {
+      const formData = new FormData();
+      imagePaths.forEach((imagePath, index) => {
+        const fileBuffer = fs.readFileSync(imagePath);
+        const blob = new Blob([fileBuffer]);
+        formData.append('images', blob, `image_${index}.jpg`);
+      });
+      formData.append('batchHash', `batch_${Date.now()}`);
+
+      const response = await fetch(`${this.serviceUrl}/detect-batch`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('OpenCV batch detection failed:', error);
+      return {
+        success: false,
+        batchHash: '',
+        totalImages: 0,
+        results: [],
+        totalProcessingTime: 0,
+        averageProcessingTime: 0,
+        error: error.message
+      };
+    }
+  }
 }
+
+const opencvService = new SimpleOpenCVClient(process.env.OPENCV_SERVICE_URL || 'http://opencv:8084');
+
+// Removed individual image processing - using batch processing instead
 
 async function saveResults(results: any[], options: any, outputDir: string, jobId: string): Promise<void> {
   if (!options.saveResults) return;
@@ -167,6 +132,11 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
   const filename = "batch_" + jobId + "_" + timestamp + "." + options.outputFormat;
 
   try {
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+      console.log('Created output directory:', outputDir);
+    }
     if (options.outputFormat === 'json') {
       const outputData = {
         jobId,
@@ -200,69 +170,155 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
       fs.writeFileSync(path.join(outputDir, filename), csvLines.join('\\n'));
     }
 
-    if (options.outputFormat === 'database') {
-      await saveResultsToDatabase(results, jobId);
-    }
+    // Database saving is handled by metadata updates
   } catch (error) {
     console.error('Error saving results:', error);
     throw error;
   }
 }
 
-  async function saveResultsToDatabase(results: any[], jobId: string): Promise<void> {
-    try {
-      const db = await getBatchProcessingDatabase();
-      
-      let savedCount = 0;
-      for (const result of results) {
-        try {
-          const hash = FileHashUtil.generateQuickHash(
-            result.filename,
-            result.timestamp
-          );
-          
-          const processedImage = {
-            id: jobId + "_" + result.filename + "_" + Date.now(),
-            job_id: jobId,
-            filename: result.filename,
-            file_path: "/events/" + result.filename,
-            camera_id: result.cameraId,
-            image_timestamp: result.timestamp,
-            file_size: 0,
-            person_count: result.persons.length,
-            face_count: result.faces.length,
-            known_face_count: result.faces.filter((f: any) => f.isKnown).length,
-            unknown_face_count: result.faces.filter((f: any) => !f.isKnown).length,
-            processing_time_ms: 0,
-            status: 'success' as 'success' | 'failed',
-            detection_json: JSON.stringify(result),
-            file_hash: hash
-          };
-          
-          await db.addProcessedImage(processedImage);
-          savedCount++;
-        } catch (error) {
-          console.error('Error saving result for ' + result.filename + ':', error);
-        }
+// Removed database saving function - using metadata updates instead
+
+async function updateDetectionFilesMetadata(results: any[]): Promise<void> {
+  let client;
+  try {
+    // Create direct PostgreSQL connection for worker
+    client = new Client({
+      host: process.env.DB_HOST || 'postgres',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      user: process.env.DB_USER || 'sentryvision',
+      password: process.env.DB_PASSWORD || 'sentryvision123',
+      database: process.env.DB_NAME || 'sentryvision'
+    });
+
+    await client.connect();
+
+    for (const result of results) {
+      try {
+        const hash = generateFileHash(result.filename, result.timestamp);
+
+        const metadata = {
+          detections: [
+            ...result.persons.map((p: any) => ({
+              class: 'person',
+              confidence: p.confidence,
+              bbox: p.boundingBox
+            })),
+            ...result.faces.map((f: any) => ({
+              class: 'face',
+              confidence: f.confidence,
+              bbox: f.boundingBox,
+              name: f.personName,
+              isKnown: f.isKnown
+            }))
+          ],
+          detected_at: result.timestamp,
+          detection_types: [...new Set([
+            ...result.persons.map(() => 'person'),
+            ...result.faces.map(() => 'face')
+          ])],
+          batch_job_id: workerData.jobId
+        };
+
+        // Update detection_files table metadata
+        await client.query(
+          `UPDATE detection_files
+           SET metadata = $1::jsonb, updated_at = NOW()
+           WHERE file_hash = $2`,
+          [JSON.stringify(metadata), hash]
+        );
+      } catch (error) {
+        console.error('Error updating metadata for ' + result.filename + ':', error);
       }
-      
-      console.log('Saved ' + savedCount + '/' + results.length + ' processed images to database for job ' + jobId);
-    } catch (error) {
-      console.error('Error saving results to database:', error);
-      throw error;
+    }
+
+    console.log('Updated detection_files metadata for ' + results.length + ' images');
+  } catch (error) {
+    console.error('Error updating detection_files metadata:', error);
+  } finally {
+    if (client) {
+      await client.end();
     }
   }
+}
+
+async function processBatchImages(events: any[], options: any): Promise<any[]> {
+  const results = [];
+  const batchSize = 10;
+  const imagePaths = events.map(e => e.filePath);
+
+  for (let i = 0; i < events.length; i += batchSize) {
+    const batch = events.slice(i, i + batchSize);
+    const batchPaths = batch.map(e => e.filePath);
+    
+    try {
+      const batchResult = await opencvService.detectBatch(batchPaths);
+      
+      if (batchResult.success && batchResult.results) {
+        for (let j = 0; j < batchResult.results.length; j++) {
+          const event = batch[j];
+          const detectionResult = batchResult.results[j];
+          
+          const result = {
+            filename: event.filename,
+            timestamp: event.timestamp.toISOString(),
+            cameraId: event.cameraId,
+            persons: [] as any[],
+            faces: [] as any[]
+          };
+
+          if (detectionResult.success && detectionResult.detections) {
+            const allDetections = detectionResult.detections;
+            
+            if (options.detectionTypes.includes('person') || options.detectionTypes.includes('both')) {
+              result.persons = allDetections
+                .filter((d: any) => d.class === 'person')
+                .filter((d: any) => d.confidence >= options.confidenceThreshold)
+                .map((d: any) => ({
+                  confidence: d.confidence,
+                  boundingBox: d.bbox
+                }));
+            }
+            
+            if (options.detectionTypes.includes('face') || options.detectionTypes.includes('both')) {
+              result.faces = allDetections
+                .filter((d: any) => d.class === 'face')
+                .filter((d: any) => d.confidence >= options.confidenceThreshold)
+                .map((d: any) => ({
+                  confidence: d.confidence,
+                  boundingBox: d.bbox,
+                  personId: d.name || 'unknown',
+                  personName: d.name || 'unknown',
+                  isKnown: d.name && d.name !== 'unknown'
+                }));
+            }
+          }
+          
+          results.push(result);
+        }
+      }
+    } catch (error) {
+      console.error('Error processing batch starting at index ' + i + ':', error);
+      for (const event of batch) {
+        results.push({
+          filename: event.filename,
+          timestamp: event.timestamp.toISOString(),
+          cameraId: event.cameraId,
+          persons: [],
+          faces: []
+        });
+      }
+    }
+  }
+  
+  return results;
+}
 
 async function main() {
   const { events, options, jobId, outputDir } = workerData as WorkerData;
   const startTime = Date.now();
 
   try {
-    const results = [];
-    let processed = 0;
-    let successful = 0;
-    let failed = 0;
-
     if (parentPort) {
       parentPort.postMessage({
         type: 'progress',
@@ -275,37 +331,31 @@ async function main() {
       });
     }
 
-    for (let i = 0; i < events.length; i++) {
-      const event = events[i];
+    const results = await processBatchImages(events, options);
+    
+    let successful = results.filter(r => r.persons.length > 0 || r.faces.length > 0).length;
+    let failed = results.filter(r => r.persons.length === 0 && r.faces.length === 0).length;
 
-      try {
-        const result = await processImage(event, options);
-        results.push(result);
-        successful++;
-
-        if ((i + 1) % 10 === 0) {
-          if (parentPort) {
-            parentPort.postMessage({
-              type: 'progress',
-              progress: {
-                total: events.length,
-                processed: i + 1,
-                successful,
-                failed,
-                currentFile: event.filename
-              }
-            });
-          }
+    if (parentPort) {
+      parentPort.postMessage({
+        type: 'progress',
+        progress: {
+          total: events.length,
+          processed: events.length,
+          successful,
+          failed,
+          currentFile: events[events.length - 1]?.filename
         }
-      } catch (error) {
-        console.error('Failed to process ' + event.filename + ':', error);
-        failed++;
-      }
-
-      processed++;
+      });
     }
 
-    await saveResults(results, options, outputDir, jobId);
+    // Save results to detection_files metadata
+    await updateDetectionFilesMetadata(results);
+
+    // Optionally save batch summary file if requested
+    if (options.saveResults && options.outputFormat !== 'database') {
+      await saveResults(results, options, outputDir, jobId);
+    }
 
     const processingTime = Date.now() - startTime;
     const summary = {

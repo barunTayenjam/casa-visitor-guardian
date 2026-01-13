@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Users, UserCheck, UserX, Mail, Play, Pause, Trash2, Edit, Plus } from 'lucide-react';
+import { Calendar, Clock, Users, UserCheck, UserX, Mail, Play, Pause, Trash2, Edit, Plus, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import apiService, { ApiError } from '@/services/ApiService';
 
 interface VisitorSchedule {
   id: string;
@@ -15,7 +16,7 @@ interface VisitorSchedule {
   recipients: string[];
   enabled: boolean;
   createdAt: string;
-  nextExecution?: Date;
+  nextExecution?: string;
 }
 
 interface ReportHistory {
@@ -38,6 +39,7 @@ const VisitorReports: React.FC = () => {
   const [reportHistory, setReportHistory] = useState<ReportHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
   const [showCreateSchedule, setShowCreateSchedule] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<VisitorSchedule | null>(null);
 
@@ -86,43 +88,28 @@ const VisitorReports: React.FC = () => {
 
   const loadSchedules = async () => {
     try {
-      const response = await fetch('/api/visitors/schedule');
-      
-      if (!response.ok) {
-        console.warn('API not available, using mock data');
-        // Use mock data for now
-        setSchedules([
-          {
-            id: 'mock_1',
-            reportType: 'daily',
-            cronExpression: '0 9 * * *',
-            recipients: ['admin@example.com'],
-            enabled: true,
-            createdAt: new Date().toISOString(),
-            nextExecution: new Date(Date.now() + 24 * 60 * 60 * 1000)
-          }
-        ]);
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setSchedules(data.data.schedules);
-      }
+      const schedules = await apiService.getVisitorSchedules();
+      setSchedules(schedules);
+      setError(null);
+      setDemoMode(false);
     } catch (err) {
       console.error('Error loading schedules:', err);
-      setError('Failed to load schedules');
-      // Use mock data as fallback
+      setDemoMode(true);
+      const apiError = err as ApiError;
+      if (apiError.status === 404 || apiError.message.includes('fetch')) {
+        setError('Visitor schedule API not available. Running in demo mode.');
+      } else {
+        setError(`Failed to load schedules: ${apiError.message}`);
+      }
       setSchedules([
         {
-          id: 'mock_1',
+          id: 'demo_1',
           reportType: 'daily',
           cronExpression: '0 9 * * *',
           recipients: ['admin@example.com'],
           enabled: true,
           createdAt: new Date().toISOString(),
-          nextExecution: new Date(Date.now() + 24 * 60 * 60 * 1000)
+          nextExecution: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         }
       ]);
     }
@@ -130,11 +117,43 @@ const VisitorReports: React.FC = () => {
 
   const loadReportHistory = async () => {
     try {
-      // This would be implemented in the backend
-      // For now, we'll simulate with placeholder data
+      const history = await apiService.getReportHistory();
+      if (history.length > 0) {
+        setReportHistory(history);
+      } else {
+        const mockHistory: ReportHistory[] = [
+          {
+            id: 'demo_1',
+            reportType: 'daily',
+            periodStart: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            periodEnd: new Date().toISOString(),
+            totalVisits: 15,
+            uniqueVisitors: 8,
+            knownVisitors: 5,
+            unknownVisitors: 3,
+            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            filePath: '/public/reports/daily_report_demo.html'
+          },
+          {
+            id: 'demo_2',
+            reportType: 'weekly',
+            periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            periodEnd: new Date().toISOString(),
+            totalVisits: 89,
+            uniqueVisitors: 32,
+            knownVisitors: 18,
+            unknownVisitors: 14,
+            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            filePath: '/public/reports/weekly_report_demo.html'
+          }
+        ];
+        setReportHistory(mockHistory);
+      }
+    } catch (err) {
+      console.warn('Report history not available, using demo data');
       const mockHistory: ReportHistory[] = [
         {
-          id: '1',
+          id: 'demo_1',
           reportType: 'daily',
           periodStart: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
           periodEnd: new Date().toISOString(),
@@ -143,10 +162,10 @@ const VisitorReports: React.FC = () => {
           knownVisitors: 5,
           unknownVisitors: 3,
           createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          filePath: '/public/reports/daily_report_2025-10-29.html'
+          filePath: '/public/reports/daily_report_demo.html'
         },
         {
-          id: '2',
+          id: 'demo_2',
           reportType: 'weekly',
           periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
           periodEnd: new Date().toISOString(),
@@ -155,82 +174,74 @@ const VisitorReports: React.FC = () => {
           knownVisitors: 18,
           unknownVisitors: 14,
           createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          filePath: '/public/reports/weekly_report_2025-W43.html'
+          filePath: '/public/reports/weekly_report_demo.html'
         }
       ];
-      
       setReportHistory(mockHistory);
-    } catch (err) {
-      console.error('Error loading report history:', err);
-      // Don't set error for history loading failure
     }
   };
 
   const handleSubmitSchedule = async () => {
+    if (formData.recipients.filter(r => r.trim()).length === 0) {
+      alert('Please add at least one email recipient');
+      return;
+    }
+
+    const validRecipients = formData.recipients.filter(r => r.trim());
+
+    const scheduleData = {
+      reportType: formData.reportType,
+      cronExpression: formData.cronExpression,
+      recipients: validRecipients
+    };
+
     try {
-      // Validate form data
-      if (formData.recipients.filter(r => r.trim()).length === 0) {
-        alert('Please add at least one email recipient');
-        return;
+      if (editingSchedule) {
+        await apiService.updateVisitorSchedule(editingSchedule.id, scheduleData);
+        setSchedules(prev => prev.map(s =>
+          s.id === editingSchedule.id
+            ? { ...s, ...scheduleData, id: editingSchedule.id }
+            : s
+        ));
+        alert('Schedule updated successfully');
+      } else {
+        const result = await apiService.createVisitorSchedule(scheduleData);
+        const newSchedule = {
+          id: result.id,
+          ...scheduleData,
+          enabled: true,
+          createdAt: new Date().toISOString()
+        };
+        setSchedules(prev => [...prev, newSchedule]);
+        alert('Schedule created successfully');
       }
 
-      const validRecipients = formData.recipients.filter(r => r.trim());
-      
-      const scheduleData = {
-        reportType: formData.reportType,
-        cronExpression: formData.cronExpression,
-        recipients: validRecipients
-      };
-
-      const endpoint = editingSchedule 
-        ? `/api/visitors/schedule/${editingSchedule.id}`
-        : '/api/visitors/schedule';
-        
-      const method = editingSchedule ? 'PUT' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(scheduleData),
+      setShowCreateSchedule(false);
+      setEditingSchedule(null);
+      setFormData({
+        reportType: 'daily',
+        cronExpression: '0 9 * * *',
+        recipients: ['']
       });
-
-      if (!response.ok) {
-        console.warn('API not available, simulating success');
-        // Simulate success for demo
-        const newSchedule = {
-          id: `schedule_${Date.now()}`,
+    } catch (err) {
+      console.error('Error saving schedule:', err);
+      const apiError = err as ApiError;
+      if (apiError.status === 404 || apiError.message.includes('fetch')) {
+        const demoSchedule = {
+          id: `demo_${Date.now()}`,
           reportType: formData.reportType,
           cronExpression: formData.cronExpression,
           recipients: validRecipients,
           enabled: true,
           createdAt: new Date().toISOString()
         };
-        
+
         if (editingSchedule) {
-          setSchedules(prev => prev.map(s => s.id === editingSchedule.id ? { ...newSchedule, id: editingSchedule.id } : s));
+          setSchedules(prev => prev.map(s => s.id === editingSchedule.id ? { ...demoSchedule, id: editingSchedule.id } : s));
         } else {
-          setSchedules(prev => [...prev, newSchedule]);
+          setSchedules(prev => [...prev, demoSchedule]);
         }
-        
-        // Reset form
-        setShowCreateSchedule(false);
-        setEditingSchedule(null);
-        setFormData({
-          reportType: 'daily',
-          cronExpression: '0 9 * * *',
-          recipients: ['']
-        });
-        
-        alert(editingSchedule ? 'Schedule updated successfully (demo mode)' : 'Schedule created successfully (demo mode)');
-        return;
-      }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // Reset form and reload schedules
         setShowCreateSchedule(false);
         setEditingSchedule(null);
         setFormData({
@@ -238,45 +249,32 @@ const VisitorReports: React.FC = () => {
           cronExpression: '0 9 * * *',
           recipients: ['']
         });
-        
-        await loadSchedules();
-        alert(editingSchedule ? 'Schedule updated successfully' : 'Schedule created successfully');
+
+        alert(`Schedule ${editingSchedule ? 'updated' : 'created'} successfully (demo mode)`);
       } else {
-        throw new Error(result.error || 'Failed to save schedule');
+        alert(`Failed to save schedule: ${apiError.message}`);
       }
-
-    } catch (err) {
-      console.error('Error saving schedule:', err);
-      alert('Failed to save schedule');
     }
   };
 
   const handleToggleSchedule = async (scheduleId: string, enabled: boolean) => {
     try {
-      const response = await fetch(`/api/visitors/schedule/${scheduleId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ enabled }),
-      });
-
-      if (!response.ok) {
-        console.warn('API not available, simulating toggle');
-        // Simulate toggle for demo
+      await apiService.updateVisitorSchedule(scheduleId, { enabled });
+      setSchedules(prev => prev.map(s => 
+        s.id === scheduleId ? { ...s, enabled } : s
+      ));
+      alert(`Schedule ${enabled ? 'enabled' : 'disabled'} successfully`);
+    } catch (err) {
+      console.error('Error toggling schedule:', err);
+      const apiError = err as ApiError;
+      if (apiError.status === 404 || apiError.message.includes('fetch')) {
         setSchedules(prev => prev.map(s => 
           s.id === scheduleId ? { ...s, enabled } : s
         ));
         alert(`Schedule ${enabled ? 'enabled' : 'disabled'} successfully (demo mode)`);
-        return;
+      } else {
+        alert(`Failed to toggle schedule: ${apiError.message}`);
       }
-
-      await loadSchedules();
-      alert(`Schedule ${enabled ? 'enabled' : 'disabled'} successfully`);
-
-    } catch (err) {
-      console.error('Error toggling schedule:', err);
-      alert('Failed to toggle schedule');
     }
   };
 
@@ -286,30 +284,23 @@ const VisitorReports: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/visitors/schedule/${scheduleId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        console.warn('API not available, simulating delete');
-        // Simulate delete for demo
-        setSchedules(prev => prev.filter(s => s.id !== scheduleId));
-        alert('Schedule deleted successfully (demo mode)');
-        return;
-      }
-
-      await loadSchedules();
+      await apiService.deleteVisitorSchedule(scheduleId);
+      setSchedules(prev => prev.filter(s => s.id !== scheduleId));
       alert('Schedule deleted successfully');
-
     } catch (err) {
       console.error('Error deleting schedule:', err);
-      alert('Failed to delete schedule');
+      const apiError = err as ApiError;
+      if (apiError.status === 404 || apiError.message.includes('fetch')) {
+        setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+        alert('Schedule deleted successfully (demo mode)');
+      } else {
+        alert(`Failed to delete schedule: ${apiError.message}`);
+      }
     }
   };
 
   const handleGenerateManualReport = async (reportType: 'daily' | 'weekly' | 'monthly') => {
     try {
-      // Calculate date range based on report type
       const endDate = new Date();
       const startDate = new Date();
       
@@ -325,40 +316,28 @@ const VisitorReports: React.FC = () => {
           break;
       }
 
-      const response = await fetch('/api/visitors/report/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          includeAnalytics: true,
-          includeTimeline: true
-        }),
+      const result = await apiService.generateVisitorReport({
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        includeAnalytics: true,
+        includeTimeline: true
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      const result = await response.json();
       
-      if (result.success) {
-        alert(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully!`);
-        await loadReportHistory();
-        
-        // Optionally open the generated report
-        if (result.data.reportFilePath) {
-          window.open(result.data.reportFilePath, '_blank');
-        }
-      } else {
-        throw new Error(result.error || 'Failed to generate report');
+      alert(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully!`);
+      await loadReportHistory();
+      
+      if (result.reportFilePath) {
+        window.open(result.reportFilePath, '_blank');
       }
-
     } catch (err) {
       console.error('Error generating manual report:', err);
-      alert('Failed to generate report');
+      const apiError = err as ApiError;
+      if (apiError.status === 404 || apiError.message.includes('fetch')) {
+        alert(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report generated successfully! (demo mode)`);
+        await loadReportHistory();
+      } else {
+        alert(`Failed to generate report: ${apiError.message}`);
+      }
     }
   };
 
@@ -449,7 +428,27 @@ const VisitorReports: React.FC = () => {
           </div>
         </div>
 
-        {error && (
+        {demoMode && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <div>
+                <p className="text-amber-800 font-medium">Demo Mode Active</p>
+                <p className="text-amber-700 text-sm">API is unavailable. Using sample data for demonstration.</p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setDemoMode(false)}
+              className="border-amber-300 text-amber-700 hover:bg-amber-100"
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {error && !demoMode && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">{error}</p>
           </div>

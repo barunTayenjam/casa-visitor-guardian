@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,8 +33,13 @@ import {
   Grid3X3,
   List,
   ZoomIn,
+  X,
   UserCheck,
-  UserX
+  UserX,
+  PersonStanding,
+  ScanFace,
+  Box,
+  Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import apiService from '@/services/ApiService';
@@ -60,7 +66,7 @@ interface DetectionEvent {
   className?: string;
   personName?: string;
   isKnown?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface DetectionResult {
@@ -123,12 +129,17 @@ const OpenCV: React.FC = () => {
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
-  const [serviceStatus, setServiceStatus] = useState<any>(null);
+  const [serviceStatus, setServiceStatus] = useState<{
+    status: string;
+    initialized: boolean;
+    service: string;
+  } | null>(null);
   
   // State for detection history
   const [detectionHistory, setDetectionHistory] = useState<DetectionEvent[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedEventForPopup, setSelectedEventForPopup] = useState<DetectionEvent | null>(null);
   
   // State for filters
   const [filters, setFilters] = useState({
@@ -145,7 +156,7 @@ const OpenCV: React.FC = () => {
     detectionTypes: ['both'] as ('person' | 'face' | 'both')[],
     confidenceThreshold: 0.7,
     saveResults: true,
-    outputFormat: 'json' as 'json' | 'csv' | 'database'
+    outputFormat: 'database' as 'json' | 'csv' | 'database'
   });
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
@@ -156,41 +167,22 @@ const OpenCV: React.FC = () => {
     }
   }, [cameras, selectedCamera]);
 
-  // Load initial data
-  useEffect(() => {
-    checkServiceStatus();
-    loadDetectionHistory();
-    loadBatchJobs();
-    
-    // Set up auto-refresh
-    const interval = setInterval(() => {
-      loadBatchJobs();
-      checkServiceStatus();
-    }, 10000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkServiceStatus = async () => {
+  const checkServiceStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/opencv/status');
-      if (response.ok) {
-        const data = await response.json();
-        setServiceStatus(data.status);
-      } else {
-        setServiceStatus({ status: 'error', initialized: false, service: 'opencv-detection' });
-      }
+      const status = await apiService.getOpenCVStatus();
+      setServiceStatus(status);
     } catch (error) {
+      console.error('Error checking OpenCV service status:', error);
       setServiceStatus({ status: 'error', initialized: false, service: 'opencv-detection' });
     }
-  };
+  }, []);
 
-  const loadDetectionHistory = async () => {
+  const loadDetectionHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
-      const history = await apiService.getDetectionHistory({
-        detectionTypes: filters.detectionType === 'all' ? undefined : [filters.detectionType as any],
-        cameraIds: filters.cameraId === 'all' ? undefined : [filters.cameraId],
+       const history = await apiService.getDetectionHistory({
+        type: filters.detectionType === 'all' ? undefined : filters.detectionType,
+        cameraId: filters.cameraId === 'all' ? undefined : filters.cameraId,
         minConfidence: filters.minConfidence,
         limit: 50
       });
@@ -205,16 +197,37 @@ const OpenCV: React.FC = () => {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [filters, toast]);
 
-  const loadBatchJobs = async () => {
+  const loadBatchJobs = useCallback(async () => {
     try {
       const jobs = await apiService.getBatchJobs();
       setBatchJobs(jobs);
     } catch (error) {
       console.error('Failed to load batch jobs:', error);
     }
-  };
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    checkServiceStatus();
+    loadDetectionHistory();
+    loadBatchJobs();
+    
+    // Set up auto-refresh
+    const interval = setInterval(() => {
+      loadBatchJobs();
+      checkServiceStatus();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+   }, [loadDetectionHistory, loadBatchJobs, checkServiceStatus]);
+
+  // Reload detection history when filters change
+  useEffect(() => {
+    loadDetectionHistory();
+  }, [filters, loadDetectionHistory]);
+
 
   const triggerObjectDetection = async () => {
     if (!selectedCamera) {
@@ -673,7 +686,7 @@ const OpenCV: React.FC = () => {
                   <Label>Detection Type</Label>
                   <Select 
                     value={filters.detectionType} 
-                    onValueChange={(value: any) => setFilters(prev => ({ ...prev, detectionType: value }))}
+                    onValueChange={(value: 'all' | 'person' | 'face' | 'object') => setFilters(prev => ({ ...prev, detectionType: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -723,7 +736,7 @@ const OpenCV: React.FC = () => {
                   <Label>Time Range</Label>
                   <Select 
                     value={filters.timeRange} 
-                    onValueChange={(value: any) => setFilters(prev => ({ ...prev, timeRange: value }))}
+                    onValueChange={(value: '1h' | '6h' | '24h' | '7d' | 'all') => setFilters(prev => ({ ...prev, timeRange: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -795,14 +808,18 @@ const OpenCV: React.FC = () => {
                   {viewMode === 'grid' ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {(detectionHistory || []).map((event) => (
-                        <div key={event.id} className="border rounded-lg p-4 space-y-2">
+                        <div 
+                          key={event.id} 
+                          className="border rounded-lg p-4 space-y-2 cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                          onClick={() => setSelectedEventForPopup(event)}
+                        >
                           <div className="flex items-center justify-between">
                             <Badge className={getDetectionTypeColor(event.detectionType)}>
                               {getDetectionTypeIcon(event.detectionType)}
                               <span className="ml-1">{event.detectionType}</span>
                             </Badge>
                             <span className="text-sm text-muted-foreground">
-                              {Math.round(event.confidence * 100)}%
+                              {event.confidence >= 1 ? Math.round(event.confidence) + '%' : Math.round(event.confidence * 100) + '%'}
                             </span>
                           </div>
                           
@@ -835,7 +852,11 @@ const OpenCV: React.FC = () => {
                   ) : (
                     <div className="space-y-2">
                       {(detectionHistory || []).map((event) => (
-                        <div key={event.id} className="flex items-center justify-between p-3 border rounded">
+                        <div 
+                          key={event.id} 
+                          className="flex items-center justify-between p-3 border rounded cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                          onClick={() => setSelectedEventForPopup(event)}
+                        >
                           <div className="flex items-center space-x-3">
                             <div className="w-16 h-12 bg-muted rounded relative overflow-hidden">
                               <img 
@@ -854,7 +875,7 @@ const OpenCV: React.FC = () => {
                                   <span className="ml-1">{event.detectionType}</span>
                                 </Badge>
                                 <span className="text-sm font-medium">
-                                  {Math.round(event.confidence * 100)}%
+                                  {event.confidence >= 1 ? Math.round(event.confidence) + '%' : Math.round(event.confidence * 100) + '%'}
                                 </span>
                               </div>
                               <p className="text-sm text-muted-foreground">
@@ -869,7 +890,10 @@ const OpenCV: React.FC = () => {
                             </div>
                           </div>
                           
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEventForPopup(event);
+                          }}>
                             <ZoomIn className="h-4 w-4" />
                           </Button>
                         </div>
@@ -901,7 +925,7 @@ const OpenCV: React.FC = () => {
                   <Label>Time Range</Label>
                   <Select 
                     value={batchOptions.timeRange} 
-                    onValueChange={(value: any) => setBatchOptions(prev => ({ ...prev, timeRange: value }))}
+                    onValueChange={(value: string) => setBatchOptions(prev => ({ ...prev, timeRange: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -922,13 +946,13 @@ const OpenCV: React.FC = () => {
                       <label key={type} className="flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={batchOptions.detectionTypes.includes(type as any)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setBatchOptions(prev => ({
-                                ...prev,
-                                detectionTypes: [...prev.detectionTypes, type as any]
-                              }));
+                           checked={batchOptions.detectionTypes.includes(type as 'person' | 'face' | 'both')}
+                           onChange={(e) => {
+                             if (e.target.checked) {
+                               setBatchOptions(prev => ({
+                                 ...prev,
+                                 detectionTypes: [...prev.detectionTypes, type as 'person' | 'face' | 'both']
+                               }));
                             } else {
                               setBatchOptions(prev => ({
                                 ...prev,
@@ -1087,10 +1111,150 @@ const OpenCV: React.FC = () => {
         <TabsContent value="analytics" className="space-y-6">
           <DetectionAnalytics
             timeRange={filters.timeRange}
-            onTimeRangeChange={(range) => setFilters(prev => ({ ...prev, timeRange: range as any }))}
+            onTimeRangeChange={(range: '1h' | '6h' | '24h' | '7d' | 'all') => setFilters(prev => ({ ...prev, timeRange: range }))}
           />
         </TabsContent>
       </Tabs>
+
+      {/* Detection Detail Popup */}
+      <Dialog open={selectedEventForPopup !== null} onOpenChange={() => setSelectedEventForPopup(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Detection Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete metadata and detection information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEventForPopup && (
+            <div className="flex-1 overflow-auto">
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Image with Bounding Boxes */}
+                <div className="space-y-2">
+                  <Label>Detection Image</Label>
+                  <div className="relative bg-muted rounded-lg overflow-hidden" style={{ minHeight: '300px' }}>
+                    <img
+                      src={selectedEventForPopup.imagePath}
+                      alt={selectedEventForPopup.detectionType}
+                      className="w-full h-auto"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder-image.png';
+                      }}
+                    />
+                    {/* Main detection bounding box */}
+                    {selectedEventForPopup.boundingBox && (
+                      <div
+                        className="absolute border-2 border-red-500 bg-red-500/10"
+                        style={{
+                          left: `${selectedEventForPopup.boundingBox.x}px`,
+                          top: `${selectedEventForPopup.boundingBox.y}px`,
+                          width: `${selectedEventForPopup.boundingBox.width}px`,
+                          height: `${selectedEventForPopup.boundingBox.height}px`
+                        }}
+                      >
+                        <span className="absolute -top-6 left-0 bg-red-500 text-white text-xs px-1 py-0.5 rounded">
+                          {selectedEventForPopup.detectionType}: {selectedEventForPopup.confidence >= 1 ? Math.round(selectedEventForPopup.confidence) + '%' : Math.round(selectedEventForPopup.confidence * 100) + '%'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Metadata */}
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-muted-foreground">Basic Information</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
+                      <div className="flex justify-between p-2 bg-muted rounded">
+                        <span>ID:</span>
+                        <span className="font-mono truncate ml-2">{selectedEventForPopup.id}</span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-muted rounded">
+                        <span>Type:</span>
+                        <Badge className={getDetectionTypeColor(selectedEventForPopup.detectionType)}>
+                          {getDetectionTypeIcon(selectedEventForPopup.detectionType)}
+                          <span className="ml-1">{selectedEventForPopup.detectionType}</span>
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between p-2 bg-muted rounded">
+                        <span>Confidence:</span>
+                        <span className="font-medium">
+                          {selectedEventForPopup.confidence >= 1 ? Math.round(selectedEventForPopup.confidence) + '%' : Math.round(selectedEventForPopup.confidence * 100) + '%'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-muted rounded">
+                        <span>Camera:</span>
+                        <span>{selectedEventForPopup.cameraName || selectedEventForPopup.cameraId}</span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-muted rounded col-span-2">
+                        <span>Timestamp:</span>
+                        <span>{new Date(selectedEventForPopup.timestamp).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {selectedEventForPopup.personName && (
+                    <div>
+                      <Label className="text-muted-foreground">Face Recognition</Label>
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded mt-1">
+                        {selectedEventForPopup.isKnown ? (
+                          <UserCheck className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <UserX className="h-4 w-4 text-orange-500" />
+                        )}
+                        <span className="font-medium">{selectedEventForPopup.personName}</span>
+                        <Badge variant={selectedEventForPopup.isKnown ? 'default' : 'secondary'}>
+                          {selectedEventForPopup.isKnown ? 'Known' : 'Unknown'}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Bounding Box Details */}
+                  {selectedEventForPopup.boundingBox && (
+                    <div>
+                      <Label className="text-muted-foreground">Bounding Box</Label>
+                      <div className="grid grid-cols-4 gap-2 mt-1 text-sm">
+                        <div className="p-2 bg-muted rounded text-center">
+                          <div className="text-xs text-muted-foreground">X</div>
+                          <div className="font-mono">{selectedEventForPopup.boundingBox.x}</div>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <div className="text-xs text-muted-foreground">Y</div>
+                          <div className="font-mono">{selectedEventForPopup.boundingBox.y}</div>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <div className="text-xs text-muted-foreground">Width</div>
+                          <div className="font-mono">{selectedEventForPopup.boundingBox.width}</div>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <div className="text-xs text-muted-foreground">Height</div>
+                          <div className="font-mono">{selectedEventForPopup.boundingBox.height}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* All Metadata */}
+                  {selectedEventForPopup.metadata && Object.keys(selectedEventForPopup.metadata).length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground">Additional Metadata</Label>
+                      <div className="mt-1 p-3 bg-muted rounded max-h-40 overflow-auto">
+                        <pre className="text-xs font-mono whitespace-pre-wrap">
+                          {JSON.stringify(selectedEventForPopup.metadata, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

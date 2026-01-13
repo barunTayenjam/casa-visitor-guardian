@@ -3,6 +3,8 @@
  * Handles communication with the isolated OpenCV microservice
  */
 
+import fs from 'node:fs';
+
 interface DetectionRequest {
   imagePath: string;
   fileHash: string;
@@ -138,6 +140,71 @@ class OpenCVServiceClient {
     } catch (error) {
       console.error('OpenCV Client: Status check failed:', error);
       return null;
+    }
+  }
+
+  async detectBatch(imagePaths: string[]): Promise<{
+    success: boolean;
+    batchHash: string;
+    totalImages: number;
+    results: Array<{
+      fileHash: string;
+      success: boolean;
+      cached: boolean;
+      detections: any[];
+      processingTime: number;
+    }>;
+    totalProcessingTime: number;
+    averageProcessingTime: number;
+    error?: string;
+  }> {
+    if (!this.enabled) {
+      return {
+        success: false,
+        batchHash: '',
+        totalImages: 0,
+        results: [],
+        totalProcessingTime: 0,
+        averageProcessingTime: 0,
+        error: 'OpenCV service disabled'
+      };
+    }
+
+    try {
+      console.log(`OpenCV Client: Sending batch detection request for ${imagePaths.length} images`);
+
+      const formData = new FormData();
+      imagePaths.forEach((imagePath, index) => {
+        const fileBuffer = fs.readFileSync(imagePath);
+        const blob = new Blob([fileBuffer]);
+        formData.append('images', blob, `image_${index}.jpg`);
+      });
+      formData.append('batchHash', `batch_${Date.now()}`);
+
+      const response = await fetch(`${this.serviceUrl}/detect-batch`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log(`OpenCV Client: Batch detection result:`, result);
+
+      return result;
+    } catch (error: any) {
+      console.error('OpenCV Client: Batch detection failed:', error);
+      return {
+        success: false,
+        batchHash: '',
+        totalImages: 0,
+        results: [],
+        totalProcessingTime: 0,
+        averageProcessingTime: 0,
+        error: error.message
+      };
     }
   }
 

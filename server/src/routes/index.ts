@@ -1556,15 +1556,15 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         }
 
         return {
-          id: row.id,
-          cameraId: row.cameraid || 'unknown',
-          timestamp: new Date(row.timestamp).toISOString(),
-          imagePath: imagePathForFrontend,
+          id: row.file_uuid,
+          cameraId: row.camera_id || 'unknown',
+          timestamp: row.capture_timestamp ? new Date(row.capture_timestamp).toISOString() : new Date().toISOString(),
+          imagePath: row.storage_path,
           confidence: confidence,
-          duration: 0,
-          cameraName: `Camera ${row.cameraid || 'unknown'}`,
-          labels: labels,
-          location: `Camera ${row.cameraid || 'unknown'}`
+          duration: 0, // Default duration, could be calculated from metadata if needed
+          cameraName: row.camera_id, // Use camera_id as cameraName
+          labels: [], // Could extract from metadata if needed
+          location: 'Unknown' // Could extract from metadata if needed
         };
       });
 
@@ -1729,21 +1729,23 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // NEW: Enhanced events list with detection data from unified storage (detection_files + events + processed_images)
   app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
     try {
-      const { 
-        limit, 
-        page = 1, 
+      const {
+        limit,
+        page = 1,
         pageSize = 20,
-        event_type, 
-        camera_id, 
-        start_date, 
-        end_date 
+        event_type,
+        camera_id,
+        start_date,
+        end_date,
+        searchQuery,
+        sortBy = 'newest'
       } = req.query;
 
       // Use limit if provided (for backward compatibility), otherwise use pagination
       const size = limit ? parseInt(limit as string) : parseInt(pageSize as string);
       const currentPage = parseInt(page as string);
       const offset = (currentPage - 1) * size;
-      
+
       const conditions: string[] = ["df.file_type IN ('event_motion', 'event_face')", "df.is_deleted = FALSE"];
       const queryParams: any[] = [];
       let paramIndex = 1;
@@ -1754,13 +1756,50 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         paramIndex++;
       }
 
+      // Date filter - handle single date or date range
       if (start_date && end_date) {
         conditions.push(`df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
         queryParams.push(new Date(start_date as string), new Date(end_date as string));
         paramIndex += 2;
+      } else if (start_date) {
+        // Single date: start of that day to end of that day
+        const startDate = new Date(start_date as string);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(start_date as string);
+        endDate.setHours(23, 59, 59, 999);
+        conditions.push(`df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+        queryParams.push(startDate, endDate);
+        paramIndex += 2;
+      } else if (end_date) {
+        // End date only
+        const endDate = new Date(end_date as string);
+        endDate.setHours(23, 59, 59, 999);
+        conditions.push(`df.capture_timestamp <= $${paramIndex}`);
+        queryParams.push(endDate);
+        paramIndex++;
+      }
+
+      // Search query filter
+      if (searchQuery && typeof searchQuery === 'string' && searchQuery.trim()) {
+        const searchLower = searchQuery.toLowerCase().trim();
+        conditions.push(`(df.camera_id ILIKE $${paramIndex} OR df.original_filename ILIKE $${paramIndex})`);
+        queryParams.push(`%${searchLower}%`);
+        paramIndex++;
+      }
+
+      // Detection type filter (event_type)
+      if (event_type && typeof event_type === 'string' && event_type !== 'all') {
+        if (event_type === 'face') {
+          conditions.push(`df.file_type = 'event_face'`);
+        } else if (event_type === 'motion' || event_type === 'person') {
+          conditions.push(`df.file_type = 'event_motion'`);
+        }
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Sort order based on sortBy parameter
+      const orderClause = sortBy === 'oldest' ? 'ORDER BY df.capture_timestamp ASC' : 'ORDER BY df.capture_timestamp DESC';
 
       // Count total events for pagination
       let totalEvents = 0;
@@ -1792,7 +1831,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             df.file_size
           FROM detection_files df
           ${whereClause}
-          ORDER BY df.capture_timestamp DESC
+          ${orderClause}
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
 
@@ -1827,12 +1866,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
         // Extract just the filename from the full path for frontend compatibility
         // Use the API endpoint format that serves images from the detection directory
-        let imageUrl = `/api/events/image/${row.filename}`;
+        const filename = row.filename || path.basename(row.storage_path);
+        let imageUrl = `/api/events/image/${filename}`;
 
         const eventData = {
-          id: row.filename, // Use filename as ID since we're not joining with events table
+          id: filename, // Use filename as ID since we're not joining with events table
           event_type: row.file_type === 'event_face' ? 'face' : 'motion',
-          filename: row.filename,
+          filename: filename,
           timestamp: row.timestamp,
           cameraId: row.camera_id,
           confidence: metadata.confidence || 0,
@@ -1848,6 +1888,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           face_detections: face_detections || [],
         };
 
+        console.log('Returning eventData with keys:', Object.keys(eventData));
         return eventData;
       });
 
@@ -1988,23 +2029,43 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // If not in public, try to find it in the detection files database to get the actual path
       try {
-        const query = `
+        // Try to find by original_filename first, then by filename in storage_path
+        let query = `
           SELECT storage_path
           FROM detection_files
           WHERE original_filename = $1
           LIMIT 1
         `;
-        const results = await AppDataSource.query(query, [filename]);
+        let results = await AppDataSource.query(query, [filename]);
 
-        if (results.length > 0 && results[0].storage_path) {
-          const actualImagePath = results[0].storage_path;
+        // If not found by original_filename, try to find by storage_path ending with filename
+        if (results.length === 0) {
+          query = `
+            SELECT storage_path
+            FROM detection_files
+            WHERE storage_path LIKE $1
+            LIMIT 1
+          `;
+          results = await AppDataSource.query(query, [`%${filename}`]);
+        }
+
+          if (results.length > 0 && results[0].storage_path) {
+            let actualImagePath = results[0].storage_path;
+
+            // Map host paths to container paths for volume mounts
+            if (actualImagePath.startsWith('/home/barun/Documents/home-security-non-docker/data/detections/')) {
+              actualImagePath = actualImagePath.replace('/home/barun/Documents/home-security-non-docker/data/detections/', '/app/data/detections/');
+            }
 
           // Security check - ensure the path is within allowed directories
           const allowedPaths = [
             path.join(process.cwd(), 'public'),
             path.join(process.cwd(), '..', 'public'),
             '/app/data/detections',
-            '/app/public'
+            '/app/public',
+            '/data/detections',
+            // Allow host-mounted data directory for development
+            '/home/barun/Documents/home-security-non-docker/data/detections'
           ];
 
           const isAllowedPath = allowedPaths.some(allowedPath =>
@@ -2969,7 +3030,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const endDate = req.query.endDate as string;
 
       // Build query conditions
-      const conditions: string[] = ['is_deleted = FALSE'];
+      const conditions: string[] = ['is_deleted = FALSE', 'capture_timestamp IS NOT NULL'];
       const values: any[] = [];
       let paramIndex = 1;
 
@@ -3028,8 +3089,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       const results = await AppDataSource.query(query, values);
 
-      // Transform results to match expected event format (MotionEvent interface)
-      const events = results.map((row: any) => {
+       // Transform results to match expected event format (MotionEvent interface)
+      console.log(`Transforming ${results.length} results`);
+      const events = results.map((row: any, index: number) => {
+        // Debug logging
+        console.log(`Processing row ${index}: file_type=${row.file_type}, camera_id=${row.camera_id}`);
+
+        if (!row) {
+          console.log('Row is null/undefined');
+          return null;
+        }
+
         // Extract confidence from metadata if available, otherwise default to 0
         let confidence = 0;
         if (row.metadata && typeof row.metadata === 'object') {
@@ -3043,17 +3113,45 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           }
         }
 
-        return {
-          id: row.file_uuid,
-          cameraId: row.camera_id || 'unknown',
-          timestamp: new Date(row.capture_timestamp).toISOString(),
-          imagePath: row.storage_path,
+        // Extract detection data from metadata
+        let metadata = row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {};
+
+        // Extract detection counts from metadata
+        let persons_detected = metadata.personCount || metadata.persons?.length || 0;
+        let faces_detected = metadata.faceCount || metadata.faces?.length || 0;
+        let known_faces_count = metadata.knownFaces || 0;
+        let unknown_faces_count = metadata.unknownFaces || 0;
+
+        // Extract detection arrays from metadata
+        let object_detections = metadata.persons || [];
+        let face_detections = metadata.faces || [];
+
+        // Extract just the filename from the full path for frontend compatibility
+        // Use the API endpoint format that serves images from the detection directory
+        const filename = row.original_filename || path.basename(row.storage_path);
+        let imageUrl = `/api/events/image/${filename}`;
+
+        const eventData = {
+          id: filename, // Use filename as ID since we're not joining with events table
+          event_type: row.file_type === 'event_face' ? 'face' : 'motion',
+          filename: filename,
+          timestamp: row.capture_timestamp ? new Date(row.capture_timestamp).toISOString() : new Date().toISOString(),
+          cameraId: row.camera_id,
           confidence: confidence,
-          duration: 0, // Default duration, could be calculated from metadata if needed
-          cameraName: row.camera_id, // Use camera_id as cameraName
-          labels: [], // Could extract from metadata if needed
-          location: 'Unknown' // Could extract from metadata if needed
+          metadata: metadata,
+          imageUrl: imageUrl, // Add imageUrl field for frontend
+
+          // Detection data extracted from metadata
+          persons_detected,
+          faces_detected,
+          known_faces_count,
+          unknown_faces_count,
+          object_detections: object_detections || [],
+          face_detections: face_detections || [],
         };
+
+        console.log('Returning eventData with keys:', Object.keys(eventData));
+        return eventData;
       });
 
       res.json({
@@ -3628,13 +3726,144 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Simple batch processing function
+  async function processBatchDetection(jobId: string, options: any) {
+    try {
+      console.log(`Starting batch processing job ${jobId}`);
+
+      // Get available events from detection_files table
+      const events = await AppDataSource.query(`
+        SELECT
+          df.id as file_id,
+          df.file_uuid,
+          df.original_filename as filename,
+          df.capture_timestamp as timestamp,
+          df.camera_id as cameraId,
+          df.storage_path as filePath,
+          df.file_size as size
+        FROM detection_files df
+        WHERE df.file_type IN ('event_face', 'event_motion')
+          AND df.is_deleted = false
+          AND df.capture_timestamp >= $1
+          AND df.capture_timestamp <= $2
+        ORDER BY df.capture_timestamp DESC
+        LIMIT 1000
+      `, [new Date(options.timeRange.start), new Date(options.timeRange.end)]);
+
+      console.log(`Found ${events.length} events to process`);
+
+      if (events.length === 0) {
+        console.log('No events to process');
+        return;
+      }
+
+      // Import required modules dynamically
+      const crypto = await import('crypto');
+
+      let processed = 0;
+      let successful = 0;
+      let failed = 0;
+
+      // Process in batches of 10
+      const batchSize = 10;
+      for (let i = 0; i < events.length; i += batchSize) {
+        const batch = events.slice(i, i + batchSize);
+        const imagePaths = batch.map((e: any) => e.filepath);
+
+        try {
+          // Check if files exist
+          const existingPaths = imagePaths.filter((path: string) => fs.existsSync(path));
+          if (existingPaths.length === 0) continue;
+
+          // Create form data for batch detection
+          const form = new FormData();
+          existingPaths.forEach((imagePath: string, index: number) => {
+            const fileBuffer = fs.readFileSync(imagePath);
+            const blob = new Blob([fileBuffer]);
+            form.append('images', blob, `image_${index}.jpg`);
+          });
+          form.append('batchHash', `batch_${jobId}_${i}`);
+
+          // Call OpenCV batch detection
+          const response = await fetch(`${process.env.OPENCV_SERVICE_URL || 'http://opencv:8084'}/detect-batch`, {
+            method: 'POST',
+            body: form
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const batchResult = await response.json();
+
+          if (batchResult.success && batchResult.results) {
+            // Update detection_files metadata for each result
+            for (let j = 0; j < batchResult.results.length && j < batch.length; j++) {
+              const result = batchResult.results[j];
+              const event = batch[j];
+
+              if (result.success && result.detections) {
+                const metadata = {
+                  detections: result.detections.filter((d: any) =>
+                    (options.detectionTypes.includes('person') || options.detectionTypes.includes('both')) &&
+                    d.class === 'person' ? true :
+                    (options.detectionTypes.includes('face') || options.detectionTypes.includes('both')) &&
+                    d.class === 'face' ? true : false
+                  ).filter((d: any) => d.confidence >= options.confidenceThreshold),
+                  detected_at: new Date().toISOString(),
+                  detection_types: [...new Set(result.detections.map((d: any) => d.class))],
+                  batch_job_id: jobId,
+                  processing_time_ms: result.processingTime || 0
+                };
+
+                // Generate file hash for lookup
+                const fileHash = crypto.createHash('sha256')
+                  .update(event.filename + event.timestamp)
+                  .digest('hex');
+
+                // Update metadata
+                await AppDataSource.query(`
+                  UPDATE detection_files
+                  SET metadata = $1::jsonb, updated_at = NOW()
+                  WHERE file_hash = $2 OR storage_path = $3
+                `, [JSON.stringify(metadata), fileHash, event.filepath]);
+
+                successful++;
+              }
+            }
+          }
+
+          processed += batch.length;
+
+          if (i % 50 === 0) {
+            console.log(`Processed ${processed}/${events.length} events (${successful} successful, ${failed} failed)`);
+          }
+
+        } catch (error) {
+          console.error(`Error processing batch starting at ${i}:`, error);
+          failed += batch.length;
+          processed += batch.length;
+        }
+      }
+
+      console.log(`Batch processing completed: ${processed} processed, ${successful} successful, ${failed} failed`);
+
+    } catch (error) {
+      console.error('Batch processing error:', error);
+    }
+  }
+
   // Start batch processing
   app.post('/api/batch/start', async (req: Request, res: Response) => {
     try {
       const options = req.body;
-      
-      const jobId = await batchProcessingService.startBatchProcessing(options);
-      
+
+      // Start simple batch processing without workers
+      const jobId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Process in background (don't await)
+      processBatchDetection(jobId, options);
+
       res.json({
         success: true,
         jobId

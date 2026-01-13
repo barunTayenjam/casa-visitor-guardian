@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import apiService, { ApiError } from '@/services/ApiService';
 import { MotionEvent } from '@/types/security';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Download,
   X,
@@ -18,7 +19,28 @@ import {
   RefreshCw,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Info,
+  UserCheck,
+  UserX,
+  PersonStanding,
+  ScanFace,
+  Sun,
+  Activity,
+  Clock,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  Play,
+  Pause,
+  Layers,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  ArrowLeft,
+  ArrowRight,
+  Keyboard
 } from 'lucide-react';
 import {
   Select,
@@ -37,6 +59,16 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useCameras } from '@/contexts/CameraContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
+
+// Helper function to format confidence - handles both decimal (0-1) and percentage (0-100)
+const formatConfidence = (confidence: number): string => {
+  if (confidence >= 1) {
+    // Already a percentage
+    return `${Math.round(confidence)}%`;
+  }
+  // Convert decimal to percentage
+  return `${Math.round(confidence * 100)}%`;
+};
 
 const MotionEvents = () => {
   const { toast } = useToast();
@@ -64,21 +96,76 @@ const MotionEvents = () => {
         start_date: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0).toISOString() : undefined,
         end_date: selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999).toISOString() : undefined,
         sortBy: sortBy,
-        event_type: selectedDetectionType === 'all' ? undefined : selectedDetectionType
+        event_type: selectedDetectionType === 'all' ? undefined : selectedDetectionType,
+        searchQuery: searchQuery || undefined
       });
       console.log("Fetched motion events:", response.events);
-      const transformedEvents = response.events.map((event: any): MotionEvent => ({
-        id: event.id,
-        cameraId: event.cameraId,
-        cameraName: `Camera ${event.cameraId}`,
-        timestamp: new Date(event.timestamp),
-        imageUrl: event.imageUrl || null,
-        confidence: event.confidence || 0,
-        labels: [event.event_type || 'motion'],
-        location: `Camera ${event.cameraId}`,
-        duration: 0,
-        archived: false
-      }));
+      const transformedEvents = response.events.map((event: any): MotionEvent => {
+        // Build detections array from object_detections and face_detections
+        const detections: MotionEvent['detections'] = [];
+        
+        // Add person/object detections
+        if (event.object_detections && Array.isArray(event.object_detections)) {
+          event.object_detections.forEach((det: any) => {
+            detections.push({
+              type: det.class?.toLowerCase().includes('person') ? 'person' : 'object',
+              confidence: det.confidence,
+              boundingBox: {
+                x: det.boundingBox?.[0] || 0,
+                y: det.boundingBox?.[1] || 0,
+                width: det.boundingBox?.[2] || 0,
+                height: det.boundingBox?.[3] || 0
+              }
+            });
+          });
+        }
+        
+        // Add face detections
+        if (event.face_detections && Array.isArray(event.face_detections)) {
+          event.face_detections.forEach((det: any) => {
+            detections.push({
+              type: 'face',
+              confidence: det.confidence,
+              name: det.personName,
+              isKnown: det.isKnown,
+              boundingBox: {
+                x: det.boundingBox?.[0] || 0,
+                y: det.boundingBox?.[1] || 0,
+                width: det.boundingBox?.[2] || 0,
+                height: det.boundingBox?.[3] || 0
+              }
+            });
+          });
+        }
+        
+        return {
+          id: event.id,
+          cameraId: event.cameraId,
+          cameraName: event.cameraName || `Camera ${event.cameraId}`,
+          timestamp: new Date(event.timestamp),
+          imageUrl: event.imageUrl || event.filename || null,
+          confidence: event.confidence || 0,
+          labels: event.labels || [event.event_type || 'motion'],
+          location: event.cameraName || `Camera ${event.cameraId}`,
+          duration: 0,
+          archived: false,
+          metadata: event.metadata || {},
+          boundingBox: event.boundingBox ? {
+            x: event.boundingBox.x || event.boundingBox[0] || 0,
+            y: event.boundingBox.y || event.boundingBox[1] || 0,
+            width: event.boundingBox.width || event.boundingBox[2] || 0,
+            height: event.boundingBox.height || event.boundingBox[3] || 0
+          } : undefined,
+          detections,
+          personCount: event.persons_detected || event.personCount || (detections.filter(d => d.type === 'person').length),
+          faceCount: event.faces_detected || event.faceCount || (detections.filter(d => d.type === 'face').length),
+          knownFaces: event.known_faces_count || event.knownFaces || (detections.filter(d => d.type === 'face' && d.isKnown).length),
+          unknownFaces: event.unknown_faces_count || event.unknownFaces || (detections.filter(d => d.type === 'face' && !d.isKnown).length),
+          lightLevel: event.lightLevel,
+          motionArea: event.motionArea,
+          rawMetadata: event
+        };
+      });
       setEvents(transformedEvents);
       setTotalPages(response.pagination?.totalPages || 1);
       setTotalEvents(response.pagination?.totalEvents || 0);
@@ -422,8 +509,9 @@ const MotionEvents = () => {
                       </div>
                     </div>
                     {event.confidence > 0 && (
-                      <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded-full">
-                        {Math.round(event.confidence * 100)}%
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        {formatConfidence(event.confidence)}
                       </div>
                     )}
                     {/* Show badge for face detection events */}
@@ -546,116 +634,243 @@ const MotionEvents = () => {
         </CardContent>
       </Card>
 
-      {/* Full Screen Modal */}
+      {/* Full Screen Modal with Improved UX */}
       <Dialog open={selectedEventIndex !== null} onOpenChange={() => setSelectedEventIndex(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black border-none">
+        <DialogContent className="max-w-[98vw] max-h-[98vh] p-0 bg-zinc-950 border-zinc-800 rounded-xl overflow-hidden" showClose={false}>
           {selectedEvent && (
-            <div className="relative w-full h-full flex items-center justify-center">
-              {/* Close Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-4 top-4 z-10 bg-black/50 hover:bg-black/70 text-white"
-                onClick={() => setSelectedEventIndex(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-
-              {/* Navigation Buttons */}
-              {selectedEventIndex > 0 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
-                  onClick={() => setSelectedEventIndex(selectedEventIndex - 1)}
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </Button>
-              )}
-
-              {selectedEventIndex < events.length - 1 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
-                  onClick={() => setSelectedEventIndex(selectedEventIndex + 1)}
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </Button>
-              )}
-
-              {/* Image */}
-              <img
-                src={selectedEvent.imageUrl || ''}
-                alt={`Motion event at ${selectedEvent.timestamp.toLocaleString()}`}
-                className="max-w-full max-h-full object-contain"
-              />
-
-              {/* Info Overlay */}
-              <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">{selectedEvent.cameraName}</h3>
-                    <p className="text-sm text-white/80">
-                      {selectedEvent.timestamp.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-white/60 mt-1">
-                      Event {selectedEventIndex + 1} of {events.length} • {Math.round(selectedEvent.confidence * 100)}% confidence
-                    </p>
-
-                    {/* Detailed metadata display */}
-                    <div className="mt-2 text-xs space-y-1">
-                      {selectedEvent.personCount !== undefined && selectedEvent.personCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Persons:</span>
-                          <span>{selectedEvent.personCount}</span>
-                        </div>
-                      )}
-                      {selectedEvent.faceCount !== undefined && selectedEvent.faceCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Faces:</span>
-                          <span>{selectedEvent.faceCount}</span>
-                        </div>
-                      )}
-                      {selectedEvent.lightLevel !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Light:</span>
-                          <span>{selectedEvent.lightLevel}%</span>
-                        </div>
-                      )}
-                      {selectedEvent.motionArea !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Motion Area:</span>
-                          <span>{selectedEvent.motionArea}%</span>
-                        </div>
-                      )}
+            <div className="relative w-full h-[90vh] flex flex-col">
+              {/* Header Bar */}
+              <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-zinc-900/80 to-transparent z-20">
+                {/* Left: Event Info */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                      <CameraIcon className="h-4 w-4 text-indigo-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">{selectedEvent.cameraName}</h3>
+                      <p className="text-xs text-zinc-400">{format(selectedEvent.timestamp, 'PPP p')}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-white/20"
-                      onClick={() => downloadImage(selectedEvent)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-white/20 text-red-400"
-                      onClick={() => handleArchiveEvent(selectedEvent.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="h-6 w-px bg-zinc-700" />
+                  <div className="flex items-center gap-2">
+                    {selectedEvent.labels?.map((label) => (
+                      <Badge
+                        key={label}
+                        variant="outline"
+                        className={cn(
+                          "text-xs px-2 py-0.5",
+                          label === 'face' ? "border-blue-500/50 text-blue-400 bg-blue-500/10" :
+                          label === 'person' ? "border-green-500/50 text-green-400 bg-green-500/10" :
+                          "border-amber-500/50 text-amber-400 bg-amber-500/10"
+                        )}
+                      >
+                        {label}
+                      </Badge>
+                    ))}
                   </div>
+                </div>
+
+                {/* Right: Counter & Actions */}
+                <div className="flex items-center gap-3">
+                  <div className="px-3 py-1 rounded-full bg-zinc-800/80 text-xs text-zinc-300 font-medium">
+                    {selectedEventIndex + 1} / {events.length}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    onClick={() => downloadImage(selectedEvent)}
+                    title="Download"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                    onClick={() => handleArchiveEvent(selectedEvent.id)}
+                    title="Archive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    onClick={() => setSelectedEventIndex(null)}
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              {/* Keyboard Navigation Hints */}
-              <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-2 rounded-lg text-xs">
-                <div>← → Navigate</div>
-                <div>ESC Close</div>
+              {/* Main Content Area */}
+              <div className="flex-1 flex relative overflow-hidden">
+                {/* Left Navigation */}
+                <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-12 w-12 rounded-full bg-zinc-900/60 backdrop-blur-sm border border-zinc-700/50",
+                      "text-zinc-400 hover:text-white hover:bg-zinc-800",
+                      selectedEventIndex === 0 && "opacity-30 cursor-not-allowed"
+                    )}
+                    onClick={() => selectedEventIndex > 0 && setSelectedEventIndex(selectedEventIndex - 1)}
+                    disabled={selectedEventIndex === 0}
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Image Container */}
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="relative max-w-full max-h-full">
+                    <img
+                      src={selectedEvent.imageUrl || ''}
+                      alt={`Motion event at ${format(selectedEvent.timestamp, 'PPP p')}`}
+                      className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-2xl"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder-image.png';
+                      }}
+                    />
+
+                    {/* Detection Overlays */}
+                    {selectedEvent.detections && selectedEvent.detections.length > 0 && (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {selectedEvent.detections.map((det, idx) => (
+                          <div
+                            key={idx}
+                            className="absolute border-2 transition-all duration-300"
+                            style={{
+                              left: `${det.boundingBox.x}px`,
+                              top: `${det.boundingBox.y}px`,
+                              width: `${det.boundingBox.width}px`,
+                              height: `${det.boundingBox.height}px`,
+                              borderColor: det.type === 'person' ? '#22c55e' : det.type === 'face' ? '#3b82f6' : '#f59e0b',
+                              boxShadow: det.type === 'person' ? '0 0 10px rgba(34, 197, 94, 0.5)' : det.type === 'face' ? '0 0 10px rgba(59, 130, 246, 0.5)' : '0 0 10px rgba(245, 158, 11, 0.5)'
+                            }}
+                          >
+                            <div
+                              className="absolute -top-7 left-0 px-2 py-0.5 text-xs font-medium text-white rounded-md whitespace-nowrap"
+                              style={{
+                                backgroundColor: det.type === 'person' ? '#22c55e' : det.type === 'face' ? '#3b82f6' : '#f59e0b'
+                              }}
+                            >
+                              {det.type === 'person' ? '👤 Person' : det.type === 'face' ? `😐 ${det.name || 'Face'}` : '📦 Object'} • {formatConfidence(det.confidence)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Navigation */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-12 w-12 rounded-full bg-zinc-900/60 backdrop-blur-sm border border-zinc-700/50",
+                      "text-zinc-400 hover:text-white hover:bg-zinc-800",
+                      selectedEventIndex >= events.length - 1 && "opacity-30 cursor-not-allowed"
+                    )}
+                    onClick={() => selectedEventIndex < events.length - 1 && setSelectedEventIndex(selectedEventIndex + 1)}
+                    disabled={selectedEventIndex >= events.length - 1}
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Bottom Panel - Stats Grid */}
+              <div className="px-6 py-4 bg-zinc-900/90 border-t border-zinc-800">
+                <div className="flex items-start justify-between gap-6">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-800/50">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                        <TrendingUp className="h-5 w-5 text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400">Confidence</p>
+                        <p className="text-sm font-semibold text-white">{formatConfidence(selectedEvent.confidence)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-800/50">
+                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <PersonStanding className="h-5 w-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400">Persons</p>
+                        <p className="text-sm font-semibold text-white">{selectedEvent.personCount || 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-800/50">
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <ScanFace className="h-5 w-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400">Faces</p>
+                        <p className="text-sm font-semibold text-white">{selectedEvent.faceCount || 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-800/50">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <Activity className="h-5 w-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400">Motion Area</p>
+                        <p className="text-sm font-semibold text-white">{selectedEvent.motionArea || 0}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Face Recognition Status */}
+                  <div className="hidden md:flex items-center gap-4 p-3 rounded-lg bg-zinc-800/50 min-w-[200px]">
+                    <div className="flex -space-x-2">
+                      <div className="w-10 h-10 rounded-full bg-green-500/20 border-2 border-green-500/30 flex items-center justify-center">
+                        <UserCheck className="h-5 w-5 text-green-400" />
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-amber-500/20 border-2 border-amber-500/30 flex items-center justify-center">
+                        <UserX className="h-5 w-5 text-amber-400" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-400">Face Recognition</p>
+                      <p className="text-sm font-medium text-white">
+                        {selectedEvent.knownFaces || 0} known • {selectedEvent.unknownFaces || 0} unknown
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-4 flex items-center gap-2">
+                  <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+                      style={{ width: `${((selectedEventIndex + 1) / events.length) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {Math.round(((selectedEventIndex + 1) / events.length) * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Keyboard Hints */}
+              <div className="absolute bottom-20 right-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/60 backdrop-blur-sm border border-zinc-700/50 text-xs text-zinc-400">
+                <Keyboard className="h-3 w-3" />
+                <span>ESC to close</span>
+                <span className="text-zinc-600">•</span>
+                <span>← → navigate</span>
               </div>
             </div>
           )}

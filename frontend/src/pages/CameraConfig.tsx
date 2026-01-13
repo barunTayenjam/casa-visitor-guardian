@@ -1,8 +1,8 @@
-
 import { useState } from 'react';
 import { Camera, Plus, Trash2 } from 'lucide-react';
 import { Camera as CameraType } from '@/types/security';
 import { useCameras } from '@/contexts/CameraContext';
+import apiService from '@/services/ApiService';
 import { 
   Dialog, 
   DialogContent, 
@@ -153,18 +153,29 @@ const CameraConfig = () => {
       return false;
     }
 
-    // Simulate connection test - in real app, this would ping the RTSP stream
-    const isSuccessful = Math.random() > 0.3; // 70% success rate for demo
-    
-    toast({
-      title: isSuccessful ? "Connection Successful" : "Connection Failed",
-      description: isSuccessful 
-        ? "Successfully connected to the camera stream." 
-        : "Could not connect to the camera. Please check the URL and credentials.",
-      variant: isSuccessful ? "default" : "destructive",
-    });
-    
-    return isSuccessful;
+    try {
+      const cameraData = {
+        name: form.getValues('name') || 'Test Camera',
+        rtspUrl: streamUrl
+      };
+      const result = await apiService.testCameraConnection(cameraData);
+      toast({
+        title: result.success ? "Connection Successful" : "Connection Failed",
+        description: result.success 
+          ? `Successfully connected to the camera stream.${result.latency ? ` Latency: ${result.latency}ms` : ''}`
+          : "Could not connect to the camera. Please check the URL and credentials.",
+        variant: result.success ? "default" : "destructive",
+      });
+      return result.success;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect to the camera. Please check the URL and credentials.",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   const onSubmit = (data: CameraFormData) => {

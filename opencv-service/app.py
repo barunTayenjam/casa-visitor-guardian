@@ -882,6 +882,71 @@ def status():
         'classNames': len(class_names)
     })
 
+
+@app.route('/detect-batch', methods=['POST'])
+def detect_batch():
+    """Batch detection endpoint - accepts multiple images and processes them in parallel"""
+    start_time = time.time()
+
+    try:
+        if 'images' not in request.files:
+            return jsonify({'success': False, 'error': 'No images provided'}), 400
+
+        images = request.files.getlist('images')
+        batch_hash = request.form.get('batchHash', '')
+
+        print(f"OpenCV Service: Batch detection request with {len(images)} images, batchHash: {batch_hash}")
+
+        results = []
+        total_processing_time = 0
+
+        for image_file in images:
+            file_hash = hashlib.md5(image_file.read()).hexdigest()
+            image_file.seek(0)
+
+            temp_image_path = os.path.join(tempfile.gettempdir(), f'batch_{file_hash}.jpg')
+            image_file.save(temp_image_path)
+
+            try:
+                result = detector.detect_objects(temp_image_path, file_hash, '', 0, '')
+                results.append({
+                    'fileHash': file_hash,
+                    'success': result.get('success', False),
+                    'cached': result.get('cached', False),
+                    'detections': result.get('detections', []),
+                    'processingTime': result.get('processingTime', 0)
+                })
+                total_processing_time += result.get('processingTime', 0)
+            except Exception as e:
+                print(f"OpenCV Service: Error processing {file_hash}: {e}")
+                results.append({
+                    'fileHash': file_hash,
+                    'success': False,
+                    'error': str(e)
+                })
+            finally:
+                if os.path.exists(temp_image_path):
+                    os.unlink(temp_image_path)
+
+        total_time = (time.time() - start_time) * 1000
+
+        return jsonify({
+            'success': True,
+            'batchHash': batch_hash,
+            'totalImages': len(images),
+            'results': results,
+            'totalProcessingTime': total_time,
+            'averageProcessingTime': total_processing_time / len(images) if images else 0
+        })
+
+    except Exception as e:
+        print(f"OpenCV Service: Batch detection error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/train-face', methods=['POST'])
 def train_face():
     """Endpoint to add a known face for training - accepts image upload"""

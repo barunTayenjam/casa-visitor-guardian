@@ -1,16 +1,55 @@
+export interface CameraStreamInfo {
+  isActive: boolean;
+  fps: number;
+  width: number;
+  height: number;
+  hasFrame: boolean;
+  frameSize: number;
+}
+
 export interface Camera {
   id: string;
   name: string;
   status: 'online' | 'offline' | 'warning';
-  streamUrl: string;
+  streamUrl?: string;
   thumbnail: string;
   location: string;
   detectionEnabled: boolean;
   sensitivity: number;
   lastSeen: Date;
-  resolution: string;
-  fps: number;
+  resolution?: string;
+  fps?: number;
   error?: string;
+  // Dual-stream architecture
+  streams?: {
+    detect?: CameraStreamInfo;
+    record?: CameraStreamInfo;
+    live?: CameraStreamInfo;
+  };
+  // Configuration
+  config?: {
+    detect: {
+      width: number;
+      height: number;
+      fps: number;
+    };
+    objects?: {
+      track: string[];
+      filters?: Record<string, {
+        minArea?: number;
+        maxArea?: number;
+        threshold?: number;
+      }>;
+    };
+    zones?: Array<{
+      id: string;
+      name: string;
+      coordinates: number[][];
+      objects?: string[];
+      inertia?: number;
+      loiteringTime?: number;
+    }>;
+  };
 }
 
 export interface MotionEvent {

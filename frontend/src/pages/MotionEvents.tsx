@@ -78,7 +78,7 @@ const MotionEvents = () => {
   const [selectedEventIndex, setSelectedEventIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCamera, setSelectedCamera] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'confidence'>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);

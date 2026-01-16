@@ -14,14 +14,121 @@ export function getOpenCVServiceUrl(): string {
   return process.env.OPENCV_SERVICE_URL || 'http://opencv:8084';
 }
 
+function convertLegacyCameraConfig(camera: any): CameraConfig {
+  return {
+    id: camera.id,
+    name: camera.name,
+    enabled: true,
+    streams: [
+      {
+        path: camera.rtspUrl,
+        roles: ['detect', 'record', 'live'],
+        width: parseInt(camera.resolution?.split('x')[0]) || 1920,
+        height: parseInt(camera.resolution?.split('x')[1]) || 1080,
+        fps: camera.frameRate || 15
+      }
+    ],
+    detect: {
+      width: 640,
+      height: 360,
+      fps: 5,
+      minInitialized: 2,
+      maxDisappeared: 25
+    },
+    record: {
+      enabled: true,
+      retainDays: 30,
+      mode: 'active_objects',
+      alerts: {
+        preCapture: 5,
+        postCapture: 5,
+        retainDays: 14
+      }
+    },
+    objects: {
+      track: ['person', 'car', 'dog', 'cat'],
+      filters: {
+        person: {
+          minArea: 5000,
+          maxArea: 100000,
+          threshold: 0.7
+        },
+        car: {
+          minArea: 10000,
+          maxArea: 200000,
+          threshold: 0.7
+        }
+      }
+    },
+    nightMode: camera.nightMode || false,
+    credentialId: camera.credentialId
+  };
+}
+
+export interface CameraStreamConfig {
+  path: string;
+  roles: ('detect' | 'record' | 'live')[];
+  width?: number;
+  height?: number;
+  fps?: number;
+}
+
+export interface ZoneConfig {
+  id: string;
+  name: string;
+  coordinates: number[][]; // Polygon coordinates as [x, y] normalized 0-1
+  objects?: string[]; // Objects that can trigger this zone
+  inertia?: number; // Consecutive frames required
+  loiteringTime?: number; // Seconds before considered in zone
+}
+
+export interface ObjectFilterConfig {
+  minArea?: number;
+  maxArea?: number;
+  minRatio?: number;
+  maxRatio?: number;
+  minScore?: number;
+  threshold?: number;
+  mask?: string;
+}
+
+export interface DetectConfig {
+  width: number;
+  height: number;
+  fps: number;
+  minInitialized?: number;
+  maxDisappeared?: number;
+}
+
+export interface RecordConfig {
+  enabled: boolean;
+  retainDays?: number;
+  mode?: 'all' | 'motion' | 'active_objects';
+  alerts?: {
+    preCapture?: number;
+    postCapture?: number;
+    retainDays?: number;
+  };
+}
+
 export interface CameraConfig {
   id: string;
   name: string;
-  rtspUrl: string;
-  username?: string;
-  password?: string;
-  frameRate: number;
-  resolution: string;
+  enabled: boolean;
+  streams: CameraStreamConfig[];
+  detect: DetectConfig;
+  record?: RecordConfig;
+  zones?: ZoneConfig[];
+  objects?: {
+    track?: string[];
+    filters?: Record<string, ObjectFilterConfig>;
+  };
+  motion?: {
+    enabled?: boolean;
+    threshold?: number;
+    contourArea?: number;
+    mask?: string;
+  };
   nightMode: boolean;
   credentialId?: string;
 }
@@ -76,15 +183,25 @@ export const config: AppConfig = {
   },
   cameras: (() => {
     try {
-      // Try environment variable first
       if (process.env.CAMERAS) {
-        return JSON.parse(process.env.CAMERAS);
+        const parsed = JSON.parse(process.env.CAMERAS);
+        return parsed.map((camera: any) => {
+          if (camera.streams && Array.isArray(camera.streams)) {
+            return camera; // New format
+          }
+          return convertLegacyCameraConfig(camera); // Legacy format
+        });
       }
-      // Fallback to cameras.json file
       const camerasPath = path.join(__dirname, '../../cameras.json');
       if (fs.existsSync(camerasPath)) {
         const camerasData = fs.readFileSync(camerasPath, 'utf8');
-        return JSON.parse(camerasData);
+        const parsed = JSON.parse(camerasData);
+        return parsed.map((camera: any) => {
+          if (camera.streams && Array.isArray(camera.streams)) {
+            return camera; // New format
+          }
+          return convertLegacyCameraConfig(camera); // Legacy format
+        });
       }
       return [];
     } catch (error) {

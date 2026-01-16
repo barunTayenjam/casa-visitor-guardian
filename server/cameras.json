@@ -2,22 +2,177 @@
     {
         "id": "cam1",
         "name": "Front Door",
-        "rtspUrl": "rtsp://192.168.31.62:554/stream1",
-        "username": "barun.2009.tam@gmail.com",
-        "password": "mezmu2-xewwyn-geJtiv",
-        "frameRate": 10,
-        "resolution": "1920x1080",
+        "enabled": true,
+        "streams": [
+            {
+                "path": "rtsp://192.168.31.62:554/stream1",
+                "roles": ["detect", "record", "live"]
+            },
+            {
+                "path": "rtsp://192.168.31.62:554/stream2",
+                "roles": ["detect"]
+            }
+        ],
+        "detect": {
+            "width": 640,
+            "height": 360,
+            "fps": 5
+        },
+        "record": {
+            "enabled": true,
+            "retainDays": 30,
+            "mode": "active_objects",
+            "alerts": {
+                "preCapture": 5,
+                "postCapture": 5,
+                "retainDays": 14
+            }
+        },
+        "objects": {
+            "track": ["person", "car", "dog", "cat", "package"],
+            "filters": {
+                "person": {
+                    "minArea": 5000,
+                    "maxArea": 100000,
+                    "threshold": 0.7
+                },
+                "car": {
+                    "minArea": 10000,
+                    "maxArea": 200000,
+                    "threshold": 0.7
+                },
+                "dog": {
+                    "minArea": 3000,
+                    "maxArea": 80000,
+                    "threshold": 0.6
+                },
+                "cat": {
+                    "minArea": 2000,
+                    "maxArea": 60000,
+                    "threshold": 0.6
+                },
+                "package": {
+                    "minArea": 1000,
+                    "maxArea": 30000,
+                    "threshold": 0.6
+                }
+            }
+        },
+        "zones": [
+            {
+                "id": "front_steps",
+                "name": "Front Steps",
+                "coordinates": [[0.1, 0.5], [0.4, 0.3], [0.5, 0.4], [0.2, 0.7]],
+                "objects": ["person", "package"],
+                "inertia": 3,
+                "loiteringTime": 0
+            },
+            {
+                "id": "driveway",
+                "name": "Driveway",
+                "coordinates": [[0.0, 0.3], [0.1, 0.5], [0.5, 0.8], [0.0, 1.0]],
+                "objects": ["car", "person"],
+                "inertia": 5,
+                "loiteringTime": 10
+            },
+            {
+                "id": "street",
+                "name": "Street",
+                "coordinates": [[0.5, 0.0], [1.0, 0.0], [1.0, 0.5], [0.5, 0.3]],
+                "objects": ["car"],
+                "inertia": 10,
+                "loiteringTime": 0
+            }
+        ],
+        "motion": {
+            "enabled": true,
+            "threshold": 30,
+            "contourArea": 60,
+            "improveContrast": false,
+            "mask": ""
+        },
         "nightMode": false,
         "credentialId": null
     },
     {
         "id": "cam2",
         "name": "Back Door",
-        "rtspUrl": "rtsp://192.168.31.61:554/stream1",
-        "username": "barun.2009.tam@gmail.com",
-        "password": "mezmu2-xewwyn-geJtiv",
-        "frameRate": 10,
-        "resolution": "1920x1080",
+        "enabled": true,
+        "streams": [
+            {
+                "path": "rtsp://192.168.31.61:554/stream1",
+                "roles": ["detect", "record", "live"]
+            },
+            {
+                "path": "rtsp://192.168.31.61:554/stream2",
+                "roles": ["detect"]
+            }
+        ],
+        "detect": {
+            "width": 640,
+            "height": 360,
+            "fps": 5
+        },
+        "record": {
+            "enabled": true,
+            "retainDays": 30,
+            "mode": "active_objects",
+            "alerts": {
+                "preCapture": 5,
+                "postCapture": 5,
+                "retainDays": 14
+            }
+        },
+        "objects": {
+            "track": ["person", "car", "dog", "cat"],
+            "filters": {
+                "person": {
+                    "minArea": 5000,
+                    "maxArea": 100000,
+                    "threshold": 0.7
+                },
+                "car": {
+                    "minArea": 10000,
+                    "maxArea": 200000,
+                    "threshold": 0.7
+                },
+                "dog": {
+                    "minArea": 3000,
+                    "maxArea": 80000,
+                    "threshold": 0.6
+                },
+                "cat": {
+                    "minArea": 2000,
+                    "maxArea": 60000,
+                    "threshold": 0.6
+                }
+            }
+        },
+        "zones": [
+            {
+                "id": "back_patio",
+                "name": "Back Patio",
+                "coordinates": [[0.2, 0.3], [0.8, 0.3], [0.8, 0.8], [0.2, 0.8]],
+                "objects": ["person", "dog", "cat"],
+                "inertia": 3,
+                "loiteringTime": 0
+            },
+            {
+                "id": "gate",
+                "name": "Gate",
+                "coordinates": [[0.0, 0.4], [0.2, 0.4], [0.2, 0.6], [0.0, 0.6]],
+                "objects": ["person"],
+                "inertia": 5,
+                "loiteringTime": 0
+            }
+        ],
+        "motion": {
+            "enabled": true,
+            "threshold": 30,
+            "contourArea": 60,
+            "improveContrast": false,
+            "mask": ""
+        },
         "nightMode": false,
         "credentialId": null
     }

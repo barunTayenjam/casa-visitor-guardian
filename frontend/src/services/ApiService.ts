@@ -41,8 +41,59 @@ interface MotionSettings {
   ignoredZones: { x: number; y: number; width: number; height: number }[];
 }
 
-// Type for the backend camera model
+// Type for the backend camera model (new dual-stream format)
 interface BackendCamera {
+  id: string;
+  name: string;
+  isActive: boolean;
+  nightMode: boolean;
+  status?: string;
+  lastError?: string;
+  retryCount?: number;
+  // New dual-stream format
+  config?: {
+    detect: {
+      width: number;
+      height: number;
+      fps: number;
+    };
+    objects?: {
+      track: string[];
+      filters?: Record<string, {
+        minArea?: number;
+        maxArea?: number;
+        threshold?: number;
+      }>;
+    };
+    zones?: Array<{
+      id: string;
+      name: string;
+      coordinates: number[][];
+      objects?: string[];
+      inertia?: number;
+      loiteringTime?: number;
+    }>;
+  };
+  streams?: {
+    detect?: {
+      isActive: boolean;
+      fps: number;
+      width: number;
+      height: number;
+      hasFrame: boolean;
+      frameSize: number;
+    };
+    record?: {
+      isActive: boolean;
+      fps: number;
+      width: number;
+      height: number;
+    };
+  };
+}
+
+// Legacy format for backward compatibility
+interface LegacyBackendCamera {
   id: string;
   name: string;
   rtspUrl: string;
@@ -53,7 +104,7 @@ interface BackendCamera {
   resolution: string;
   nightMode: boolean;
   lastError?: string;
-  status?: string; // Status field from backend
+  status?: string;
   retryCount?: number;
 }
 
@@ -526,23 +577,28 @@ class ApiService {
   }
 
   // Convert backend camera to frontend camera format
-  private mapBackendToFrontendCamera(camera: BackendCamera): Camera {
-    // Use the status from backend if available, otherwise derive from isActive
+  private mapBackendToFrontendCamera(camera: BackendCamera | LegacyBackendCamera): Camera {
     const status = camera.status || (camera.isActive ? 'online' : 'offline');
+    
+    // Check if this is the new format with config
+    const isNewFormat = 'config' in camera && camera.config;
     
     return {
       id: camera.id,
       name: camera.name,
       status: status as 'online' | 'offline' | 'warning',
-      streamUrl: camera.rtspUrl,
+      streamUrl: (camera as LegacyBackendCamera).rtspUrl,
       thumbnail: '/placeholder-camera.svg',
-      location: camera.name, // Use camera name as location for now
-      detectionEnabled: true, // Default, will be updated from motion settings
-      sensitivity: 0.5, // Default, will be updated from motion settings
+      location: camera.name,
+      detectionEnabled: true,
+      sensitivity: 0.5,
       lastSeen: new Date(),
-      resolution: camera.resolution,
-      fps: camera.frameRate,
-      error: camera.lastError
+      resolution: (camera as LegacyBackendCamera).resolution,
+      fps: (camera as LegacyBackendCamera).frameRate,
+      error: camera.lastError,
+      // New dual-stream fields
+      config: isNewFormat ? camera.config : undefined,
+      streams: (camera as BackendCamera).streams,
     };
   }
 
@@ -574,6 +630,227 @@ class ApiService {
         'GET_CAMERAS_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
+    }
+  }
+
+  // Get stream status for a camera
+  async getStreamStatus(cameraId: string): Promise<{
+    cameraId: string;
+    cameraName: string;
+    isActive: boolean;
+    streams: Record<string, {
+      isActive: boolean;
+      fps: number;
+      width: number;
+      height: number;
+      hasFrame: boolean;
+      frameSize: number;
+    }>;
+    timestamp: string;
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/streams/${cameraId}/status`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to get stream status', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error getting stream status for ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Zone API methods
+
+  // Get zones for a camera
+  async getZones(cameraId: string): Promise<Array<{
+    id: string;
+    name: string;
+    coordinates: number[][];
+    objects?: string[];
+    inertia?: number;
+    loiteringTime?: number;
+  }>> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/zones`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to get zones', response.status);
+      }
+      
+      return data.zones || [];
+    } catch (error) {
+      console.error(`Error getting zones for ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Add a zone to a camera
+  async addZone(cameraId: string, zone: {
+    id: string;
+    name: string;
+    coordinates: number[][];
+    objects?: string[];
+    inertia?: number;
+    loiteringTime?: number;
+  }): Promise<{ success: boolean; zone: typeof zone }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/zones`, {
+        method: 'POST',
+        body: JSON.stringify(zone),
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to add zone', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error adding zone to ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Update a zone
+  async updateZone(cameraId: string, zoneId: string, updates: Partial<{
+    name: string;
+    coordinates: number[][];
+    objects: string[];
+    inertia: number;
+    loiteringTime: number;
+  }>): Promise<{ success: boolean; zone: typeof updates }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/zones/${zoneId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to update zone', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error updating zone ${zoneId} on ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Delete a zone
+  async deleteZone(cameraId: string, zoneId: string): Promise<{ success: boolean }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/zones/${zoneId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to delete zone', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error deleting zone ${zoneId} from ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Object filter API methods
+
+  // Get object filters for a camera
+  async getFilters(cameraId: string): Promise<{
+    track: string[];
+    filters: Record<string, {
+      minArea?: number;
+      maxArea?: number;
+      threshold?: number;
+    }>;
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/filters`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to get filters', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error getting filters for ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Update object track list
+  async updateTrackList(cameraId: string, track: string[]): Promise<{ success: boolean; track: string[] }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/filters/track`, {
+        method: 'PUT',
+        body: JSON.stringify({ track }),
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to update track list', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error updating track list for ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Update object filter for a specific label
+  async updateFilter(cameraId: string, label: string, filter: {
+    minArea?: number;
+    maxArea?: number;
+    minRatio?: number;
+    maxRatio?: number;
+    minScore?: number;
+    threshold?: number;
+    mask?: string;
+  }): Promise<{ success: boolean; filter: typeof filter }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/filters/${label}`, {
+        method: 'PUT',
+        body: JSON.stringify(filter),
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to update filter', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error updating filter for ${label} on ${cameraId}:`, error);
+      throw error;
+    }
+  }
+
+  // Delete object filter
+  async deleteFilter(cameraId: string, label: string): Promise<{ success: boolean }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/cameras/${cameraId}/filters/${label}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new ApiError(data.error || 'Failed to delete filter', response.status);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error deleting filter for ${label} from ${cameraId}:`, error);
+      throw error;
     }
   }
 

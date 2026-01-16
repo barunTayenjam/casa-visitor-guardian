@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -22,6 +20,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - sentryvision_network
 
   # Backend API Server (Development Mode)
   backend:
@@ -31,7 +31,6 @@ services:
     container_name: sentryvision-backend
     ports:
       - "0.0.0.0:9753:9753"
-      - "0.0.0.0:9754:9754"
     environment:
       - NODE_ENV=development
       - PORT=9753
@@ -45,7 +44,6 @@ services:
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
-      - CAMERAS=/app/cameras.json
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
@@ -108,6 +106,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - sentryvision_network
 
   # OpenCV Python Detection Service (Development Mode)
   opencv:

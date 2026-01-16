@@ -904,7 +904,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Take a snapshot from a camera
   app.post('/api/cameras/:id/snapshot', async (req: Request, res: Response) => {
     try {
-      const { resolution } = req.body;
+      const { resolution } = req.body || {};
       const snapshotPath = await streamManager.takeSnapshot(req.params.id, resolution);
       if (!snapshotPath) {
         return res.status(500).json({ success: false, error: 'Failed to take snapshot' });
@@ -2786,10 +2786,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Use objectDetectionService for detection
-      const objectDetectionService = getObjectDetectionService();
-      const { detections } = await objectDetectionService.detectPersons(cameraId, currentFrame);
-      
+      // Use consolidatedDetectionService for detection
+      const { detections } = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
+
       // Process detection results
       const persons = detections.filter((d: any) => d.class === 'person') || [];
       
@@ -2848,8 +2847,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         return res.status(400).json({ success: false, error: 'No frame available from camera' });
       }
       
-      // Use facialRecognitionService for face recognition
-      const facialRecognitionService = getFacialRecognitionService();
+      // Use consolidatedDetectionService for face recognition
       const { faces } = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
       
       if (faces && faces.length > 0) {
@@ -3665,9 +3663,35 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get all batch jobs
-  app.get('/api/batch/jobs', (req: Request, res: Response) => {
+  app.get('/api/batch/jobs', async (req: Request, res: Response) => {
     try {
-      const jobs = batchProcessingService.getAllJobs();
+      let jobs = batchProcessingService.getAllJobs();
+      
+      if (jobs.length === 0) {
+        try {
+          const db = await getBatchProcessingDatabase();
+          const dbJobs = await db.getJobs({ limit: 50 });
+          if (dbJobs.length > 0) {
+            jobs = dbJobs.map((job: any) => ({
+              id: job.id,
+              status: job.status,
+              startTime: job.start_time ? new Date(job.start_time) : undefined,
+              endTime: job.end_time ? new Date(job.end_time) : undefined,
+              progress: {
+                total: job.total_images || 0,
+                processed: job.processed_images || 0,
+                successful: job.successful_images || 0,
+                failed: job.failed_images || 0
+              },
+              options: JSON.parse(job.options_json || '{}'),
+              error: job.error_message
+            }));
+          }
+        } catch (dbError) {
+          console.warn('Could not fetch batch jobs from database:', dbError);
+        }
+      }
+      
       res.json({
         success: true,
         jobs
@@ -3858,11 +3882,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const options = req.body;
 
-      // Start simple batch processing without workers
-      const jobId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Process in background (don't await)
-      processBatchDetection(jobId, options);
+      const jobId = await batchProcessingService.startBatchProcessing({
+        timeRange: {
+          start: new Date(options.timeRange?.start || Date.now() - 24 * 60 * 60 * 1000),
+          end: new Date(options.timeRange?.end || Date.now())
+        },
+        cameraIds: options.cameraIds,
+        detectionTypes: options.detectionTypes || ['both'],
+        confidenceThreshold: options.confidenceThreshold || 0.7,
+        saveResults: options.saveResults !== false,
+        outputFormat: options.outputFormat || 'database'
+      });
 
       res.json({
         success: true,

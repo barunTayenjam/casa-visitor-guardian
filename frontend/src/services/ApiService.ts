@@ -302,6 +302,8 @@ interface DetectionFilters {
   maxConfidence?: number;
   limit?: number;
   offset?: number;
+  type?: string;
+  cameraId?: string;
 }
 
 interface DetectionEvent {
@@ -785,7 +787,7 @@ class ApiService {
         method: 'POST',
         body: JSON.stringify({ resolution })
       });
-      
+
       const data = await response.json();
       if (!data.success || !data.snapshotPath) {
         throw new ApiError(
@@ -795,7 +797,7 @@ class ApiService {
           data
         );
       }
-      return data.snapshotPath;
+      return `/snapshots/${data.snapshotPath}`;
     } catch (error) {
       console.error(`Error taking snapshot for camera ${id}:`, error);
       if (error instanceof ApiError) {
@@ -2237,26 +2239,61 @@ class ApiService {
    */
   async getDetectionHistory(filters: DetectionFilters): Promise<DetectionEvent[]> {
     try {
-      // Return mock data for now to test the UI
-      console.log('getDetectionHistory called with filters:', filters);
-      const mockData = [
-        {
-          id: 'test-event-1',
-          timestamp: new Date().toISOString(),
-          cameraId: 'cam1',
-          cameraName: 'Front Door',
-          imagePath: '/api/events/image/test-image.jpg',
-          detectionType: 'person' as const,
-          confidence: 95,
-          boundingBox: { x: 100, y: 50, width: 200, height: 300 },
-          className: 'person',
-          metadata: { test: true }
-        }
-      ];
-      console.log('Returning mock data:', mockData.length, 'events');
-      return mockData;
+      const params = new URLSearchParams();
+
+      if (filters.startTime) params.append('startDate', filters.startTime);
+      if (filters.endTime) params.append('endDate', filters.endTime);
+      if (filters.cameraIds && filters.cameraIds.length > 0) params.append('cameraId', filters.cameraIds[0]);
+      if (filters.detectionTypes && filters.detectionTypes.length > 0) {
+        const type = filters.detectionTypes[0];
+        if (type === 'person') params.append('detectionType', 'person');
+        else if (type === 'face') params.append('detectionType', 'face');
+      }
+      if (filters.minConfidence !== undefined) params.append('minConfidence', filters.minConfidence.toString());
+      params.append('page', '1');
+      if (filters.limit) params.append('pageSize', filters.limit.toString());
+
+      const response = await this.fetchWithRetry(`/events/history?${params.toString()}`);
+      const data = await response.json();
+
+      if (!data.success || !data.events) {
+        throw new ApiError(
+          data.error || 'Failed to get detection history',
+          response.status,
+          'GET_DETECTION_HISTORY_ERROR',
+          data
+        );
+      }
+
+      return data.events.map((event: any) => {
+        const detectionType: 'person' | 'face' | 'object' = event.metadata?.detectionType || 'person';
+
+        return {
+          id: event.id,
+          timestamp: event.timestamp,
+          cameraId: event.cameraId,
+          cameraName: event.cameraName,
+          imagePath: this.getEventImageUrl(event.original_filename),
+          detectionType,
+          confidence: event.metadata?.confidence || 0,
+          boundingBox: event.metadata?.boundingBox || { x: 0, y: 0, width: 0, height: 0 },
+          className: event.metadata?.className,
+          personName: event.metadata?.personName,
+          isKnown: event.metadata?.isKnown,
+          metadata: event.metadata || {}
+        };
+      });
     } catch (error) {
-      throw new ApiError('Failed to get detection history', 500, 'GET_DETECTION_HISTORY_ERROR');
+      console.error('Error fetching detection history:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to get detection history',
+        500,
+        'GET_DETECTION_HISTORY_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
     }
   }
 
@@ -2405,20 +2442,16 @@ class ApiService {
   // ==================== OPENCV STATUS API ====================
 
   async getOpenCVStatus(): Promise<{
-    status: 'running' | 'stopped' | 'error';
-    version: string;
-    gpuAvailable: boolean;
-    modelsLoaded: string[];
-    lastHealthCheck: string;
+    status: 'ready' | 'initializing' | 'error';
+    initialized: boolean;
+    service: string;
   }> {
     try {
        const response = await this.get<{ success: boolean; status: {
-    status: 'running' | 'stopped' | 'error';
-    version: string;
-    gpuAvailable: boolean;
-    modelsLoaded: string[];
-    lastHealthCheck: string;
-  } }>('/opencv/status');
+     status: 'ready' | 'initializing' | 'error';
+     initialized: boolean;
+     service: string;
+   }; healthy?: boolean; serviceUrl?: string }>('/opencv/status');
       if (response.success && response.status) {
         return response.status;
       }

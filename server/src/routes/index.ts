@@ -1161,6 +1161,518 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Low-resolution detect stream for OpenCV detection service
+  app.get('/api/streams/:cameraId/detect', (req: Request, res: Response) => {
+    try {
+      const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
+      const camera = streamManager.getCamera(cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const stream = camera.streams.get('detect');
+      if (!stream) {
+        return res.status(404).json({ success: false, error: 'Detect stream not configured' });
+      }
+
+      // Ensure detect stream is started
+      if (!stream.isActive) {
+        streamManager.startStream(cameraId, 'detect');
+      }
+
+      console.log(`*** DETECT STREAM REQUEST for camera ${cameraId} ***`);
+
+      // Set proper headers for MJPEG streaming
+      const boundary = '--myboundary';
+      res.writeHead(200, {
+        'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Connection': 'close',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      // Forward frames from detect stream
+      let isActive = true;
+
+      const sendFrame = () => {
+        if (!isActive || !stream.lastFrame) return;
+
+        const frame = stream.lastFrame;
+        const chunkHeader = `Content-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
+        const chunkEnd = `\r\n--${boundary}\r\n`;
+
+        try {
+          res.write(`--${boundary}\r\n`);
+          res.write(chunkHeader);
+          res.write(frame);
+          res.write(chunkEnd);
+        } catch (err) {
+          isActive = false;
+        }
+      };
+
+      // Send frames at detect stream FPS
+      const interval = setInterval(sendFrame, Math.floor(1000 / stream.fps));
+
+      // Start with initial boundary
+      res.write(`--${boundary}\r\n`);
+
+      req.on('close', () => {
+        isActive = false;
+        clearInterval(interval);
+        try {
+          res.write(`--${boundary}--\r\n`);
+          res.end();
+        } catch (e) {}
+      });
+
+      req.on('aborted', () => {
+        isActive = false;
+        clearInterval(interval);
+      });
+
+    } catch (error) {
+      console.error(`Error serving detect stream for camera ${req.params.cameraId}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Failed to serve detect stream' });
+      }
+    }
+  });
+
+  // High-resolution live stream for browser viewing
+  app.get('/api/streams/:cameraId/live', (req: Request, res: Response) => {
+    try {
+      const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
+      const camera = streamManager.getCamera(cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      // Try record stream first (higher quality), fallback to detect
+      let stream = camera.streams.get('record');
+      if (!stream) {
+        stream = camera.streams.get('detect');
+      }
+      if (!stream) {
+        return res.status(404).json({ success: false, error: 'No suitable stream found' });
+      }
+
+      // Ensure stream is started
+      if (!stream.isActive) {
+        const role = stream.role;
+        streamManager.startStream(cameraId, role);
+      }
+
+      console.log(`*** LIVE STREAM REQUEST for camera ${cameraId} ***`);
+
+      // Set proper headers for MJPEG streaming
+      const boundary = '--myboundary';
+      res.writeHead(200, {
+        'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Connection': 'close',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      // Forward frames from stream
+      let isActive = true;
+
+      const sendFrame = () => {
+        if (!isActive || !stream?.lastFrame) return;
+
+        const frame = stream.lastFrame;
+        const chunkHeader = `Content-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
+        const chunkEnd = `\r\n--${boundary}\r\n`;
+
+        try {
+          res.write(`--${boundary}\r\n`);
+          res.write(chunkHeader);
+          res.write(frame);
+          res.write(chunkEnd);
+        } catch (err) {
+          isActive = false;
+        }
+      };
+
+      // Send frames at stream FPS (up to 15 for live viewing)
+      const fps = Math.min(stream.fps, 15);
+      const interval = setInterval(sendFrame, Math.floor(1000 / fps));
+
+      // Start with initial boundary
+      res.write(`--${boundary}\r\n`);
+
+      req.on('close', () => {
+        isActive = false;
+        clearInterval(interval);
+        try {
+          res.write(`--${boundary}--\r\n`);
+          res.end();
+        } catch (e) {}
+      });
+
+      req.on('aborted', () => {
+        isActive = false;
+        clearInterval(interval);
+      });
+
+    } catch (error) {
+      console.error(`Error serving live stream for camera ${req.params.cameraId}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Failed to serve live stream' });
+      }
+    }
+  });
+
+  // Single frame endpoint for OpenCV detection (non-streaming)
+  app.get('/api/streams/:cameraId/frame', (req: Request, res: Response) => {
+    try {
+      const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
+      const camera = streamManager.getCamera(cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const stream = camera.streams.get('detect');
+      if (!stream || !stream.lastFrame) {
+        return res.status(503).json({ success: false, error: 'No frame available' });
+      }
+
+      // Set headers for single JPEG
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': stream.lastFrame.length.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*'
+      });
+
+      res.end(stream.lastFrame);
+
+    } catch (error) {
+      console.error(`Error getting frame for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to get frame' });
+    }
+  });
+
+  // Get stream status for a camera
+  app.get('/api/streams/:cameraId/status', (req: Request, res: Response) => {
+    try {
+      const cameraId = req.params.cameraId;
+
+      if (!validateCameraIdParam(cameraId, res)) {
+        return;
+      }
+
+      const camera = streamManager.getCamera(cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const streams: Record<string, any> = {};
+      camera.streams.forEach((stream, role) => {
+        streams[role] = {
+          isActive: stream.isActive,
+          fps: stream.fps,
+          width: stream.width,
+          height: stream.height,
+          hasFrame: !!stream.lastFrame,
+          frameSize: stream.lastFrame?.length || 0
+        };
+      });
+
+      res.json({
+        success: true,
+        cameraId,
+        cameraName: camera.name,
+        isActive: camera.isActive,
+        streams,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error(`Error getting stream status for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to get stream status' });
+    }
+  });
+
+  // Zone configuration endpoints
+
+  // Get zones for a camera
+  app.get('/api/cameras/:cameraId/zones', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      res.json({
+        success: true,
+        cameraId: req.params.cameraId,
+        zones: camera.config.zones || []
+      });
+    } catch (error) {
+      console.error(`Error getting zones for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to get zones' });
+    }
+  });
+
+  // Add a zone to a camera
+  app.post('/api/cameras/:cameraId/zones', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const { id, name, coordinates, objects, inertia, loiteringTime } = req.body;
+
+      if (!id || !name || !coordinates || !Array.isArray(coordinates)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Zone must have id, name, and coordinates (array of [x,y] normalized 0-1)'
+        });
+      }
+
+      // Validate coordinates format
+      const validCoords = coordinates.every((coord: any) =>
+        Array.isArray(coord) && coord.length === 2 &&
+        coord[0] >= 0 && coord[0] <= 1 &&
+        coord[1] >= 0 && coord[1] <= 1
+      );
+
+      if (!validCoords) {
+        return res.status(400).json({
+          success: false,
+          error: 'Coordinates must be arrays of [x,y] with values between 0 and 1'
+        });
+      }
+
+      const newZone = {
+        id,
+        name,
+        coordinates,
+        objects: objects || ['person'],
+        inertia: inertia || 3,
+        loiteringTime: loiteringTime || 0
+      };
+
+      if (!camera.config.zones) {
+        camera.config.zones = [];
+      }
+
+      // Check for duplicate zone id
+      const existingIndex = camera.config.zones.findIndex((z: any) => z.id === id);
+      if (existingIndex >= 0) {
+        camera.config.zones[existingIndex] = newZone;
+      } else {
+        camera.config.zones.push(newZone);
+      }
+
+      res.json({
+        success: true,
+        message: existingIndex >= 0 ? 'Zone updated' : 'Zone added',
+        zone: newZone
+      });
+    } catch (error) {
+      console.error(`Error adding zone for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to add zone' });
+    }
+  });
+
+  // Update a zone
+  app.put('/api/cameras/:cameraId/zones/:zoneId', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      if (!camera.config.zones) {
+        return res.status(404).json({ success: false, error: 'No zones configured' });
+      }
+
+      const zoneIndex = camera.config.zones.findIndex((z: any) => z.id === req.params.zoneId);
+      if (zoneIndex < 0) {
+        return res.status(404).json({ success: false, error: 'Zone not found' });
+      }
+
+      const { name, coordinates, objects, inertia, loiteringTime } = req.body;
+
+      if (name) camera.config.zones[zoneIndex].name = name;
+      if (coordinates) camera.config.zones[zoneIndex].coordinates = coordinates;
+      if (objects) camera.config.zones[zoneIndex].objects = objects;
+      if (inertia !== undefined) camera.config.zones[zoneIndex].inertia = inertia;
+      if (loiteringTime !== undefined) camera.config.zones[zoneIndex].loiteringTime = loiteringTime;
+
+      res.json({
+        success: true,
+        message: 'Zone updated',
+        zone: camera.config.zones[zoneIndex]
+      });
+    } catch (error) {
+      console.error(`Error updating zone for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to update zone' });
+    }
+  });
+
+  // Delete a zone
+  app.delete('/api/cameras/:cameraId/zones/:zoneId', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      if (!camera.config.zones) {
+        return res.status(404).json({ success: false, error: 'No zones configured' });
+      }
+
+      const zoneIndex = camera.config.zones.findIndex((z: any) => z.id === req.params.zoneId);
+      if (zoneIndex < 0) {
+        return res.status(404).json({ success: false, error: 'Zone not found' });
+      }
+
+      camera.config.zones.splice(zoneIndex, 1);
+
+      res.json({
+        success: true,
+        message: 'Zone deleted'
+      });
+    } catch (error) {
+      console.error(`Error deleting zone for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to delete zone' });
+    }
+  });
+
+  // Object filters endpoints
+
+  // Get object filters for a camera
+  app.get('/api/cameras/:cameraId/filters', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      res.json({
+        success: true,
+        cameraId: req.params.cameraId,
+        track: camera.config.objects?.track || [],
+        filters: camera.config.objects?.filters || {}
+      });
+    } catch (error) {
+      console.error(`Error getting filters for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to get filters' });
+    }
+  });
+
+  // Update object track list
+  app.put('/api/cameras/:cameraId/filters/track', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const { track } = req.body;
+      if (!Array.isArray(track)) {
+        return res.status(400).json({ success: false, error: 'Track must be an array of object labels' });
+      }
+
+      if (!camera.config.objects) {
+        camera.config.objects = { track: [], filters: {} };
+      }
+      camera.config.objects.track = track;
+
+      res.json({
+        success: true,
+        message: 'Track list updated',
+        track
+      });
+    } catch (error) {
+      console.error(`Error updating track list for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to update track list' });
+    }
+  });
+
+  // Update object filter for a specific label
+  app.put('/api/cameras/:cameraId/filters/:label', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      const { minArea, maxArea, minRatio, maxRatio, minScore, threshold, mask } = req.body;
+
+      if (!camera.config.objects) {
+        camera.config.objects = { track: [], filters: {} };
+      }
+      if (!camera.config.objects.filters) {
+        camera.config.objects.filters = {};
+      }
+
+      camera.config.objects.filters[req.params.label] = {
+        minArea: minArea || 0,
+        maxArea: maxArea || 24000000,
+        minRatio: minRatio || 0,
+        maxRatio: maxRatio || 24000000,
+        minScore: minScore || 0.5,
+        threshold: threshold || 0.7,
+        mask: mask || ''
+      };
+
+      res.json({
+        success: true,
+        message: `Filter for ${req.params.label} updated`,
+        filter: camera.config.objects.filters[req.params.label]
+      });
+    } catch (error) {
+      console.error(`Error updating filter for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to update filter' });
+    }
+  });
+
+  // Delete object filter
+  app.delete('/api/cameras/:cameraId/filters/:label', (req: Request, res: Response) => {
+    try {
+      const camera = streamManager.getCamera(req.params.cameraId);
+      if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+      }
+
+      if (camera.config.objects?.filters?.[req.params.label]) {
+        delete camera.config.objects.filters[req.params.label];
+      }
+
+      res.json({
+        success: true,
+        message: `Filter for ${req.params.label} deleted`
+      });
+    } catch (error) {
+      console.error(`Error deleting filter for camera ${req.params.cameraId}:`, error);
+      res.status(500).json({ success: false, error: 'Failed to delete filter' });
+    }
+  });
+
   // Simplified motion detection endpoints
   
   // Get motion detection settings for a camera

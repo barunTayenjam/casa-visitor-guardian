@@ -141,12 +141,23 @@ export interface DatabaseConfig {
   password?: string;
 }
 
+export interface MQTTConfig {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  topicPrefix?: string;
+  user?: string;
+  password?: string;
+  qos?: 0 | 1 | 2;
+}
+
 export interface AppConfig {
   port: number;
   nodeEnv: string;
   jwtSecret: string;
   jwtExpiresIn: string;
   database: DatabaseConfig;
+  mqtt: MQTTConfig;
   cameras: CameraConfig[];
   security: {
     bcryptRounds: number;
@@ -180,6 +191,15 @@ export const config: AppConfig = {
     name: process.env.DB_NAME || 'sentryvision',
     username: process.env.DB_USER || process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD
+  },
+  mqtt: {
+    enabled: process.env.MQTT_ENABLED === 'true',
+    host: process.env.MQTT_HOST,
+    port: parseInt(process.env.MQTT_PORT || '1883', 10),
+    topicPrefix: process.env.MQTT_TOPIC_PREFIX || 'sentryvision',
+    user: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+    qos: parseInt(process.env.MQTT_QOS || '0', 10) as 0 | 1 | 2
   },
   cameras: (() => {
     try {

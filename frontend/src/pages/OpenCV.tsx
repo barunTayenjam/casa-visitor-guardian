@@ -180,9 +180,24 @@ const OpenCV: React.FC = () => {
   const loadDetectionHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
-       const history = await apiService.getDetectionHistory({
-        type: filters.detectionType === 'all' ? undefined : filters.detectionType,
-        cameraId: filters.cameraId === 'all' ? undefined : filters.cameraId,
+      const now = new Date();
+      let startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default 24h
+      switch (filters.timeRange) {
+        case '1h': startTime = new Date(now.getTime() - 1 * 60 * 60 * 1000); break;
+        case '6h': startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000); break;
+        case '24h': startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+        case '7d': startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+      }
+
+      const detectionTypes = filters.detectionType === 'all' ? undefined : 
+        filters.detectionType === 'face' ? ['face'] : 
+        filters.detectionType === 'person' ? ['person'] : undefined;
+
+      const history = await apiService.getDetectionHistory({
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        cameraIds: filters.cameraId === 'all' ? undefined : [filters.cameraId],
+        detectionTypes,
         minConfidence: filters.minConfidence,
         limit: 50
       });

@@ -632,7 +632,7 @@ export class StreamManager {
       // Save the current frame as a snapshot
       fs.writeFileSync(filepath, frame);
 
-      return `/snapshots/${year}-${month}/${filename}`;
+      return filename;
     } catch (error: any) {
       logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'StreamManager');
       return null;

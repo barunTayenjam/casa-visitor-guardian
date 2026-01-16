@@ -1,8 +1,9 @@
-# Backend Dockerfile with tsx pre-installed
+# Backend Dockerfile with tsx pre-installed for development
 FROM node:20-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
+    curl \
     && npm install -g tsx
 
 WORKDIR /app
@@ -18,8 +19,9 @@ RUN npm install
 COPY server/ ./src
 COPY . .
 
-# Expose port
-EXPOSE 8082
+# Expose ports (API + Debug)
+EXPOSE 9753 9754
 
-# Start development server
-CMD ["npx", "tsx", "src/index.ts"]
+# Start development server with watch mode
+# tsx watch automatically restarts on file changes
+CMD ["npx", "tsx", "watch", "--clear-screen=false", "src/index.ts"]

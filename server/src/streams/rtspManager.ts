@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
-import { config, getCameraById, getDetectionsPath, getEventPath } from "../config/index.js";
+import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig, CameraStreamConfig } from "../config/index.js";
 import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.js";
 
 // Import ffmpeg-static safely
@@ -15,7 +15,6 @@ import { execSync } from "child_process";
 // Determine ffmpeg path: prefer system ffmpeg (for Docker/Alpine), fallback to static
 let ffmpegPath = ffmpegStatic as unknown as string;
 try {
-  // Check if ffmpeg is in PATH
   execSync("which ffmpeg", { stdio: "ignore" });
   ffmpegPath = "ffmpeg";
   console.log("Using system ffmpeg");
@@ -27,36 +26,33 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Stream types for dual-stream architecture
+export interface CameraStream {
+  role: 'detect' | 'record' | 'live';
+  url: string;
+  process: ChildProcessWithoutNullStreams | null;
+  isActive: boolean;
+  lastFrame: Buffer | null;
+  lastFrameSentTime?: number;
+  width: number;
+  height: number;
+  fps: number;
+}
+
 // Define camera interface
 export interface Camera {
   id: string;
   name: string;
-  rtspUrl: string;
-  username?: string;
-  password?: string;
-  process: ChildProcessWithoutNullStreams | (() => void) | null; // Allow ChildProcess or a function for test streams
+  config: CameraConfig;
+  streams: Map<string, CameraStream>;
   isActive: boolean;
-  lastFrame: Buffer | null;
-  frameRate: number;
-  resolution: string;
   nightMode: boolean;
-  retryCount: number; // Track connection retry attempts
-  lastError?: string; // Store the last error message
-  lastFrameSentTime?: number; // Track when the last frame was sent to limit frame rate
+  retryCount: number;
+  lastError?: string;
 }
 
-// Load camera configuration from secure config
-const configuredCameras: Omit<Camera, "process" | "isActive" | "lastFrame" | "lastFrameSentTime">[] = config.cameras.map(camera => ({
-  id: camera.id,
-  name: camera.name,
-  rtspUrl: camera.rtspUrl,
-  username: camera.username,
-  password: camera.password,
-  frameRate: camera.frameRate,
-  resolution: camera.resolution,
-  nightMode: camera.nightMode,
-  retryCount: 0,
-}));
+// Load camera configuration from config (already converted to new format)
+const configuredCameras: CameraConfig[] = config.cameras;
 
 // Camera manager
 export class StreamManager {
@@ -70,24 +66,40 @@ export class StreamManager {
     this.frameInterval = config.streaming.frameInterval;
 
     // Initialize configured cameras
-    configuredCameras.forEach((camera) => {
-      this.addCamera(camera);
+    configuredCameras.forEach((cameraConfig) => {
+      this.addCamera(cameraConfig);
     });
   }
 
   // Add a camera to the manager
-  addCamera(
-    cameraConfig: Omit<Camera, "process" | "isActive" | "lastFrame" | "lastFrameSentTime">,
-  ): string {
+  addCamera(cameraConfig: CameraConfig): string {
     const camera: Camera = {
-      ...cameraConfig,
-      process: null,
+      id: cameraConfig.id,
+      name: cameraConfig.name,
+      config: cameraConfig,
+      streams: new Map(),
       isActive: false,
-      lastFrame: null,
-      lastFrameSentTime: undefined,
+      nightMode: cameraConfig.nightMode || false,
+      retryCount: 0,
     };
+
+    // Initialize streams from config
+    cameraConfig.streams.forEach((streamConfig) => {
+      streamConfig.roles.forEach((role) => {
+        camera.streams.set(role, {
+          role: role,
+          url: streamConfig.path,
+          process: null,
+          isActive: false,
+          lastFrame: null,
+          width: streamConfig.width || 640,
+          height: streamConfig.height || 360,
+          fps: streamConfig.fps || 5
+        });
+      });
+    });
+
     this.cameras.set(camera.id, camera);
-    // Camera addition log disabled - logger.info(`Added camera: ${camera.id} (${camera.name})`, 'StreamManager');
     return camera.id;
   }
 
@@ -101,481 +113,282 @@ export class StreamManager {
     return this.cameras.get(id);
   }
 
-  // Get the ffmpeg process for a camera
-  getProcess(id: string): ChildProcessWithoutNullStreams | null {
-    const camera = this.cameras.get(id);
-    if (!camera || !camera.isActive) return null;
-    
-    // Check if process is a ChildProcess (not a test function)
-    const process = camera.process;
-    if (process && typeof process === 'object' && 'stdout' in process) {
-      return process as ChildProcessWithoutNullStreams;
-    }
-    
-    return null;
+  // Get stream by camera ID and role
+  getStream(cameraId: string, role: 'detect' | 'record' | 'live'): CameraStream | undefined {
+    const camera = this.cameras.get(cameraId);
+    if (!camera) return undefined;
+    return camera.streams.get(role);
   }
 
-  // Start streaming from a camera
-  startStream(cameraId: string): boolean {
+  // Get the ffmpeg process for a camera stream
+  getProcess(cameraId: string, role: 'detect' | 'record' | 'live'): ChildProcessWithoutNullStreams | null {
+    const stream = this.getStream(cameraId, role);
+    if (!stream || !stream.isActive || !stream.process) return null;
+    return stream.process as ChildProcessWithoutNullStreams;
+  }
+
+  // Start streaming from a camera with specific role
+  startStream(cameraId: string, role: 'detect' | 'record' | 'live'): boolean {
     const camera = this.cameras.get(cameraId);
     if (!camera) return false;
 
-    if (camera.isActive && camera.process) {
-      // Stream status log disabled - logger.info(`Camera ${cameraId} is already streaming`, 'StreamManager');
+    const stream = camera.streams.get(role);
+    if (!stream) {
+      console.error(`Stream role ${role} not configured for camera ${cameraId}`);
+      return false;
+    }
+
+    if (stream.isActive) {
+      console.log(`Camera ${cameraId} ${role} stream is already active`);
       return true;
     }
 
-    // Check if this is a test stream
-    if (camera.rtspUrl.startsWith('test://')) {
-      logger.info(`Starting test stream for camera ${cameraId}`, 'StreamManager');
-      this.startTestStream(cameraId);
-      return true;
-    }
+    // Get detect config for settings
+    const detectConfig = camera.config.detect;
 
     try {
-      // Construct authentication part of URL if provided
-      let rtspUrl = camera.rtspUrl;
-      if (camera.username && camera.password) {
-        const urlParts = camera.rtspUrl.split("://");
-        if (urlParts.length === 2) {
-          const encodedUsername = encodeURIComponent(camera.username);
-          const encodedPassword = encodeURIComponent(camera.password);
-          rtspUrl = `${urlParts[0]}://${encodedUsername}:${encodedPassword}@${urlParts[1]}`;
-        }
-      }
+      // Build ffmpeg args based on role
+      const isDetect = role === 'detect';
+      const width = isDetect ? detectConfig.width : 1920;
+      const height = isDetect ? detectConfig.height : 1080;
+      const fps = isDetect ? detectConfig.fps : 15;
 
-      // Prepare optimized ffmpeg arguments for the camera stream
-      // These settings are tuned for good quality with balanced CPU usage
       const ffmpegArgs = [
-        "-loglevel",
-        "error", // Reduced logging to minimize overhead
-        // Use TCP for RTSP as it's much more reliable than UDP
-        "-rtsp_transport",
-        "tcp",
-        // Set timeout for connection (5 seconds = 5,000,000 microseconds)
-        "-timeout",
-        "5000000",
-        // Error tolerance flags
-        "-err_detect",
-        "ignore_err",
-        "-fflags",
-        "+discardcorrupt+genpts+genpts",
-        // Allow buffering to reduce CPU spikes
-        "-max_delay",
-        "1000000",
-        // Probing and analysis settings - reduced for faster startup
-        "-probesize",
-        "32768", // 32KB (reduced from 5MB for faster connection)
-        "-analyzeduration",
-        "500000", // 0.5 seconds (reduced from 3s for better codec detection)
-        // Input source - request fewer frames from camera to reduce processing
-        "-i",
-        rtspUrl,
-        // Output format as image pipe for streaming
-        "-f",
-        "mjpeg",
-        "-pix_fmt",
-        "yuvj420p",
-        "-vcodec",
-        "mjpeg",
-        // Quality settings - balanced for quality and CPU (lower q:v = better quality)
-        "-q:v",
-        "5", // High quality (range 1-31, 1=best)
-        // Use 8 threads for parallel processing (HD encoding needs more CPU)
-        "-threads",
-        "8",
-        // Set output frameRate to 5 FPS for HD quality
-        "-r",
-        "5",
-        // Apply scaling with good quality algorithm and night mode filter if needed
-        "-vf",
-        camera.nightMode
-          ? "scale=1280:720,eq=gamma=1.5:contrast=1.2:brightness=0.2"
-          : "scale=1280:720",
-        // Output pipe
+        "-loglevel", "error",
+        "-rtsp_transport", "tcp",
+        "-timeout", "5000000",
+        "-err_detect", "ignore_err",
+        "-fflags", "+discardcorrupt+genpts+genpts",
+        "-max_delay", "1000000",
+        "-probesize", "32768",
+        "-analyzeduration", "500000",
+        "-i", stream.url,
+        "-f", "mjpeg",
+        "-pix_fmt", "yuvj420p",
+        "-vcodec", "mjpeg",
+        "-q:v", isDetect ? "10" : "5",  // Lower quality for detect stream
+        "-threads", "4",
+        "-r", fps.toString(),
+        "-vf", camera.nightMode
+          ? `scale=${width}:${height},eq=gamma=1.5:contrast=1.2:brightness=0.2`
+          : `scale=${width}:${height}`,
         "pipe:1",
       ];
 
-      console.log(`*** CAMERA ${cameraId} STARTING OPTIMIZED STREAM (5 FPS, 1280x720, q:v 5, 8 threads) ***`);
-      // FFMPEG command log disabled - logger.info(`Command: ffmpeg ${ffmpegArgs.join(" ")}`, 'StreamManager');
+      console.log(`*** CAMERA ${cameraId} ${role.toUpperCase()} STREAM (${width}x${height} @ ${fps}fps) ***`);
 
-      // Reset retry count on successful connection attempt start
-      // Note: Only reset if we've had a successful connection before
-      // Keep retry count during connection attempts to track rate limiting
-
-      // Spawn ffmpeg process with proper pipes for more reliable streaming
       const process = spawn(ffmpegPath, ffmpegArgs, {
         stdio: ["pipe", "pipe", "pipe"],
       });
-      // FFMPEG process spawn log disabled - logger.info(`FFMPEG process for camera ${cameraId} spawned with PID: ${process.pid}`, 'StreamManager');
-      camera.process = process;
-      camera.isActive = true;
-      camera.lastError = undefined; // Clear any previous errors
 
-      // Add error handling for the process
+      stream.process = process;
+      stream.isActive = true;
+      stream.lastFrame = null;
+      camera.isActive = true;
+
+      // Handle process errors
       process.on("error", (err) => {
-        logger.error(`FFMPEG process error for camera ${cameraId}: ${err.message}`, 'StreamManager');
-        camera.isActive = false;
+        console.error(`FFMPEG error for ${cameraId}/${role}: ${err.message}`);
+        stream.isActive = false;
+        stream.process = null;
       });
 
-      // Create a buffer to accumulate data chunks
-      let buffer = Buffer.alloc(0);
-      let streamErrors = 0;
-      let lastSuccessfulFrame = Date.now();
-
       // Handle output data
+      let buffer = Buffer.alloc(0);
       process.stdout.on("data", (data: Buffer) => {
-        // Optimize: Only log frame data in development or on errors
-        if ((global as any).process?.env?.NODE_ENV !== 'production' || streamErrors > 5) {
-
-        }
-        streamErrors = 0;
-        lastSuccessfulFrame = Date.now();
-
-        // Reset retry count on successful frame reception
-        // This means camera is working and rate limit (if any) has expired
-        if (camera.retryCount > 0) {
-          logger.info(`Camera ${cameraId} connection successful, resetting retry count`, 'StreamManager');
-          camera.retryCount = 0;
-        }
-
         buffer = Buffer.concat([buffer, data]);
 
         let startMarkerPos = -1;
         let endMarkerPos = -1;
-        let frameCount = 0;
 
-        // Frame rate limiting for consistent output
-        const FRAME_RATE_LIMIT = 5;
-        const FRAME_INTERVAL = 1000 / FRAME_RATE_LIMIT; // milliseconds between frames
-        if (frameCount === 1) { // Log only for first frame to avoid spam
-          console.log(`*** CAMERA ${cameraId} FRAME RATE LIMITING: ${FRAME_RATE_LIMIT} FPS, INTERVAL: ${FRAME_INTERVAL}ms ***`);
-        }
-        // Use camera object to store last frame sent time to persist between data chunks
-        if (camera.lastFrameSentTime === undefined) {
-          camera.lastFrameSentTime = Date.now();
-        }
+        while (startMarkerPos !== -1 && endMarkerPos !== -1) {
+          startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]));
+          if (startMarkerPos !== -1) {
+            endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos);
+            if (endMarkerPos !== -1) {
+              const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
+              stream.lastFrame = frameBuffer;
+              buffer = buffer.slice(endMarkerPos + 2);
 
-        while (
-          (startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]))) !== -1 &&
-          (endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos)) !== -1
-        ) {
-          const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
-          camera.lastFrame = frameBuffer;
-          frameCount++;
-
-          // Optimize: Only emit if there are clients watching
-          const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}`);
-          const clientCount = room ? room.size : 0;
-
-          if (clientCount > 0) {
-            const now = Date.now();
-            // Only send frame if enough time has passed since the last frame was sent
-            if (now - (camera.lastFrameSentTime || 0) >= FRAME_INTERVAL) {
-              camera.lastFrameSentTime = now;
-
-              // Only log emission details in development
-              if ((global as any).process?.env?.NODE_ENV !== 'production') {
-                console.log(`*** CAMERA ${cameraId} EMITTING FRAME: ${frameBuffer.length} bytes to ${clientCount} clients ***`);
+              // Emit detect frames for processing
+              if (role === 'detect') {
+                this.processFrameForMotion(cameraId, frameBuffer);
               }
 
-              this.io.to(`camera-${cameraId}`).emit("frame", {
-              cameraId,
-              data: frameBuffer.toString("base64"),
-              timestamp: new Date().toISOString(),
-              });
+              // Emit frames to viewers
+              const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
+              const clientCount = room ? room.size : 0;
+
+              if (clientCount > 0) {
+                const now = Date.now();
+                const frameInterval = 1000 / fps;
+                if (!stream.lastFrameSentTime || now - stream.lastFrameSentTime >= frameInterval) {
+                  stream.lastFrameSentTime = now;
+                  this.io.to(`camera-${cameraId}-${role}`).emit("frame", {
+                    cameraId,
+                    role,
+                    data: frameBuffer.toString("base64"),
+                    timestamp: new Date().toISOString(),
+                  });
+                }
+              }
             }
           }
-
-          // Motion-triggered detection (non-blocking, async)
-          this.processFrameForMotion(cameraId, frameBuffer).catch(error => {
-            console.error(`Motion detection error for ${cameraId}:`, error);
-          });
-
-          buffer = buffer.slice(endMarkerPos + 2);
-        }
-        
-        if (frameCount > 0) {
-
         }
       });
 
-      // Enhanced error handling for the process
-      let errorLog = "";
-      process.stderr.on("data", (data: Buffer) => {
-        const errorMsg = data.toString();
-        errorLog += errorMsg;
-
-        // Check for specific error types
-        if (
-          errorMsg.includes("Operation not permitted") ||
-          errorMsg.includes("Connection refused") ||
-          errorMsg.includes("Unauthorized")
-        ) {
-          logger.error(
-            `RTSP Authentication error for camera ${cameraId}. Check your credentials.`, 'StreamManager',
-          );
-          // Notify connected clients about the error
-          this.io.to(`camera-${cameraId}`).emit("camera-error", {
-            cameraId,
-            error: "Authentication failed. Please check camera credentials.",
-            timestamp: new Date().toISOString(),
-          });
-          streamErrors++;
-        } else if (errorMsg.includes("Connection timed out") || errorMsg.includes("Operation timed out")) {
-          logger.error(
-            `Connection timeout for camera ${cameraId}. Camera is unreachable. Check the IP address, network connectivity, and camera power.`, 'StreamManager',
-          );
-          camera.lastError = `Network timeout - Camera unreachable at ${camera.rtspUrl.match(/@([^/]+)/)?.[1] || 'unknown IP'}`;
-          this.io.to(`camera-${cameraId}`).emit("camera-error", {
-            cameraId,
-            error: "Camera unreachable. Check: 1) Camera is powered on, 2) Network cable connected, 3) IP address is correct. Run: bash tmp_rovodev_check_camera_network.sh",
-            timestamp: new Date().toISOString(),
-            details: {
-              type: 'network_timeout',
-              suggestion: 'Run network diagnostics: bash tmp_rovodev_check_camera_network.sh'
-            }
-          });
-          streamErrors++;
-        } else {
-          // For debugging purposes
-          // FFMPEG stderr logging disabled - logger.debug(`FFMPEG stderr (${cameraId}): ${errorMsg}`, 'FFMPEG');
-        }
-
-        // If we get too many errors, restart the stream
-        if (streamErrors > 5 && Date.now() - lastSuccessfulFrame > 10000) {
-          logger.warn(
-            `Too many errors for camera ${cameraId}, attempting to restart stream`, 'StreamManager',
-          );
-          this.restartStream(cameraId);
-        }
-      });
-
-      // Handle process exit with improved retry logic
+      // Handle process exit
       process.on("exit", (code: number) => {
-        logger.info(
-          `FFMPEG process for camera ${cameraId} exited with code ${code}`, 'StreamManager',
-        );
-        if (camera.isActive) {
-          // Process was not intentionally stopped by our stopStream()
-          camera.isActive = false; // Mark as inactive as the process is gone
-          camera.process = null;
+        console.log(`FFMPEG ${cameraId}/${role} exited with code ${code}`);
+        stream.isActive = false;
+        stream.process = null;
 
-          // Determine if a restart is needed
-          let shouldRestart = false;
-          if (code !== 0) {
-            logger.error(
-              `FFMPEG process for camera ${cameraId} exited with error code ${code}. Error log: ${errorLog}`, 'StreamManager',
-            );
-            // The console.error above already includes the errorLog, so we just log the error code here for the specific message.
-            // console.log(`FFMPEG process for camera ${cameraId} exited with error code ${code}.`); // Redundant with the error log above
-            shouldRestart = true;
-          } else {
-            // code === 0, but camera.isActive was true, meaning it wasn't a clean manual stop.
-            // This is an unexpected exit, even if with code 0 (e.g. due to stream errors ending FFMPEG)
-            logger.warn(
-              `FFMPEG process for camera ${cameraId} exited unexpectedly with code 0 while still marked active. Error log: ${errorLog}`, 'StreamManager',
-            );
-            shouldRestart = true;
-          }
+        // Check if any streams are still active
+        let anyActive = false;
+        camera.streams.forEach(s => {
+          if (s.isActive) anyActive = true;
+        });
+        camera.isActive = anyActive;
 
-          if (shouldRestart) {
-            // Calculate retry delay with exponential backoff (5-30 seconds)
-            const retryCount = camera.retryCount || 0;
-            
-            // IMPORTANT: TP-Link Tapo cameras have rate limiting!
-            // Max 10 retries, then wait 5 minutes before trying again
-            // This prevents IP bans from the camera
-            const MAX_RETRIES = 10;
-            const COOLDOWN_PERIOD = 5 * 60 * 1000; // 5 minutes
-            
-            if (retryCount >= MAX_RETRIES) {
-              logger.warn(
-                `Camera ${cameraId} reached max retry limit (${MAX_RETRIES}). Falling back to test stream.`, 'StreamManager',
-              );
-              
-              camera.retryCount = 0; // Reset for next attempt
-              
-              // Start test stream instead of going into cooldown
-              this.startTestStream(cameraId);
-              
-              this.io.to(`camera-${cameraId}`).emit("camera-status", {
-                cameraId,
-                status: "online",
-                message: `RTSP connection failed after ${MAX_RETRIES} attempts. Using test stream.`,
-                timestamp: new Date().toISOString(),
-              });
-              
-              return;
-            }
-            
-            const retryDelay = Math.min(
-              5000 * Math.pow(1.5, retryCount),
-              30000,
-            );
-            camera.retryCount = retryCount + 1;
-
-            logger.info(
-              `Attempting to restart stream for camera ${cameraId} in ${retryDelay / 1000} seconds (retry #${camera.retryCount}/${MAX_RETRIES})`, 'StreamManager',
-            );
-
-            this.io.to(`camera-${cameraId}`).emit("camera-status", {
-              cameraId,
-              status: "reconnecting",
-              message: `Connection lost (exit code ${code}). Retrying in ${Math.round(retryDelay / 1000)} seconds... (${camera.retryCount}/${MAX_RETRIES})`,
-              timestamp: new Date().toISOString(),
-            });
-
-            setTimeout(() => this.startStream(cameraId), retryDelay);
-          }
-        } else {
-          // camera.isActive was false, meaning stopStream() was called. This is a clean manual stop.
-          // Also log the errorLog here if the exit was not clean (code !=0) even if manually stopped.
-          if (code !== 0) {
-            logger.error(
-              `FFMPEG process for camera ${cameraId} exited with code ${code} after being manually stopped. Error log: ${errorLog}`, 'StreamManager',
-            );
-          } else {
-            logger.info(
-              `FFMPEG process for camera ${cameraId} exited (code ${code}) after being manually stopped.`, 'StreamManager',
-            );
-          }
+        // Auto-restart on unexpected exit
+        if (code !== 0 && camera.retryCount < 5) {
+          camera.retryCount++;
+          setTimeout(() => this.startStream(cameraId, role), 5000 * camera.retryCount);
         }
       });
 
-      // Emit camera status change
-      this.io.emit("cameraStatus", { cameraId, status: "online" });
-
-      // Stream started log disabled - logger.info(`Started streaming from camera ${cameraId}`, 'StreamManager');
       return true;
     } catch (error: any) {
-      logger.error(`Error starting stream for camera ${cameraId}: ${error.message}`, 'StreamManager');
-      camera.isActive = false;
-      camera.process = null;
+      console.error(`Error starting ${role} stream for ${cameraId}: ${error.message}`);
       return false;
     }
   }
 
   // Stop streaming from a camera
-  stopStream(cameraId: string): boolean {
+  stopStream(cameraId: string, role?: 'detect' | 'record' | 'live'): boolean {
     const camera = this.cameras.get(cameraId);
-    if (!camera || !camera.isActive) return false;
+    if (!camera) return false;
 
-    if (camera.process) {
-      if (typeof camera.process === 'object' && 'pid' in camera.process) {
-        // Process kill log disabled - logger.info(`Attempting to kill FFMPEG process for camera ${cameraId} (PID: ${camera.process.pid})`, 'StreamManager');
-        camera.process.kill('SIGTERM'); // Use SIGTERM for graceful shutdown
-        
-        // Set a timeout to forcefully kill if SIGTERM doesn't work
-        setTimeout(() => {
-          if (camera.process && typeof camera.process === 'object' && 'killed' in camera.process && !camera.process.killed) {
-            logger.warn(`FFMPEG process for ${cameraId} did not terminate gracefully, sending SIGKILL`, 'StreamManager');
-            (camera.process as ChildProcessWithoutNullStreams).kill('SIGKILL');
-          }
-        }, 5000); // 5 seconds to wait for graceful exit
+    if (role) {
+      // Stop specific stream
+      const stream = camera.streams.get(role);
+      if (stream && stream.process) {
+        stream.process.kill('SIGTERM');
+        stream.isActive = false;
+        stream.process = null;
+        return true;
       }
-
+    } else {
+      // Stop all streams
+      let stopped = false;
+      camera.streams.forEach((stream, streamRole) => {
+        if (stream.isActive && stream.process) {
+          stream.process.kill('SIGTERM');
+          stream.isActive = false;
+          stream.process = null;
+          stopped = true;
+        }
+      });
       camera.isActive = false;
-      camera.process = null;
-      // Stream stopped log disabled - logger.info(`Stopped streaming from camera ${cameraId}`, 'StreamManager');
-      return true;
+      return stopped;
     }
-
     return false;
   }
 
   // Restart a camera stream - useful for recovering from errors
-  restartStream(cameraId: string): boolean {
-    // Stream restart log disabled - logger.info(`Attempting to restart stream for camera ${cameraId}`, 'StreamManager');
-
-    // First stop the stream
-    this.stopStream(cameraId);
-
-    // Wait a brief moment to ensure cleanup
+  restartStream(cameraId: string, role?: 'detect' | 'record' | 'live'): boolean {
+    console.log(`Attempting to restart stream for camera ${cameraId}${role ? '/' + role : ''}`);
+    
+    this.stopStream(cameraId, role);
+    
     setTimeout(() => {
-      // Then start it again
-      const started = this.startStream(cameraId);
-      logger.info(
-        `Camera ${cameraId} restart ${started ? "successful" : "failed"}`, 'StreamManager',
-      );
-
-      // Notify clients of the restart attempt
-      this.io.to(`camera-${cameraId}`).emit("camera-status", {
-        cameraId,
-        status: "restarted",
-        timestamp: new Date().toISOString(),
-      });
+      if (role) {
+        this.startStream(cameraId, role);
+      } else {
+        const camera = this.cameras.get(cameraId);
+        if (camera) {
+          camera.streams.forEach((_value: CameraStream, streamRole: 'detect' | 'record' | 'live') => {
+            this.startStream(cameraId, streamRole);
+          });
+        }
+      }
     }, 1000);
-
+    
     return true;
   }
 
   // Start a test stream that generates fake frames
-  startTestStream(cameraId: string) {
-    // Test stream start log disabled - logger.info(`*** STARTING TEST STREAM for camera ${cameraId} ***`, 'StreamManager');
+  startTestStream(cameraId: string, role?: 'detect' | 'record' | 'live') {
+    const streamRole = role || 'detect';
     const camera = this.cameras.get(cameraId);
     if (!camera) {
-      logger.error(`Cannot start test stream: Camera ${cameraId} not found`, 'StreamManager');
+      console.error(`Cannot start test stream: Camera ${cameraId} not found`);
+      return;
+    }
+
+    const stream = camera.streams.get(streamRole);
+    if (!stream) {
+      console.error(`Stream role ${streamRole} not configured for camera ${cameraId}`);
       return;
     }
 
     // Stop any existing process
-    if (camera.process) {
-      if (typeof camera.process === 'object' && 'kill' in camera.process) {
-        (camera.process as ChildProcessWithoutNullStreams).kill();
-      } else if (typeof camera.process === "function") {
-        camera.process();
-      }
-      camera.process = null;
+    if (stream.process) {
+      stream.process.kill();
+      stream.process = null;
     }
 
-    // Test stream log disabled - logger.info(`Starting test stream for camera ${cameraId}`, 'StreamManager');
     camera.isActive = true;
+    stream.isActive = true;
     camera.lastError = "Using test stream - RTSP not available";
 
     // Generate test frames at the specified frame rate
     const interval = setInterval(() => {
       try {
         const testFrame = generateTestJpegFrame(cameraId);
-        camera.lastFrame = testFrame;
+        stream.lastFrame = testFrame;
 
-        // Emit the test frame to all clients subscribed to this camera
-        this.io.to(`camera-${cameraId}`).emit("frame", {
+        // Emit the test frame to clients
+        this.io.to(`camera-${cameraId}-${streamRole}`).emit("frame", {
           cameraId,
+          role: streamRole,
           data: testFrame.toString("base64"),
           timestamp: new Date().toISOString(),
         });
 
-        logger.info(
-          `Camera ${cameraId}: Emitted test frame of size ${testFrame.length} bytes`, 'StreamManager',
-        );
+        // Process for motion detection if detect stream
+        if (streamRole === 'detect') {
+          this.processFrameForMotion(cameraId, testFrame);
+        }
       } catch (error: unknown) {
-        logger.error(
-          `Error generating test frame for camera ${cameraId}: ${(error as Error).message}`, 'StreamManager',
-        );
+        console.error(`Error generating test frame for camera ${cameraId}: ${(error as Error).message}`);
         clearInterval(interval);
-        camera.isActive = false;
+        stream.isActive = false;
       }
-    }, 1000 / camera.frameRate);
+    }, 1000 / stream.fps);
 
     // Store the interval so we can clear it later
-    camera.process = () => clearInterval(interval);
+    stream.process = {
+      kill: () => clearInterval(interval)
+    } as unknown as ChildProcessWithoutNullStreams;
   }
 
   // Update camera settings
-  updateCamera(cameraId: string, updates: Partial<Camera>): boolean {
+  updateCamera(cameraId: string, updates: Partial<CameraConfig>): boolean {
     const camera = this.cameras.get(cameraId);
     if (!camera) return false;
 
     // Apply updates
-    Object.assign(camera, updates);
+    Object.assign(camera.config, updates);
 
-    // Restart stream if it was active and certain settings changed
-    const needsRestart =
-      updates.rtspUrl || updates.resolution || updates.frameRate;
-    if (needsRestart && camera.isActive) {
+    // Restart streams if config changed significantly
+    if (camera.isActive) {
       this.stopStream(cameraId);
-      this.startTestStream(cameraId);
+      setTimeout(() => {
+        camera.streams.forEach((_value: CameraStream, streamRole: 'detect' | 'record' | 'live') => {
+          this.startStream(cameraId, streamRole);
+        });
+      }, 1000);
     }
 
     return true;
@@ -602,13 +415,15 @@ export class StreamManager {
   ): Promise<string | null> {
     const camera = this.cameras.get(cameraId);
     if (!camera) {
-      logger.error(`Cannot take snapshot: Camera ${cameraId} not found`, 'StreamManager');
+      console.error(`Cannot take snapshot: Camera ${cameraId} not found`);
       return null;
     }
 
-    const frame = camera.lastFrame;
+    // Use detect stream for snapshots (lower resolution, faster)
+    const stream = camera.streams.get('detect');
+    const frame = stream?.lastFrame;
     if (!frame) {
-      logger.warn(`No frame available for snapshot for camera ${cameraId}`, 'StreamManager');
+      console.warn(`No frame available for snapshot for camera ${cameraId}`);
       return null;
     }
 
@@ -621,9 +436,6 @@ export class StreamManager {
       const snapshotsPath = getDetectionsPath('snapshots', snapshotDate);
       const filepath = path.join(snapshotsPath, filename);
 
-      const year = new Date().getFullYear();
-      const month = String(new Date().getMonth() + 1).padStart(2, '0');
-
       // Ensure directory exists before writing
       if (!fs.existsSync(snapshotsPath)) {
         fs.mkdirSync(snapshotsPath, { recursive: true });
@@ -634,15 +446,16 @@ export class StreamManager {
 
       return filename;
     } catch (error: any) {
-      logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'StreamManager');
+      console.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`);
       return null;
     }
   }
 
-  // Get last frame for a camera
+  // Get last frame for a camera (from detect stream)
   getLastFrame(cameraId: string): Buffer | null {
     const camera = this.cameras.get(cameraId);
-    return camera ? camera.lastFrame : null;
+    if (!camera) return null;
+    return camera.streams.get('detect')?.lastFrame || null;
   }
 
   // Alias for getLastFrame for consistency with detection API
@@ -710,9 +523,12 @@ export async function setupRTSPStreams(
   setTimeout(() => {
     streamManager.getAllCameras().forEach((camera) => {
       console.log(
-        `Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`,
+        `Auto-starting RTSP streams for camera: ${camera.id} (${camera.name})`,
       );
-      streamManager.startStream(camera.id);
+      // Start all configured streams
+      camera.streams.forEach((_value: CameraStream, role: 'detect' | 'record' | 'live') => {
+        streamManager.startStream(camera.id, role);
+      });
     });
   }, 2000); // Wait 2 seconds before starting streams
 

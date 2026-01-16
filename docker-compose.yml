@@ -17,28 +17,35 @@ services:
       - POSTGRES_USER=sentryvision
       - POSTGRES_PASSWORD=sentryvision123
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentryvision -d sentryvision"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Backend API Server
+  # Backend API Server (Development Mode)
   backend:
     build:
       context: ./server
       dockerfile: Dockerfile
     container_name: sentryvision-backend
     ports:
-      - "0.0.0.0:8082:8082"
+      - "0.0.0.0:9753:9753"
+      - "0.0.0.0:9754:9754"
     environment:
       - NODE_ENV=development
-      - PORT=8082
+      - PORT=9753
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=sentryvision
       - DB_USER=sentryvision
       - DB_PASSWORD=sentryvision123
-      - JWT_ACCESS_SECRET=dev-jwt-access-secret
-      - JWT_REFRESH_SECRET=dev-jwt-refresh-secret
+      - JWT_ACCESS_SECRET=dev-jwt-access-secret-change-in-production
+      - JWT_REFRESH_SECRET=dev-jwt-refresh-secret-change-in-production
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
+      - CAMERAS=/app/cameras.json
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
@@ -47,13 +54,22 @@ services:
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
     working_dir: /app
-    command: ["npx", "tsx", "src/index.ts"]
+    command: ["npx", "tsx", "watch", "src/index.ts"]
     cap_add:
       - NET_RAW
     depends_on:
-      - postgres
-      - opencv
+      postgres:
+        condition: service_healthy
+      opencv:
+        condition: service_started
     restart: always
+    networks:
+      - sentryvision_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9753/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Frontend Development Server
   frontend:
@@ -65,15 +81,18 @@ services:
       - "0.0.0.0:5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://backend:8082
+      - VITE_API_URL=http://localhost:9753
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules
     working_dir: /app
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: always
+    networks:
+      - sentryvision_network
 
   # Redis (for caching and sessions)
   redis:
@@ -84,8 +103,13 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # OpenCV Python Detection Service
+  # OpenCV Python Detection Service (Development Mode)
   opencv:
     build:
       context: ./opencv-service
@@ -95,6 +119,8 @@ services:
       - "0.0.0.0:8084:8084"
     environment:
       - PORT=8084
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=sentryvision
@@ -102,6 +128,7 @@ services:
       - POSTGRES_PASSWORD=sentryvision123
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DETECTIONS_DIR=/app/data/detections
     volumes:
       - ./opencv-service:/app
       - ./opencv-service/node_modules:/app/node_modules
@@ -109,9 +136,22 @@ services:
       - ./opencv-service/data:/app/data
       - ./opencv-service/known_faces:/app/known_faces
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
+    networks:
+      - sentryvision_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  sentryvision_network:
+    driver: bridge
 
 volumes:
   postgres_data:

@@ -22,7 +22,7 @@ export class EncryptionManager {
     // Try to load key from file
     const keyFile = path.join(__dirname, '../../.encryption_key');
     if (fs.existsSync(keyFile)) {
-      const key = fs.readFileSync(keyFile, 'hex');
+      const key = fs.readFileSync(keyFile, 'utf8').trim();
       return Buffer.from(key, 'hex');
     }
 

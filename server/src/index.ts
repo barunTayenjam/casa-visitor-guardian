@@ -320,38 +320,40 @@ io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
   
   // Handle stream requests
-  socket.on('requestStream', (cameraId: string) => {
-    console.log(`Stream requested for camera: ${cameraId} by client: ${socket.id}`);
+  socket.on('requestStream', (data: { cameraId: string; role?: 'detect' | 'record' | 'live' }) => {
+    const { cameraId, role = 'live' } = data;
+    console.log(`Stream requested for camera: ${cameraId} role: ${role} by client: ${socket.id}`);
     const streamManager = (global as any).streamManager;
     if (streamManager) {
-      const success = streamManager.startStream(cameraId);
+      const success = streamManager.startStream(cameraId, role);
       if (success) {
-        // Join the camera room to receive frames
-        socket.join(`camera-${cameraId}`);
-        socket.emit('streamRequested', { cameraId, success: true });
-        console.log(`Stream started successfully for camera: ${cameraId}, client ${socket.id} joined room camera-${cameraId}`);
+        // Join the camera role-specific room to receive frames
+        socket.join(`camera-${cameraId}-${role}`);
+        socket.emit('streamRequested', { cameraId, role, success: true });
+        console.log(`Stream started successfully for camera: ${cameraId} ${role}, client ${socket.id} joined room camera-${cameraId}-${role}`);
       } else {
-        socket.emit('streamError', { cameraId, error: 'Failed to start stream' });
-        console.error(`Failed to start stream for camera: ${cameraId}`);
+        socket.emit('streamError', { cameraId, role, error: 'Failed to start stream' });
+        console.error(`Failed to start stream for camera: ${cameraId} ${role}`);
       }
     } else {
-      socket.emit('streamError', { cameraId, error: 'Stream manager not available' });
+      socket.emit('streamError', { cameraId, role, error: 'Stream manager not available' });
       console.error('Stream manager not available');
     }
   });
   
   // Handle stop stream requests
-  socket.on('stopStream', (cameraId: string) => {
-    console.log(`Stop stream requested for camera: ${cameraId} by client: ${socket.id}`);
+  socket.on('stopStream', (data: { cameraId: string; role?: 'detect' | 'record' | 'live' }) => {
+    const { cameraId, role = 'live' } = data;
+    console.log(`Stop stream requested for camera: ${cameraId} role: ${role} by client: ${socket.id}`);
     const streamManager = (global as any).streamManager;
     if (streamManager) {
-      // Leave the camera room
-      socket.leave(`camera-${cameraId}`);
-      const success = streamManager.stopStream(cameraId);
+      // Leave the camera role-specific room
+      socket.leave(`camera-${cameraId}-${role}`);
+      const success = streamManager.stopStream(cameraId, role);
       if (success) {
-        console.log(`Stream stopped successfully for camera: ${cameraId}, client ${socket.id} left room camera-${cameraId}`);
+        console.log(`Stream stopped successfully for camera: ${cameraId} ${role}, client ${socket.id} left room camera-${cameraId}-${role}`);
       } else {
-        console.error(`Failed to stop stream for camera: ${cameraId}`);
+        console.error(`Failed to stop stream for camera: ${cameraId} ${role}`);
       }
     }
   });

@@ -4,7 +4,7 @@ OpenCV Detection Service - Python Implementation
 Uses native OpenCV with YOLO for real object detection
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -226,48 +226,54 @@ db_cache = DetectionCache()
 # cleanup_thread.start()
 
 class YOLOObjectDetector:
-    """Object detection using YOLO model"""
+    """Object detection using YOLO model - Optimized for real-time detection"""
 
     def __init__(self):
         self.initialized = False
         self.net = None
         self.layer_names = None
         self.input_size = 416  # Standard YOLO input size
-        self.confidence_threshold = 0.5
-        self.nms_threshold = 0.4
+        self.confidence_threshold = 0.25  # Lower = more detections
+        self.nms_threshold = 0.45  # Non-maximum suppression threshold
 
     def initialize(self):
-        """Initialize YOLO detector"""
+        """Initialize YOLO detector with YOLOv4-tiny for speed"""
         if self.initialized:
             return
 
         try:
-            # Try to load YOLO model files
-            # Prioritize YOLOv4-tiny if available (it's faster and files are present)
-            weights_path_v4 = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
-            config_path_v4 = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
+            # Use YOLOv4-tiny (faster, already downloaded)
+            weights_path = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
+            config_path = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
             
-            weights_path_v3 = os.path.join(MODELS_DIR, 'yolov3.weights')
-            config_path_v3 = os.path.join(MODELS_DIR, 'yolov3.cfg')
-
-            if os.path.exists(weights_path_v4) and os.path.exists(config_path_v4):
-                print(f"OpenCV Service: Loading YOLOv4-tiny model from {weights_path_v4}")
-                self.net = cv2.dnn.readNet(weights_path_v4, config_path_v4)
+            if os.path.exists(weights_path) and os.path.exists(config_path):
+                print(f"OpenCV Service: Loading YOLOv4-tiny model from {weights_path}")
+                self.net = cv2.dnn.readNet(weights_path, config_path)
+                
+                # Try to use GPU acceleration if available
+                try:
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+                    print("OpenCV Service: Using CUDA GPU acceleration")
+                except:
+                    # Fall back to CPU optimization
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                    print("OpenCV Service: Using CPU with OpenCV optimization")
+                
+                # Get output layer names
                 self.layer_names = self.net.getLayerNames()
                 self.layer_names = [self.layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
-            elif os.path.exists(weights_path_v3) and os.path.exists(config_path_v3):
-                print(f"OpenCV Service: Loading YOLOv3 model from {weights_path_v3}")
-                self.net = cv2.dnn.readNet(weights_path_v3, config_path_v3)
-                self.layer_names = self.net.getLayerNames()
-                self.layer_names = [self.layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
+                
+                print(f"OpenCV Service: YOLOv4-tiny loaded successfully with {len(self.layer_names)} output layers")
             else:
-                print("YOLO weights/config not found, using OpenCV DNN with pre-trained model")
-                # Use OpenCV's built-in DNN module with a pre-trained model
-                # For now, we'll use a simpler approach that doesn't require external files
-                pass
+                print("YOLOv4-tiny weights/config not found, will use fallback detection")
+                self.initialized = True
+                return
 
             self.initialized = True
             print("OpenCV Service: YOLO detection initialized successfully")
+            
         except Exception as e:
             print(f"OpenCV Service: Failed to initialize YOLO: {e}")
             # Fallback to basic detection
@@ -326,7 +332,7 @@ class YOLOObjectDetector:
             }
 
     def _perform_yolo_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Perform object detection using YOLO model"""
+        """Perform object detection using YOLOv4-tiny model"""
         detections = []
 
         try:
@@ -334,14 +340,20 @@ class YOLOObjectDetector:
 
             # If we have a YOLO model loaded, use it
             if self.net is not None:
-                # Create blob from image
-                blob = cv2.dnn.blobFromImage(image, 1/255.0, (self.input_size, self.input_size), swapRB=True, crop=False)
+                # Create blob from image - optimized for YOLOv4-tiny
+                blob = cv2.dnn.blobFromImage(
+                    image, 
+                    1/255.0, 
+                    (self.input_size, self.input_size), 
+                    swapRB=True, 
+                    crop=False
+                )
                 self.net.setInput(blob)
 
                 # Run forward pass
                 outputs = self.net.forward(self.layer_names)
 
-                # Process outputs
+                # Process outputs - YOLOv4-tiny has 2 output layers
                 boxes = []
                 confidences = []
                 class_ids = []
@@ -353,7 +365,7 @@ class YOLOObjectDetector:
                         confidence = scores[class_id]
 
                         if confidence > self.confidence_threshold:
-                            # Convert to pixel coordinates
+                            # YOLOv4-tiny output format: [cx, cy, w, h, obj, ...classes]
                             center_x = int(detection[0] * width)
                             center_y = int(detection[1] * height)
                             w = int(detection[2] * width)
@@ -380,57 +392,76 @@ class YOLOObjectDetector:
 
                         detections.append({
                             'class': class_name,
-                            'confidence': min(100, confidence * 100),
+                            'confidence': round(min(100, confidence * 100), 2),
                             'bbox': {
-                                'x': int(x),
-                                'y': int(y),
+                                'x': max(0, int(x)),
+                                'y': max(0, int(y)),
                                 'width': int(w),
                                 'height': int(h)
                             }
                         })
+                
+                print(f"OpenCV Service: Detected {len(detections)} objects")
             else:
                 # Fallback to OpenCV's built-in object detection
-                # Use HOG descriptor for person detection
-                hog = cv2.HOGDescriptor()
-                hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
-
-                # Detect people in the image
-                (rects, weights) = hog.detectMultiScale(image, winStride=(8, 8), padding=(32, 32), scale=1.05)
-
-                for (x, y, w, h), weight in zip(rects, weights):
-                    detections.append({
-                        'class': 'person',
-                        'confidence': min(100, max(30, weight * 100)),
-                        'bbox': {
-                            'x': int(x),
-                            'y': int(y),
-                            'width': int(w),
-                            'height': int(h)
-                        }
-                    })
-
-                # Also use OpenCV's CascadeClassifier for face detection
-                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-                for (x, y, w, h) in faces:
-                    detections.append({
-                        'class': 'face',
-                        'confidence': 80,  # Default confidence for face detection
-                        'bbox': {
-                            'x': int(x),
-                            'y': int(y),
-                            'width': int(w),
-                            'height': int(h)
-                        }
-                    })
+                detections = self._fallback_detection(image)
 
             return detections
 
         except Exception as e:
             print(f"OpenCV Service: YOLO detection error: {e}")
             return []
+
+    def _fallback_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Fallback detection using HOG descriptor"""
+        detections = []
+        
+        try:
+            # Use HOG descriptor for person detection
+            hog = cv2.HOGDescriptor()
+            hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+            # Detect people in the image
+            (rects, weights) = hog.detectMultiScale(
+                image, 
+                winStride=(8, 8), 
+                padding=(32, 32), 
+                scale=1.05
+            )
+
+            for (x, y, w, h), weight in zip(rects, weights):
+                detections.append({
+                    'class': 'person',
+                    'confidence': round(min(100, max(30, weight * 100)), 2),
+                    'bbox': {
+                        'x': int(x),
+                        'y': int(y),
+                        'width': int(w),
+                        'height': int(h)
+                    }
+                })
+
+            # Also use OpenCV's CascadeClassifier for face detection
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+            for (x, y, w, h) in faces:
+                detections.append({
+                    'class': 'face',
+                    'confidence': 80,
+                    'bbox': {
+                        'x': int(x),
+                        'y': int(y),
+                        'width': int(w),
+                        'height': int(h)
+                    }
+                })
+                
+        except Exception as e:
+            print(f"OpenCV Service: Fallback detection error: {e}")
+        
+        return detections
 
     def recognize_faces(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
         """Recognize faces using Haar Cascade classifier and face recognition"""
@@ -790,25 +821,37 @@ detector.initialize()
 def detect_objects_route():
     """Object detection endpoint - accepts image data directly"""
     try:
-        if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+        if 'image' not in request.files and not request.data:
+            return jsonify({'success': False, 'error': 'No image file or data provided'}), 400
 
-        image_file = request.files['image']
-        file_hash = request.form.get('fileHash', '')
-        file_size = request.form.get('fileSize', 0, type=int)
-        file_modified = request.form.get('fileModified', '')
+        # Handle both file upload and raw binary data
+        if request.files.get('image'):
+            image_file = request.files['image']
+            file_hash = request.form.get('fileHash', hashlib.md5(image_file.read()).hexdigest())
+            image_file.seek(0)
+            
+            # Read as numpy array
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        else:
+            # Raw binary data
+            image_data = np.frombuffer(request.data, np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+            file_hash = request.form.get('fileHash', hashlib.md5(request.data).hexdigest())
 
-        temp_image_path = os.path.join(tempfile.gettempdir(), f'detect_{file_hash}.jpg')
-        image_file.save(temp_image_path)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
 
         print(f"OpenCV Service: Object detection request for {file_hash}")
 
-        result = detector.detect_objects(temp_image_path, file_hash, '', file_size, file_modified)
+        # Perform detection
+        detections = detector._perform_yolo_detection(image)
 
-        if os.path.exists(temp_image_path):
-            os.unlink(temp_image_path)
-
-        return jsonify(result)
+        return jsonify({
+            'success': True,
+            'detections': detections,
+            'fileHash': file_hash
+        })
 
     except Exception as e:
         print(f"OpenCV Service: Object detection error: {e}")
@@ -816,6 +859,101 @@ def detect_objects_route():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/detect-and-draw', methods=['POST'])
+def detect_and_draw_route():
+    """Object detection with bounding box overlay - returns annotated image"""
+    try:
+        if 'image' not in request.files and not request.data:
+            return jsonify({'success': False, 'error': 'No image file or data provided'}), 400
+
+        # Handle both file upload and raw binary data
+        if request.files.get('image'):
+            image_file = request.files['image']
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        else:
+            image_data = np.frombuffer(request.data, np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        # Perform detection
+        detections = detector._perform_yolo_detection(image)
+
+        # Draw bounding boxes on image
+        annotated_image = draw_detections(image, detections)
+
+        # Convert to JPEG
+        _, buffer = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        return Response(
+            buffer.tobytes(),
+            mimetype='image/jpeg',
+            headers={'X-Detection-Count': str(len(detections))}
+        )
+
+    except Exception as e:
+        print(f"OpenCV Service: Detect and draw error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def draw_detections(image: np.ndarray, detections: List[Dict]) -> np.ndarray:
+    """Draw bounding boxes and labels on image"""
+    try:
+        # Create a copy to avoid modifying original
+        result = image.copy()
+        
+        # Define colors for different classes
+        colors = {
+            'person': (0, 255, 0),      # Green
+            'car': (255, 0, 0),         # Blue
+            'truck': (200, 0, 0),       # Dark blue
+            'motorcycle': (0, 128, 255), # Orange
+            'bicycle': (255, 165, 0),   # Orange
+            'dog': (0, 165, 255),       # Orange
+            'cat': (128, 0, 128),       # Purple
+            'face': (255, 0, 255),      # Magenta
+        }
+        
+        for detection in detections:
+            bbox = detection.get('bbox', {})
+            x = bbox.get('x', 0)
+            y = bbox.get('y', 0)
+            w = bbox.get('width', 0)
+            h = bbox.get('height', 0)
+            class_name = detection.get('class', 'object')
+            confidence = detection.get('confidence', 0)
+            
+            # Get color for this class
+            color = colors.get(class_name.lower(), (0, 255, 255))  # Cyan default
+            
+            # Draw bounding box
+            cv2.rectangle(result, (x, y), (x + w, y + h), color, 2)
+            
+            # Draw label background
+            label = f"{class_name}: {confidence}%"
+            (label_width, label_height), _ = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+            )
+            cv2.rectangle(result, (x, y - label_height - 10), (x + label_width, y), color, -1)
+            
+            # Draw label text
+            cv2.putText(
+                result, label, (x, y - 5),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1
+            )
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error drawing detections: {e}")
+        return image
 
 
 @app.route('/recognize-faces', methods=['POST'])

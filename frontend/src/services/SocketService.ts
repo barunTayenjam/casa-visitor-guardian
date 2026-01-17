@@ -165,22 +165,22 @@ class SocketService {
   }
 
   // Request a camera stream
-  requestStream(cameraId: string) {
-    console.log(`📡 SocketService: Requesting stream for camera ${cameraId}, socket connected: ${this.socket?.connected}`);
+  requestStream(cameraId: string, role: 'detect' | 'record' | 'live' = 'live') {
+    console.log(`📡 SocketService: Requesting stream for camera ${cameraId} role ${role}, socket connected: ${this.socket?.connected}`);
     if (!this.socket?.connected) {
       console.warn('❌ Socket not connected, cannot request stream');
       return;
     }
-    this.socket.emit('requestStream', cameraId);
-    console.log(`✅ SocketService: Stream request emitted for camera ${cameraId}`);
+    this.socket.emit('requestStream', { cameraId, role });
+    console.log(`✅ SocketService: Stream request emitted for camera ${cameraId} role ${role}`);
   }
 
   // Stop streaming a camera
-  stopStream(cameraId: string) {
+  stopStream(cameraId: string, role: 'detect' | 'record' | 'live' = 'live') {
     if (!this.socket?.connected) {
       return;
     }
-    this.socket.emit('stopStream', cameraId);
+    this.socket.emit('stopStream', { cameraId, role });
   }
 
   // Add event listener

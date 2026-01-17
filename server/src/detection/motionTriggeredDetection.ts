@@ -50,10 +50,10 @@ export class MotionTriggeredDetection extends EventEmitter {
   private initializeDefaultSettings(): void {
     const defaultSettings: MotionDetectionSettings = {
       enabled: true,
-      sensitivity: 0.3,
-      minArea: 500,
+      sensitivity: 0.2,  // Lower = more sensitive (0.1 = very sensitive)
+      minArea: 300,      // Lower = detect smaller motion
       maxDetectionInterval: 30,
-      motionCooldown: 5000,
+      motionCooldown: 2000,  // Faster cooldown (2s instead of 5s)
       enableBatchTrigger: true
     };
 
@@ -211,7 +211,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       this.motionFrameQueue.get(cameraId)!.push(framePath);
 
       // Run full detection using OpenCV service
-      const response = await axios.post(`${getOpenCVServiceUrl()}/detect`, frame, {
+      const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {
         headers: {
           'Content-Type': 'image/jpeg'
         },

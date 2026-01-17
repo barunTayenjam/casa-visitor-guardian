@@ -201,37 +201,36 @@ export class StreamManager {
         let startMarkerPos = -1;
         let endMarkerPos = -1;
 
-        while (startMarkerPos !== -1 && endMarkerPos !== -1) {
+        while (true) {
           startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]));
-          if (startMarkerPos !== -1) {
-            endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos);
-            if (endMarkerPos !== -1) {
-              const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
-              stream.lastFrame = frameBuffer;
-              buffer = buffer.slice(endMarkerPos + 2);
+          if (startMarkerPos === -1) break;
+          endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos);
+          if (endMarkerPos === -1) break;
 
-              // Emit detect frames for processing
-              if (role === 'detect') {
-                this.processFrameForMotion(cameraId, frameBuffer);
-              }
+          const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
+          stream.lastFrame = frameBuffer;
+          buffer = buffer.slice(endMarkerPos + 2);
 
-              // Emit frames to viewers
-              const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
-              const clientCount = room ? room.size : 0;
+          // Emit detect frames for processing
+          if (role === 'detect') {
+            this.processFrameForMotion(cameraId, frameBuffer);
+          }
 
-              if (clientCount > 0) {
-                const now = Date.now();
-                const frameInterval = 1000 / fps;
-                if (!stream.lastFrameSentTime || now - stream.lastFrameSentTime >= frameInterval) {
-                  stream.lastFrameSentTime = now;
-                  this.io.to(`camera-${cameraId}-${role}`).emit("frame", {
-                    cameraId,
-                    role,
-                    data: frameBuffer.toString("base64"),
-                    timestamp: new Date().toISOString(),
-                  });
-                }
-              }
+          // Emit frames to viewers
+          const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
+          const clientCount = room ? room.size : 0;
+
+          if (clientCount > 0) {
+            const now = Date.now();
+            const frameInterval = 1000 / fps;
+            if (!stream.lastFrameSentTime || now - stream.lastFrameSentTime >= frameInterval) {
+              stream.lastFrameSentTime = now;
+              this.io.to(`camera-${cameraId}-${role}`).emit("frame", {
+                cameraId,
+                role,
+                data: frameBuffer.toString("base64"),
+                timestamp: new Date().toISOString(),
+              });
             }
           }
         }

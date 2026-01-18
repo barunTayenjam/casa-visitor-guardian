@@ -138,6 +138,31 @@ export interface DetectionResult {
   };
 }
 
+export interface Detection {
+  class: string;
+  confidence: number;
+  bbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+export interface DetectionEvent {
+  cameraId: string;
+  detections: Detection[];
+  timestamp: string;
+  detectionResolution?: { width: number; height: number };
+  displayResolution?: { width: number; height: number };
+  metadata?: {
+    maxConfidence: number;
+    totalDetections: number;
+    personCount: number;
+    processingTime: number;
+  };
+}
+
 export interface FaceDetection {
   id: string;
   bbox: {

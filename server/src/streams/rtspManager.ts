@@ -69,6 +69,56 @@ export class StreamManager {
     configuredCameras.forEach((cameraConfig) => {
       this.addCamera(cameraConfig);
     });
+
+    // Setup event listeners for motion detection
+    this.setupDetectionEventListeners();
+
+    // Start periodic detection
+    motionTriggeredDetection.startPeriodicDetection(this);
+  }
+
+  private setupDetectionEventListeners(): void {
+    // Listen for EventEmitter events from motionTriggeredDetection
+    motionTriggeredDetection.on('motionDetected', (event: any) => {
+      this.emitDetectionEvent(event);
+    });
+
+    // Also listen for Socket.IO events from simulation (simulateMotionDetection emits via Socket.IO)
+    this.io.on('motionDetected', (event: any) => {
+      this.emitDetectionEvent(event);
+    });
+  }
+
+  private emitDetectionEvent(event: any): void {
+    const cameraId = event.cameraId;
+    
+    // Get camera info for resolution mapping
+    const camera = this.cameras.get(cameraId);
+    const liveStream = camera?.streams.get('live');
+    const detectStream = camera?.streams.get('detect');
+    
+    // Emit detection event to frontend for visualization
+    this.io.to(`camera-${cameraId}-live`).emit('detection', {
+      cameraId,
+      detections: event.detections || [],
+      timestamp: event.timestamp,
+      // Resolution info for proper scaling
+      detectionResolution: event.detectionResolution || { width: detectStream?.width || 640, height: detectStream?.height || 360 },
+      displayResolution: { width: liveStream?.width || 1920, height: liveStream?.height || 1080 },
+      metadata: event.metadata
+    });
+
+    // Also emit to general camera room for broader access
+    this.io.to(`camera-${cameraId}`).emit('detection', {
+      cameraId,
+      detections: event.detections || [],
+      timestamp: event.timestamp,
+      detectionResolution: event.detectionResolution || { width: detectStream?.width || 640, height: detectStream?.height || 360 },
+      displayResolution: { width: liveStream?.width || 1920, height: liveStream?.height || 1080 },
+      metadata: event.metadata
+    });
+
+    console.log(`[StreamManager] Emitted detection event for ${cameraId}: ${event.metadata?.totalDetections || 0} objects detected`);
   }
 
   // Add a camera to the manager
@@ -488,16 +538,36 @@ export class StreamManager {
     const camera = this.cameras.get(cameraId);
     if (!camera || !camera.isActive) return;
 
-    // Motion simulation log disabled - logger.info(`Simulating motion detection for camera ${cameraId}`, 'StreamManager');
+    // Emit detection event directly to frontend (simulating real detection)
+    const timestamp = new Date().toISOString();
+    
+    // Emit to live room
+    this.io.to(`camera-${cameraId}-live`).emit('detection', {
+      cameraId,
+      detections: [
+        { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
+        { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
+      ],
+      timestamp,
+    });
 
-    // Emit motion detected event
+    // Also emit to general camera room
+    this.io.to(`camera-${cameraId}`).emit('detection', {
+      cameraId,
+      detections: [
+        { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
+        { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
+      ],
+      timestamp,
+    });
+
+    // Emit motionDetected event for other listeners
     this.io.emit("motionDetected", {
       id: `motion_${Date.now()}`,
       cameraId,
-      timestamp: new Date().toISOString(),
-      imagePath: `/snapshots/motion_${cameraId}_${Date.now()}.jpg`,
+      timestamp,
       confidence: 0.85,
-      duration: 2000,
+      labels: ['person', 'car'],
     });
 
     // Take a snapshot for the motion event
@@ -531,21 +601,24 @@ export async function setupRTSPStreams(
     });
   }, 2000); // Wait 2 seconds before starting streams
 
-  // Setup motion simulation
-  setInterval(() => {
-    const cameras = streamManager.getAllCameras();
-    const activeCameras = cameras.filter((cam) => cam.isActive);
+    // Setup motion simulation
+    setInterval(() => {
+      console.log('[StreamManager] Simulation tick - checking for active cameras...');
+      const cameras = streamManager.getAllCameras();
+      const activeCameras = cameras.filter((cam) => cam.isActive);
+      console.log(`[StreamManager] Found ${activeCameras.length} active cameras out of ${cameras.length} total`);
 
-    if (activeCameras.length > 0) {
-      // Randomly choose a camera to simulate motion on occasionally
-      if (Math.random() < 0.1) {
-        // 10% chance every interval
-        const randomCamera =
-          activeCameras[Math.floor(Math.random() * activeCameras.length)];
-        streamManager.simulateMotionDetection(randomCamera.id);
+      if (activeCameras.length > 0) {
+        // Randomly choose a camera to simulate motion on occasionally
+        if (Math.random() < 0.1) {
+          // 10% chance every interval
+          const randomCamera =
+            activeCameras[Math.floor(Math.random() * activeCameras.length)];
+          console.log(`[StreamManager] Simulating motion detection for camera: ${randomCamera.id}`);
+          streamManager.simulateMotionDetection(randomCamera.id);
+        }
       }
-    }
-  }, 30000); // Check every 30 seconds
+    }, 30000); // Check every 30 seconds
 
   return streamManager;
 }

@@ -25,13 +25,23 @@ export interface MotionDetectionEvent {
   timestamp: string;
   motionLevel: number;
   frameCount: number;
-  detectionFrames: string[]; // Paths to frames with detected motion
+  detectionFrames: string[];
   metadata: {
     maxConfidence: number;
     totalDetections: number;
     personCount: number;
     processingTime: number;
   };
+  detections: Array<{
+    class: string;
+    confidence: number;
+    bbox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  }>;
 }
 
 export class MotionTriggeredDetection extends EventEmitter {
@@ -60,6 +70,22 @@ export class MotionTriggeredDetection extends EventEmitter {
     this.settings.set('default', defaultSettings);
   }
 
+  // Called after stream manager is ready to start periodic detection
+  startPeriodicDetection(streamManager: any): void {
+    console.log('[MotionDetection] Starting periodic detection');
+    
+    // Run object detection every 5 seconds regardless of motion
+    setInterval(async () => {
+      const cameraIds = Array.from(this.backgroundFrames.keys());
+      for (const cameraId of cameraIds) {
+        const frame = streamManager.getLastFrame(cameraId);
+        if (frame && frame.length > 0) {
+          await this.runDetection(cameraId, frame);
+        }
+      }
+    }, 5000);
+  }
+
   updateSettings(cameraId: string, settings: Partial<MotionDetectionSettings>): boolean {
     const currentSettings = this.settings.get(cameraId) || this.settings.get('default');
     if (!currentSettings) return false;
@@ -74,8 +100,8 @@ export class MotionTriggeredDetection extends EventEmitter {
   }
 
   /**
-   * Process frame for motion detection - lightweight, non-blocking
-   */
+    * Process frame for motion detection - lightweight, non-blocking
+    */
   async processFrame(cameraId: string, frame: Buffer): Promise<void> {
     const settings = this.getSettings(cameraId);
     if (!settings || !settings.enabled) {
@@ -104,8 +130,8 @@ export class MotionTriggeredDetection extends EventEmitter {
   }
 
   /**
-   * Lightweight motion detection using frame differencing
-   */
+    * Lightweight motion detection using frame differencing
+    */
   private async lightweightMotionCheck(cameraId: string, frame: Buffer, settings: MotionDetectionSettings): Promise<boolean> {
     try {
       // Initialize background frame if not exists
@@ -224,7 +250,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       const personCount = detections.filter(d => d.class === 'person').length;
       const maxConfidence = Math.max(...detections.map(d => d.confidence), 0);
       
-      // Create motion detection event
+      // Create motion detection event with full detection data
       const event: MotionDetectionEvent = {
         id: `motion_${cameraId}_${Date.now()}`,
         cameraId,
@@ -237,7 +263,13 @@ export class MotionTriggeredDetection extends EventEmitter {
           totalDetections: detections.length,
           personCount,
           processingTime: Date.now() - startTime
-        }
+        },
+        // Include full detection results for frontend visualization
+        detections: detections.map((d: any) => ({
+          class: d.class,
+          confidence: d.confidence,
+          bbox: d.bbox
+        }))
       };
 
       // Update motion timestamp
@@ -268,6 +300,79 @@ export class MotionTriggeredDetection extends EventEmitter {
       console.error(`Full detection failed for ${cameraId}:`, error);
     } finally {
       // Remove detection in progress flag
+      this.detectionInProgress.delete(cameraId);
+    }
+  }
+
+  /**
+   * Run object detection on a frame (called periodically)
+   */
+  async runDetection(cameraId: string, frame: Buffer): Promise<void> {
+    const settings = this.getSettings(cameraId);
+    if (!settings || !settings.enabled) {
+      return;
+    }
+
+    // Skip if detection already in progress
+    if (this.detectionInProgress.has(cameraId)) {
+      return;
+    }
+
+    // Skip if in cooldown period
+    const lastMotion = this.lastMotionTimes.get(cameraId) || 0;
+    if (Date.now() - lastMotion < settings.motionCooldown) {
+      return;
+    }
+
+    this.detectionInProgress.add(cameraId);
+    const startTime = Date.now();
+
+    try {
+      const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {
+        headers: {
+          'Content-Type': 'image/jpeg'
+        },
+        timeout: 30000
+      });
+
+      const detections = response.data.detections;
+
+      // Calculate event metadata
+      const personCount = detections.filter((d: any) => d.class === 'person').length;
+      const maxConfidence = Math.max(...detections.map((d: any) => d.confidence), 0);
+
+      // Create detection event
+      const event: MotionDetectionEvent = {
+        id: `detect_${cameraId}_${Date.now()}`,
+        cameraId,
+        timestamp: new Date().toISOString(),
+        motionLevel: maxConfidence,
+        frameCount: 1,
+        detectionFrames: [],
+        metadata: {
+          maxConfidence,
+          totalDetections: detections.length,
+          personCount,
+          processingTime: Date.now() - startTime
+        },
+        detections: detections.map((d: any) => ({
+          class: d.class,
+          confidence: d.confidence,
+          bbox: d.bbox
+        }))
+      };
+
+      this.lastMotionTimes.set(cameraId, Date.now());
+
+      // Emit detection event
+      this.emit('motionDetected', {
+        ...event,
+        detectionResolution: { width: 640, height: 360 }
+      });
+
+    } catch (error) {
+      console.error(`Periodic detection failed for ${cameraId}:`, error);
+    } finally {
       this.detectionInProgress.delete(cameraId);
     }
   }

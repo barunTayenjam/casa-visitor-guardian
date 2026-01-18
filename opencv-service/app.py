@@ -232,23 +232,42 @@ class YOLOObjectDetector:
         self.initialized = False
         self.net = None
         self.layer_names = None
-        self.input_size = 416  # Standard YOLO input size
-        self.confidence_threshold = 0.25  # Lower = more detections
+        self.input_size = 640  # YOLOv5/YOLOv8 standard input size
+        self.confidence_threshold = 0.25  # Reasonable balance for home security
         self.nms_threshold = 0.45  # Non-maximum suppression threshold
+        self.model_type = None  # 'yolov5' or 'yolov4'
 
     def initialize(self):
-        """Initialize YOLO detector with YOLOv4-tiny for speed"""
+        """Initialize YOLO detector - prefers YOLOv5 for accuracy, falls back to YOLOv4-tiny for speed"""
         if self.initialized:
             return
 
         try:
-            # Use YOLOv4-tiny (faster, already downloaded)
+            # Try YOLOv5n ONNX first (better accuracy)
+            onnx_path = os.path.join(MODELS_DIR, 'yolov5n.onnx')
+            
+            if os.path.exists(onnx_path):
+                print(f"OpenCV Service: Loading YOLOv5n ONNX model from {onnx_path}")
+                self.net = cv2.dnn.readNet(onnx_path)
+                self.model_type = 'yolov5'
+                
+                # CPU only for ONNX models (CUDA support limited)
+                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                print("OpenCV Service: Using YOLOv5n with CPU (ONNX format)")
+                
+                self.initialized = True
+                print("OpenCV Service: YOLOv5n detection initialized successfully")
+                return
+            
+            # Fall back to YOLOv4-tiny
             weights_path = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
             config_path = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
             
             if os.path.exists(weights_path) and os.path.exists(config_path):
                 print(f"OpenCV Service: Loading YOLOv4-tiny model from {weights_path}")
                 self.net = cv2.dnn.readNet(weights_path, config_path)
+                self.model_type = 'yolov4'
                 
                 # Try to use GPU acceleration if available
                 try:
@@ -267,7 +286,7 @@ class YOLOObjectDetector:
                 
                 print(f"OpenCV Service: YOLOv4-tiny loaded successfully with {len(self.layer_names)} output layers")
             else:
-                print("YOLOv4-tiny weights/config not found, will use fallback detection")
+                print("YOLO models not found, will use fallback detection")
                 self.initialized = True
                 return
 
@@ -332,7 +351,7 @@ class YOLOObjectDetector:
             }
 
     def _perform_yolo_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Perform object detection using YOLOv4-tiny model"""
+        """Perform object detection using YOLO model (YOLOv5 or YOLOv4-tiny)"""
         detections = []
 
         try:
@@ -340,7 +359,7 @@ class YOLOObjectDetector:
 
             # If we have a YOLO model loaded, use it
             if self.net is not None:
-                # Create blob from image - optimized for YOLOv4-tiny
+                # Create blob from image
                 blob = cv2.dnn.blobFromImage(
                     image, 
                     1/255.0, 
@@ -350,33 +369,83 @@ class YOLOObjectDetector:
                 )
                 self.net.setInput(blob)
 
-                # Run forward pass
-                outputs = self.net.forward(self.layer_names)
+                # Run forward pass with CUDA fallback
+                try:
+                    outputs = self.net.forward(self.layer_names) if self.layer_names else self.net.forward()
+                except cv2.error as e:
+                    # CUDA failed, switch to CPU and retry
+                    if 'CUDA' in str(e) or 'cuda' in str(e):
+                        print("OpenCV Service: CUDA inference failed, switching to CPU")
+                        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                        outputs = self.net.forward(self.layer_names) if self.layer_names else self.net.forward()
+                    else:
+                        raise e
 
-                # Process outputs - YOLOv4-tiny has 2 output layers
+                # Process outputs based on model type
                 boxes = []
                 confidences = []
                 class_ids = []
 
-                for output in outputs:
+                if self.model_type == 'yolov5':
+                    # YOLOv5 ONNX output: [batch, num_anchors, 85] = [1, 25200, 85]
+                    # Format: [x, y, w, h, obj_conf, class_0, class_1, ..., class_79]
+                    # x, y, w, h are in PIXEL coordinates relative to input size (640x640)
+                    output = outputs[0]  # Shape: (25200, 85)
+                    
                     for detection in output:
-                        scores = detection[5:]
-                        class_id = np.argmax(scores)
-                        confidence = scores[class_id]
-
+                        # YOLOv5 format: [x, y, w, h, obj_conf, class_0, ...]
+                        x, y, w, h = detection[0:4]
+                        obj_conf = detection[4]
+                        
+                        # Get class scores (everything after obj_conf)
+                        class_scores = detection[5:]
+                        class_id = np.argmax(class_scores)
+                        class_conf = class_scores[class_id]
+                        
+                        # Final confidence = object_conf * class_conf
+                        confidence = obj_conf * class_conf
+                        
                         if confidence > self.confidence_threshold:
-                            # YOLOv4-tiny output format: [cx, cy, w, h, obj, ...classes]
-                            center_x = int(detection[0] * width)
-                            center_y = int(detection[1] * height)
-                            w = int(detection[2] * width)
-                            h = int(detection[3] * height)
-
-                            x = int(center_x - w / 2)
-                            y = int(center_y - h / 2)
-
-                            boxes.append([x, y, w, h])
+                            # Convert from center format to corner format
+                            # x, y, w, h are in PIXEL coordinates relative to input size (640x640)
+                            center_x = x
+                            center_y = y
+                            box_w = w
+                            box_h = h
+                            
+                            # Scale to original image size
+                            scale_x = width / self.input_size
+                            scale_y = height / self.input_size
+                            
+                            x = int((center_x - box_w / 2) * scale_x)
+                            y = int((center_y - box_h / 2) * scale_y)
+                            box_w = int(box_w * scale_x)
+                            box_h = int(box_h * scale_y)
+                            
+                            boxes.append([x, y, box_w, box_h])
                             confidences.append(float(confidence))
                             class_ids.append(int(class_id))
+                else:
+                    # YOLOv4-tiny output format: multiple layers, [cx, cy, w, h, obj, ...classes]
+                    for output in outputs:
+                        for detection in output:
+                            scores = detection[5:]
+                            class_id = np.argmax(scores)
+                            confidence = scores[class_id]
+
+                            if confidence > self.confidence_threshold:
+                                center_x = int(detection[0] * width)
+                                center_y = int(detection[1] * height)
+                                w = int(detection[2] * width)
+                                h = int(detection[3] * height)
+
+                                x = int(center_x - w / 2)
+                                y = int(center_y - h / 2)
+
+                                boxes.append([x, y, w, h])
+                                confidences.append(float(confidence))
+                                class_ids.append(int(class_id))
 
                 # Apply non-maximum suppression
                 indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence_threshold, self.nms_threshold)
@@ -401,7 +470,8 @@ class YOLOObjectDetector:
                             }
                         })
                 
-                print(f"OpenCV Service: Detected {len(detections)} objects")
+                classes_found = [d['class'] for d in detections]
+                print(f"OpenCV Service: Detected {len(detections)} objects: {classes_found}")
             else:
                 # Fallback to OpenCV's built-in object detection
                 detections = self._fallback_detection(image)

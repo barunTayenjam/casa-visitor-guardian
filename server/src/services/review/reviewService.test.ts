@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+// @ts-ignore
 import { ReviewService } from '../reviewService.js';
 
 describe('ReviewService', () => {
@@ -10,32 +11,32 @@ describe('ReviewService', () => {
 
   beforeEach(() => {
     mockReviewSegmentRepo = {
-      createQueryBuilder: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnThis(),
-        andWhere: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockReturnThis(),
-        skip: vi.fn().mockReturnThis(),
-        take: vi.fn().mockReturnThis(),
-        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       }),
-      findOne: vi.fn(),
-      create: vi.fn(),
-      save: vi.fn(),
-      update: vi.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
     };
 
     mockReviewStatusRepo = {
-      findOne: vi.fn(),
-      save: vi.fn(),
-      update: vi.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
     };
 
     mockTimelineService = {
-      getActiveObjects: vi.fn().mockResolvedValue(new Map()),
+      getActiveObjects: jest.fn().mockResolvedValue(new Map()),
     };
 
     mockPreviewService = {
-      generatePreview: vi.fn().mockResolvedValue('/path/to/preview.mp4'),
+      generatePreview: jest.fn().mockResolvedValue('/path/to/preview.mp4'),
     };
 
     reviewService = new ReviewService(

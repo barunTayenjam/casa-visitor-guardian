@@ -79,7 +79,7 @@ services:
       - "0.0.0.0:5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:9753
+      - VITE_BACKEND_URL=http://sentryvision-backend:9753
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules

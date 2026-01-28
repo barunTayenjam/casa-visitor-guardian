@@ -103,6 +103,13 @@ export const RecentDetectionsCarousel = ({ limit = 12 }: RecentDetectionsCarouse
   };
 
   const handleImageClick = (event: MotionEvent) => {
+    console.log('[RecentDetectionsCarousel] Clicked event:', {
+      id: event.id,
+      confidence: event.confidence,
+      lightLevel: event.lightLevel,
+      detections: event.detections,
+      detectionCount: event.detections?.length || 0
+    });
     setSelectedEvent(event);
     setIsDialogOpen(true);
   };
@@ -288,11 +295,11 @@ export const RecentDetectionsCarousel = ({ limit = 12 }: RecentDetectionsCarouse
                         />
                         {/* Detection Overlay with Bounding Boxes */}
                         {selectedEvent.detections && selectedEvent.detections.length > 0 && (
-                          <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute inset-0 pointer-events-none z-20">
                             {selectedEvent.detections.map((detection, index) => (
                               <div
                                 key={`${detection.type}-${index}`}
-                                className="absolute border-2 rounded"
+                                className="absolute border-2 rounded-sm backdrop-blur-sm"
                                 style={{
                                   left: `${detection.boundingBox?.x || 0}px`,
                                   top: `${detection.boundingBox?.y || 0}px`,
@@ -306,22 +313,24 @@ export const RecentDetectionsCarousel = ({ limit = 12 }: RecentDetectionsCarouse
                                         : '#00ffff',
                                   backgroundColor:
                                     detection.type === 'person'
-                                      ? 'rgba(0, 255, 0, 0.3)'
+                                      ? 'rgba(0, 255, 0, 0.4)'
                                       : detection.type === 'face'
-                                        ? 'rgba(255, 0, 255, 0.3)'
-                                        : 'rgba(0, 255, 255, 0.3)',
+                                        ? 'rgba(255, 0, 255, 0.4)'
+                                        : 'rgba(0, 255, 255, 0.4)',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
                                 }}
                               >
-                                <div className="absolute -top-6 left-0 right-0 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium flex items-center justify-between">
+                                <div className="absolute -top-7 left-1 right-1 bg-black/80 text-white px-2 py-1.5 rounded-md text-xs font-medium flex items-center justify-between">
                                   <span className="flex items-center gap-1">
                                     <span className="capitalize">{detection.type}</span>
                                     {detection.name && (
-                                      <span className="text-gray-300">
+                                      <span className="text-gray-300 ml-1">
                                         {detection.isKnown ? '✓' : '?'}
                                       </span>
                                     )}
                                   </span>
-                                  <span className="bg-black/50 px-1.5 py-0.5 rounded text-[10px]">
+                                  <span className="bg-black/50 px-1.5 py-0.5 rounded text-[11px]">
                                     {Math.round(detection.confidence * 100)}%
                                   </span>
                                 </div>
@@ -379,27 +388,27 @@ export const RecentDetectionsCarousel = ({ limit = 12 }: RecentDetectionsCarouse
                       </div>
                     </div>
 
-                    {/* Detection Info */}
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                        <Eye className="w-4 h-4" />
-                        Detection
-                      </h4>
-                      <div className="bg-slate-800 rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-400 text-sm">Confidence</span>
-                          <span className="text-white text-sm font-medium">
-                            {Math.round(selectedEvent.confidence * 100)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-400 text-sm">ID</span>
-                          <span className="text-white text-sm font-mono text-xs">
-                            {selectedEvent.id.slice(0, 8)}...
-                          </span>
-                        </div>
+                  {/* Detection Info */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Detection
+                    </h4>
+                    <div className="bg-slate-800 rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">Confidence</span>
+                        <span className="text-white text-sm font-medium">
+                          {selectedEvent.confidence !== undefined && selectedEvent.confidence !== null ? Math.round(selectedEvent.confidence * 100) + '%' : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">ID</span>
+                        <span className="text-white text-sm font-mono text-xs">
+                          {selectedEvent.id ? selectedEvent.id.slice(0, 8) + '...' : 'N/A'}
+                        </span>
                       </div>
                     </div>
+                  </div>
                   </div>
 
                   {/* Labels */}

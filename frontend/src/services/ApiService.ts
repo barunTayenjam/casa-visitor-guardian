@@ -1832,20 +1832,34 @@ class ApiService {
         );
       }
 
-      // Convert timestamp strings back to Date objects
+        // Convert timestamp strings back to Date objects
       const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => {
-        // Extract just the filename from the full path
+        // Extract just the filename from full path
         // The imagePath from backend is like: /app/data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
         // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
         let filename = '';
         if (event.imagePath) {
-          // Get the last part after the final slash
+          // Get last part after final slash
           const pathParts = event.imagePath.split('/');
           filename = pathParts[pathParts.length - 1];
         } else if (event.filename) {
           // Backend might provide filename directly
           filename = event.filename;
         }
+
+        // Extract detections from metadata.detections array
+        const detections = event.metadata?.detections ? event.metadata.detections.map((det: any) => ({
+          type: det.class ? det.class.toLowerCase() : 'object',
+          confidence: det.confidence || 0,
+          name: det.label || det.name,
+          isKnown: det.isKnown || false,
+          boundingBox: det.bbox ? {
+            x: det.bbox.x,
+            y: det.bbox.y,
+            width: det.bbox.width,
+            height: det.bbox.height,
+          } : undefined,
+        })) : [];
 
         return {
           ...event,
@@ -1868,6 +1882,7 @@ class ApiService {
           lightLevel: event.metadata?.lightLevel,
           motionArea: event.metadata?.motionArea,
           metadata: event.metadata,
+          detections: detections,
         };
       });
 

@@ -2325,7 +2325,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Sort order based on sortBy parameter
-      const orderClause = sortBy === 'oldest' ? 'ORDER BY df.capture_timestamp ASC' : 'ORDER BY df.capture_timestamp DESC';
+      // Use COALESCE to fall back to metadata detected_at when capture_timestamp is NULL
+      const orderClause = sortBy === 'oldest'
+        ? 'ORDER BY COALESCE(df.capture_timestamp, (df.metadata->>\'detected_at\')::timestamp) ASC'
+        : 'ORDER BY COALESCE(df.capture_timestamp, (df.metadata->>\'detected_at\')::timestamp) DESC';
 
       // Count total events for pagination
       let totalEvents = 0;
@@ -2351,7 +2354,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
             df.original_filename as filename,
             df.storage_path,
             df.camera_id,
-            df.capture_timestamp as timestamp,
+            COALESCE(df.capture_timestamp, (df.metadata->>'detected_at')::timestamp) as timestamp,
             df.file_type,
             df.metadata,
             df.file_size

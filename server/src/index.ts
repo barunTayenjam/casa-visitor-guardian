@@ -22,6 +22,15 @@ import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase } from './database.js';
 import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 import { consolidatedDetectionService } from './detection/consolidatedDetectionService.js';
+import { ReviewService } from './services/review/reviewService.js';
+import { TimelineService } from './services/timeline/timelineService.js';
+import { DetectionService } from './services/detection/detectionService.js';
+import { ReviewSegment } from './models/ReviewSegment.js';
+import { UserReviewStatus } from './models/UserReviewStatus.js';
+import { Timeline } from './models/Timeline.js';
+import { AdaptiveRegion } from './models/AdaptiveRegion.js';
+import { DetectionConfig } from './models/DetectionConfig.js';
+import { PreviewService } from './services/preview/previewService.js';
 
 dotenv.config({ path: './.env' });
 
@@ -273,6 +282,156 @@ app.get('/test', (req, res) => {
 configureAuthRoutes(app);
 configureRoutes(app, io);
 configureVisitorRoutes(app);
+
+// Review & Timeline Routes (no auth required for read, auth for write)
+app.get('/api/review', async (req, res) => {
+  try {
+    const reviewService = (global as any).reviewService;
+    if (!reviewService) {
+      return res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
+    }
+
+    const { camera, after, before, severity, labels, limit, offset } = req.query;
+
+    const result = await reviewService.getReviewSegments({
+      camera: camera as string,
+      after: after ? new Date(after as string) : undefined,
+      before: before ? new Date(before as string) : undefined,
+      severity: severity as 'alert' | 'detection',
+      labels: labels ? (labels as string).split(',') : undefined,
+      limit: limit ? parseInt(limit as string) : 100,
+      offset: offset ? parseInt(offset as string) : 0,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching review segments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch review segments' });
+  }
+});
+
+app.get('/api/review/:id', async (req, res) => {
+  try {
+    const reviewService = (global as any).reviewService;
+    if (!reviewService) {
+      return res.status(404).json({ success: false, error: 'Review service not available' });
+    }
+
+    const segment = await reviewService.getReviewSegment(req.params.id);
+    if (!segment) {
+      return res.status(404).json({ success: false, error: 'Segment not found' });
+    }
+
+    res.json({ success: true, data: segment });
+  } catch (error) {
+    console.error('Error fetching review segment:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch review segment' });
+  }
+});
+
+app.post('/api/review/:id/acknowledge', async (req, res) => {
+  try {
+    const reviewService = (global as any).reviewService;
+    if (!reviewService) {
+      return res.status(503).json({ success: false, error: 'Review service not available' });
+    }
+
+    const { userId = 'anonymous' } = req.body;
+    await reviewService.acknowledgeSegment(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error acknowledging segment:', error);
+    res.status(500).json({ success: false, error: 'Failed to acknowledge segment' });
+  }
+});
+
+app.get('/api/timeline', async (req, res) => {
+  try {
+    const timelineService = (global as any).timelineService;
+    if (!timelineService) {
+      return res.json({ success: true, data: { events: [], summary: {} } });
+    }
+
+    const { camera, after, before, sources, limit } = req.query;
+
+    const result = await timelineService.getTimeline({
+      camera: camera as string,
+      after: after ? new Date(after as string) : undefined,
+      before: before ? new Date(before as string) : undefined,
+      sources: sources ? (sources as string).split(',') : undefined,
+      limit: limit ? parseInt(limit as string) : 1000,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching timeline:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch timeline' });
+  }
+});
+
+app.get('/api/timeline/active/:camera', async (req, res) => {
+  try {
+    const timelineService = (global as any).timelineService;
+    if (!timelineService) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const activeObjects = await timelineService.getActiveObjects(req.params.camera);
+    const result: Record<string, { label: string; lastSeen: string; score: number }> = {};
+    for (const [id, obj] of activeObjects.entries()) {
+      result[id] = { ...obj, lastSeen: obj.lastSeen.toISOString() };
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching active objects:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch active objects' });
+  }
+});
+
+app.get('/api/detection/config', async (req, res) => {
+  try {
+    const detectionConfigService = (global as any).detectionConfigService;
+    if (!detectionConfigService) {
+      return res.json({
+        success: true,
+        data: {
+          thresholds: {
+            person: { min_score: 0.3, threshold: 0.5 },
+            car: { min_score: 0.4, threshold: 0.6 },
+            dog: { min_score: 0.3, threshold: 0.4 },
+            package: { min_score: 0.25, threshold: 0.35 },
+          },
+          labelmap: { truck: 'car', bus: 'car', motorcycle: 'car' },
+          score_history_length: 7,
+        }
+      });
+    }
+
+    const config = await detectionConfigService.getConfig(req.query.camera as string);
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Error fetching detection config:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch detection config' });
+  }
+});
+
+app.put('/api/detection/config', async (req, res) => {
+  try {
+    const detectionConfigService = (global as any).detectionConfigService;
+    if (!detectionConfigService) {
+      return res.status(503).json({ success: false, error: 'Detection config service not available' });
+    }
+
+    const { camera, thresholds, labelmap, score_history_length } = req.body;
+    await detectionConfigService.updateConfig(camera, { thresholds, labelmap, score_history_length });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating detection config:', error);
+    res.status(500).json({ success: false, error: 'Failed to update detection config' });
+  }
+});
+
 console.log('Routes configured successfully');
 
 // For any other route, serve the index.html - temporarily disabled
@@ -286,32 +445,47 @@ async function initializeServices() {
     await initializeDatabase();
     console.log('Database initialized successfully');
 
-    // Store AppDataSource in global for use in image serving routes
     const AppDataSource = (global as any).AppDataSource;
     if (AppDataSource) {
       (global as any).AppDataSource = AppDataSource;
     }
 
-// Initialize consolidated detection service
-        console.log('Initializing consolidated detection service...');
-        const detectionStatus = await consolidatedDetectionService.getServiceStatus();
-        if (detectionStatus.available) {
-          console.log(`Detection service available at ${detectionStatus.url} (${detectionStatus.responseTime}ms)`);
-          (global as any).detectionService = consolidatedDetectionService;
-        } else {
-          console.warn('Detection service not available, using stub detection');
-        }
+    console.log('Initializing consolidated detection service...');
+    const detectionStatus = await consolidatedDetectionService.getServiceStatus();
+    if (detectionStatus.available) {
+      console.log(`Detection service available at ${detectionStatus.url} (${detectionStatus.responseTime}ms)`);
+      (global as any).detectionService = consolidatedDetectionService;
+    } else {
+      console.warn('Detection service not available, using stub detection');
+    }
 
     console.log('Initializing stream manager...');
     (global as any).streamManager = await setupRTSPStreams(io);
     console.log('Stream manager initialized successfully');
 
-console.log('Initializing motion detection...');
-        (global as any).motionDetector = setupOptimizedMotionDetection((global as any).streamManager, io, (global as any).detectionService);
+    console.log('Initializing motion detection...');
+    (global as any).motionDetector = setupOptimizedMotionDetection((global as any).streamManager, io, (global as any).detectionService);
     console.log('Motion detection initialized successfully');
+
+    console.log('Initializing review, timeline and detection services...');
+    const reviewSegmentRepo = AppDataSource.getRepository(ReviewSegment);
+    const reviewStatusRepo = AppDataSource.getRepository(UserReviewStatus);
+    const timelineRepo = AppDataSource.getRepository(Timeline);
+    const regionRepo = AppDataSource.getRepository(AdaptiveRegion);
+    const detectionConfigRepo = AppDataSource.getRepository(DetectionConfig);
+
+    const previewService = new PreviewService((global as any).streamManager);
+    const timelineService = new TimelineService(timelineRepo, regionRepo);
+    const detectionService = new DetectionService(detectionConfigRepo);
+    const reviewService = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineService, previewService);
+
+    (global as any).timelineService = timelineService;
+    (global as any).detectionConfigService = detectionService;
+    (global as any).reviewService = reviewService;
+    console.log('Review, timeline and detection services initialized successfully');
+
   } catch (error) {
     console.error('Failed to initialize services:', error);
-    // Continue without services - API routes will still work
   }
 }
 

@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { reviewService } from '../../services/review/reviewService.js';
-import { timelineService } from '../../services/timeline/timelineService.js';
-import { previewService } from '../../services/preview/previewService.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/authenticate.js';
+import { ReviewService } from '../services/review/ReviewService.js';
+import { PreviewService } from '../services/preview/PreviewService.js';
 
-const router = Router();
+export function configureReviewRoutes(app: any): void {
+  const router = Router();
 
 const ReviewQuerySchema = z.object({
   camera: z.string().optional(),
@@ -22,7 +22,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const query = ReviewQuerySchema.parse(req.query);
     const userId = (req as AuthenticatedRequest).user?.id;
-    const result = await reviewService.getReviewSegments({
+    const result = await ReviewService.getReviewSegments({
       ...query,
       after: query.after ? new Date(query.after) : undefined,
       before: query.before ? new Date(query.before) : undefined,
@@ -33,7 +33,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     const segmentsWithReviewStatus = await Promise.all(
       result.segments.map(async (segment) => ({
         ...segment,
-        reviewed: userId ? await reviewService.getSegmentReviewStatus(segment.id, userId) : false,
+        reviewed: userId ? await ReviewService.getSegmentReviewStatus(segment.id, userId) : false,
       }))
     );
 
@@ -46,13 +46,13 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const segment = await reviewService.getReviewSegment(req.params.id);
+    const segment = await ReviewService.getReviewSegment(req.params.id);
     if (!segment) {
       return res.status(404).json({ success: false, error: 'Segment not found' });
     }
 
     const userId = (req as AuthenticatedRequest).user?.id;
-    const reviewed = userId ? await reviewService.getSegmentReviewStatus(segment.id, userId) : false;
+    const reviewed = userId ? await ReviewService.getSegmentReviewStatus(segment.id, userId) : false;
 
     res.json({ success: true, data: { ...segment, reviewed } });
   } catch (err) {
@@ -65,7 +65,7 @@ router.get('/:id/thumbnail.jpg', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const camera = id.split('_')[2];
-    const thumbnailPath = await previewService.getThumbnailPath(id, camera);
+    const thumbnailPath = await PreviewService.getThumbnailPath(id, camera);
 
     if (!thumbnailPath) {
       return res.status(404).json({ success: false, error: 'Thumbnail not found' });
@@ -82,7 +82,7 @@ router.get('/:id/preview.mp4', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const camera = id.split('_')[2];
-    const preview = await previewService.getPreviewStream(id, camera);
+    const preview = await PreviewService.getPreviewStream(id, camera);
 
     if (!preview) {
       return res.status(404).json({ success: false, error: 'Preview not found' });
@@ -104,7 +104,7 @@ router.post('/:id/acknowledge', authenticate, async (req: Request, res: Response
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    await reviewService.acknowledgeSegment(req.params.id, userId);
+    await ReviewService.acknowledgeSegment(req.params.id, userId);
     res.json({ success: true, message: 'Segment acknowledged' });
   } catch (err) {
     console.error('Acknowledge segment error:', err);
@@ -114,7 +114,7 @@ router.post('/:id/acknowledge', authenticate, async (req: Request, res: Response
 
 router.post('/generate/:camera', authenticate, async (req: Request, res: Response) => {
   try {
-    await reviewService.generateReviewSegments(req.params.camera);
+    await ReviewService.generateReviewSegments(req.params.camera);
     res.json({ success: true, message: 'Review segments generated' });
   } catch (err) {
     console.error('Generate review segments error:', err);

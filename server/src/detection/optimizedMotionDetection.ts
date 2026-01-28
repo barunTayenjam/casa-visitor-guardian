@@ -408,8 +408,11 @@ export class OptimizedMotionDetector extends EventEmitter {
                 imagePath: event.imagePath
               };
               this.io.emit('personDetected', personDetectedEvent);
+
+              // Emit timeline event for tracked objects
+              this.emitTimelineEvents(cameraId, analysisResult.persons, 'person', event.timestamp);
             }
-            
+
             if (analysisResult.faces && analysisResult.faces.length > 0) {
               const faceDetectedEvent: FaceDetectedEvent = {
                 cameraId,
@@ -793,6 +796,46 @@ export class OptimizedMotionDetector extends EventEmitter {
     // Force garbage collection if available
     if (global.gc) {
       global.gc();
+    }
+  }
+
+  // Emit timeline events for detected objects
+  private async emitTimelineEvents(
+    cameraId: string,
+    detections: DetectionResult[],
+    source: string,
+    timestamp: string
+  ): Promise<void> {
+    const timelineService = (global as any).timelineService;
+    if (!timelineService) return;
+
+    for (const detection of detections) {
+      const objectId = `obj_${cameraId}_${detection.class}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      try {
+        await timelineService.addTimelineEvent({
+          camera: cameraId,
+          source,
+          sourceId: objectId,
+          classType: detection.class,
+          timestamp: new Date(timestamp),
+          data: {
+            object_id: objectId,
+            label: detection.class,
+            score: detection.confidence,
+            box: detection.bbox,
+          },
+        });
+      } catch (error) {
+        console.error('Error emitting timeline event:', error);
+      }
+    }
+
+    // Trigger review segment generation
+    const reviewService = (global as any).reviewService;
+    if (reviewService) {
+      reviewService.generateReviewSegments(cameraId).catch(err => {
+        console.error('Error generating review segments:', err);
+      });
     }
   }
 }

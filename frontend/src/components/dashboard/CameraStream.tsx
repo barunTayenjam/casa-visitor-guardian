@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
-import { Camera } from '@/types/security';
+import { Camera, Detection } from '@/types/security';
 
 interface CameraStreamProps {
   camera: Camera;
@@ -25,6 +25,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState<string | null>(null);
+  const [detections, setDetections] = useState<Detection[]>([]);
   const [detectionResolution, setDetectionResolution] = useState<{ width: number; height: number } | undefined>();
   const [displayResolution, setDisplayResolution] = useState<{ width: number; height: number } | undefined>();
   

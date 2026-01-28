@@ -16,7 +16,10 @@
         "detect": {
             "width": 640,
             "height": 360,
-            "fps": 5
+            "fps": 3
+        },
+        "live": {
+            "fps": 4
         },
         "record": {
             "enabled": true,
@@ -111,7 +114,10 @@
         "detect": {
             "width": 640,
             "height": 360,
-            "fps": 5
+            "fps": 3
+        },
+        "live": {
+            "fps": 4
         },
         "record": {
             "enabled": true,

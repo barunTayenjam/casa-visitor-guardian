@@ -14,7 +14,7 @@
     "sourceMap": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "types": ["node"]
+    "types": ["node", "@jest/globals"]
   },
   "include": [
     "src/**/*"

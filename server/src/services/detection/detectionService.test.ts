@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+// @ts-ignore
 import { DetectionService } from '../detectionService.js';
 
 describe('DetectionService', () => {
@@ -7,9 +8,9 @@ describe('DetectionService', () => {
 
   beforeEach(() => {
     mockConfigRepo = {
-      findOne: vi.fn(),
-      update: vi.fn(),
-      save: vi.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
+      save: jest.fn(),
     };
 
     detectionService = new DetectionService(mockConfigRepo);

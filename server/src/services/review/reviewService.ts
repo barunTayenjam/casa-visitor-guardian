@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { ReviewSegment } from '../models/ReviewSegment.js';
 import { UserReviewStatus } from '../models/UserReviewStatus.js';
-import { cacheService } from './cacheService.js';
+import { cacheService } from '../cacheService.js';
 
 interface ReviewQuery {
   camera?: string;

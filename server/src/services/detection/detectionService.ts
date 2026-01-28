@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { DetectionConfig } from '../models/DetectionConfig.js';
-import { cacheService } from './cacheService.js';
+import { cacheService } from '../cacheService.js';
 
 interface ThresholdConfig {
   min_score: number;

@@ -224,6 +224,9 @@ interface BackendMotionEvent {
   location?: string;
   archived?: boolean;
   metadata?: Record<string, unknown>;
+  filename?: string;
+  event_type?: string;
+  imageUrl?: string;
 }
 
 // ==================== BATCH PROCESSING TYPES ====================
@@ -1189,7 +1192,7 @@ class ApiService {
 
       // Transform backend events to frontend format
       const transformedEvents: MotionEvent[] = data.events.map((event: BackendMotionEvent) => {
-        // Extract just the filename from the full path
+        // Extract just the filename part from the full path
         // The imagePath from backend is like: /app/data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
         // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
         let filename = '';
@@ -1198,6 +1201,20 @@ class ApiService {
           const pathParts = event.imagePath.split('/');
           filename = pathParts[pathParts.length - 1];
         }
+
+        // Extract detections from metadata.detections array
+        const detections = event.metadata?.detections ? event.metadata.detections.map((det: any) => ({
+          type: det.class ? det.class.toLowerCase() : 'object',
+          confidence: det.confidence || 0,
+          name: det.label || det.name,
+          isKnown: det.isKnown || false,
+          boundingBox: det.bbox ? {
+            x: det.bbox.x,
+            y: det.bbox.y,
+            width: det.bbox.width,
+            height: det.bbox.height,
+          } : undefined,
+        })) : [];
 
         return {
           id: event.id,
@@ -1209,7 +1226,18 @@ class ApiService {
           labels: Array.isArray(event.labels) && event.labels.length > 0 ? event.labels : ['motion'], // Use backend labels if available
           location: cameraMap.get(event.cameraId) || `Camera ${event.cameraId}`,
           duration: event.duration || 0,
-          archived: event.archived || false // Use backend archived status if available
+          archived: event.archived || false, // Use backend archived status if available
+          // Add metadata fields from backend response
+          hasPersons: event.metadata?.hasPersons,
+          personCount: event.metadata?.personCount || event.metadata?.persons_detected || 0,
+          hasFaces: event.metadata?.hasFaces,
+          faceCount: event.metadata?.faceCount || event.metadata?.faces_detected || 0,
+          knownFaces: event.metadata?.knownFaces || event.metadata?.known_faces_count || 0,
+          unknownFaces: event.metadata?.unknownFaces || event.metadata?.unknown_faces_count || 0,
+          lightLevel: event.metadata?.lightLevel,
+          motionArea: event.metadata?.motionArea,
+          metadata: event.metadata,
+          detections: detections,
         };
       });
 

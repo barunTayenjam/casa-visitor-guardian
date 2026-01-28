@@ -228,14 +228,6 @@ export class MotionTriggeredDetection extends EventEmitter {
     try {
       const startTime = Date.now();
       
-      // Add frame to motion queue
-      const framePath = await this.saveMotionFrame(cameraId, frame);
-      
-      if (!this.motionFrameQueue.has(cameraId)) {
-        this.motionFrameQueue.set(cameraId, []);
-      }
-      this.motionFrameQueue.get(cameraId)!.push(framePath);
-
       // Run full detection using OpenCV service
       const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {
         headers: {
@@ -249,6 +241,14 @@ export class MotionTriggeredDetection extends EventEmitter {
       // Calculate event metadata
       const personCount = detections.filter(d => d.class === 'person').length;
       const maxConfidence = Math.max(...detections.map(d => d.confidence), 0);
+      
+      // Add frame to motion queue and save to DB with detections
+      const framePath = await this.saveMotionFrame(cameraId, frame, detections);
+      
+      if (!this.motionFrameQueue.has(cameraId)) {
+        this.motionFrameQueue.set(cameraId, []);
+      }
+      this.motionFrameQueue.get(cameraId)!.push(framePath);
       
       // Create motion detection event with full detection data
       const event: MotionDetectionEvent = {
@@ -382,7 +382,7 @@ export class MotionTriggeredDetection extends EventEmitter {
   /**
    * Save motion-detected frame
    */
-  private async saveMotionFrame(cameraId: string, frame: Buffer): Promise<string> {
+  private async saveMotionFrame(cameraId: string, frame: Buffer, detections: any[]): Promise<string> {
     // Use unified storage system
     const { getEventPath } = await import('../config/index.js');
     const eventsDir = getEventPath('motion', new Date());
@@ -393,6 +393,21 @@ export class MotionTriggeredDetection extends EventEmitter {
 
     const filename = `motion_${cameraId}_${Date.now()}.jpg`;
     const filepath = path.join(eventsDir, filename);
+
+    // Calculate detection metadata
+    const personCount = detections.filter(d => d.class === 'person').length;
+    const carCount = detections.filter(d => d.class === 'car').length;
+    const dogCount = detections.filter(d => d.class === 'dog').length;
+    const catCount = detections.filter(d => d.class === 'cat').length;
+    const packageCount = detections.filter(d => d.class === 'package').length;
+    const maxConfidence = detections.length > 0 ? Math.max(...detections.map(d => d.confidence)) : 0;
+    
+    // Count unique object classes
+    const uniqueClasses = new Set(detections.map(d => d.class));
+    const objectCounts: Record<string, number> = {};
+    uniqueClasses.forEach(cls => {
+      objectCounts[cls] = detections.filter(d => d.class === cls).length;
+    });
 
     // Index the file in the database
     try {
@@ -424,19 +439,27 @@ export class MotionTriggeredDetection extends EventEmitter {
         fileHash, // file_hash
         now, // capture_timestamp
         {
-          confidence: 0.7, // Default confidence for motion-triggered detection
+          confidence: maxConfidence,
           motionArea: 0, // Will be calculated by other systems
           lightLevel: 50, // Default light level
-          hasPersons: false, // Will be updated by object detection
+          hasPersons: personCount > 0,
           hasFaces: false, // Will be updated by face detection
-          personCount: 0,
+          personCount,
           faceCount: 0,
           knownFaces: 0,
-          unknownFaces: 0
+          unknownFaces: 0,
+          totalDetections: detections.length,
+          uniqueClasses: Array.from(uniqueClasses),
+          objectCounts,
+          detections: detections.map((d: any) => ({
+            class: d.class,
+            confidence: d.confidence,
+            bbox: d.bbox
+          }))
         } // metadata
       ]);
 
-      console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes)`);
+      console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${detections.length} detections)`);
     } catch (dbError) {
       console.error('Error indexing motion event in database:', dbError);
       // Continue execution even if database indexing fails

@@ -4,8 +4,7 @@ import { authenticate, AuthenticatedRequest } from '../middleware/authenticate.j
 import { ReviewService } from '../services/review/ReviewService.js';
 import { PreviewService } from '../services/preview/PreviewService.js';
 
-export function configureReviewRoutes(app: any): void {
-  const router = Router();
+const router = Router();
 
 const ReviewQuerySchema = z.object({
   camera: z.string().optional(),
@@ -121,5 +120,9 @@ router.post('/generate/:camera', authenticate, async (req: Request, res: Respons
     res.status(500).json({ success: false, error: 'Failed to generate review segments' });
   }
 });
+
+export function configureReviewRoutes(app: any): void {
+  app.use('/api/review', router);
+}
 
 export default router;

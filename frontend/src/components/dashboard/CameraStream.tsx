@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, Pause, Loader2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { Play, Pause, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
-import { Camera, Detection } from '@/types/security';
-import { DetectionOverlay } from './DetectionOverlay';
+import { Camera } from '@/types/security';
 
 interface CameraStreamProps {
   camera: Camera;
@@ -26,8 +25,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState<string | null>(null);
-  const [showDetections, setShowDetections] = useState(true);
-  const [detections, setDetections] = useState<Detection[]>([]);
   const [detectionResolution, setDetectionResolution] = useState<{ width: number; height: number } | undefined>();
   const [displayResolution, setDisplayResolution] = useState<{ width: number; height: number } | undefined>();
   
@@ -35,7 +32,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const frameCountRef = useRef<number>(0);
   const [displayFps, setDisplayFps] = useState<number>(0);
   const streamActionRef = useRef<"start" | "stop" | null>(null);
-  const detectionsRef = useRef<Detection[]>([]);
 
   const handleStreamStart = useCallback(async () => {
     console.log(`[CameraStream] 🎬 handleStreamStart called for ${camera.id}. Socket connected: ${socketConnected}`);
@@ -170,33 +166,29 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       }
     };
 
-    // Listen for detection events
-    const handleDetection = (data: { 
-      cameraId: string; 
-      detections: Detection[]; 
-      detectionResolution?: { width: number; height: number };
-      displayResolution?: { width: number; height: number };
-    }) => {
-      if (data.cameraId === camera.id) {
-        console.log(`[CameraStream] 🎯 Received ${data.detections.length} detections for ${camera.id}`);
-        setDetections(data.detections);
-        setDetectionResolution(data.detectionResolution);
-        setDisplayResolution(data.displayResolution);
-        detectionsRef.current = data.detections;
-      }
-    };
+     // Listen for detection events
+     const handleDetection = (data: {
+       cameraId: string;
+       detections: Detection[];
+       detectionResolution?: { width: number; height: number };
+       displayResolution?: { width: number; height: number };
+     }) => {
+       if (data.cameraId === camera.id) {
+         console.log(`[CameraStream] 🎯 Received ${data.detections.length} detections for ${camera.id}`);
+         setDetectionResolution(data.detectionResolution);
+         setDisplayResolution(data.displayResolution);
+       }
+     };
 
-    const frameUnsubscribe = socketService.on('frame', handleFrame);
-    const errorUnsubscribe = socketService.on('camera-error', handleError);
-    const detectionUnsubscribe = socketService.on('detection', handleDetection);
+     const frameUnsubscribe = socketService.on('frame', handleFrame);
+     const errorUnsubscribe = socketService.on('camera-error', handleError);
 
-    return () => {
-      console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
-      frameUnsubscribe();
-      errorUnsubscribe();
-      detectionUnsubscribe();
-    };
-  }, [camera.id]);
+     return () => {
+       console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
+       frameUnsubscribe();
+       errorUnsubscribe();
+     };
+   }, [camera.id]);
 
   const toggleStream = () => {
     console.log(`[CameraStream] ⏯️ toggleStream called for ${camera.id}. Currently streaming: ${isStreaming}`);
@@ -218,22 +210,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             <p className="text-red-500 text-sm font-medium">Camera Offline</p>
           </div>
         </div>
-      ) : isStreaming && currentFrame ? (
-        <>
-          <img
-            src={currentFrame}
-            alt={`${camera.name} stream`}
-            className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
-          />
-          <DetectionOverlay
-            cameraId={camera.id}
-            currentFrame={currentFrame}
-            showDetections={showDetections}
-            detections={detections}
-            detectionResolution={detectionResolution}
-            displayResolution={displayResolution}
-          />
-        </>
+       ) : isStreaming && currentFrame ? (
+        <img
+          src={currentFrame}
+          alt={`${camera.name} stream`}
+          className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
+        />
       ) : (
         <div 
           className="h-full flex items-center justify-center cursor-pointer"
@@ -255,35 +237,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         </div>
       )}
 
-      <div className="absolute top-2 right-2 flex items-center space-x-2">
-        {isStreaming && displayFps > 0 && (
-          <div className="bg-black/50 text-white px-2 py-1 rounded text-xs">
-            {displayFps} FPS
-          </div>
-        )}
-      </div>
-
-      <div className="absolute top-2 left-2 flex items-center space-x-2">
-        {isStreaming && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-black/50 text-white hover:bg-black/70 h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDetections(!showDetections);
-            }}
-            title={showDetections ? 'Hide detections' : 'Show detections'}
-          >
-            {showDetections ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-          </Button>
-        )}
-        {detections.length > 0 && (
-          <div className="bg-green-500/80 text-white px-2 py-1 rounded text-xs">
-            {detections.length} detected
-          </div>
-        )}
-      </div>
+       <div className="absolute top-2 right-2 flex items-center space-x-2">
+         {isStreaming && displayFps > 0 && (
+           <div className="bg-black/50 text-white px-2 py-1 rounded text-xs">
+             {displayFps} FPS
+           </div>
+         )}
+       </div>
 
       <div className="absolute bottom-2 right-2 flex items-center space-x-2">
         <Button 

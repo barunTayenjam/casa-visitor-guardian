@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Calendar, 
-  Camera as CameraIcon, 
-  Clock, 
-  MapPin, 
+import {
+  Calendar,
+  Camera as CameraIcon,
+  Clock,
+  MapPin,
   Activity,
   Eye,
   Maximize2,
@@ -14,12 +14,12 @@ import {
   ChevronRight,
   Share2
 } from 'lucide-react';
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious
 } from '@/components/ui/carousel';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Detection } from '@/types/security';
+import { DetectionOverlay } from './DetectionOverlay';
 import { MotionEvent } from '@/types/security';
 import apiService from '@/services/ApiService';
 
@@ -278,11 +280,56 @@ export const RecentDetectionsCarousel = ({ limit = 12 }: RecentDetectionsCarouse
                   {/* Large Image Preview */}
                   <div className="relative bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
                     {selectedEvent.imageUrl ? (
-                      <img
-                        src={selectedEvent.imageUrl}
-                        alt={`Detection from ${selectedEvent.cameraName}`}
-                        className="w-full h-auto object-contain max-h-[60vh]"
-                      />
+                      <>
+                        <img
+                          src={selectedEvent.imageUrl}
+                          alt={`Detection from ${selectedEvent.cameraName}`}
+                          className="w-full h-auto object-contain max-h-[60vh]"
+                        />
+                        {/* Detection Overlay with Bounding Boxes */}
+                        {selectedEvent.detections && selectedEvent.detections.length > 0 && (
+                          <div className="absolute inset-0 pointer-events-none">
+                            {selectedEvent.detections.map((detection, index) => (
+                              <div
+                                key={`${detection.type}-${index}`}
+                                className="absolute border-2 rounded"
+                                style={{
+                                  left: `${detection.boundingBox?.x || 0}px`,
+                                  top: `${detection.boundingBox?.y || 0}px`,
+                                  width: `${detection.boundingBox?.width || 0}px`,
+                                  height: `${detection.boundingBox?.height || 0}px`,
+                                  borderColor:
+                                    detection.type === 'person'
+                                      ? '#00ff00'
+                                      : detection.type === 'face'
+                                        ? '#ff00ff'
+                                        : '#00ffff',
+                                  backgroundColor:
+                                    detection.type === 'person'
+                                      ? 'rgba(0, 255, 0, 0.3)'
+                                      : detection.type === 'face'
+                                        ? 'rgba(255, 0, 255, 0.3)'
+                                        : 'rgba(0, 255, 255, 0.3)',
+                                }}
+                              >
+                                <div className="absolute -top-6 left-0 right-0 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium flex items-center justify-between">
+                                  <span className="flex items-center gap-1">
+                                    <span className="capitalize">{detection.type}</span>
+                                    {detection.name && (
+                                      <span className="text-gray-300">
+                                        {detection.isKnown ? '✓' : '?'}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="bg-black/50 px-1.5 py-0.5 rounded text-[10px]">
+                                    {Math.round(detection.confidence * 100)}%
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="w-full aspect-video flex items-center justify-center">
                         <CameraIcon className="w-20 h-20 text-slate-600" />

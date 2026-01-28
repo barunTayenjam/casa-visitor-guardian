@@ -201,7 +201,14 @@ export class StreamManager {
       const isDetect = role === 'detect';
       const width = isDetect ? detectConfig.width : 1920;
       const height = isDetect ? detectConfig.height : 1080;
-      const fps = isDetect ? detectConfig.fps : 15;
+      
+      // Get FPS based on role and config
+      let fps = 4; // Default for non-detect streams
+      if (isDetect) {
+        fps = detectConfig.fps;
+      } else if (camera.config.live && camera.config.live.fps) {
+        fps = camera.config.live.fps;
+      }
 
       const ffmpegArgs = [
         "-loglevel", "error",

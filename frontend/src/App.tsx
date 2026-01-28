@@ -20,6 +20,7 @@ const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
 const VisitorReports = lazy(() => import("./pages/VisitorReports"));
 const SystemLogs = lazy(() => import("./pages/SystemLogs"));
 const OpenCV = lazy(() => import("./pages/OpenCV"));
+const Review = lazy(() => import("./pages/Review"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -141,7 +142,13 @@ const App = () => {
                       </ErrorBoundary>
                     } />
 
-                   <Route path="settings" element={
+                    <Route path="review" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <Review />
+                      </ErrorBoundary>
+                    } />
+
+                    <Route path="settings" element={
                        <ErrorBoundary fallback={ErrorFallback}>
                          <ProtectedRoute requiredRole="user">
                            <Settings />

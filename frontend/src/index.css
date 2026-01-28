@@ -97,6 +97,21 @@
   .motion-event {
     @apply transition-all duration-200 hover:shadow-lg hover:scale-[1.02];
   }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
 }
 
 .debug-border {

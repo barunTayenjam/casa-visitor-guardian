@@ -1842,19 +1842,29 @@ class ApiService {
           // Get the last part after the final slash
           const pathParts = event.imagePath.split('/');
           filename = pathParts[pathParts.length - 1];
+        } else if (event.filename) {
+          // Backend might provide filename directly
+          filename = event.filename;
         }
 
         return {
           ...event,
-          timestamp: new Date(event.timestamp),
-          imageUrl: filename ? this.getEventImageUrl(filename) : null,
-          // Add metadata fields from the backend response
+          id: event.id,
+          cameraId: event.cameraId || 'unknown',
+          cameraName: event.cameraName || event.cameraId || 'Unknown Camera',
+          location: event.location || 'Unknown',
+          duration: event.duration || 0,
+          labels: event.labels || event.metadata?.detection_types || (event.event_type === 'motion' ? ['motion'] : ['detection']),
+          timestamp: event.timestamp ? new Date(event.timestamp) : (event.metadata?.detected_at ? new Date(event.metadata.detected_at) : new Date()),
+          // Use the imageUrl from backend response directly if available, otherwise construct it
+          imageUrl: event.imageUrl || (filename ? this.getEventImageUrl(filename) : null),
+          // Add metadata fields from backend response
           hasPersons: event.metadata?.hasPersons,
-          personCount: event.metadata?.personCount,
+          personCount: event.metadata?.personCount || event.metadata?.persons_detected || 0,
           hasFaces: event.metadata?.hasFaces,
-          faceCount: event.metadata?.faceCount,
-          knownFaces: event.metadata?.knownFaces,
-          unknownFaces: event.metadata?.unknownFaces,
+          faceCount: event.metadata?.faceCount || event.metadata?.faces_detected || 0,
+          knownFaces: event.metadata?.knownFaces || event.metadata?.known_faces_count || 0,
+          unknownFaces: event.metadata?.unknownFaces || event.metadata?.unknown_faces_count || 0,
           lightLevel: event.metadata?.lightLevel,
           motionArea: event.metadata?.motionArea,
           metadata: event.metadata,

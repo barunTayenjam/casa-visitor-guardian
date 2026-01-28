@@ -111,12 +111,17 @@ export interface RecordConfig {
   };
 }
 
+export interface LiveConfig {
+  fps?: number;
+}
+
 export interface CameraConfig {
   id: string;
   name: string;
   enabled: boolean;
   streams: CameraStreamConfig[];
   detect: DetectConfig;
+  live?: LiveConfig;
   record?: RecordConfig;
   zones?: ZoneConfig[];
   objects?: {

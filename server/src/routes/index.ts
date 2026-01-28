@@ -2390,7 +2390,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         let unknown_faces_count = metadata.unknownFaces || 0;
 
         // Extract detection arrays from metadata
-        let object_detections = metadata.persons || [];
+        let object_detections = metadata.detections || metadata.persons || [];
         let face_detections = metadata.faces || [];
 
         // Extract just the filename from the full path for frontend compatibility
@@ -3650,7 +3650,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         let unknown_faces_count = metadata.unknownFaces || 0;
 
         // Extract detection arrays from metadata
-        let object_detections = metadata.persons || [];
+        let object_detections = metadata.detections || metadata.persons || [];
         let face_detections = metadata.faces || [];
 
         // Extract just the filename from the full path for frontend compatibility

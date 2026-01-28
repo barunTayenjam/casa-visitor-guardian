@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { cacheService } from './cacheService.js';
+import { cacheService } from '../cacheService.js';
 
 interface PreviewOptions {
   fps?: number;

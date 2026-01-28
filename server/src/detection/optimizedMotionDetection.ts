@@ -451,6 +451,7 @@ export class OptimizedMotionDetector extends EventEmitter {
     unknownFaces: number;
     persons: DetectionResult[];
     faces: FaceDetection[];
+    allDetections: DetectionResult[];
   }> {
     const result = {
       hasPersons: false,
@@ -460,26 +461,28 @@ export class OptimizedMotionDetector extends EventEmitter {
       knownFaces: 0,
       unknownFaces: 0,
       persons: [] as DetectionResult[],
-      faces: [] as FaceDetection[]
+      faces: [] as FaceDetection[],
+      allDetections: [] as DetectionResult[]
     };
 
     try {
       // Use the detection service if available
       if (this.detectionService) {
-        // Run person detection
+        // Run object detection
         try {
-          const personResult = await this.detectionService.detectObjects(cameraId, frame);
+          const objectResult = await this.detectionService.detectObjects(cameraId, frame);
           
-          if (personResult && personResult.detections) {
-            const persons = personResult.detections.filter((d: DetectionResult) => d.class === 'person');
+          if (objectResult && objectResult.detections) {
+            const persons = objectResult.detections.filter((d: DetectionResult) => d.class === 'person');
             if (persons.length > 0) {
               result.hasPersons = true;
               result.personCount = persons.length;
-              result.persons = persons;
+              result.persons = objectResult.detections;
+              result.allDetections = objectResult.detections;
             }
           }
         } catch (error) {
-          console.warn(`Person detection failed for ${cameraId}:`, error);
+          console.warn(`Object detection failed for ${cameraId}:`, error);
         }
         
         // Run face detection
@@ -505,21 +508,22 @@ export class OptimizedMotionDetector extends EventEmitter {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const facialRecognitionService = consolidatedDetectionService;
         
-        // Run person detection if available
+        // Run object detection if available
         if (objectDetectionService) {
           try {
-            const personResult = await objectDetectionService.detectObjects(cameraId, frame);
+            const objectResult = await objectDetectionService.detectObjects(cameraId, frame);
             
-            if (personResult && personResult.detections) {
-              const persons = personResult.detections.filter((d: DetectionResult) => d.class === 'person');
+            if (objectResult && objectResult.detections) {
+              const persons = objectResult.detections.filter((d: DetectionResult) => d.class === 'person');
               if (persons.length > 0) {
                 result.hasPersons = true;
                 result.personCount = persons.length;
-                result.persons = persons;
+                result.persons = objectResult.detections;
+                result.allDetections = objectResult.detections;
               }
             }
           } catch (error) {
-            console.warn(`Person detection failed for ${cameraId}:`, error);
+            console.warn(`Object detection failed for ${cameraId}:`, error);
           }
         }
         
@@ -663,6 +667,13 @@ export class OptimizedMotionDetector extends EventEmitter {
           `;
 
           const now = new Date();
+          const allDetections = analysisResult?.allDetections || [];
+          const uniqueClasses = new Set(allDetections.map((d: any) => d.class));
+          const objectCounts: Record<string, number> = {};
+          uniqueClasses.forEach((cls: string) => {
+            objectCounts[cls] = allDetections.filter((d: any) => d.class === cls).length;
+          });
+
           const result = await AppDataSource.query(insertQuery, [
             'event_motion', // file_type
             cameraId, // camera_id
@@ -680,11 +691,19 @@ export class OptimizedMotionDetector extends EventEmitter {
               personCount: analysisResult?.personCount || 0,
               faceCount: analysisResult?.faceCount || 0,
               knownFaces: analysisResult?.knownFaces || 0,
-              unknownFaces: analysisResult?.unknownFaces || 0
+              unknownFaces: analysisResult?.unknownFaces || 0,
+              totalDetections: allDetections.length,
+              uniqueClasses: Array.from(uniqueClasses),
+              objectCounts,
+              detections: allDetections.map((d: any) => ({
+                class: d.class,
+                confidence: d.confidence,
+                bbox: d.bbox
+              }))
             } // metadata
           ]);
 
-          console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${motionData.confidence}% confidence)`);
+          console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${allDetections.length} detections)`);
         } catch (dbError) {
           console.error('Error indexing motion event in database:', dbError);
           // Continue execution even if database indexing fails

@@ -689,24 +689,9 @@ export async function setupRTSPStreams(
     });
   }, 2000); // Wait 2 seconds before starting streams
 
-    // Setup motion simulation
-    setInterval(() => {
-      console.log('[StreamManager] Simulation tick - checking for active cameras...');
-      const cameras = streamManager.getAllCameras();
-      const activeCameras = cameras.filter((cam) => cam.isActive);
-      console.log(`[StreamManager] Found ${activeCameras.length} active cameras out of ${cameras.length} total`);
-
-      if (activeCameras.length > 0) {
-        // Randomly choose a camera to simulate motion on occasionally
-        if (Math.random() < 0.15) {
-          // 15% chance every 30 seconds = ~1-2 events per minute for testing
-          const randomCamera =
-            activeCameras[Math.floor(Math.random() * activeCameras.length)];
-          console.log(`[StreamManager] Simulating motion detection for camera: ${randomCamera.id}`);
-          streamManager.simulateMotionDetection(randomCamera.id);
-        }
-      }
-    }, 30000); // Check every 30 seconds
+    // SIMULATION MODE DISABLED - Motion simulation has been removed for production use
+    // Only real motion detection from cameras will generate events
+    console.log('[StreamManager] Simulation mode DISABLED - only real motion will be detected');
 
   return streamManager;
 }

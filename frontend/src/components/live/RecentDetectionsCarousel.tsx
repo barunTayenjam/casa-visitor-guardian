@@ -140,17 +140,17 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" style={{ color: colors.status.warning }} />
               <h2 className="text-sm font-semibold text-white/90">Recent Detections</h2>
-              <span className="text-xs text-white/50">Last {limit} events</span>
+              <span className="text-xs text-white/50 hidden sm:inline">Last {limit} events</span>
             </div>
           </div>
 
           {/* Horizontal Scroll Container */}
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {events.map((event) => (
               <div
                 key={event.id}
                 className="relative group flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-105"
-                style={{ width: '160px' }}
+                style={{ width: '120px', minWidth: '120px' }}
                 onClick={() => handleEventClick(event)}
               >
                 {/* Event Card */}
@@ -188,52 +188,27 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
 
       {/* Modal for Enlarged View */}
       {selectedEvent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.90)',
-            backdropFilter: 'blur(10px)',
-          }}
-          onClick={() => setSelectedEvent(null)}
-        >
-          <div
-            className="relative max-w-5xl w-full bg-slate-900 rounded-xl overflow-hidden border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)', backdropFilter: 'blur(10px)' }} onClick={() => setSelectedEvent(null)}>
+          <div className="relative max-w-5xl w-full bg-slate-900 rounded-xl overflow-hidden border border-white/10 max-h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Close Button */}
-            <button
-              className="absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all"
-              onClick={() => setSelectedEvent(null)}
-            >
-              <X className="h-5 w-5" />
+            <button className="absolute top-2 md:top-4 right-2 md:right-4 z-10 h-8 w-8 md:h-10 md:w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all" onClick={() => setSelectedEvent(null)}>
+              <X className="h-4 w-4 md:h-5 md:w-5" />
             </button>
 
             {/* Image */}
-            <div className="relative bg-black">
-              <img
-                src={selectedEvent.imageUrl}
-                alt={selectedEvent.event_type}
-                className="w-full object-contain max-h-[70vh]"
-                onError={(e) => {
-                  e.currentTarget.src = '/placeholder-event.svg';
-                }}
-              />
+            <div className="relative bg-black flex-1">
+              <img src={selectedEvent.imageUrl} alt={selectedEvent.event_type} className="w-full object-contain max-h-[50vh] md:max-h-[70vh]" onError={(e) => {
+                e.currentTarget.src = '/placeholder-event.svg';
+              }} />
             </div>
 
             {/* Details Panel */}
-            <div className="p-6">
-              <div className="flex items-start justify-between">
+            <div className="p-4 md:p-6 overflow-y-auto">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div className="flex-1">
                   {/* Event Type and Camera */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="px-3 py-1.5 rounded-full text-sm font-medium"
-                      style={{
-                        backgroundColor: `${getEventTypeColor(selectedEvent.event_type)}20`,
-                        color: getEventTypeColor(selectedEvent.event_type),
-                        border: `1px solid ${getEventTypeColor(selectedEvent.event_type)}40`,
-                      }}
-                    >
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                    <div className="px-3 py-1.5 rounded-full text-sm font-medium" style={{ backgroundColor: `${getEventTypeColor(selectedEvent.event_type)}20`, color: getEventTypeColor(selectedEvent.event_type), border: `1px solid ${getEventTypeColor(selectedEvent.event_type)}40` }}>
                       {selectedEvent.event_type}
                     </div>
                     <div className="text-white/60">•</div>
@@ -247,13 +222,13 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
                   </div>
 
                   {/* Timestamp */}
-                  <div className="flex items-center gap-2 text-sm text-white/60 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-white/60 mb-3 md:mb-4">
                     <Calendar className="h-4 w-4" />
                     <span>{new Date(selectedEvent.timestamp).toLocaleString()}</span>
                   </div>
 
                   {/* Detection Counts */}
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-3 md:mb-4">
                     {selectedEvent.persons_detected !== undefined && selectedEvent.persons_detected > 0 && (
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-white/60">Persons:</span>
@@ -270,14 +245,11 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
 
                   {/* Object Detections */}
                   {selectedEvent.object_detections && selectedEvent.object_detections.length > 0 && (
-                    <div className="mt-4">
+                    <div>
                       <p className="text-sm text-white/60 mb-2">Detected Objects:</p>
                       <div className="flex flex-wrap gap-2">
                         {selectedEvent.object_detections.map((obj, idx) => (
-                          <div
-                            key={idx}
-                            className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-white/80"
-                          >
+                          <div key={idx} className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-white/80">
                             {obj.label} ({Math.round(obj.confidence)}%)
                           </div>
                         ))}

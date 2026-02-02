@@ -93,7 +93,7 @@ const StreamDashboard = () => {
     >
       {/* Top Navigation Bar - Minimalist */}
       <div
-        className="relative z-30 px-6 py-3 border-b"
+        className="relative z-30 px-4 md:px-6 py-3 border-b"
         style={{
           background: colors.glass.light,
           backdropFilter: 'blur(10px)',
@@ -102,29 +102,29 @@ const StreamDashboard = () => {
       >
         <div className="flex items-center justify-between">
           {/* Left: Logo and Status */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-2 md:gap-3">
               <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: colors.interactive.hover }}
               >
-                <Shield className="h-5 w-5" style={{ color: colors.status.success }} />
+                <Shield className="h-4 w-4 md:h-5 md:w-5" style={{ color: colors.status.success }} />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-white">SentryVision</h1>
-                <p className="text-xs text-white/60">
+                <h1 className="text-base md:text-lg font-semibold text-white">SentryVision</h1>
+                <p className="text-xs text-white/60 hidden sm:block">
                   {activeCameras.length} cameras online
                 </p>
               </div>
             </div>
 
             <div
-              className="h-8 w-px"
+              className="h-8 w-px hidden md:block"
               style={{ backgroundColor: colors.border.subtle }}
             />
 
-            {/* Quick Stats */}
-            <div className="flex items-center gap-4">
+            {/* Quick Stats - Hide on mobile */}
+            <div className="flex items-center gap-4 hidden md:flex">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-white/60" />
                 <span className="text-sm text-white/80">Live Monitoring</span>
@@ -140,8 +140,8 @@ const StreamDashboard = () => {
               className="text-white/80 hover:text-white hover:bg-white/5"
               onClick={() => navigate('/app/events')}
             >
-              <Calendar className="h-4 w-4 mr-2" />
-              Events
+              <Calendar className="h-4 w-4 mr-0 md:mr-2" />
+              <span className="hidden md:inline">Events</span>
             </Button>
           </div>
         </div>

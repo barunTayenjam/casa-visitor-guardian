@@ -215,12 +215,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             <p className="text-red-500 text-sm font-medium">Camera Offline</p>
           </div>
         </div>
-        ) : isStreaming && currentFrame ? (
+         ) : isStreaming && currentFrame ? (
          <>
          <img
            src={currentFrame}
            alt={`${camera.name} stream`}
-           className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
+           className="h-full w-full object-contain"
          />
          <DetectionOverlay
            cameraId={camera.id}

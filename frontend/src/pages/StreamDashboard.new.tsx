@@ -4,6 +4,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { useToast } from '@/hooks/use-toast';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { QuickActionsBar } from '@/components/live/QuickActionsBar';
+import { RecentDetectionsCarousel } from '@/components/live/RecentDetectionsCarousel';
 import { colors, spacing } from '@/styles/design-tokens';
 import { Shield, Activity, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,9 @@ const StreamDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Recent Detections Carousel */}
+      <RecentDetectionsCarousel limit={12} />
 
       {/* Main Content - Camera Grid */}
       <div className="flex-1 relative overflow-hidden">

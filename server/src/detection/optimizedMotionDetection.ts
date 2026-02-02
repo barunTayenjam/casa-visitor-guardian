@@ -118,17 +118,17 @@ export class OptimizedMotionDetector extends EventEmitter {
     this.streamManager.getAllCameras().forEach(camera => {
       this.cameraSettings.set(camera.id, {
         enabled: true,
-        sensitivity: 30,
-        cooldownPeriod: 30000, // 30 seconds (was 10)
-        detectionInterval: 2000, // 2 seconds (was 500ms)
-        minConfidence: 60, // Minimum confidence to trigger
-        maxEventsPerHour: 50, // Rate limiting
+        sensitivity: 90, // Increased to 90 for maximum sensitivity
+        cooldownPeriod: 10000, // Reduced from 30s to 10s (faster detection)
+        detectionInterval: 3000, // Reduced from 5s to 3s (more frequent checks)
+        minConfidence: 5, // Lowered from 40 to 5 to catch any motion
+        maxEventsPerHour: 100, // Increased from 30 to allow more events
         adaptiveMode: true,
-        nightModeSensitivity: 50, // Higher sensitivity at night
+        nightModeSensitivity: 90, // Maximum sensitivity for night
         quietHours: { start: '22:00', end: '06:00' }, // Reduce alerts at night
         autoDetectObjects: true,      // Automatically run object detection
         autoDetectFaces: true,        // Automatically run face detection
-        detectionPriority: 'immediate' // When to run detection
+        detectionPriority: 'deferred' // Changed from 'immediate' to reduce CPU load
       });
     });
   }
@@ -197,26 +197,29 @@ export class OptimizedMotionDetector extends EventEmitter {
   private getAdaptiveInterval(cameraId: string): number {
     const settings = this.cameraSettings.get(cameraId);
     if (!settings || !settings.adaptiveMode) {
-      return settings?.detectionInterval || 2000;
+      return settings?.detectionInterval || 5000;
     }
-
+ 
     let interval = settings.detectionInterval;
-
+    
     // Adjust for quiet hours
     if (this.isQuietHours(settings)) {
       interval *= 2; // Double the interval during quiet hours
     }
-
-    // Adjust based on recent activity
+    
+    // Adjust based on recent activity - BE MORE CONSERVATIVE
     const lastEvent = this.lastEventTimes.get(cameraId) || 0;
     const timeSinceLastEvent = Date.now() - lastEvent;
     
     if (timeSinceLastEvent > 300000) { // 5 minutes no activity
-      interval *= 1.5; // Reduce frequency
-    } else if (timeSinceLastEvent < 60000) { // Recent activity
-      interval = Math.max(1000, interval * 0.8); // Increase frequency
+      interval *= 1.5; // Reduce frequency (check less often)
+    } else if (timeSinceLastEvent < 60000) { // Recent activity - DON'T increase too much
+      interval = Math.max(3000, interval * 0.9); // Only slightly increase, minimum 3s
     }
-
+    
+    // Enforce minimum interval to prevent excessive CPU usage
+    interval = Math.max(3000, interval); // Minimum 3 seconds
+    
     return Math.round(interval);
   }
 
@@ -234,6 +237,12 @@ export class OptimizedMotionDetector extends EventEmitter {
           ...Array.from(this.cameraSettings.keys()).map(id => this.getAdaptiveInterval(id))
         );
         
+        console.log(`[OptimizedMotion] Scheduling next detection in ${nextInterval}ms`);
+        this.detectionInterval = setTimeout(scheduleNextDetection, nextInterval);
+      }).catch(error => {
+        console.error('[OptimizedMotion] Detection cycle failed:', error);
+        // Schedule next detection even if this one failed
+        const nextInterval = 5000;
         this.detectionInterval = setTimeout(scheduleNextDetection, nextInterval);
       });
     };
@@ -259,6 +268,7 @@ export class OptimizedMotionDetector extends EventEmitter {
   private async detectMotionOnAllCameras(): Promise<void> {
     const startTime = Date.now();
     const cameras = this.streamManager.getAllCameras();
+    console.log(`[OptimizedMotion] Running detection on ${cameras.length} cameras`);
     
     // Process cameras in parallel with limited concurrency
     const batchSize = 3; // Process max 3 cameras simultaneously
@@ -279,6 +289,7 @@ export class OptimizedMotionDetector extends EventEmitter {
   private async detectMotionOnCamera(cameraId: string): Promise<void> {
     const settings = this.cameraSettings.get(cameraId);
     if (!settings || !settings.enabled) {
+      console.log(`[OptimizedMotion] Skipping ${cameraId}: settings not found or disabled`);
       return;
     }
 
@@ -286,6 +297,7 @@ export class OptimizedMotionDetector extends EventEmitter {
     const now = Date.now();
     const lastEvent = this.lastEventTimes.get(cameraId) || 0;
     if (now - lastEvent < settings.cooldownPeriod) {
+      console.log(`[OptimizedMotion] ${cameraId}: In cooldown (${Math.round((now - lastEvent)/1000)}s/${settings.cooldownPeriod/1000}s)`);
       return;
     }
 
@@ -293,14 +305,17 @@ export class OptimizedMotionDetector extends EventEmitter {
     const hourKey = `${cameraId}_${new Date().getHours()}`;
     const eventCount = this.eventCounts.get(hourKey) || 0;
     if (eventCount >= settings.maxEventsPerHour) {
+      console.log(`[OptimizedMotion] ${cameraId}: Hourly limit reached (${eventCount}/${settings.maxEventsPerHour})`);
       return;
     }
 
     // Get current frame
     const currentFrame = this.streamManager.getLastFrame(cameraId);
     if (!currentFrame || currentFrame.length === 0) {
+      console.log(`[OptimizedMotion] ${cameraId}: No frame available`);
       return;
     }
+    console.log(`[OptimizedMotion] ${cameraId}: Processing frame (${currentFrame.length} bytes)`);
 
     // Add to frame buffer for smoothing
     if (!this.frameBuffer.has(cameraId)) {
@@ -317,17 +332,21 @@ export class OptimizedMotionDetector extends EventEmitter {
 
     // Need at least 2 frames for comparison
     if (buffer.length < 2) {
+      console.log(`[OptimizedMotion] ${cameraId}: Not enough frames in buffer (${buffer.length}/2)`);
       return;
     }
 
     try {
-      // Use worker thread for CPU-intensive comparison
+      console.log(`[OptimizedMotion] ${cameraId}: Comparing frames (buffer size: ${buffer.length})...`);
+      // Compare first and last frame in buffer for more significant motion detection
+      // Frames are ~1-2 seconds apart, so comparing first and last gives 2-4 seconds difference
       const motionDetected = await this.compareFramesAsync(
-        buffer[buffer.length - 2],
-        buffer[buffer.length - 1],
+        buffer[0],  // Oldest frame
+        buffer[buffer.length - 1],  // Newest frame
         settings.sensitivity
       );
 
+      console.log(`[OptimizedMotion] ${cameraId}: Motion confidence ${motionDetected.confidence.toFixed(1)}% (threshold: ${settings.minConfidence}%)`);
       if (motionDetected.confidence > settings.minConfidence) {
         await this.handleMotionDetected(cameraId, currentFrame, motionDetected);
       }
@@ -336,19 +355,80 @@ export class OptimizedMotionDetector extends EventEmitter {
     }
   }
 
-  // Asynchronous frame comparison using worker thread
+  // Asynchronous frame comparison using OpenCV service
   private async compareFramesAsync(
     frame1: Buffer, 
     frame2: Buffer, 
     sensitivity: number
   ): Promise<{ confidence: number; motionArea: number }> {
     return new Promise((resolve, reject) => {
-      // For now, use simple synchronous comparison
-      // In production, this would use a worker thread
       try {
-        const sizeDiff = Math.abs(frame2.length - frame1.length);
-        const confidence = Math.min(100, Math.round((sizeDiff / 10000) * 100));
-        const motionArea = Math.round(sizeDiff / 1000); // Estimated area
+        // Use OpenCV service for proper frame comparison
+        const formData = new FormData();
+        const blob1 = new Blob([new Uint8Array(frame1)], { type: 'image/jpeg' });
+        const blob2 = new Blob([new Uint8Array(frame2)], { type: 'image/jpeg' });
+        formData.append('image1', blob1, 'frame1.jpg');
+        formData.append('image2', blob2, 'frame2.jpg');
+
+        fetch(`${process.env.OPENCV_SERVICE_URL || 'http://localhost:8084'}/detect-motion`, {
+          method: 'POST',
+          body: formData,
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        })
+          .then(response => response.json())
+          .then(data => {
+            console.log(`[OptimizedMotion] OpenCV response:`, JSON.stringify(data).substring(0, 200));
+            if (data.success) {
+              // Use the confidence from OpenCV service
+              const confidence = data.confidence || 0;
+              const motionArea = data.motion_pixel_count || 0;
+              
+              // Adjust confidence based on sensitivity setting
+              // sensitivity is 0-100, higher = more sensitive
+              const adjustedConfidence = confidence * (sensitivity / 50);
+              
+              resolve({ 
+                confidence: Math.min(100, adjustedConfidence), 
+                motionArea 
+              });
+            } else {
+              // Fallback to simple comparison if service fails
+              console.log(`[OptimizedMotion] OpenCV service failed, using fallback`);
+              this.fallbackCompareFrames(frame1, frame2, sensitivity).then(resolve).catch(reject);
+            }
+          })
+          .catch(error => {
+            // Use fallback on error
+            console.warn('OpenCV motion detection failed, using fallback:', error.message);
+            this.fallbackCompareFrames(frame1, frame2, sensitivity).then(resolve).catch(reject);
+          });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  
+  // Fallback frame comparison when OpenCV service is unavailable
+  private async fallbackCompareFrames(
+    frame1: Buffer, 
+    frame2: Buffer, 
+    sensitivity: number
+  ): Promise<{ confidence: number; motionArea: number }> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Sample-based comparison (more accurate than simple size diff)
+        const sampleSize = Math.min(1000, Math.floor(frame1.length / 100));
+        let diffSum = 0;
+        
+        for (let i = 0; i < sampleSize; i++) {
+          const idx = Math.floor(Math.random() * Math.min(frame1.length, frame2.length));
+          const diff = Math.abs(frame1[idx] - frame2[idx]);
+          diffSum += diff;
+        }
+        
+        const avgDiff = diffSum / sampleSize;
+        const confidence = Math.min(100, (avgDiff / 10) * (sensitivity / 50));
+        const motionArea = Math.round(avgDiff * 10);
         
         resolve({ confidence, motionArea });
       } catch (error) {
@@ -654,6 +734,7 @@ export class OptimizedMotionDetector extends EventEmitter {
         try {
           const insertQuery = `
             INSERT INTO detection_files (
+              file_uuid,
               file_type,
               camera_id,
               original_filename,
@@ -662,7 +743,15 @@ export class OptimizedMotionDetector extends EventEmitter {
               file_hash,
               capture_timestamp,
               metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (file_uuid)
+            DO UPDATE SET
+              storage_path = EXCLUDED.storage_path,
+              file_size = EXCLUDED.file_size,
+              file_hash = EXCLUDED.file_hash,
+              capture_timestamp = EXCLUDED.capture_timestamp,
+              metadata = EXCLUDED.metadata,
+              updated_at = NOW()
             RETURNING file_uuid
           `;
 
@@ -674,15 +763,24 @@ export class OptimizedMotionDetector extends EventEmitter {
             objectCounts[cls] = allDetections.filter((d: any) => d.class === cls).length;
           });
 
+          // Calculate file hash
+          const crypto = await import('node:crypto');
+          const fileHash = crypto.createHash('sha256').update(frame).digest('hex');
+
+          const fileStats = await fs.promises.stat(filepath);
+          const fileUuid = crypto.randomUUID();
+          const originalFilename = path.basename(filepath);
+
           const result = await AppDataSource.query(insertQuery, [
+            fileUuid, // file_uuid
             'event_motion', // file_type
             cameraId, // camera_id
-            filename, // original_filename
+            originalFilename, // original_filename
             filepath, // storage_path
-            frame.length, // file_size
+            fileStats.size, // file_size
             fileHash, // file_hash
             now, // capture_timestamp
-            {
+            JSON.stringify({
               confidence: motionData.confidence,
               motionArea: motionData.motionArea,
               lightLevel: this.estimateLightLevel(frame),
@@ -700,12 +798,12 @@ export class OptimizedMotionDetector extends EventEmitter {
                 confidence: d.confidence,
                 bbox: d.bbox
               }))
-            } // metadata
+            }) // metadata
           ]);
 
-          console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${allDetections.length} detections)`);
+          console.log(`Motion event saved to database: ${filename} (${frame.length} bytes, ${allDetections.length} detections)`);
         } catch (dbError) {
-          console.error('Error indexing motion event in database:', dbError);
+          console.error('Error saving motion event to database:', dbError);
           // Continue execution even if database indexing fails
         }
 

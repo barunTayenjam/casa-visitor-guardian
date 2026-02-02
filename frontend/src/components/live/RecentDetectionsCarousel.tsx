@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { X, ZoomIn, Calendar, AlertTriangle } from 'lucide-react';
 import { colors, spacing } from '@/styles/design-tokens';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface DetectionEvent {
     label: string;
     confidence: number;
   }>;
+  formattedTime?: string;
 }
 
 interface RecentDetectionsCarouselProps {
@@ -89,17 +90,25 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+  // Memoize formatted timestamps to avoid recalculating on every render
+  const formattedEvents = useMemo(() => {
+    const formatTimestamp = (timestamp: string) => {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-    return `${Math.floor(diffMins / 1440)}d ago`;
-  };
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+      return `${Math.floor(diffMins / 1440)}d ago`;
+    };
+
+    return events.map(event => ({
+      ...event,
+      formattedTime: formatTimestamp(event.timestamp),
+    }));
+  }, [events]);
 
   if (loading) {
     return (
@@ -176,7 +185,7 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
                   {/* Subtle Timestamp Badge - Bottom Right */}
                   <div className="absolute bottom-2 right-2">
                     <div className="px-2 py-1 rounded text-xs font-medium bg-black/40 backdrop-blur-sm text-white/80">
-                      {formatTimestamp(event.timestamp)}
+                      {event.formattedTime}
                     </div>
                   </div>
                 </div>

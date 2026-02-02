@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Camera } from '@/types/security';
 import { CameraStream } from '@/components/dashboard/CameraStream';
-import { Grid3x3, Maximize2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

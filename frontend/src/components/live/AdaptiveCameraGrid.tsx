@@ -142,20 +142,6 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 
                   {/* Camera Stream */}
                   <CameraStream camera={camera} autoStart={true} />
-
-                  {/* Status Overlay - Top Left */}
-                  <div className="absolute top-4 left-4 z-10 flex items-center gap-2 pointer-events-none">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10">
-                      <div className={cn('w-2 h-2 rounded-full animate-pulse', camera.status === 'online' ? 'bg-green-500' : 'bg-red-500')} />
-                      <span className="text-xs font-medium text-white/90">{camera.name}</span>
-                      {camera.status === 'online' && <span className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">LIVE</span>}
-                    </div>
-                  </div>
-
-                  {/* Timestamp Overlay - Bottom Left */}
-                  <div className="absolute bottom-4 left-4 z-10 px-2 py-1 rounded backdrop-blur-sm bg-black/60 border border-white/10 pointer-events-none">
-                    <span className="text-xs font-mono text-white/80">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
-                  </div>
                 </div>
               );
             })()}
@@ -171,34 +157,6 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
               >
                 {/* Camera Stream */}
                 <CameraStream camera={camera} autoStart={true} />
-
-                {/* Status Overlay - Top Left */}
-                <div className="absolute top-3 left-3 z-10 flex items-center gap-2 pointer-events-none">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10">
-                    <div className={cn('w-2 h-2 rounded-full animate-pulse', camera.status === 'online' ? 'bg-green-500' : 'bg-red-500')} />
-                    <span className="text-xs font-medium text-white/90">{camera.name}</span>
-                    {camera.status === 'online' && <span className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">LIVE</span>}
-                  </div>
-                </div>
-
-                {/* Timestamp Overlay - Bottom Left */}
-                <div className="absolute bottom-3 left-3 z-10 px-2 py-1 rounded backdrop-blur-sm bg-black/60 border border-white/10 pointer-events-none">
-                  <span className="text-xs font-mono text-white/80">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
-                </div>
-
-                {/* Expand Button - Bottom Right */}
-                <div className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    className="h-8 w-8 flex items-center justify-center rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCameraClick(camera.id);
-                    }}
-                    title="Expand to fullscreen"
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </button>
-                </div>
               </div>
             ))}
           </div>

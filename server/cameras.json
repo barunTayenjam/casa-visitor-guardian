@@ -6,11 +6,10 @@
         "streams": [
             {
                 "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream1",
-                "roles": ["live"]
-            },
-            {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream2",
-                "roles": ["detect", "record"]
+                "roles": ["live", "detect", "record"],
+                "width": 1920,
+                "height": 1080,
+                "fps": 4
             }
         ],
         "detect": {
@@ -104,11 +103,10 @@
         "streams": [
             {
                 "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream1",
-                "roles": ["live"]
-            },
-            {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream2",
-                "roles": ["detect", "record"]
+                "roles": ["live", "detect", "record"],
+                "width": 1920,
+                "height": 1080,
+                "fps": 4
             }
         ],
         "detect": {

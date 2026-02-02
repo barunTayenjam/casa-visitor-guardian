@@ -1,18 +1,21 @@
 # Backend Dockerfile with tsx pre-installed for development
 FROM node:20-alpine
 
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    && npm install -g tsx
-
 WORKDIR /app
 
-# Copy package files
-COPY package.json .
-COPY package-lock.json .
+# Install dependencies for native modules and timezone support
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    postgresql-client \
+    tzdata
 
-# Install dependencies
+# Set timezone
+ENV TZ=Asia/Kolkata
+
+# Install dependencies (copy package files first for better caching)
+COPY package*.json ./
 RUN npm install
 
 # Copy source code

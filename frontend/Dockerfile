@@ -1,8 +1,13 @@
 # Frontend Dockerfile with vite pre-installed
 FROM node:20-alpine
 
-# Install system dependencies
-RUN apk add --no-cache
+# Install system dependencies and timezone support
+RUN apk add --no-cache \
+    curl \
+    tzdata
+
+# Set timezone to IST
+ENV TZ=Asia/Kolkata
 
 WORKDIR /app
 

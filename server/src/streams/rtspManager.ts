@@ -10,6 +10,7 @@ import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.
 import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
 import { OptimizedMotionDetector } from "../detection/optimizedMotionDetection.js";
+import { StreamHealthMonitor } from "./streamHealthMonitor.js";
 
 // Import ffmpeg-static safely
 import ffmpegStatic from "ffmpeg-static";
@@ -64,11 +65,20 @@ export class StreamManager {
   cameras: Map<string, Camera>;
   io: SocketIOServer;
   frameInterval: number;
+  healthMonitor: StreamHealthMonitor;
 
   constructor(io: SocketIOServer) {
     this.cameras = new Map();
     this.io = io;
     this.frameInterval = config.streaming.frameInterval;
+
+    // Initialize health monitor with configurable settings
+    this.healthMonitor = new StreamHealthMonitor(io, {
+      intervalMs: 30000, // Check every 30 seconds
+      staleThresholdMs: 120000, // 2 minutes without frames = stale
+      maxRestarts: 3 // Max 3 restarts per hour per camera
+    });
+    this.healthMonitor.setStreamManager(this);
 
     // Initialize configured cameras
     configuredCameras.forEach((cameraConfig) => {
@@ -330,6 +340,9 @@ export class StreamManager {
                     timestamp: new Date().toISOString(),
                   });
 
+                  // Record frame emission for health monitoring
+                  this.healthMonitor.recordFrameEmitted(cameraId, activeRole);
+
                   // Debug logging
                   if (cameraId === 'cam2') {
                      console.log(`[StreamManager] Emitted frame to ${roomName}, size: ${frameBuffer.length}`);
@@ -368,6 +381,9 @@ export class StreamManager {
     if (!camera) return false;
 
     if (role) {
+      // Record stream stop for health monitoring
+      this.healthMonitor.recordStreamStopped(cameraId, role);
+
       // Remove specific role from active set
       camera.activeRoles.delete(role);
       const stream = camera.streams.get(role);
@@ -392,6 +408,11 @@ export class StreamManager {
       return true;
     } else {
       // Stop all streams (kill main process)
+      // Record stream stop for all roles
+      camera.streams.forEach((_, streamRole) => {
+        this.healthMonitor.recordStreamStopped(cameraId, streamRole as 'detect' | 'record' | 'live');
+      });
+
       camera.activeRoles.clear();
       if (camera.mainProcess) {
         console.log(`Stopping main FFmpeg process for ${cameraId} (stop all requested)`);
@@ -700,6 +721,10 @@ export async function setupRTSPStreams(
 ): Promise<StreamManager> {
   console.log("Setting up RTSP stream manager");
   streamManager = new StreamManager(io);
+
+  // Start the health monitor
+  streamManager.healthMonitor.start();
+  console.log("Stream health monitor started");
 
   // Auto-start real RTSP streams with a delay to ensure proper initialization
   console.log("Starting RTSP streams for all cameras");

@@ -498,15 +498,11 @@ io.on('connection', (socket) => {
     const streamManager = (global as any).streamManager;
     if (streamManager) {
       const success = streamManager.startStream(cameraId, role);
-      if (success) {
-        // Join the camera role-specific room to receive frames
-        socket.join(`camera-${cameraId}-${role}`);
-        socket.emit('streamRequested', { cameraId, role, success: true });
-        console.log(`Stream started successfully for camera: ${cameraId} ${role}, client ${socket.id} joined room camera-${cameraId}-${role}`);
-      } else {
-        socket.emit('streamError', { cameraId, role, error: 'Failed to start stream' });
-        console.error(`Failed to start stream for camera: ${cameraId} ${role}`);
-      }
+      // CRITICAL FIX: Always join the room, even if stream was already active
+      // This ensures reconnected clients receive frames
+      socket.join(`camera-${cameraId}-${role}`);
+      socket.emit('streamRequested', { cameraId, role, success: true });
+      console.log(`Client ${socket.id} joined room camera-${cameraId}-${role} (stream was ${success ? 'started' : 'already active'})`);
     } else {
       socket.emit('streamError', { cameraId, role, error: 'Stream manager not available' });
       console.error('Stream manager not available');
@@ -521,17 +517,47 @@ io.on('connection', (socket) => {
     if (streamManager) {
       // Leave the camera role-specific room
       socket.leave(`camera-${cameraId}-${role}`);
-      const success = streamManager.stopStream(cameraId, role);
-      if (success) {
-        console.log(`Stream stopped successfully for camera: ${cameraId} ${role}, client ${socket.id} left room camera-${cameraId}-${role}`);
+      
+      // Check if there are still clients in the room before stopping the stream
+      const room = io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
+      const clientsInRoom = room ? room.size : 0;
+      
+      console.log(`Client ${socket.id} left room camera-${cameraId}-${role}. Clients remaining: ${clientsInRoom}`);
+      
+      // Only stop the stream if no clients are left in the room
+      if (clientsInRoom === 0) {
+        const success = streamManager.stopStream(cameraId, role);
+        if (success) {
+          console.log(`Stream stopped for camera: ${cameraId} ${role} (no more clients)`);
+        } else {
+          console.error(`Failed to stop stream for camera: ${cameraId} ${role}`);
+        }
       } else {
-        console.error(`Failed to stop stream for camera: ${cameraId} ${role}`);
+        console.log(`Stream continues for camera: ${cameraId} ${role} (${clientsInRoom} client(s) still watching)`);
       }
     }
   });
   
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
+    const streamManager = (global as any).streamManager;
+    if (streamManager) {
+      // Check all camera rooms and stop streams if no clients remain
+      const cameras = streamManager.getAllCameras();
+      cameras.forEach((camera: any) => {
+        ['live', 'detect', 'record'].forEach((role) => {
+          const room = io.sockets.adapter.rooms.get(`camera-${camera.id}-${role}`);
+          const clientsInRoom = room ? room.size : 0;
+          
+          if (clientsInRoom === 0) {
+            if (camera.activeRoles.has(role as 'live' | 'detect' | 'record')) {
+              console.log(`Auto-stopping ${camera.id} ${role} stream (no clients after disconnect)`);
+              streamManager.stopStream(camera.id, role as 'live' | 'detect' | 'record');
+            }
+          }
+        });
+      });
+    }
   });
 });
 

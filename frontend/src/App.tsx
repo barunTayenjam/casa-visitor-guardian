@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SocketProvider } from "./contexts/SocketContext";
+import { CameraProvider } from "./contexts/CameraContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -70,8 +71,9 @@ const App = () => {
         <TooltipProvider>
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SocketProvider>
-              <AuthProvider>
-                <Toaster />
+              <CameraProvider>
+                <AuthProvider>
+                  <Toaster />
               <Suspense fallback={<LoadingFallback />}>
                   <Routes>
                   <Route path="/login" element={
@@ -112,7 +114,8 @@ const App = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-              </AuthProvider>
+                </AuthProvider>
+              </CameraProvider>
             </SocketProvider>
           </BrowserRouter>
         </TooltipProvider>

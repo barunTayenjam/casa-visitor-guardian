@@ -243,20 +243,46 @@ export class StreamManager {
         process.on("error", (err) => {
           console.error(`FFMPEG error for ${cameraId}: ${err.message}`);
           camera.mainProcess = null;
+          camera.activeRoles.forEach((activeRole) => {
+            this.io.to(`camera-${cameraId}-${activeRole}`).emit('streamError', {
+              cameraId,
+              role: activeRole,
+              error: `FFMPEG process error: ${err.message}`
+            });
+          });
           camera.activeRoles.clear();
           camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
         });
 
+        // Handle stderr output for debugging
+        process.stderr.on("data", (data: Buffer) => {
+          const errorMsg = data.toString().trim();
+          if (errorMsg) {
+            console.warn(`FFMPEG stderr [${cameraId}]: ${errorMsg}`);
+          }
+        });
+
         // Handle process exit
-        process.on("exit", (code: number) => {
-          console.log(`FFMPEG ${cameraId} exited with code ${code}`);
+        process.on("exit", (code: number, signal: string) => {
+          console.log(`FFMPEG ${cameraId} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
           camera.mainProcess = null;
+          
+          // Notify all active roles that the stream has stopped
+          camera.activeRoles.forEach((activeRole) => {
+            this.io.to(`camera-${cameraId}-${activeRole}`).emit('streamError', {
+              cameraId,
+              role: activeRole,
+              error: `FFMPEG process exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`
+            });
+          });
+          
           camera.activeRoles.clear();
           camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
 
           // Auto-restart on unexpected exit
           if (code !== 0 && camera.retryCount < 5) {
             camera.retryCount++;
+            console.log(`Attempting to restart ${cameraId} in ${5000 * camera.retryCount}ms (attempt ${camera.retryCount}/5)`);
             setTimeout(() => this.startStream(cameraId, role), 5000 * camera.retryCount);
           }
         });

@@ -266,6 +266,50 @@ app.get('/health', (req, res) => {
   console.log('=== HEALTH ENDPOINT END ===');
 });
 
+// Stream health endpoint
+app.get('/api/streams/health', (req, res) => {
+  try {
+    const streamManager = (global as any).streamManager;
+    if (!streamManager || !streamManager.healthMonitor) {
+      return res.status(503).json({
+        success: false,
+        error: 'Stream manager not available'
+      });
+    }
+
+    const healthStatus = streamManager.healthMonitor.getHealthStatus();
+    const now = Date.now();
+
+    const cameraHealth = healthStatus.map(({ key, status }) => {
+      const timeSinceLastFrame = status.lastFrameTime > 0 ? now - status.lastFrameTime : null;
+      const isStale = timeSinceLastFrame !== null && timeSinceLastFrame > 120000; // 2 minutes
+
+      return {
+        cameraId: status.cameraId,
+        role: status.role,
+        isActive: status.isActive,
+        lastFrameTime: status.lastFrameTime > 0 ? new Date(status.lastFrameTime).toISOString() : null,
+        secondsSinceLastFrame: timeSinceLastFrame !== null ? Math.floor(timeSinceLastFrame / 1000) : null,
+        isStale,
+        restartAttempts: status.restartAttempts,
+        lastRestartTime: status.lastRestartTime > 0 ? new Date(status.lastRestartTime).toISOString() : null
+      };
+    });
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      totalStreams: cameraHealth.length,
+      activeStreams: cameraHealth.filter(h => h.isActive).length,
+      staleStreams: cameraHealth.filter(h => h.isStale).length,
+      streams: cameraHealth
+    });
+  } catch (error) {
+    console.error('Error in stream health endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Test endpoint
 app.get('/test', (req, res) => {
   console.log('=== TEST ENDPOINT START ===');

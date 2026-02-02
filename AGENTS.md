@@ -4,97 +4,113 @@ This document provides essential information for AI agents working on the Sentry
 
 ## Project Overview
 
-SentryVision is a comprehensive home security system with real-time camera streaming, motion detection, facial recognition, and visitor analytics. The system consists of a React/TypeScript frontend, Node.js/Express backend, and PostgreSQL database.
+SentryVision is a comprehensive home security system with real-time camera streaming, motion detection, facial recognition, and visitor analytics. The system consists of a React/TypeScript frontend, Node.js/Express backend, PostgreSQL database, and Python OpenCV service.
+
+**Current Status**: Production-ready with 2 cameras, 1,050+ events, optimized motion detection
+**Last Updated**: February 2, 2026
+**Timezone**: IST (Asia/Kolkata, UTC+5:30)
 
 ## Architecture
 
 ### Frontend (`/frontend/src`)
-- React 18 with TypeScript
-- Vite for build tooling
-- TailwindCSS + Radix UI components
-- React Router for navigation
-- React Query for state management
-- Socket.io client for real-time updates
+- **Framework**: React 18 with TypeScript (strict mode)
+- **Build Tool**: Vite for fast development and optimized production builds
+- **UI Library**: TailwindCSS + Radix UI components (shadcn/ui)
+- **Routing**: React Router v6 for navigation
+- **State Management**: React Query (@tanstack/react-query) for server state, Context API for global state
+- **Real-time**: Socket.io client for live updates
+- **Charts**: Recharts for analytics visualization
 
 ### Backend (`/server/src`)
-- Node.js with Express
-- TypeScript
-- PostgreSQL with TypeORM
-- Socket.io for real-time communication
-- FFmpeg for RTSP stream processing
-- Python OpenCV service for motion detection and facial recognition (via HTTP)
-- JWT authentication with MFA support
+- **Runtime**: Node.js with ES modules
+- **Framework**: Express
+- **Language**: TypeScript (strict mode)
+- **Database**: PostgreSQL with TypeORM
+- **Real-time**: Socket.io server for streaming and notifications
+- **Stream Processing**: FFmpeg for RTSP camera streams
+- **AI Service**: Python OpenCV service accessed via HTTP
+- **Authentication**: JWT with refresh tokens + TOTP MFA
 
 ### Database (`/database`)
-- PostgreSQL with migration system
-- Comprehensive user management with roles
-- Audit trails and session tracking
+- **Engine**: PostgreSQL 15+
+- **Migrations**: 8 migration files (numbered 001-008)
+- **Tables**: 17 tables (users, events, visitors, batch_jobs, review_segments, etc.)
 
 ### Python OpenCV Service (`/opencv-service`)
-- Python Flask server with native OpenCV
-- YOLO-based object detection
-- Face recognition with embeddings
-- Runs on port 8084
-- Accessed via HTTP from Node.js backend
+- **Framework**: Flask (Python)
+- **Computer Vision**: Native OpenCV with cv2
+- **Face Recognition**: Custom implementation with embeddings
+- **Motion Detection**: Optimized MOG2 background subtraction
+- **Port**: 8084
+- **Access**: HTTP from Node.js backend
+
+## Port Configuration
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| Frontend | 5173 | React development server (Vite) |
+| Backend | 9753 | Express API server |
+| OpenCV | 8084 | Python Flask service |
+| PostgreSQL | 5432 | Database |
+| Redis | 6379 | Cache and sessions |
 
 ## Essential Commands
 
-### Frontend Development
+### Root Level Commands
+
 ```bash
-# Start frontend development server
-npm run dev
+# Development
+npm run dev                 # Start frontend only (port 5173)
+npm run dev:server          # Start backend only (port 9753)
+npm run dev:full            # Start both frontend and backend
+npm run kill:ports          # Kill processes on ports 5173, 9753
 
-# Build for production
-npm run build
+# Building
+npm run build               # Build frontend
+npm run build:server        # Build backend TypeScript
+npm run build:full          # Build both
 
-# Type checking
-npm run typecheck
+# Docker
+docker-compose up -d        # Start all 5 services
+docker-compose down         # Stop all services
+docker-compose ps           # Check service status
+docker-compose logs -f      # View logs
+docker-compose restart      # Restart services
 
-# Linting
-npm run lint
-npm run lint:fix
-
-# Testing
-npm run test
-npm run test:watch
-npm run test:coverage
+# Frontend Testing
+npm run lint                # ESLint check
+npm run typecheck           # TypeScript type checking
+npm run test                # Run Jest tests
 ```
 
-### Backend Development
+### Backend Commands
+
 ```bash
 cd server
 
-# Start backend development server
-npm run dev
+# Development
+npm run dev                 # Start with nodemon hot reload
 
-# Build TypeScript
-npm run build
+# Production
+npm run build               # Compile TypeScript to dist/
+npm start                   # Start from dist/index.js
 
-# Start production server
-npm start
-
-# Testing
-npm test
+# Scripts
+npm run init-batch-db       # Initialize batch processing database
+npm run batch-process       # Run batch processing
+npm run detect-from-files   # Detect objects from saved files
 ```
 
-### Full Stack Development
-```bash
-# Start both frontend and backend concurrently
-npm run dev:full
+### Database Commands
 
-# Build entire project
-npm run build:full
-
-# Kill ports (useful for restarts)
-npm run kill:ports
-```
-
-### Database Operations
 ```bash
 cd database
 
 # Run migrations
-npm run migrate
+npm run migrate             # Execute pending migrations
+
+# Manual database access
+docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision
 
 # Create database
 createdb sentryvision
@@ -102,176 +118,556 @@ createdb sentryvision
 
 ## Development Workflow
 
-1. **Port Allocation**: Frontend runs on 5173, backend on 9753
-2. **API Proxy**: Frontend proxies API calls to backend via Vite configuration
-3. **Real-time Updates**: Socket.io handles streaming and notifications
-4. **Authentication**: JWT tokens with refresh mechanism and MFA support
+### 1. Service Dependencies
+```
+Frontend (5173)
+    ↓ API calls
+Backend (9753)
+    ↓ HTTP requests
+OpenCV Service (8084)
+    ↓ Queries
+PostgreSQL (5432) + Redis (6379)
+```
+
+### 2. Starting Development Environment
+```bash
+# Option A: Docker (recommended)
+docker-compose up -d
+
+# Option B: Local development
+# Terminal 1: Start backend
+npm run dev:server
+
+# Terminal 2: Start frontend
+npm run dev
+```
+
+### 3. API Proxy Configuration
+Frontend proxies API calls to backend via Vite config:
+```typescript
+// frontend/vite.config.ts
+server: {
+  proxy: {
+    '/api': 'http://localhost:9753'
+  }
+}
+```
+
+### 4. Real-time Communication
+- **Socket.io**: Live camera streams and motion alerts
+- **Events**: `requestStream`, `stopStream`, `frame`, `motionDetected`
+- **Connection**: `http://localhost:9753` (backend URL)
 
 ## Code Organization
 
 ### Frontend Structure
-- `/frontend/src/components` - Reusable UI components
-- `/frontend/src/pages` - Route-level page components
-- `/frontend/src/contexts` - React context providers
-- `/frontend/src/services` - API service layer
-- `/frontend/src/types` - TypeScript type definitions
-- `/frontend/src/hooks` - Custom React hooks
+
+```
+frontend/src/
+├── components/
+│   ├── dashboard/         # Dashboard-specific components
+│   │   ├── CameraGrid.tsx
+│   │   ├── RecentDetectionsCarousel.tsx
+│   │   └── SystemOverview.tsx
+│   ├── analytics/         # Charts and analytics
+│   ├── ui/               # shadcn/ui components (Radix UI)
+│   └── ...
+├── pages/                 # Route-level components
+│   ├── Dashboard.tsx
+│   ├── Gallery.tsx
+│   ├── VisitorTimeline.tsx
+│   ├── Review.tsx
+│   └── Settings.tsx
+├── services/              # API client layer
+│   └── ApiService.ts
+├── contexts/              # React context providers
+│   ├── CameraContext.tsx
+│   ├── SocketContext.tsx
+│   └── AuthContext.tsx
+├── hooks/                 # Custom React hooks
+├── types/                 # TypeScript definitions
+│   └── security.ts
+└── lib/                   # Utilities
+    └── utils.ts
+```
 
 ### Backend Structure
-- `/server/src/routes` - Express route handlers
-- `/server/src/services` - Business logic layer
-- `/server/src/models` - TypeORM database models
-- `/server/src/middleware` - Express middleware
-- `/server/src/utils` - Utility functions
-- `/server/src/detection` - Image processing and AI
-- `/server/src/streams` - RTSP stream management
+
+```
+server/src/
+├── routes/                # API endpoint handlers
+│   ├── index.ts           # Main routes (16K+ lines)
+│   ├── auth.ts            # Authentication endpoints
+│   ├── visitorRoutes.ts   # Visitor management
+│   ├── detectionRoutes.ts # Object/face detection
+│   ├── reviewRoutes.ts    # Review segments
+│   └── timelineRoutes.ts  # Timeline queries
+├── services/              # Business logic
+├── models/                # TypeORM entities
+│   ├── User.ts
+│   ├── Event.ts
+│   ├── Visitor.ts
+│   ├── BatchJob.ts
+│   └── index.ts           # Export all models
+├── middleware/            # Express middleware
+│   ├── auth.ts            # JWT verification
+│   ├── rateLimit.ts       # Rate limiting
+│   └── validation.ts      # Request validation
+├── detection/             # Motion detection (3 implementations)
+│   ├── optimizedMotionDetection.ts     # Main detection (988 lines)
+│   ├── simpleMotionDetection.ts        # Basic detection (138 lines)
+│   ├── motionTriggeredDetection.ts     # Object/face detection (664 lines)
+│   ├── objectDetection.ts              # YOLO object detection
+│   └── cleanupService.ts               # Event cleanup
+├── streams/               # RTSP stream management
+│   ├── rtspManager.ts     # Main stream orchestrator
+│   └── streamManager.ts
+├── config/                # Configuration
+│   ├── index.ts
+│   └── detectionConfig.ts
+└── index.ts               # Application entry point
+```
+
+### OpenCV Service Structure
+
+```
+opencv-service/
+├── app.py                 # Main Flask application (1,200+ lines)
+├── improved_face_recognition.py  # Face recognition engine
+├── models/                # ML model files
+├── known_faces/           # Known face embeddings
+└── data/                  # Temporary detection data
+```
+
+## Database Schema
+
+### Current Tables (17 total)
+
+**User Management**:
+- `users` - User accounts with email, password, roles
+- `roles` - Role definitions with permissions (admin, user, viewer)
+- `user_sessions` - JWT session tracking
+- `password_history` - Password change history
+- `audit_logs` - Security audit trail
+
+**Detection & Events**:
+- `events` - Motion events with detection data (1,050+ records)
+- `detection_config` - Detection configuration storage
+- `processed_images` - Processed image metadata
+- `adaptive_regions` - Spatial detection zones
+
+**Visitor Management**:
+- `visitor_timeline` - Visitor tracking with faces
+- `timeline` - Timeline events
+
+**Review & Batch**:
+- `review_segments` - Bundled review periods with severity
+- `user_review_status` - Review tracking per user
+- `batch_jobs` - Async batch processing jobs
+
+**System**:
+- `retention_policies` - Data retention rules
+- `storage_stats` - Storage usage statistics
+- `system_settings` - System configuration
+
+### Event Table Structure
+
+Key columns in `events` table:
+- `id` - UUID primary key
+- `timestamp` - Event timestamp (IST timezone)
+- `camera_id` - cam1 or cam2
+- `event_type` - motion, object, face
+- `confidence` - Detection confidence (0-100)
+- `image_path` - Path to captured image
+- `persons_detected` - Count of persons
+- `faces_detected` - Count of faces
+- `known_faces_count` - Known faces in frame
+- `object_detections` - JSONB array of objects
+- `face_detections` - JSONB array of faces
+
+## Motion Detection System
+
+### Three Active Implementations
+
+**1. Optimized Motion Detection** (`optimizedMotionDetection.ts`)
+- **Purpose**: Main motion detection with adaptive intervals
+- **Used by**: routes/index.ts, streams/rtspManager.ts, detection/cleanupService.ts
+- **Features**:
+  - Adaptive sensitivity (90/100 maximum)
+  - Night mode enhancement (22:00-06:00)
+  - Zone-based detection
+  - Cooldown period (10 seconds)
+  - Detection interval (3 seconds)
+- **Lines**: 988
+
+**2. Simple Motion Detection** (`simpleMotionDetection.ts`)
+- **Purpose**: Basic detection for event queue service
+- **Used by**: services/eventQueueService.ts
+- **Features**:
+  - Lightweight implementation
+  - Fast processing
+  - Basic threshold comparison
+- **Lines**: 138
+
+**3. Motion-Triggered Detection** (`motionTriggeredDetection.ts`)
+- **Purpose**: Trigger object/face detection on motion
+- **Used by**: streams/rtspManager.ts, integrations/motionBatchIntegration.ts, routes/detectionRedoRoutes.ts
+- **Features**:
+  - Triggers YOLO object detection
+  - Face recognition pipeline
+  - Batch processing support
+  - Detection result caching
+- **Lines**: 664
+
+### OpenCV Service Motion Detection
+
+**Algorithm**: MOG2 (Mixture of Gaussians) background subtraction
+
+**Optimized Parameters** (app.py):
+```python
+history=200              # Faster adaptation (default: 500)
+varThreshold=8           # 2x more sensitive (default: 16)
+detectShadows=False      # Reduce noise
+kernel=(3,3)             # Smaller morphological kernel
+iterations=1             # Lighter filtering
+motion_threshold=0.002   # 0.2% of frame area
+contour_threshold=0.0015 # 0.15% of frame area
+confidence_multiplier=8  # Accurate confidence calculation
+```
+
+**Performance**:
+- Processing time: 15-20ms per frame
+- Sensitivity improvement: 2-4x over defaults
+- False positive rate: Reduced with optimized parameters
+
+### Camera Configuration
+
+**File**: `server/cameras.json`
+
+**Current Cameras**:
+1. **cam1 - Front Door** (192.168.31.62)
+   - Resolution: 1920x1080 @ 4 FPS (stream), 640x360 @ 3 FPS (detection)
+   - Objects: person, car, dog, cat, package
+   - Zones: Front Steps, Driveway, Street
+
+2. **cam2 - Back Door** (192.168.31.61)
+   - Resolution: 1920x1080 @ 4 FPS (stream), 640x360 @ 3 FPS (detection)
+   - Objects: person, car, dog, cat
+   - Zones: Back Patio, Gate
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/refresh` - Refresh access token
+- `POST /api/auth/logout` - Invalidate session
+- `GET /api/auth/mfa/setup` - Generate MFA secret
+- `POST /api/auth/mfa/verify` - Verify TOTP code
+- `GET /api/auth/me` - Get current user info
+
+### Events
+- `GET /api/events/list` - List with pagination
+- `GET /api/events/list-enhanced` - Enhanced list with filters
+  - Query params: `page`, `pageSize`, `eventType`, `cameraId`, `startDate`, `endDate`
+- `GET /api/events/:id` - Get single event
+- `GET /api/events/image/:filename` - Serve event image
+- `DELETE /api/events/:id` - Delete event
+
+### Visitors
+- `GET /api/visitors/list` - List all visitors
+- `GET /api/visitors/timeline` - Get visitor timeline
+- `GET /api/visitors/:id` - Get visitor details
+- `PUT /api/visitors/:id` - Update visitor (name, tags, notes)
+- `DELETE /api/visitors/:id` - Delete visitor
+
+### Review
+- `GET /api/review/segments` - Get review segments
+- `GET /api/review/segments/:id` - Get segment details
+- `POST /api/review/segments/:id/dismiss` - Mark as dismissed
+- `POST /api/review/segments/:id/confirm` - Confirm as valid detection
+- `GET /api/review/timeline` - Get review timeline
+
+### Detection
+- `POST /api/detection/redo` - Re-run detection on events
+- `POST /api/detection/batch` - Batch detection request
+- `GET /api/detection/status/:jobId` - Check batch job status
+
+### System
+- `GET /api/health` - Health check
+- `GET /api/stats` - System statistics
+- `GET /api/cameras` - List all cameras
+- `POST /api/cameras/:id/snapshot` - Capture snapshot
+- `GET /api/cameras/:id/stream` - Get camera stream URL
 
 ## Testing Approach
 
 ### Frontend Tests
-- Jest for unit/integration tests
-- Test files follow `*.test.ts` pattern
-- Test setup in `/frontend/src/tests/setup.ts`
+- **Framework**: Jest with React Testing Library
+- **Test files**: `*.test.ts` pattern
+- **Setup**: `/frontend/src/tests/setup.ts`
+- **Location**: Tests alongside components
 
 ### Backend Tests
-- Jest with Supertest for API testing
-- Test setup in `/server/tests/setup.ts`
-- Test database with isolated schema
-- Coverage thresholds: 80% for branches, functions, lines, statements
+- **Framework**: Jest with Supertest
+- **Setup**: `/server/tests/setup.ts`
+- **Database**: Isolated test schema
+- **Coverage**: 80% threshold for branches, functions, lines, statements
+- **Test files**:
+  - `auth.test.ts` - Authentication endpoints
+  - `batchDetection.test.ts` - Batch processing
+  - `reviewRoutes.test.ts` - Review segments
+  - `visitorRoutes.test.ts` - Visitor management
 
-## Security Considerations
+## Security Features
 
-1. **Authentication**: JWT with refresh tokens, MFA via TOTP
-2. **Authorization**: Role-based access control (admin, user, viewer)
-3. **Input Validation**: Zod schemas for request validation
-4. **Rate Limiting**: Configurable limits per endpoint
-5. **Audit Logging**: Complete audit trail for sensitive operations
-6. **File Security**: Path validation for uploaded files
-7. **CORS**: Configured for development and production domains
+### Authentication
+- **JWT**: Access tokens (15 min) + Refresh tokens (7 days)
+- **MFA**: TOTP-based (Google Authenticator compatible)
+- **Password**: BCrypt hashing, complexity requirements, history tracking
+
+### Authorization
+- **Roles**: admin (full access), user (limited), viewer (read-only)
+- **Permissions**: Defined in `roles` table
+
+### Input Validation
+- **Schema**: Zod validation for all API inputs
+- **Sanitization**: Input sanitization middleware
+
+### Rate Limiting
+- **Default**: 100 requests per 15 minutes
+- **Customizable**: Per-endpoint configuration
+- **Implementation**: express-rate-limit
+
+### Audit Logging
+- **Scope**: All sensitive operations (login, logout, MFA changes, role changes)
+- **Storage**: `audit_logs` table
+- **Fields**: user_id, action, ip_address, user_agent, timestamp
+
+### Security Headers
+- **Helmet.js**: Content Security Policy, X-Frame-Options, etc.
+- **CORS**: Configured for specific domains
 
 ## Key Configuration Files
 
 ### Frontend
-- `frontend/vite.config.ts` - Build configuration and proxy setup
-- `frontend/tailwind.config.ts` - TailwindCSS configuration
-- `frontend/components.json` - shadcn/ui component configuration
+- `frontend/vite.config.ts` - Vite build config, proxy setup
+- `frontend/tailwind.config.ts` - TailwindCSS customization
+- `frontend/components.json` - shadcn/ui component config
+- `frontend/package.json` - Dependencies and scripts
 
 ### Backend
+- `server/tsconfig.json` - TypeScript configuration (strict)
+- `server/jest.config.js` - Jest testing setup
 - `server/.env.example` - Environment variable template
-- `server/tsconfig.json` - TypeScript configuration
-- `server/jest.config.js` - Jest testing configuration
+- `server/cameras.json` - Camera configuration (RTSP URLs, zones)
 
-## Database Schema
+### Docker
+- `docker-compose.yml` - Multi-service orchestration
+- `server/Dockerfile` - Backend container
+- `frontend/Dockerfile` - Frontend container
+- `opencv-service/Dockerfile` - Python service container
 
-Key tables:
-- `users` - User accounts with roles and status
-- `roles` - Role definitions with permissions
-- `sessions` - JWT session management
-- `audit_logs` - Comprehensive audit trail
-- `password_history` - Password change tracking
+### Database
+- `database/migrations/` - SQL migration files (001-008)
+- `database/run-migrations.ts` - Migration runner
 
-## API Conventions
+## Development Workflow
 
-1. **Response Format**: Standard JSON responses with `success`, `data`, and `error` fields
-2. **Error Handling**: Custom error types (ApiError, NetworkError, TimeoutError)
-3. **Pagination**: Standard pagination with `page`, `pageSize`, and total count
-4. **Authentication**: Bearer tokens in Authorization header
-5. **File Uploads**: Multipart form data with validation
+### Adding New Features
 
-## Real-time Features
+**Frontend**:
+1. Create component in appropriate directory
+2. Follow shadcn/ui patterns for UI components
+3. Use existing services/ApiService.ts for API calls
+4. Add TypeScript types in types/
+5. Write tests if needed
 
-### Socket.io Events
-- `requestStream` - Request camera stream
-- `stopStream` - Stop camera stream
-- `frame` - New frame from camera
-- `motionDetected` - Motion detection alert
-- `batchCompleted` - Processing batch completed
+**Backend**:
+1. Add TypeORM model in models/ if new entity needed
+2. Create migration in database/migrations/
+3. Add routes in routes/ following existing patterns
+4. Implement business logic in services/
+5. Add validation with Zod schemas
+6. Write tests in tests/
 
-### Stream Management
-- RTSP streams processed via FFmpeg
-- WebSockets for real-time frame delivery
-- Automatic stream cleanup on disconnect
+**Database**:
+1. Create new migration file: `009_feature_name.sql`
+2. Write SQL for table changes
+3. Test migration locally
+4. Update TypeORM models to match
 
-## Motion Detection & AI
+### Code Style
 
-1. **Motion Detection**: OpenCV-based background subtraction
-2. **Object Detection**: YOLO-style object classification
-3. **Facial Recognition**: Face detection and known person matching
-4. **Batch Processing**: Async processing for resource-intensive operations
+**TypeScript**:
+- Strict mode enabled
+- All files use `.ts` or `.tsx` extension
+- No implicit any
+- Proper type definitions required
+
+**ESLint**:
+- Follow project linting rules
+- Run `npm run lint:fix` before committing
+
+**File Naming**:
+- Components: PascalCase (e.g., `CameraGrid.tsx`)
+- Utilities: camelCase (e.g., `apiService.ts`)
+- Hooks: camelCase with 'use' prefix (e.g., `useAuth.ts`)
+
+**Import Order**:
+1. External libraries
+2. Internal imports (prefixed with @/ or relative)
+3. Type imports
+
+**Error Handling**:
+- Use try-catch for async operations
+- Proper error boundaries in React
+- Log errors with context
+
+## Common Issues & Solutions
+
+### Port Already in Use
+```bash
+npm run kill:ports
+# Or manually
+lsof -ti:9753 | xargs kill -9
+lsof -ti:5173 | xargs kill -9
+```
+
+### Database Connection Errors
+1. Verify PostgreSQL is running: `docker ps | grep postgres`
+2. Check credentials in docker-compose.yml
+3. Ensure migrations have run: `cd database && npm run migrate`
+4. Test connection: `docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision`
+
+### Motion Detection Not Working
+1. Verify RTSP URLs in cameras.json
+2. Check OpenCV service: `curl http://localhost:8084/health`
+3. Review OpenCV logs: `docker logs sentryvision-opencv`
+4. Verify FFmpeg is installed in container
+5. Check detection zones are configured
+
+### Frontend Build Errors
+1. Delete node_modules: `rm -rf frontend/node_modules`
+2. Reinstall: `cd frontend && npm install`
+3. Check TypeScript errors: `npm run typecheck`
+
+### Backend TypeScript Errors
+1. Clean build: `cd server && rm -rf dist && npm run build`
+2. Check types: `tsc --noEmit`
+3. Verify imports are correct
 
 ## Performance Considerations
 
-1. **Connection Limits**: Configurable limits for concurrent streams
-2. **Memory Management**: Automatic cleanup of disconnected clients
-3. **Caching**: Redis caching for frequently accessed data
-4. **Optimization**: Code splitting and lazy loading in frontend
+### Connection Limits
+- Max concurrent streams: Configurable in backend
+- Socket.io connections: Auto-cleanup on disconnect
 
-## Development Tips
+### Memory Management
+- Automatic cleanup of disconnected clients
+- Redis for caching frequent queries
+- Detection results cached for 1 hour
 
-1. **Hot Reloading**: Both frontend and backend support hot reload in development
-2. **Error Boundaries**: React error boundaries for graceful error handling
-3. **Environment Variables**: Use `.env.example` as template for configuration
-4. **Type Safety**: Strict TypeScript configuration throughout
-5. **Component Reuse**: Leverage shadcn/ui components for consistency
-
-## Debugging
-
-1. **Development Routes**: `/debug` route available in development mode
-2. **Console Output**: Structured logging with context
-3. **Test Data**: Scripts available for generating test data
-4. **Performance Monitoring**: Built-in memory and connection monitoring
+### Optimization
+- Code splitting in frontend (Vite)
+- Lazy loading for images
+- Batch processing for heavy operations
+- Detection intervals: 3 seconds (configurable)
 
 ## Deployment
 
-1. **Docker Support**: Dockerfile and docker-compose configurations
-2. **Nginx Configuration**: Proxy configuration for production
-3. **Environment-Specific Settings**: Different configurations for dev/prod
-4. **Database Migrations**: Automated migration system for database updates
+### Docker Deployment (Recommended)
+```bash
+# Build and start all services
+docker-compose up -d
 
-## Common Gotchas
+# View logs
+docker-compose logs -f
 
-1. **Port Conflicts**: Ensure ports 5173, 9753, and 8084 (OpenCV service) are available
-2. **Python OpenCV**: Required for motion detection functionality (runs in Docker on port 8084)
-3. **FFmpeg Installation**: Required for RTSP stream processing
-4. **Database Setup**: PostgreSQL must be running before migrations
-5. **File Permissions**: Ensure write permissions for snapshots and events directories
+# Check health
+curl http://localhost:9753/api/health
+curl http://localhost:8084/health
+```
 
-## Testing Considerations
+### Production Considerations
+1. Change JWT secrets in docker-compose.yml
+2. Update CORS configuration for production domain
+3. Configure SSL/TLS for HTTPS
+4. Set up backup for PostgreSQL database
+5. Configure log rotation
+6. Monitor resource usage
 
-1. **Database Isolation**: Tests use separate test database
-2. **Mock Dependencies**: Network requests and external services mocked
-3. **Coverage Requirements**: Maintain 80% test coverage
-4. **Integration Tests**: Test API endpoints with Supertest
-5. **Component Testing**: Test React components with Jest
+## Debugging
 
-## Security Best Practices
+### Backend Debugging
+```bash
+# View logs
+docker logs sentryvision-backend -f
 
-1. **Never Log Credentials**: Use structured logging for sensitive data
-2. **Validate All Input**: Use Zod schemas for request validation
-3. **Secure File Handling**: Validate file paths and prevent directory traversal
-4. **Rate Limiting**: Implement rate limiting for all endpoints
-5. **Audit Everything**: Log all sensitive operations with context
+# Check specific logs
+docker logs sentryvision-backend | grep "Motion detected"
 
-## Troubleshooting
+# Connect to container
+docker exec -it sentryvision-backend sh
+```
 
-1. **Stream Issues**: Check FFmpeg installation and camera RTSP URLs
-2. **Database Errors**: Verify PostgreSQL is running and migrations applied
-3. **Authentication Problems**: Check JWT secrets and token expiration
-4. **Permission Errors**: Verify user roles and permissions in database
-5. **Performance Issues**: Monitor memory usage and connection limits
+### Frontend Debugging
+- React DevTools browser extension
+- Network tab in browser DevTools
+- Console for errors
 
-## Adding New Features
+### Database Debugging
+```bash
+# Connect to PostgreSQL
+docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision
 
-1. **Frontend Components**: Follow shadcn/ui patterns in `/frontend/src/components/ui`
-2. **API Endpoints**: Add to appropriate route files in `/server/src/routes`
-3. **Database Models**: Create new TypeORM entities in `/server/src/models`
-4. **Tests**: Add corresponding tests for new functionality
-5. **Documentation**: Update relevant documentation sections
+# Check recent events
+SELECT * FROM events ORDER BY timestamp DESC LIMIT 10;
 
-## Code Style
+# Count events
+SELECT COUNT(*) FROM events;
 
-1. **TypeScript**: Strict mode enabled, proper type definitions required
-2. **ESLint**: Follow project linting rules
-3. **File Naming**: PascalCase for components, camelCase for utilities
-4. **Import Order**: External libraries first, then internal imports
-5. **Error Handling**: Proper error boundaries and try-catch blocks
+# Check database size
+SELECT pg_size_pretty(pg_database_size('sentryvision'));
+```
+
+## System Statistics
+
+**Current** (as of Feb 2, 2026):
+- **Cameras**: 2 RTSP cameras
+- **Events**: 1,050+ recorded events
+- **Database Tables**: 17
+- **Migrations**: 8
+- **Detection Code**: 3,528 lines across 3 implementations
+- **Timezone**: IST (Asia/Kolkata, UTC+5:30)
+- **Simulation Mode**: Disabled (real detection only)
+
+## Environment Variables
+
+### Backend (.env)
+```
+NODE_ENV=development
+PORT=9753
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=sentryvision
+DB_USER=sentryvision
+DB_PASSWORD=sentryvision123
+JWT_ACCESS_SECRET=change-in-production
+JWT_REFRESH_SECRET=change-in-production
+OPENCV_SERVICE_URL=http://opencv:8084
+DETECTIONS_DIR=/app/data/detections
+TZ=Asia/Kolkata
+```
+
+### Frontend (.env)
+```
+VITE_BACKEND_URL=http://localhost:9753
+```
+
+## Additional Resources
+
+- **Deployment Guide**: See DEPLOYMENT.md
+- **Container Best Practices**: See CONTAINERIZATION_BEST_PRACTICES.md
+- **Docker Configuration**: See docker-compose.yml
+- **Camera Setup**: Edit server/cameras.json

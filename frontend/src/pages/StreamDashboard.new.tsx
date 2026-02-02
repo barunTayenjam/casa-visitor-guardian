@@ -7,7 +7,7 @@ import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { QuickActionsBar } from '@/components/live/QuickActionsBar';
 import { RecentDetectionsCarousel } from '@/components/live/RecentDetectionsCarousel';
 import { colors, spacing } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Keyboard } from 'lucide-react';
+import { Shield, Activity, Calendar, Keyboard, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const StreamDashboard = () => {
@@ -233,10 +233,19 @@ const StreamDashboard = () => {
             <Button
               size="sm"
               variant="ghost"
+              className="text-white/80 hover:text-white hover:bg-white/5 hidden md:flex"
+              onClick={() => navigate('/app/analytics')}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               className="text-white/80 hover:text-white hover:bg-white/5"
               onClick={() => navigate('/app/events')}
             >
-              <Calendar className="h-4 w-4 mr-0 md:mr-2" />
+              <Calendar className="h-4 w-4 mr-2" />
               <span className="hidden md:inline">Events</span>
             </Button>
           </div>

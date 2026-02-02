@@ -39,28 +39,64 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
         borderTop: `1px solid ${colors.border.subtle}`,
       }}
     >
-      <div className="px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="px-4 md:px-6 py-3 md:py-4">
+        {/* Mobile: Stacked layout */}
+        <div className="flex flex-col md:hidden gap-3">
+          {/* System Status Toggles - 2x2 grid on mobile */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Arm/Disarm */}
+            <div className="flex items-center gap-2">
+              <Shield className={cn('h-4 w-4 transition-colors', systemArmed ? 'text-green-500' : 'text-gray-500')} />
+              <span className="text-xs text-white/90 font-medium">{systemArmed ? 'Armed' : 'Disarmed'}</span>
+              <Switch checked={systemArmed} onCheckedChange={onSystemArmToggle} className="data-[state=checked]:bg-green-500" />
+            </div>
+
+            {/* Recording */}
+            <div className="flex items-center gap-2">
+              <div className={cn('h-2 w-2 rounded-full transition-colors', recordingEnabled && 'bg-red-500 animate-pulse')} />
+              <span className="text-xs text-white/90">Recording</span>
+              <Switch checked={recordingEnabled} onCheckedChange={onRecordingToggle} className="data-[state=checked]:bg-red-500" />
+            </div>
+
+            {/* Motion Detection */}
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-white/70" />
+              <span className="text-xs text-white/90">Motion</span>
+              <Switch checked={motionDetectionEnabled} onCheckedChange={onMotionDetectionToggle} className="data-[state=checked]:bg-blue-500" />
+            </div>
+
+            {/* Notifications */}
+            <div className="flex items-center gap-2">
+              <Bell className={cn('h-4 w-4 transition-colors', notificationsEnabled ? 'text-blue-400' : 'text-gray-500')} />
+              <span className="text-xs text-white/90">Alerts</span>
+              <Switch checked={notificationsEnabled} onCheckedChange={onNotificationsToggle} className="data-[state=checked]:bg-blue-500" />
+            </div>
+          </div>
+
+          {/* Quick Actions - Full width buttons */}
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10" onClick={onTakeSnapshot}>
+              <Download className="h-4 w-4 mr-2" />
+              Snapshot
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10" onClick={onOpenSettings}>
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop: Horizontal layout */}
+        <div className="hidden md:flex items-center justify-between">
           {/* Left: System Status Toggles */}
           <div className="flex items-center gap-6">
             {/* Arm/Disarm */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Shield
-                  className={cn(
-                    'h-4 w-4 transition-colors',
-                    systemArmed ? 'text-green-500' : 'text-gray-500'
-                  )}
-                />
-                <span className="text-sm text-white/90 font-medium">
-                  {systemArmed ? 'Armed' : 'Disarmed'}
-                </span>
+                <Shield className={cn('h-4 w-4 transition-colors', systemArmed ? 'text-green-500' : 'text-gray-500')} />
+                <span className="text-sm text-white/90 font-medium">{systemArmed ? 'Armed' : 'Disarmed'}</span>
               </div>
-              <Switch
-                checked={systemArmed}
-                onCheckedChange={onSystemArmToggle}
-                className="data-[state=checked]:bg-green-500"
-              />
+              <Switch checked={systemArmed} onCheckedChange={onSystemArmToggle} className="data-[state=checked]:bg-green-500" />
             </div>
 
             <div className="h-6 w-px bg-white/10" />
@@ -68,19 +104,10 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
             {/* Recording */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    'h-2 w-2 rounded-full transition-colors',
-                    recordingEnabled && 'bg-red-500 animate-pulse'
-                  )}
-                />
+                <div className={cn('h-2 w-2 rounded-full transition-colors', recordingEnabled && 'bg-red-500 animate-pulse')} />
                 <span className="text-sm text-white/90">Recording</span>
               </div>
-              <Switch
-                checked={recordingEnabled}
-                onCheckedChange={onRecordingToggle}
-                className="data-[state=checked]:bg-red-500"
-              />
+              <Switch checked={recordingEnabled} onCheckedChange={onRecordingToggle} className="data-[state=checked]:bg-red-500" />
             </div>
 
             <div className="h-6 w-px bg-white/10" />
@@ -91,11 +118,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
                 <Camera className="h-4 w-4 text-white/70" />
                 <span className="text-sm text-white/90">Motion</span>
               </div>
-              <Switch
-                checked={motionDetectionEnabled}
-                onCheckedChange={onMotionDetectionToggle}
-                className="data-[state=checked]:bg-blue-500"
-              />
+              <Switch checked={motionDetectionEnabled} onCheckedChange={onMotionDetectionToggle} className="data-[state=checked]:bg-blue-500" />
             </div>
 
             <div className="h-6 w-px bg-white/10" />
@@ -103,40 +126,20 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
             {/* Notifications */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Bell
-                  className={cn(
-                    'h-4 w-4 transition-colors',
-                    notificationsEnabled ? 'text-blue-400' : 'text-gray-500'
-                  )}
-                />
+                <Bell className={cn('h-4 w-4 transition-colors', notificationsEnabled ? 'text-blue-400' : 'text-gray-500')} />
                 <span className="text-sm text-white/90">Alerts</span>
               </div>
-              <Switch
-                checked={notificationsEnabled}
-                onCheckedChange={onNotificationsToggle}
-                className="data-[state=checked]:bg-blue-500"
-              />
+              <Switch checked={notificationsEnabled} onCheckedChange={onNotificationsToggle} className="data-[state=checked]:bg-blue-500" />
             </div>
           </div>
 
           {/* Right: Quick Actions */}
           <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
-              onClick={onTakeSnapshot}
-            >
+            <Button size="sm" variant="outline" className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white" onClick={onTakeSnapshot}>
               <Download className="h-4 w-4 mr-2" />
               Snapshot
             </Button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white"
-              onClick={onOpenSettings}
-            >
+            <Button size="sm" variant="outline" className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white" onClick={onOpenSettings}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Button>

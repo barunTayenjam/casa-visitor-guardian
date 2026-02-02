@@ -24,10 +24,16 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
   const cameraCount = activeCameras.length;
 
   // Determine optimal grid based on camera count and layout preference
+  // Responsive: always use 1 column on mobile, adjust on larger screens
   const getGridConfig = () => {
     if (focusedCameraId) {
       return { columns: 1, rows: 1 };
     }
+
+    // Mobile: always 1 column
+    // Tablet: 1-2 columns
+    // Desktop: 2-3 columns
+
     if (layout === '1x1') {
       return { columns: 1, rows: Math.max(1, cameraCount) };
     }
@@ -47,11 +53,29 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
   };
 
   const gridConfig = getGridConfig();
-  const gridStyle = {
-    display: 'grid',
-    gridTemplateColumns: `repeat(${gridConfig.columns}, 1fr)`,
-    gridTemplateRows: `repeat(${gridConfig.rows}, 1fr)`,
-    gap: '2px',
+
+  // Responsive grid classes
+  const getGridClasses = () => {
+    const base = 'grid gap-1 w-full h-full';
+
+    // Mobile: always 1 column
+    // Tablet (md): adjust based on config
+    // Desktop (lg): use full config
+    if (focusedCameraId) {
+      return cn(base, 'grid-cols-1');
+    }
+
+    if (gridConfig.columns === 1) {
+      return cn(base, 'grid-cols-1');
+    }
+    if (gridConfig.columns === 2) {
+      return cn(base, 'grid-cols-1 md:grid-cols-2');
+    }
+    if (gridConfig.columns === 3) {
+      return cn(base, 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3');
+    }
+
+    return base;
   };
 
   const handleLayoutChange = (newLayout: GridLayout) => {
@@ -76,8 +100,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 
   return (
     <div className="relative w-full h-full flex flex-col">
-      {/* Layout Controls - Minimalist */}
-      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+      {/* Layout Controls - Minimalist - Hidden on mobile */}
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-2 hidden md:flex">
         <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 border border-white/10">
           <Button
             size="sm"
@@ -148,7 +172,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
           </div>
         ) : (
           // Grid Mode - Show all cameras
-          <div style={gridStyle} className="w-full h-full">
+          <div className={getGridClasses()}>
             {activeCameras.map((camera) => (
               <div
                 key={camera.id}

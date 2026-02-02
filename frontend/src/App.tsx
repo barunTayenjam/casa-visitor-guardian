@@ -13,6 +13,7 @@ const Login = lazy(() => import("./pages/Login"));
 const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
 const EventsPage = lazy(() => import("./pages/EventsPage.new"));
 const SettingsPage = lazy(() => import("./pages/Settings.new"));
+const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -114,6 +115,12 @@ const App = () => {
                     <Route path="settings" element={
                         <ErrorBoundary fallback={ErrorFallback}>
                           <SettingsPage />
+                        </ErrorBoundary>
+                      } />
+
+                    <Route path="analytics" element={
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <AnalyticsPage />
                         </ErrorBoundary>
                       } />
                   </Route>

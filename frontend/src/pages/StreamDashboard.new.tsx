@@ -36,9 +36,39 @@ const StreamDashboard = () => {
   };
 
   const handleTakeSnapshot = async () => {
+    try {
+      const camera = cameras[0];
+      if (camera) {
+        // Call the snapshot API
+        const response = await fetch(`/api/cameras/${camera.id}/snapshot`, {
+          method: 'POST',
+        });
+        if (response.ok) {
+          toast({
+            title: 'Snapshot Captured',
+            description: 'Snapshot has been saved to your gallery.',
+          });
+        } else {
+          toast({
+            title: 'Snapshot Failed',
+            description: 'Failed to capture snapshot.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: 'Snapshot Failed',
+        description: 'Failed to capture snapshot.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleOpenSettings = () => {
     toast({
-      title: 'Snapshot Captured',
-      description: 'Snapshot has been saved to your gallery.',
+      title: 'Settings',
+      description: 'Settings page is not available in the redesigned interface.',
     });
   };
 
@@ -125,7 +155,7 @@ const StreamDashboard = () => {
         onMotionDetectionToggle={(enabled) => handleSystemAction('motionDetection', enabled)}
         onNotificationsToggle={(enabled) => handleSystemAction('notifications', enabled)}
         onTakeSnapshot={handleTakeSnapshot}
-        onOpenSettings={() => navigate('/app/settings')}
+        onOpenSettings={handleOpenSettings}
       />
     </div>
   );

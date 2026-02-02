@@ -20,6 +20,8 @@ import { batchProcessingService } from '../services/batchProcessingService.js';
 import { getBatchProcessingDatabase } from '../services/batchProcessingDatabasePostgres.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
 import { DetectionDataNormalizer } from '../utils/detectionDataNormalizer.js';
+import detectionRoutes from './detectionRoutes.js';
+import { configureDetectionRedoRoutes } from './detectionRedoRoutes.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -1725,52 +1727,53 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const detectionType = req.query.detectionType as string || 'all';
 
       // Build query conditions
-      const conditions: string[] = ['df.is_deleted = FALSE'];
+      const conditions: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
 
       // Add file type filter for events
-      conditions.push("df.file_type IN ('event_motion', 'event_face')");
+      conditions.push("e.event_type IN ('event_motion', 'event_face')");
 
       // Camera filter
       if (cameraIdFilter && cameraIdFilter !== 'all') {
-        conditions.push(`df.camera_id = $${paramIndex++}`);
+        conditions.push(`e.camera_id = $${paramIndex++}`);
         values.push(cameraIdFilter);
       }
 
       // Detection type filter
       if (detectionType && detectionType !== 'all') {
         if (detectionType === 'face') {
-          conditions.push(`df.file_type = 'event_face'`);
+          conditions.push(`e.event_type = 'event_face'`);
         } else if (detectionType === 'motion' || detectionType === 'person') {
-          conditions.push(`df.file_type = 'event_motion'`);
+          conditions.push(`e.event_type = 'event_motion'`);
         }
       }
 
       // Date range filter
       if (startDateStr) {
-        conditions.push(`df.capture_timestamp >= $${paramIndex++}`);
+        conditions.push(`e.timestamp >= $${paramIndex++}`);
         values.push(new Date(startDateStr));
       }
       if (endDateStr) {
-        conditions.push(`df.capture_timestamp <= $${paramIndex++}`);
+        conditions.push(`e.timestamp <= $${paramIndex++}`);
         values.push(new Date(endDateStr));
       }
-
+ 
       // Search query filter
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
-        conditions.push(`(df.camera_id ILIKE $${paramIndex++} OR df.original_filename ILIKE $${paramIndex++})`);
+        conditions.push(`(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++})`);
         values.push(`%${searchLower}%`, `%${searchLower}%`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-      const orderClause = sortBy === 'oldest' ? 'ORDER BY df.capture_timestamp ASC' : 'ORDER BY df.capture_timestamp DESC';
+      const orderClause = sortBy === 'oldest' ? 'ORDER BY e.timestamp ASC' : 'ORDER BY e.timestamp DESC';
 
       // Count total events for pagination
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM detection_files df
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
       `;
       const countResult = await AppDataSource.query(countQuery, values);
@@ -1780,13 +1783,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const offset = (page - 1) * pageSize;
       const eventsQuery = `
         SELECT
-          df.file_uuid as id,
-          df.camera_id as cameraId,
-          df.capture_timestamp as timestamp,
-          df.storage_path as imagePath,
-          df.metadata,
-          df.original_filename
-        FROM detection_files df
+          COALESCE(df.file_uuid::text, e.id::text) as id,
+          COALESCE(df.camera_id, e.camera_id) as cameraId,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp,
+          COALESCE(df.storage_path, e.file_path) as imagePath,
+          COALESCE(df.metadata, e.metadata) as metadata,
+          COALESCE(df.file_type, e.event_type) as file_type
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
         ${orderClause}
         LIMIT $${paramIndex++} OFFSET $${paramIndex}
@@ -1797,15 +1801,25 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Transform results to match expected format
       const events = results.map((row: any) => {
+        // Parse metadata if it's a string
+        let metadata = row.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            metadata = {};
+          }
+        }
+
         // Extract confidence from metadata if available, otherwise default to 0.75
         let confidence = 0.75;
-        if (row.metadata && typeof row.metadata === 'object') {
-          if (row.metadata.confidence !== undefined) {
-            confidence = row.metadata.confidence;
-          } else if (row.metadata.persons && row.metadata.persons.length > 0) {
-            confidence = row.metadata.persons[0].confidence || 0.75;
-          } else if (row.metadata.faces && row.metadata.faces.length > 0) {
-            confidence = row.metadata.faces[0].confidence || 0.75;
+        if (metadata && typeof metadata === 'object') {
+          if (metadata.confidence !== undefined) {
+            confidence = metadata.confidence;
+          } else if (metadata.persons && metadata.persons.length > 0) {
+            confidence = metadata.persons[0].confidence || 0.75;
+          } else if (metadata.faces && metadata.faces.length > 0) {
+            confidence = metadata.faces[0].confidence || 0.75;
           }
         }
 
@@ -1814,18 +1828,15 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           confidence = confidence / 100;
         }
 
-        // Determine labels from file type
+        // Determine labels from event type
         let labels = ['motion'];
-        if (row.file_type === 'event_face') {
+        if (row.file_type === 'face') {
           labels = ['face'];
-        } else if (row.file_type === 'event_motion') {
+        } else if (row.file_type === 'motion') {
           labels = ['motion'];
         }
 
         // Extract just the filename from the full path for frontend compatibility
-        // The imagePath from DB is like: /data/detections/2026-01/events/motion/motion_cam2_2026-01-09T11-41-14-272Z.jpg
-        // We need to extract the filename part: motion_cam2_2026-01-09T11-41-14-272Z.jpg
-        // Note: PostgreSQL converts column aliases to lowercase, so use imagepath instead of imagePath
         let imagePathForFrontend = row.imagepath;
         if (row.imagepath) {
           const pathParts = row.imagepath.split('/');
@@ -1890,43 +1901,44 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const endDateStr = req.query.endDate as string;
 
       // Build query conditions
-      const conditions: string[] = ['df.is_deleted = FALSE'];
+      const conditions: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
 
       // Add file type filter for events
-      conditions.push("df.file_type IN ('event_motion', 'event_face')");
+      conditions.push("e.event_type IN ('event_motion', 'event_face')");
 
       // Camera filter
       if (cameraIdFilter && cameraIdFilter !== 'all') {
-        conditions.push(`df.camera_id = $${paramIndex++}`);
+        conditions.push(`e.camera_id = $${paramIndex++}`);
         values.push(cameraIdFilter);
       }
 
       // Date range filter
       if (startDateStr) {
-        conditions.push(`df.capture_timestamp >= $${paramIndex++}`);
+        conditions.push(`e.timestamp >= $${paramIndex++}`);
         values.push(new Date(startDateStr));
       }
       if (endDateStr) {
-        conditions.push(`df.capture_timestamp <= $${paramIndex++}`);
+        conditions.push(`e.timestamp <= $${paramIndex++}`);
         values.push(new Date(endDateStr));
       }
 
       // Search query filter
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
-        conditions.push(`(df.camera_id ILIKE $${paramIndex++} OR df.original_filename ILIKE $${paramIndex++} OR df.metadata::text ILIKE $${paramIndex++})`);
+        conditions.push(`(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++} OR e.metadata::text ILIKE $${paramIndex++})`);
         values.push(`%${searchLower}%`, `%${searchLower}%`, `%${searchLower}%`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-      const orderClause = 'ORDER BY df.capture_timestamp DESC';
+      const orderClause = 'ORDER BY e.timestamp DESC';
 
       // Count total events for pagination
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM detection_files df
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
       `;
       const countResult = await AppDataSource.query(countQuery, values);
@@ -1936,12 +1948,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const offset = (page - 1) * pageSize;
       const eventsQuery = `
         SELECT
-          df.file_uuid as id,
-          df.camera_id as cameraId,
-          df.capture_timestamp as timestamp,
-          df.storage_path as imagePath,
-          df.metadata
-        FROM detection_files df
+          COALESCE(df.file_uuid::text, e.id::text) as id,
+          COALESCE(df.camera_id, e.camera_id) as cameraId,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp,
+          COALESCE(df.storage_path, e.file_path) as imagePath,
+          COALESCE(df.metadata, e.metadata) as metadata
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
         ${orderClause}
         LIMIT $${paramIndex++} OFFSET $${paramIndex}
@@ -2027,15 +2040,16 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Query events from database
       const query = `
         SELECT
-          df.file_uuid as id,
-          df.camera_id as cameraId,
-          df.capture_timestamp as timestamp,
-          df.storage_path as imagePath,
-          df.metadata
-        FROM detection_files df
-        WHERE df.file_type IN ('event_motion', 'event_face')
-          AND df.is_deleted = FALSE
-        ORDER BY df.capture_timestamp DESC
+          COALESCE(df.file_uuid::text, e.id::text) as id,
+          COALESCE(df.camera_id, e.camera_id) as cameraId,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp,
+          COALESCE(df.storage_path, e.file_path) as imagePath,
+          COALESCE(df.metadata, e.metadata) as metadata
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
+
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT $1
       `;
 
@@ -2110,16 +2124,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Query events from database for this specific camera
       const query = `
         SELECT
-          df.file_uuid as id,
-          df.camera_id as cameraId,
-          df.capture_timestamp as timestamp,
-          df.storage_path as imagePath,
-          df.metadata
-        FROM detection_files df
-        WHERE df.file_type IN ('event_motion', 'event_face')
-          AND df.camera_id = $1
-          AND df.is_deleted = FALSE
-        ORDER BY df.capture_timestamp DESC
+          COALESCE(df.file_uuid::text, e.id::text) as id,
+          COALESCE(df.camera_id, e.camera_id) as cameraId,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp,
+          COALESCE(df.storage_path, e.file_path) as imagePath,
+          COALESCE(df.metadata, e.metadata) as metadata
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
+          AND COALESCE(df.camera_id, e.camera_id) = $1
+
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT $2
       `;
 
@@ -2231,19 +2246,22 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Query event files from database
       const query = `
         SELECT
-          original_filename,
-          capture_timestamp
-        FROM detection_files
-        WHERE file_type IN ('event_motion', 'event_face')
-          AND is_deleted = FALSE
-        ORDER BY capture_timestamp DESC
+          COALESCE(df.storage_path, e.file_path) as file_path,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT 1000
       `;
 
       const results = await AppDataSource.query(query);
 
-      // Transform results to match expected format (just filenames)
-      const files = results.map((row: any) => row.original_filename);
+      // Transform results to match expected format (extract filename from path)
+      const files = results.map((row: any) => {
+        const pathParts = row.file_path.split('/');
+        return pathParts[pathParts.length - 1];
+      });
 
       res.json({ success: true, files });
     } catch (error) {
@@ -2252,7 +2270,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // NEW: Enhanced events list with detection data from unified storage (detection_files + events + processed_images)
+  // NEW: Enhanced events list with detection data from events table
   app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
     try {
       const {
@@ -2272,19 +2290,19 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const currentPage = parseInt(page as string);
       const offset = (currentPage - 1) * size;
 
-      const conditions: string[] = ["df.file_type IN ('event_motion', 'event_face')", "df.is_deleted = FALSE"];
+      const conditions: string[] = ["e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"];
       const queryParams: any[] = [];
       let paramIndex = 1;
 
       if (camera_id && camera_id !== 'all') {
-        conditions.push(`df.camera_id = $${paramIndex}`);
+        conditions.push(`e.camera_id = $${paramIndex}`);
         queryParams.push(camera_id);
         paramIndex++;
       }
 
       // Date filter - handle single date or date range
       if (start_date && end_date) {
-        conditions.push(`df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+        conditions.push(`e.timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
         queryParams.push(new Date(start_date as string), new Date(end_date as string));
         paramIndex += 2;
       } else if (start_date) {
@@ -2293,14 +2311,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         startDate.setHours(0, 0, 0, 0);
         const endDate = new Date(start_date as string);
         endDate.setHours(23, 59, 59, 999);
-        conditions.push(`df.capture_timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+        conditions.push(`e.timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
         queryParams.push(startDate, endDate);
         paramIndex += 2;
       } else if (end_date) {
         // End date only
         const endDate = new Date(end_date as string);
         endDate.setHours(23, 59, 59, 999);
-        conditions.push(`df.capture_timestamp <= $${paramIndex}`);
+        conditions.push(`e.timestamp <= $${paramIndex}`);
         queryParams.push(endDate);
         paramIndex++;
       }
@@ -2308,7 +2326,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Search query filter
       if (searchQuery && typeof searchQuery === 'string' && searchQuery.trim()) {
         const searchLower = searchQuery.toLowerCase().trim();
-        conditions.push(`(df.camera_id ILIKE $${paramIndex} OR df.original_filename ILIKE $${paramIndex})`);
+        conditions.push(`(e.camera_id ILIKE $${paramIndex} OR e.file_path ILIKE $${paramIndex})`);
         queryParams.push(`%${searchLower}%`);
         paramIndex++;
       }
@@ -2316,9 +2334,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Detection type filter (event_type)
       if (event_type && typeof event_type === 'string' && event_type !== 'all') {
         if (event_type === 'face') {
-          conditions.push(`df.file_type = 'event_face'`);
+          conditions.push(`e.event_type IN ('face', 'event_face')`);
         } else if (event_type === 'motion' || event_type === 'person') {
-          conditions.push(`df.file_type = 'event_motion'`);
+          conditions.push(`e.event_type IN ('motion', 'event_motion')`);
         }
       }
 
@@ -2327,54 +2345,60 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Sort order based on sortBy parameter
       // Use COALESCE to fall back to metadata detected_at when capture_timestamp is NULL
       const orderClause = sortBy === 'oldest'
-        ? 'ORDER BY COALESCE(df.capture_timestamp, (df.metadata->>\'detected_at\')::timestamp) ASC'
-        : 'ORDER BY COALESCE(df.capture_timestamp, (df.metadata->>\'detected_at\')::timestamp) DESC';
+        ? 'ORDER BY COALESCE(e.timestamp, (e.metadata::jsonb->>\'detected_at\')::timestamp) ASC'
+        : 'ORDER BY COALESCE(e.timestamp, (e.metadata::jsonb->>\'detected_at\')::timestamp) DESC';
 
-      // Count total events for pagination
-      let totalEvents = 0;
-      let totalPages = 0;
-      let results = [];
+        // Count total events for pagination
+        let totalEvents = 0;
+        let totalPages = 0;
+        let results = [];
 
-      try {
-        const countQuery = `
-          SELECT COUNT(*) as total
-          FROM detection_files df
-          ${whereClause}
-        `;
+        try {
+          const countQuery = `
+            SELECT COUNT(*) as total
+            FROM events e
+            ${whereClause}
+          `;
 
-        // We need a separate parameter array for count query because it uses the same WHERE clause
-        // but doesn't need LIMIT/OFFSET params
-        const countResult = await AppDataSource.query(countQuery, queryParams);
-        totalEvents = parseInt(countResult[0].total);
-        totalPages = Math.ceil(totalEvents / size);
+          // We need a separate parameter array for count query because it uses the same WHERE clause
+          // but doesn't need LIMIT/OFFSET params
+          const countResult = await AppDataSource.query(countQuery, queryParams);
+          totalEvents = parseInt(countResult[0].total);
+          totalPages = Math.ceil(totalEvents / size);
 
-        // Query detection_files table to get all event files
-        let detectionQuery = `
-          SELECT
-            df.original_filename as filename,
-            df.storage_path,
-            df.camera_id,
-            COALESCE(df.capture_timestamp, (df.metadata->>'detected_at')::timestamp) as timestamp,
-            df.file_type,
-            df.metadata,
-            df.file_size
-          FROM detection_files df
-          ${whereClause}
-          ${orderClause}
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `;
+          // Query events table to get all event files
+          let detectionQuery = `
+            SELECT
+              e.file_path as filename,
+              e.file_path as imagePath,
+              e.camera_id as camera_id,
+              e.timestamp as timestamp,
+              e.event_type as file_type,
+              e.metadata as metadata,
+              e.confidence as confidence,
+              e.persons_detected as persons_detected,
+              e.faces_detected as faces_detected,
+              e.known_faces_count as known_faces_count,
+              e.unknown_faces_count as unknown_faces_count,
+              e.object_detections as object_detections,
+              e.face_detections as face_detections
+            FROM events e
+            ${whereClause}
+            ${orderClause}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+          `;
 
-        // Add pagination params
-        queryParams.push(size, offset);
+          // Add pagination params
+          queryParams.push(size, offset);
 
-        results = await AppDataSource.query(detectionQuery, queryParams);
-      } catch (dbError) {
-        console.error('Database error in enhanced events endpoint:', dbError);
-        // Return empty results if database query fails
-        totalEvents = 0;
-        totalPages = 0;
-        results = [];
-      }
+          results = await AppDataSource.query(detectionQuery, queryParams);
+        } catch (dbError) {
+          console.error('Database error in enhanced events endpoint:', dbError);
+          // Return empty results if database query fails
+          totalEvents = 0;
+          totalPages = 0;
+          results = [];
+        }
 
       console.log(`[EventsList] Found ${results.length} events (Page ${currentPage} of ${totalPages})`);
 
@@ -2395,7 +2419,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
         // Extract just the filename from the full path for frontend compatibility
         // Use the API endpoint format that serves images from the detection directory
-        const filename = row.filename || path.basename(row.storage_path);
+        const filename = path.basename(row.filename);
         let imageUrl = `/api/events/image/${filename}`;
 
         const eventData = {
@@ -2558,24 +2582,24 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // If not in public, try to find it in the detection files database to get the actual path
       try {
-        // Try to find by original_filename first, then by filename in storage_path
+        // Try to find by file_path ending with filename
         let query = `
-          SELECT storage_path
-          FROM detection_files
-          WHERE original_filename = $1
+          SELECT file_path as storage_path
+          FROM events
+          WHERE file_path LIKE $1
           LIMIT 1
         `;
-        let results = await AppDataSource.query(query, [filename]);
+        let results = await AppDataSource.query(query, [`%${filename}`]);
 
-        // If not found by original_filename, try to find by storage_path ending with filename
+        // If not found by file_path, try to find by exact match
         if (results.length === 0) {
           query = `
-            SELECT storage_path
-            FROM detection_files
-            WHERE storage_path LIKE $1
+            SELECT file_path as storage_path
+            FROM events
+            WHERE file_path = $1
             LIMIT 1
           `;
-          results = await AppDataSource.query(query, [`%${filename}`]);
+          results = await AppDataSource.query(query, [filename]);
         }
 
           if (results.length > 0 && results[0].storage_path) {
@@ -2661,11 +2685,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Check if file exists
       const query = `
-        SELECT storage_path, camera_id, capture_timestamp
-        FROM detection_files
-        WHERE original_filename = $1
-          AND file_type IN ('event_motion', 'event_face')
-          AND is_deleted = FALSE
+        SELECT
+          COALESCE(df.storage_path, e.file_path) as storage_path,
+          COALESCE(df.camera_id, e.camera_id) as camera_id,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE e.file_path LIKE $1
+          AND COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
         LIMIT 1
       `;
 
@@ -2733,18 +2760,18 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         event.storage_path
       ]);
 
-      // Update detection_files metadata as well
-      const updateDetectionFilesQuery = `
-        UPDATE detection_files
+      // Update events metadata as well
+      const updateEventsQuery = `
+        UPDATE events
         SET metadata = jsonb_set(
-          COALESCE(metadata, '{}'::jsonb),
+          COALESCE(metadata::jsonb, '{}'::jsonb),
           '{detectionAddedAt}',
           to_jsonb(NOW())
-        )
-        WHERE original_filename = $1
+        )::text
+        WHERE file_path LIKE $1
       `;
 
-      await AppDataSource.query(updateDetectionFilesQuery, [filename]);
+      await AppDataSource.query(updateEventsQuery, [`%${filename}`]);
 
       console.log(`[TestData] Added detection data to ${filename}:`, mockDetections);
 
@@ -2766,19 +2793,19 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       // Query snapshot files from database
       const query = `
         SELECT
-          original_filename,
-          capture_timestamp
-        FROM detection_files
-        WHERE file_type = 'snapshot'
-          AND is_deleted = FALSE
-        ORDER BY capture_timestamp DESC
+          COALESCE(df.storage_path, e.file_path) as file_path,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE COALESCE(df.file_type, e.event_type) = 'snapshot'
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT 1000
       `;
 
       const results = await AppDataSource.query(query);
 
       // Transform results to match expected format (just filenames)
-      const files = results.map((row: any) => row.original_filename);
+      const files = results.map((row: any) => row.file_path);
 
       res.json({ success: true, files });
     } catch (error) {
@@ -3088,17 +3115,19 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Query for detection file by UUID or filename
       const query = `
-        SELECT 
-          df.file_uuid,
-          df.original_filename,
-          df.storage_path,
-          df.metadata,
-          df.camera_id
-        FROM detection_files df
-        WHERE df.file_uuid = $1 
+        SELECT
+          COALESCE(df.file_uuid::text, e.id::text) as file_uuid,
+          COALESCE(df.storage_path, e.file_path) as file_path,
+          COALESCE(df.storage_path, e.file_path) as imagePath,
+          COALESCE(df.metadata, e.metadata) as metadata,
+          COALESCE(df.camera_id, e.camera_id) as camera_id
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE df.file_uuid = $1
+           OR e.file_path = $1
            OR df.original_filename = $1
-          AND df.is_deleted = FALSE
-        ORDER BY df.created_at DESC
+
+        ORDER BY COALESCE(df.created_at, e.created_at) DESC
         LIMIT 1
       `;
 
@@ -3557,26 +3586,26 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const endDate = req.query.endDate as string;
 
       // Build query conditions
-      const conditions: string[] = ['is_deleted = FALSE', 'capture_timestamp IS NOT NULL'];
+      const conditions: string[] = ['timestamp IS NOT NULL'];
       const values: any[] = [];
       let paramIndex = 1;
 
       if (type) {
-        // Map type to file_type in database
+        // Map type to event_type in database
         if (type === 'person' || type === 'motion') {
-          conditions.push(`file_type = $${paramIndex++}`);
+          conditions.push(`event_type = $${paramIndex++}`);
           values.push('event_motion');
         } else if (type === 'face') {
-          conditions.push(`file_type = $${paramIndex++}`);
+          conditions.push(`event_type = $${paramIndex++}`);
           values.push('event_face');
         } else {
           // For other types, use direct mapping
-          conditions.push(`file_type = $${paramIndex++}`);
+          conditions.push(`event_type = $${paramIndex++}`);
           values.push(type);
         }
       } else {
         // If no type specified, get motion and face events (not snapshots)
-        conditions.push(`file_type IN ('event_motion', 'event_face')`);
+        conditions.push(`event_type IN ('event_motion', 'event_face')`);
       }
 
       if (cameraId) {
@@ -3585,30 +3614,29 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       }
 
       if (startDate) {
-        conditions.push(`capture_timestamp >= $${paramIndex++}`);
+        conditions.push(`timestamp >= $${paramIndex++}`);
         values.push(new Date(startDate));
       }
 
       if (endDate) {
-        conditions.push(`capture_timestamp <= $${paramIndex++}`);
+        conditions.push(`timestamp <= $${paramIndex++}`);
         values.push(new Date(endDate));
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       const query = `
         SELECT
-          file_uuid,
-          file_type,
-          camera_id,
-          original_filename,
-          storage_path,
-          file_size,
-          capture_timestamp,
-          metadata,
-          created_at
-        FROM detection_files
+          COALESCE(df.file_uuid::text, e.id::text) as file_uuid,
+          COALESCE(df.file_type, e.event_type) as file_type,
+          COALESCE(df.camera_id, e.camera_id) as camera_id,
+          COALESCE(df.storage_path, e.file_path) as storage_path,
+          COALESCE(df.capture_timestamp, e.timestamp) as capture_timestamp,
+          COALESCE(df.metadata, e.metadata) as metadata,
+          df.original_filename
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
-        ORDER BY capture_timestamp DESC
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT $${paramIndex}
       `;
 
@@ -3780,17 +3808,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   async function getEventsForBatch(request: BatchDetectionRequest): Promise<any[]> {
     try {
       // Build query conditions
-      const conditions: string[] = ['is_deleted = FALSE', "file_type IN ('event_motion', 'event_face')"];
+      const conditions: string[] = ["event_type IN ('event_motion', 'event_face')"];
       const values: any[] = [];
       let paramIndex = 1;
 
       if (request.startDate) {
-        conditions.push(`capture_timestamp >= $${paramIndex++}`);
+        conditions.push(`timestamp >= $${paramIndex++}`);
         values.push(new Date(request.startDate));
       }
 
       if (request.endDate) {
-        conditions.push(`capture_timestamp <= $${paramIndex++}`);
+        conditions.push(`timestamp <= $${paramIndex++}`);
         values.push(new Date(request.endDate));
       }
 
@@ -3798,16 +3826,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const whereClause = `WHERE ${conditions.join(' AND ')}`;
       const query = `
         SELECT
-          file_uuid,
-          file_type,
-          camera_id,
-          original_filename,
-          storage_path,
-          capture_timestamp,
-          metadata
-        FROM detection_files
+          COALESCE(df.file_uuid::text, e.id::text) as file_uuid,
+          COALESCE(df.file_type, e.event_type) as file_type,
+          COALESCE(df.camera_id, e.camera_id) as camera_id,
+          COALESCE(df.storage_path, e.file_path) as storage_path,
+          COALESCE(df.capture_timestamp, e.timestamp) as capture_timestamp,
+          COALESCE(df.metadata, e.metadata) as metadata,
+          df.original_filename
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         ${whereClause}
-        ORDER BY capture_timestamp DESC
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT $${paramIndex}
       `;
 
@@ -4284,22 +4313,21 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       console.log(`Starting batch processing job ${jobId}`);
 
-      // Get available events from detection_files table
+      // Get available events from events table
       const events = await AppDataSource.query(`
         SELECT
-          df.id as file_id,
-          df.file_uuid,
-          df.original_filename as filename,
-          df.capture_timestamp as timestamp,
-          df.camera_id as cameraId,
-          df.storage_path as filePath,
-          df.file_size as size
-        FROM detection_files df
-        WHERE df.file_type IN ('event_face', 'event_motion')
-          AND df.is_deleted = false
-          AND df.capture_timestamp >= $1
-          AND df.capture_timestamp <= $2
-        ORDER BY df.capture_timestamp DESC
+          COALESCE(df.file_uuid::text, e.id::text) as file_id,
+          COALESCE(df.file_uuid::text, e.id::text) as file_uuid,
+          COALESCE(df.original_filename, e.file_path) as filename,
+          COALESCE(df.capture_timestamp, e.timestamp) as timestamp,
+          COALESCE(df.camera_id, e.camera_id) as cameraId,
+          COALESCE(df.storage_path, e.file_path) as filePath
+        FROM events e
+        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
+        WHERE COALESCE(df.file_type, e.event_type) IN ('event_face', 'event_motion')
+          AND COALESCE(df.capture_timestamp, e.timestamp) >= $1
+          AND COALESCE(df.capture_timestamp, e.timestamp) <= $2
+        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
         LIMIT 1000
       `, [new Date(options.timeRange.start), new Date(options.timeRange.end)]);
 
@@ -4350,7 +4378,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           const batchResult = await response.json();
 
           if (batchResult.success && batchResult.results) {
-            // Update detection_files metadata for each result
+            // Update events metadata for each result
             for (let j = 0; j < batchResult.results.length && j < batch.length; j++) {
               const result = batchResult.results[j];
               const event = batch[j];
@@ -4376,10 +4404,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
                 // Update metadata
                 await AppDataSource.query(`
-                  UPDATE detection_files
-                  SET metadata = $1::jsonb, updated_at = NOW()
-                  WHERE file_hash = $2 OR storage_path = $3
-                `, [JSON.stringify(metadata), fileHash, event.filepath]);
+                  UPDATE events
+                  SET metadata = $1::text
+                  WHERE file_path = $2
+                `, [JSON.stringify(metadata), event.filepath]);
 
                 successful++;
               }
@@ -4519,4 +4547,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       });
     }
   });
+
+  // Configure detection routes (with enhanced functionality)
+  app.use('/api/detection', detectionRoutes);
+
+  // Configure detection redo routes
+  configureDetectionRedoRoutes(app);
 }

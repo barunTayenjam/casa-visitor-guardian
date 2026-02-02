@@ -7,6 +7,9 @@ import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
 import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig, CameraStreamConfig } from "../config/index.js";
 import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.js";
+import { AppDataSource } from "../database.js";
+import { Event } from "../models/Event.js";
+import { OptimizedMotionDetector } from "../detection/optimizedMotionDetection.js";
 
 // Import ffmpeg-static safely
 import ffmpegStatic from "ffmpeg-static";
@@ -26,7 +29,7 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Stream types for dual-stream architecture
+// Stream types for single-stream architecture (shared FFmpeg process)
 export interface CameraStream {
   role: 'detect' | 'record' | 'live';
   url: string;
@@ -39,7 +42,7 @@ export interface CameraStream {
   fps: number;
 }
 
-// Define camera interface
+// Define camera interface with single shared process
 export interface Camera {
   id: string;
   name: string;
@@ -49,6 +52,8 @@ export interface Camera {
   nightMode: boolean;
   retryCount: number;
   lastError?: string;
+  mainProcess: ChildProcessWithoutNullStreams | null; // Single FFmpeg process shared across all roles
+  activeRoles: Set<'detect' | 'record' | 'live'>; // Track which roles are currently requested
 }
 
 // Load camera configuration from config (already converted to new format)
@@ -131,23 +136,25 @@ export class StreamManager {
       isActive: false,
       nightMode: cameraConfig.nightMode || false,
       retryCount: 0,
+      mainProcess: null,
+      activeRoles: new Set()
     };
 
-    // Initialize streams from config
+    // Initialize streams from config (all roles share same stream URL)
     cameraConfig.streams.forEach((streamConfig) => {
       streamConfig.roles.forEach((role) => {
         camera.streams.set(role, {
           role: role,
-          url: streamConfig.path,
-          process: null,
+          url: streamConfig.path, // All roles share same URL
+          process: null, // Each stream object has null, mainProcess is used
           isActive: false,
           lastFrame: null,
-          width: streamConfig.width || 640,
-          height: streamConfig.height || 360,
-          fps: streamConfig.fps || 5
+          width: streamConfig.width || 1920,
+          height: streamConfig.height || 1080,
+          fps: streamConfig.fps || 4
+        });
         });
       });
-    });
 
     this.cameras.set(camera.id, camera);
     return camera.id;
@@ -177,7 +184,7 @@ export class StreamManager {
     return stream.process as ChildProcessWithoutNullStreams;
   }
 
-  // Start streaming from a camera with specific role
+  // Start streaming from a camera with specific role (single-stream architecture)
   startStream(cameraId: string, role: 'detect' | 'record' | 'live'): boolean {
     const camera = this.cameras.get(cameraId);
     if (!camera) return false;
@@ -188,188 +195,224 @@ export class StreamManager {
       return false;
     }
 
-    if (stream.isActive) {
+    // Check if this role is already active
+    if (camera.activeRoles.has(role)) {
       console.log(`Camera ${cameraId} ${role} stream is already active`);
       return true;
     }
 
-    // Get detect config for settings
-    const detectConfig = camera.config.detect;
+    // Start main FFmpeg process if not already running (first role request)
+    if (!camera.mainProcess || !camera.mainProcess.pid) {
+      try {
+        // Get the main stream URL (stream1)
+        const mainStreamUrl = stream.url;
 
-    try {
-      // Build ffmpeg args based on role
-      const isDetect = role === 'detect';
-      const width = isDetect ? detectConfig.width : 1920;
-      const height = isDetect ? detectConfig.height : 1080;
-      
-      // Get FPS based on role and config
-      let fps = 4; // Default for non-detect streams
-      if (isDetect) {
-        fps = detectConfig.fps;
-      } else if (camera.config.live && camera.config.live.fps) {
-        fps = camera.config.live.fps;
-      }
+        // Build ffmpeg args - use 1920x1080 @ 4fps for all roles
+        const ffmpegArgs = [
+          "-loglevel", "error",
+          "-rtsp_transport", "tcp",
+          "-timeout", "5000000",
+          "-err_detect", "ignore_err",
+          "-fflags", "+discardcorrupt+genpts+genpts",
+          "-max_delay", "1000000",
+          "-probesize", "32768",
+          "-analyzeduration", "500000",
+          "-i", mainStreamUrl,
+          "-f", "mjpeg",
+          "-pix_fmt", "yuvj420p",
+          "-vcodec", "mjpeg",
+          "-q:v", "5",  // Good quality for all uses
+          "-threads", "4",
+          "-r", "4",  // 4 FPS for live streaming
+          "-vf", camera.nightMode
+            ? `scale=1920:1080,eq=gamma=1.5:contrast=1.2:brightness=0.2`
+            : `scale=1920:1080`,
+          "pipe:1",
+        ];
 
-      const ffmpegArgs = [
-        "-loglevel", "error",
-        "-rtsp_transport", "tcp",
-        "-timeout", "5000000",
-        "-err_detect", "ignore_err",
-        "-fflags", "+discardcorrupt+genpts+genpts",
-        "-max_delay", "1000000",
-        "-probesize", "32768",
-        "-analyzeduration", "500000",
-        "-i", stream.url,
-        "-f", "mjpeg",
-        "-pix_fmt", "yuvj420p",
-        "-vcodec", "mjpeg",
-        "-q:v", isDetect ? "10" : "5",  // Lower quality for detect stream
-        "-threads", "4",
-        "-r", fps.toString(),
-        "-vf", camera.nightMode
-          ? `scale=${width}:${height},eq=gamma=1.5:contrast=1.2:brightness=0.2`
-          : `scale=${width}:${height}`,
-        "pipe:1",
-      ];
+        console.log(`*** CAMERA ${cameraId} STARTING SINGLE SHARED STREAM (1920x1080 @ 4fps) for role: ${role} ***`);
 
-      console.log(`*** CAMERA ${cameraId} ${role.toUpperCase()} STREAM (${width}x${height} @ ${fps}fps) ***`);
+        const process = spawn(ffmpegPath, ffmpegArgs, {
+          stdio: ["pipe", "pipe", "pipe"],
+        });
 
-      const process = spawn(ffmpegPath, ffmpegArgs, {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+        camera.mainProcess = process;
+        camera.isActive = true;
 
-      stream.process = process;
-      stream.isActive = true;
-      stream.lastFrame = null;
-      camera.isActive = true;
+        // Handle process errors
+        process.on("error", (err) => {
+          console.error(`FFMPEG error for ${cameraId}: ${err.message}`);
+          camera.mainProcess = null;
+          camera.activeRoles.clear();
+          camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
+        });
 
-      // Handle process errors
-      process.on("error", (err) => {
-        console.error(`FFMPEG error for ${cameraId}/${role}: ${err.message}`);
-        stream.isActive = false;
-        stream.process = null;
-      });
+        // Handle process exit
+        process.on("exit", (code: number) => {
+          console.log(`FFMPEG ${cameraId} exited with code ${code}`);
+          camera.mainProcess = null;
+          camera.activeRoles.clear();
+          camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
 
-      // Handle output data
-      let buffer = Buffer.alloc(0);
-      process.stdout.on("data", (data: Buffer) => {
-        buffer = Buffer.concat([buffer, data]);
-
-        let startMarkerPos = -1;
-        let endMarkerPos = -1;
-
-        while (true) {
-          startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]));
-          if (startMarkerPos === -1) break;
-          endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos);
-          if (endMarkerPos === -1) break;
-
-          const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
-          stream.lastFrame = frameBuffer;
-          buffer = buffer.slice(endMarkerPos + 2);
-
-          // Emit detect frames for processing
-          if (role === 'detect') {
-            this.processFrameForMotion(cameraId, frameBuffer);
+          // Auto-restart on unexpected exit
+          if (code !== 0 && camera.retryCount < 5) {
+            camera.retryCount++;
+            setTimeout(() => this.startStream(cameraId, role), 5000 * camera.retryCount);
           }
+        });
 
-          // Emit frames to viewers
-          const room = this.io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
-          const clientCount = room ? room.size : 0;
+        // Handle output data - shared across all roles
+        let buffer = Buffer.alloc(0);
+        process.stdout.on("data", (data: Buffer) => {
+          buffer = Buffer.concat([buffer, data]);
 
-          if (clientCount > 0) {
-            const now = Date.now();
-            const frameInterval = 1000 / fps;
-            if (!stream.lastFrameSentTime || now - stream.lastFrameSentTime >= frameInterval) {
-              stream.lastFrameSentTime = now;
-              this.io.to(`camera-${cameraId}-${role}`).emit("frame", {
-                cameraId,
-                role,
-                data: frameBuffer.toString("base64"),
-                timestamp: new Date().toISOString(),
-              });
+          let startMarkerPos = -1;
+          let endMarkerPos = -1;
+
+          while (true) {
+            startMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd8]));
+            if (startMarkerPos === -1) break;
+            endMarkerPos = buffer.indexOf(Buffer.from([0xff, 0xd9]), startMarkerPos);
+            if (endMarkerPos === -1) break;
+
+            const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
+            buffer = buffer.slice(endMarkerPos + 2);
+
+            // Update all stream objects with current frame
+            camera.streams.forEach((s) => {
+              s.lastFrame = frameBuffer;
+            });
+
+            // Emit frames to all active roles (without client count check)
+            camera.activeRoles.forEach((activeRole) => {
+              const roleStream = camera.streams.get(activeRole);
+              if (roleStream) {
+                const roomName = `camera-${cameraId}-${activeRole}`;
+
+                const now = Date.now();
+                const fps = 4; // Fixed 4 FPS for all roles
+                const frameInterval = 1000 / fps;
+
+                if (!roleStream.lastFrameSentTime || now - roleStream.lastFrameSentTime >= frameInterval) {
+                  roleStream.lastFrameSentTime = now;
+
+                  // Emit frame to room - let Socket.io handle room lookup
+                  this.io.to(roomName).emit("frame", {
+                    cameraId,
+                    role: activeRole,
+                    data: frameBuffer.toString("base64"),
+                    timestamp: new Date().toISOString(),
+                  });
+
+                  // Debug logging
+                  if (cameraId === 'cam2') {
+                     console.log(`[StreamManager] Emitted frame to ${roomName}, size: ${frameBuffer.length}`);
+                   }
+                 }
+               }
+             });
+
+            // Process detect frames for motion detection (only one time per frame)
+            if (camera.activeRoles.has('detect')) {
+              this.processFrameForMotion(cameraId, frameBuffer);
             }
           }
-        }
-      });
-
-      // Handle process exit
-      process.on("exit", (code: number) => {
-        console.log(`FFMPEG ${cameraId}/${role} exited with code ${code}`);
-        stream.isActive = false;
-        stream.process = null;
-
-        // Check if any streams are still active
-        let anyActive = false;
-        camera.streams.forEach(s => {
-          if (s.isActive) anyActive = true;
         });
-        camera.isActive = anyActive;
 
-        // Auto-restart on unexpected exit
-        if (code !== 0 && camera.retryCount < 5) {
-          camera.retryCount++;
-          setTimeout(() => this.startStream(cameraId, role), 5000 * camera.retryCount);
-        }
-      });
-
-      return true;
-    } catch (error: any) {
-      console.error(`Error starting ${role} stream for ${cameraId}: ${error.message}`);
-      return false;
+      } catch (error: any) {
+        console.error(`Error starting shared stream for ${cameraId}: ${error.message}`);
+        return false;
+      }
     }
+
+    // Mark this role as active
+    camera.activeRoles.add(role);
+    const roleStream = camera.streams.get(role);
+    if (roleStream) {
+      roleStream.isActive = true;
+    }
+
+    console.log(`Camera ${cameraId} ${role} role activated (sharing main FFmpeg process)`);
+    return true;
   }
 
-  // Stop streaming from a camera
+  // Stop streaming from a camera (single-stream architecture)
   stopStream(cameraId: string, role?: 'detect' | 'record' | 'live'): boolean {
     const camera = this.cameras.get(cameraId);
     if (!camera) return false;
 
     if (role) {
-      // Stop specific stream
+      // Remove specific role from active set
+      camera.activeRoles.delete(role);
       const stream = camera.streams.get(role);
-      if (stream && stream.process) {
-        stream.process.kill('SIGTERM');
+      if (stream) {
         stream.isActive = false;
-        stream.process = null;
-        return true;
       }
+
+      // If no more roles are active, kill the main FFmpeg process
+      if (camera.activeRoles.size === 0 && camera.mainProcess) {
+        console.log(`Stopping main FFmpeg process for ${cameraId} (all roles inactive)`);
+        camera.mainProcess.kill('SIGTERM');
+        camera.mainProcess = null;
+        camera.isActive = false;
+
+        // Mark all stream objects as inactive
+        camera.streams.forEach((s) => {
+          s.isActive = false;
+          s.process = null;
+        });
+      }
+
+      return true;
     } else {
-      // Stop all streams
-      let stopped = false;
-      camera.streams.forEach((stream, streamRole) => {
-        if (stream.isActive && stream.process) {
-          stream.process.kill('SIGTERM');
-          stream.isActive = false;
-          stream.process = null;
-          stopped = true;
-        }
-      });
+      // Stop all streams (kill main process)
+      camera.activeRoles.clear();
+      if (camera.mainProcess) {
+        console.log(`Stopping main FFmpeg process for ${cameraId} (stop all requested)`);
+        camera.mainProcess.kill('SIGTERM');
+        camera.mainProcess = null;
+      }
       camera.isActive = false;
-      return stopped;
+
+      // Mark all stream objects as inactive
+      camera.streams.forEach((s) => {
+        s.isActive = false;
+        s.process = null;
+      });
+
+      return true;
     }
+
     return false;
   }
 
-  // Restart a camera stream - useful for recovering from errors
+  // Restart a camera stream - useful for recovering from errors (single-stream architecture)
   restartStream(cameraId: string, role?: 'detect' | 'record' | 'live'): boolean {
-    console.log(`Attempting to restart stream for camera ${cameraId}${role ? '/' + role : ''}`);
-    
-    this.stopStream(cameraId, role);
-    
+    console.log(`Restarting camera ${cameraId} stream${role ? ` for role ${role}` : ' (all roles)'}`);
+
+    // For single-stream architecture, just stop and restart the main process
+    const camera = this.cameras.get(cameraId);
+    if (!camera) return false;
+
+    // Kill main process
+    if (camera.mainProcess) {
+      camera.mainProcess.kill('SIGTERM');
+      camera.mainProcess = null;
+    }
+
+    camera.activeRoles.clear();
+    camera.streams.forEach((s) => {
+      s.isActive = false;
+      s.process = null;
+    });
+
+    // Restart after a short delay
     setTimeout(() => {
-      if (role) {
-        this.startStream(cameraId, role);
-      } else {
-        const camera = this.cameras.get(cameraId);
-        if (camera) {
-          camera.streams.forEach((_value: CameraStream, streamRole: 'detect' | 'record' | 'live') => {
-            this.startStream(cameraId, streamRole);
-          });
-        }
-      }
+      // Start main process again - first active role will trigger it
+      const rolesToStart: ('detect' | 'record' | 'live')[] = role ? [role] : ['live' as const];
+      rolesToStart.forEach((r) => this.startStream(cameraId, r));
     }, 1000);
-    
+
     return true;
   }
 
@@ -541,30 +584,36 @@ export class StreamManager {
   }
 
   // Simulate motion detection
-  simulateMotionDetection(cameraId: string) {
+  async simulateMotionDetection(cameraId: string) {
     const camera = this.cameras.get(cameraId);
     if (!camera || !camera.isActive) return;
 
-    // Emit detection event directly to frontend (simulating real detection)
+    // Take a snapshot for the motion event
+    const filename = await this.takeSnapshot(cameraId);
+    if (!filename) {
+      console.error(`[StreamManager] Failed to take snapshot for simulation on ${cameraId}`);
+      return;
+    }
+
     const timestamp = new Date().toISOString();
+    
+    // Create simulated detections
+    const detections = [
+      { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
+      { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
+    ];
     
     // Emit to live room
     this.io.to(`camera-${cameraId}-live`).emit('detection', {
       cameraId,
-      detections: [
-        { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
-        { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
-      ],
+      detections,
       timestamp,
     });
 
     // Also emit to general camera room
     this.io.to(`camera-${cameraId}`).emit('detection', {
       cameraId,
-      detections: [
-        { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
-        { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
-      ],
+      detections,
       timestamp,
     });
 
@@ -573,14 +622,46 @@ export class StreamManager {
       id: `motion_${Date.now()}`,
       cameraId,
       timestamp,
-      confidence: 0.85,
+      confidence: 85,
       labels: ['person', 'car'],
+      detections,
+      detectionResolution: { width: 1920, height: 1080 }
     });
 
-    // Take a snapshot for the motion event
-    this.takeSnapshot(cameraId).catch((err) => {
-      console.error("Failed to take snapshot for motion event:", err);
-    });
+    console.log(`[StreamManager] Simulation snapshot saved: ${filename}, saving to database...`);
+
+    // Save to database
+    try {
+      const event = new Event();
+      event.event_type = 'motion';
+      event.camera_id = cameraId;
+      
+      // Get the full path to the snapshot
+      const snapshotDate = new Date();
+      const yearMonth = `${snapshotDate.getFullYear()}-${String(snapshotDate.getMonth() + 1).padStart(2, '0')}`;
+      event.file_path = `/app/data/detections/${yearMonth}/snapshots/${filename}`;
+      event.timestamp = new Date(timestamp);
+      event.confidence = 0.85;
+      event.persons_detected = 1;
+      event.faces_detected = 0;
+      event.known_faces_count = 0;
+      event.unknown_faces_count = 0;
+      event.object_detections = detections;
+      event.face_detections = [];
+      event.metadata = JSON.stringify({
+        confidence: 85,
+        simulated: true,
+        hasPersons: true,
+        hasFaces: false,
+        personCount: 1,
+        faceCount: 0
+      });
+
+      await AppDataSource.getRepository(Event).save(event);
+      console.log(`[StreamManager] Simulation event saved to database: ${event.id}`);
+    } catch (error) {
+      console.error(`[StreamManager] Failed to save simulation event to database:`, error);
+    }
   }
 }
 
@@ -617,8 +698,8 @@ export async function setupRTSPStreams(
 
       if (activeCameras.length > 0) {
         // Randomly choose a camera to simulate motion on occasionally
-        if (Math.random() < 0.1) {
-          // 10% chance every interval
+        if (Math.random() < 0.15) {
+          // 15% chance every 30 seconds = ~1-2 events per minute for testing
           const randomCamera =
             activeCameras[Math.floor(Math.random() * activeCameras.length)];
           console.log(`[StreamManager] Simulating motion detection for camera: ${randomCamera.id}`);

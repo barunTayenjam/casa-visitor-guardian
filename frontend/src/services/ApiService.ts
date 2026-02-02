@@ -57,6 +57,13 @@ interface BackendCamera {
       height: number;
       fps: number;
     };
+    streams?: Array<{
+      path: string;
+      roles: string[];
+      width: number;
+      height: number;
+      fps: number;
+    }>;
     objects?: {
       track: string[];
       filters?: Record<string, {
@@ -584,24 +591,49 @@ class ApiService {
     const status = camera.status || (camera.isActive ? 'online' : 'offline');
     
     // Check if this is the new format with config
-    const isNewFormat = 'config' in camera && camera.config;
+    const isNewFormat = 'config' in camera && camera.config && camera.config.streams;
+    
+    // Extract stream URL from new format or legacy format
+    let streamUrl: string | undefined;
+    let resolution: string | undefined;
+    let fps: number | undefined;
+    
+    if (isNewFormat && camera.config?.streams && camera.config.streams.length > 0) {
+      // New format: extract from config.streams[0].path
+      streamUrl = camera.config.streams[0].path;
+      resolution = `${camera.config.streams[0].width}x${camera.config.streams[0].height}`;
+      fps = camera.config.streams[0].fps;
+    } else {
+      // Legacy format
+      const legacyCamera = camera as LegacyBackendCamera;
+      streamUrl = legacyCamera.rtspUrl;
+      resolution = legacyCamera.resolution;
+      fps = legacyCamera.frameRate;
+    }
     
     return {
       id: camera.id,
       name: camera.name,
       status: status as 'online' | 'offline' | 'warning',
-      streamUrl: (camera as LegacyBackendCamera).rtspUrl,
+      streamUrl,
       thumbnail: '/placeholder-camera.svg',
       location: camera.name,
       detectionEnabled: true,
       sensitivity: 0.5,
       lastSeen: new Date(),
-      resolution: (camera as LegacyBackendCamera).resolution,
-      fps: (camera as LegacyBackendCamera).frameRate,
+      resolution,
+      fps,
       error: camera.lastError,
       // New dual-stream fields
       config: isNewFormat ? camera.config : undefined,
-      streams: (camera as BackendCamera).streams,
+      streams: (camera as BackendCamera).streams ? {
+        detect: (camera as BackendCamera).streams!.detect,
+        record: (camera as BackendCamera).streams!.record ? {
+          ...(camera as BackendCamera).streams!.record,
+          hasFrame: (camera as BackendCamera).streams!.record!.isActive,
+          frameSize: 0,
+        } : undefined,
+      } : undefined,
     };
   }
 

@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,9 +9,18 @@ import { SocketProvider } from "./contexts/SocketContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
+import { ProtectedApp } from "./components/ProtectedApp";
+
 const Login = lazy(() => import("./pages/Login"));
-const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
-const EventsPage = lazy(() => import("./pages/EventsPage.new"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CameraConfig = lazy(() => import("./pages/CameraConfig"));
+const MotionEvents = lazy(() => import("./pages/MotionEvents"));
+const Settings = lazy(() => import("./pages/Settings"));
+const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline"));
+const VisitorReports = lazy(() => import("./pages/VisitorReports"));
+const SystemLogs = lazy(() => import("./pages/SystemLogs"));
+const OpenCV = lazy(() => import("./pages/OpenCV"));
+const Review = lazy(() => import("./pages/Review"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -58,7 +68,7 @@ const LoadingFallback = () => (
     <div className="text-center">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
       <div className="text-white text-lg">Loading...</div>
-      <div className="text-slate-400 text-sm mt-2">Initializing SentryVision</div>
+      <div className="text-slate-400 text-sm mt-2">Initializing security dashboard</div>
     </div>
   </div>
 );
@@ -88,26 +98,64 @@ const App = () => {
                   />
 
                   <Route path="/app" element={
-                      <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <StreamDashboard />
-                        </ErrorBoundary>
-                      </ProtectedRoute>
-                    }>
-                    <Route index element={<Navigate to="/app/streams" replace />} />
-                    
-                    <Route path="streams" element={
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <StreamDashboard />
-                        </ErrorBoundary>
-                      } />
-                    
+                    <ProtectedRoute>
+                      <ProtectedApp />
+                    </ProtectedRoute>
+                  }>
+                    <Route index element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <Dashboard />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="opencv" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <OpenCV />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="camera-config" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <ProtectedRoute requiredRole="admin">
+                          <CameraConfig />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                    } />
                     <Route path="events" element={
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <EventsPage />
-                        </ErrorBoundary>
-                      } />
-                  </Route>
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <MotionEvents />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="visitor-timeline" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <VisitorTimeline />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="visitor-reports" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <VisitorReports />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="logs" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <ProtectedRoute requiredRole="admin">
+                          <SystemLogs />
+                        </ProtectedRoute>
+                      </ErrorBoundary>
+                    } />
+
+                    <Route path="review" element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <Review />
+                      </ErrorBoundary>
+                    } />
+
+                    <Route path="settings" element={
+                       <ErrorBoundary fallback={ErrorFallback}>
+                         <ProtectedRoute requiredRole="user">
+                           <Settings />
+                         </ProtectedRoute>
+                       </ErrorBoundary>
+                     } />
+                   </Route>
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>

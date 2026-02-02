@@ -78,10 +78,7 @@ const StreamDashboard = () => {
   };
 
   const handleOpenSettings = () => {
-    toast({
-      title: 'Settings',
-      description: 'Settings page is not available in the redesigned interface.',
-    });
+    navigate('/app/settings');
   };
 
   const activeCameras = cameras.filter(c => c.status === 'online');

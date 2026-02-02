@@ -68,3 +68,7 @@ server/test_output.mjpeg
 *.mjpeg
 data/redis/dump.rdb
 data/
+
+# ML Model weights (too large for GitHub, download separately)
+*.weights
+

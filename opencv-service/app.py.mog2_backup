@@ -739,11 +739,11 @@ class MotionDetector:
         if camera_id not in self.bg_subtractors:
             if self.use_mog2:
                 # MOG2: Adaptive Gaussian Mixture-based Background/Foreground Segmentation
-                # OPTIMIZED: More sensitive parameters for better motion detection
+                # Good for varying lighting conditions
                 bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-                    history=200,        # OPTIMIZED: Reduced from 500 - adapts faster to changes
-                    varThreshold=8,     # OPTIMIZED: Reduced from 16 - 2x more sensitive to motion
-                    detectShadows=False # OPTIMIZED: Disabled - reduces noise from shadows
+                    history=500,        # Number of frames used for background model
+                    varThreshold=16,    # Threshold on the squared Mahalanobis distance
+                    detectShadows=True  # Detect shadows and mark them
                 )
             else:
                 # KNN: K-Nearest Neighbors-based background subtraction
@@ -796,14 +796,14 @@ class MotionDetector:
             # MOG2 marks shadows as 127 (gray), so threshold to keep only 255 (foreground)
             _, fg_mask = cv2.threshold(fg_mask, 250, 255, cv2.THRESH_BINARY)
             
-            # OPTIMIZED: Lighter morphological operations to preserve motion detail
-            # Use smaller kernel for opening (remove small noise)
-            kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # OPTIMIZED: (5,5) -> (3,3)
-            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel_open, iterations=1)  # OPTIMIZED: 2 -> 1
+            # Enhanced morphological operations to reduce noise
+            # Use larger kernel for opening (remove small noise)
+            kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel_open, iterations=2)
             
-            # Use smaller kernel for closing (fill holes)
-            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # OPTIMIZED: (7,7) -> (3,3)
-            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)  # OPTIMIZED: 2 -> 1
+            # Use larger kernel for closing (fill holes)
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel_close, iterations=2)
             
             # Dilate to merge nearby regions
             kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -825,11 +825,10 @@ class MotionDetector:
             total_contour_area = sum(cv2.contourArea(c) for c in significant_contours)
             contour_area_percentage = (total_contour_area / total_pixels) * 100
             
-            # OPTIMIZED: Lower threshold for better sensitivity
             # Motion is detected if:
-            # 1. Enough pixels changed (>0.2%), OR
-            # 2. There are significant contours with sufficient total area (>0.15%)
-            motion_detected = (motion_percentage > 0.2) or (contour_area_percentage > 0.15)
+            # 1. Enough pixels changed (>0.3%), OR
+            # 2. There are significant contours with sufficient total area (>0.2%)
+            motion_detected = (motion_percentage > 0.3) or (contour_area_percentage > 0.2)
             
             # Calculate motion regions
             motion_regions = []
@@ -853,9 +852,8 @@ class MotionDetector:
             # Sort regions by area (largest first)
             motion_regions.sort(key=lambda r: r['area'], reverse=True)
             
-            # OPTIMIZED: More generous confidence calculation (better reporting)
-            # Increased multiplier from 5 to 8 for more accurate confidence values
-            confidence = max(0, min(100, (motion_percentage * 8 + contour_area_percentage * 8)))
+            # Improved confidence calculation based on both pixel percentage and contour area
+            confidence = max(0, min(100, (motion_percentage * 5 + contour_area_percentage * 5)))
             
             result = {
                 'motion_detected': motion_detected,

@@ -6,6 +6,13 @@ import { DetectionResult, ObjectDetectionSettings } from './objectDetection.js';
 import sharp from 'sharp';
 import axios from 'axios';
 import { getOpenCVServiceUrl } from '../config/index.js';
+import { AppDataSource } from '../database.js';
+import { Event } from '../models/Event.js';
+import { DetectionConfig } from '../models/DetectionConfig.js';
+import { Timeline } from '../models/Timeline.js';
+import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
+import { TimelineService } from '../services/timeline/timelineService.js';
+import { EnhancedDetectionService } from '../services/detection/enhancedDetectionService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -380,9 +387,73 @@ export class MotionTriggeredDetection extends EventEmitter {
   // Object detection is now handled via HTTP requests to the opencv service
 
   /**
+   * Validate and filter detection results to ensure realistic bounding boxes
+   */
+  private validateDetections(detections: any[]): any[] {
+    return detections.filter(detection => {
+      // Basic validation
+      if (!detection.bbox || typeof detection.bbox !== 'object') {
+        return false;
+      }
+
+      const { x, y, width, height } = detection.bbox;
+
+      // Check if coordinates are valid numbers
+      if (typeof x !== 'number' || typeof y !== 'number' ||
+          typeof width !== 'number' || typeof height !== 'number') {
+        return false;
+      }
+
+      // Check for realistic bounds (assuming max image size of 4096x2160)
+      if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
+          x > 4096 || y > 2160 || width > 4096 || height > 2160) {
+        return false;
+      }
+
+      // Check for reasonable aspect ratios (not extremely narrow/wide)
+      const aspectRatio = width / height;
+      if (aspectRatio > 10 || aspectRatio < 0.1) {
+        return false;
+      }
+
+      // Check for minimum size (at least 5x5 pixels)
+      if (width < 5 || height < 5) {
+        return false;
+      }
+
+      // Check for maximum size (not taking up entire frame)
+      if (width > 3000 || height > 2000) {
+        return false;
+      }
+
+      // Confidence should be between 0 and 100
+      if (typeof detection.confidence === 'number' &&
+          (detection.confidence < 0 || detection.confidence > 100)) {
+        return false;
+      }
+
+      return true;
+    }).map(detection => {
+      // Round coordinates to integers to ensure consistency
+      return {
+        ...detection,
+        bbox: {
+          x: Math.round(detection.bbox.x),
+          y: Math.round(detection.bbox.y),
+          width: Math.round(detection.bbox.width),
+          height: Math.round(detection.bbox.height)
+        }
+      };
+    });
+  }
+
+  /**
    * Save motion-detected frame
    */
   private async saveMotionFrame(cameraId: string, frame: Buffer, detections: any[]): Promise<string> {
+    // Validate detections before saving
+    const validDetections = this.validateDetections(detections);
+
     // Use unified storage system
     const { getEventPath } = await import('../config/index.js');
     const eventsDir = getEventPath('motion', new Date());
@@ -394,51 +465,48 @@ export class MotionTriggeredDetection extends EventEmitter {
     const filename = `motion_${cameraId}_${Date.now()}.jpg`;
     const filepath = path.join(eventsDir, filename);
 
-    // Calculate detection metadata
-    const personCount = detections.filter(d => d.class === 'person').length;
-    const carCount = detections.filter(d => d.class === 'car').length;
-    const dogCount = detections.filter(d => d.class === 'dog').length;
-    const catCount = detections.filter(d => d.class === 'cat').length;
-    const packageCount = detections.filter(d => d.class === 'package').length;
-    const maxConfidence = detections.length > 0 ? Math.max(...detections.map(d => d.confidence)) : 0;
-    
+    // Write the frame to disk
+    await fs.promises.writeFile(filepath, frame);
+
+    // Calculate detection metadata using validated detections
+    const personCount = validDetections.filter(d => d.class === 'person').length;
+    const carCount = validDetections.filter(d => d.class === 'car').length;
+    const dogCount = validDetections.filter(d => d.class === 'dog').length;
+    const catCount = validDetections.filter(d => d.class === 'cat').length;
+    const packageCount = validDetections.filter(d => d.class === 'package').length;
+    const maxConfidence = validDetections.length > 0 ? Math.max(...validDetections.map(d => d.confidence)) : 0;
+
     // Count unique object classes
-    const uniqueClasses = new Set(detections.map(d => d.class));
+    const uniqueClasses = new Set(validDetections.map(d => d.class));
     const objectCounts: Record<string, number> = {};
     uniqueClasses.forEach(cls => {
-      objectCounts[cls] = detections.filter(d => d.class === cls).length;
+      objectCounts[cls] = validDetections.filter(d => d.class === cls).length;
     });
 
-    // Index the file in the database
+    // Index the file in the database using both events and detection_files tables
     try {
-      const { AppDataSource } = await import('../database.js');
       const crypto = await import('node:crypto');
       const fileHash = crypto.createHash('sha256').update(frame).digest('hex');
 
-      const insertQuery = `
-        INSERT INTO detection_files (
-          file_type,
+      // First, save to events table (existing functionality)
+      const eventInsertQuery = `
+        INSERT INTO events (
+          event_type,
+          file_path,
+          timestamp,
           camera_id,
-          original_filename,
-          storage_path,
-          file_size,
-          file_hash,
-          capture_timestamp,
           metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING file_uuid
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
       `;
 
       const now = new Date();
-      await AppDataSource.query(insertQuery, [
-        'event_motion', // file_type
+      await AppDataSource.query(eventInsertQuery, [
+        'motion', // event_type
+        filepath, // file_path
+        now, // timestamp
         cameraId, // camera_id
-        filename, // original_filename
-        filepath, // storage_path
-        frame.length, // file_size
-        fileHash, // file_hash
-        now, // capture_timestamp
-        {
+        JSON.stringify({
           confidence: maxConfidence,
           motionArea: 0, // Will be calculated by other systems
           lightLevel: 50, // Default light level
@@ -448,21 +516,107 @@ export class MotionTriggeredDetection extends EventEmitter {
           faceCount: 0,
           knownFaces: 0,
           unknownFaces: 0,
-          totalDetections: detections.length,
+          totalDetections: validDetections.length, // Use count of valid detections
           uniqueClasses: Array.from(uniqueClasses),
           objectCounts,
-          detections: detections.map((d: any) => ({
+          detections: validDetections.map((d: any) => ({
             class: d.class,
             confidence: d.confidence,
             bbox: d.bbox
           }))
-        } // metadata
+        }) // metadata
       ]);
 
-      console.log(`Motion event indexed in database: ${filename} (${frame.length} bytes, ${detections.length} detections)`);
+      // Also save to detection_files table for unified storage
+      const detectionFileInsertQuery = `
+        INSERT INTO detection_files (
+          file_uuid,
+          file_type,
+          camera_id,
+          original_filename,
+          storage_path,
+          file_size,
+          file_hash,
+          capture_timestamp,
+          metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (file_uuid)
+        DO UPDATE SET
+          storage_path = EXCLUDED.storage_path,
+          file_size = EXCLUDED.file_size,
+          file_hash = EXCLUDED.file_hash,
+          capture_timestamp = EXCLUDED.capture_timestamp,
+          metadata = EXCLUDED.metadata,
+          updated_at = NOW()
+        RETURNING file_uuid
+      `;
+
+      const fileStats = await fs.promises.stat(filepath);
+      const fileUuid = crypto.randomUUID();
+      const originalFilename = path.basename(filepath);
+
+      await AppDataSource.query(detectionFileInsertQuery, [
+        fileUuid, // file_uuid
+        'event_motion', // file_type
+        cameraId, // camera_id
+        originalFilename, // original_filename
+        filepath, // storage_path
+        fileStats.size, // file_size
+        fileHash, // file_hash
+        now, // capture_timestamp
+        JSON.stringify({
+          confidence: maxConfidence,
+          motionArea: 0, // Will be calculated by other systems
+          lightLevel: 50, // Default light level
+          hasPersons: personCount > 0,
+          hasFaces: false, // Will be updated by face detection
+          personCount,
+          faceCount: 0,
+          knownFaces: 0,
+          unknownFaces: 0,
+          totalDetections: validDetections.length, // Use count of valid detections
+          uniqueClasses: Array.from(uniqueClasses),
+          objectCounts,
+          detections: validDetections.map((d: any) => ({
+            class: d.class,
+            confidence: d.confidence,
+            bbox: d.bbox
+          }))
+        }) // metadata
+      ]);
+
+      console.log(`Motion event saved to database: ${filename} (${frame.length} bytes, ${validDetections.length} valid detections)`);
     } catch (dbError) {
       console.error('Error indexing motion event in database:', dbError);
       // Continue execution even if database indexing fails
+    }
+
+    // Use the enhanced detection service to save to events table and timeline
+    try {
+      const eventRepo = AppDataSource.getRepository(Event);
+      const configRepo = AppDataSource.getRepository(DetectionConfig);
+      const timelineService = new TimelineService(
+        AppDataSource.getRepository(Timeline),
+        AppDataSource.getRepository(AdaptiveRegion)
+      );
+      const enhancedDetectionService = new EnhancedDetectionService(eventRepo, timelineService, configRepo);
+
+      // Process and save detection with enhanced metadata using validated detections
+      await enhancedDetectionService.processDetectionResults(
+        cameraId,
+        frame,
+        validDetections.map((d: any) => ({
+          class: d.class,
+          confidence: d.confidence,
+          bbox: d.bbox
+        })),
+        'motion',
+        0, // processing time
+        `/events/${filename}`
+      );
+    } catch (enhancedDbError) {
+      console.error('Error saving to enhanced detection service:', enhancedDbError);
+      // Continue execution even if enhanced service fails
     }
 
     return `/events/${filename}`;

@@ -19,7 +19,7 @@ import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
 import { configureVisitorRoutes } from './routes/visitorRoutes.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
-import { initializeDatabase } from './database.js';
+import { initializeDatabase, AppDataSource } from './database.js';
 import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 import { consolidatedDetectionService } from './detection/consolidatedDetectionService.js';
 import { ReviewService } from './services/review/reviewService.js';
@@ -59,7 +59,7 @@ app.get('/events/:filename', async (req, res) => {
           SELECT storage_path
           FROM detection_files
           WHERE original_filename = $1
-            AND (file_type = 'event' OR file_type = 'motion')
+            AND (file_type = 'event_face' OR file_type = 'event_motion')
             AND is_deleted = FALSE
           ORDER BY created_at DESC
           LIMIT 1
@@ -444,12 +444,10 @@ async function initializeServices() {
   try {
     await initializeDatabase();
     console.log('Database initialized successfully');
-
-    const AppDataSource = (global as any).AppDataSource;
-    if (AppDataSource) {
-      (global as any).AppDataSource = AppDataSource;
-    }
-
+ 
+    // Set AppDataSource globally for other modules to access
+    (global as any).AppDataSource = AppDataSource;
+ 
     console.log('Initializing consolidated detection service...');
     const detectionStatus = await consolidatedDetectionService.getServiceStatus();
     if (detectionStatus.available) {

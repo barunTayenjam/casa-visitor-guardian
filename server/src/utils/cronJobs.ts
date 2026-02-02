@@ -161,7 +161,7 @@ async function cleanupOldFiles() {
     // Get archived files for filesystem cleanup
     const archivedFiles = await (db as any).dataSource.query(
       `SELECT file_uuid, storage_path, created_at
-       FROM detection_files
+       FROM events
        WHERE is_archived = true
          AND is_deleted = false
        LIMIT 10000`

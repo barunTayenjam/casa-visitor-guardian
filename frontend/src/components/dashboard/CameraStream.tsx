@@ -5,6 +5,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
 import { Camera, Detection } from '@/types/security';
+import { DetectionOverlay } from './DetectionOverlay';
 
 interface CameraStreamProps {
   camera: Camera;
@@ -168,27 +169,30 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     };
 
      // Listen for detection events
-     const handleDetection = (data: {
-       cameraId: string;
-       detections: Detection[];
-       detectionResolution?: { width: number; height: number };
-       displayResolution?: { width: number; height: number };
-     }) => {
-       if (data.cameraId === camera.id) {
-         console.log(`[CameraStream] 🎯 Received ${data.detections.length} detections for ${camera.id}`);
-         setDetectionResolution(data.detectionResolution);
-         setDisplayResolution(data.displayResolution);
-       }
-     };
+      const handleDetection = (data: {
+        cameraId: string;
+        detections: Detection[];
+        detectionResolution?: { width: number; height: number };
+        displayResolution?: { width: number; height: number };
+      }) => {
+        if (data.cameraId === camera.id) {
+          console.log(`[CameraStream] 🎯 Received ${data.detections.length} detections for ${camera.id}:`, data.detections);
+          setDetections(data.detections);
+          setDetectionResolution(data.detectionResolution);
+          setDisplayResolution(data.displayResolution);
+        }
+      };
+      
+      const frameUnsubscribe = socketService.on('frame', handleFrame);
+      const errorUnsubscribe = socketService.on('camera-error', handleError);
+      const detectionUnsubscribe = socketService.on('detection', handleDetection);
 
-     const frameUnsubscribe = socketService.on('frame', handleFrame);
-     const errorUnsubscribe = socketService.on('camera-error', handleError);
-
-     return () => {
-       console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
-       frameUnsubscribe();
-       errorUnsubscribe();
-     };
+      return () => {
+        console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
+        frameUnsubscribe();
+        errorUnsubscribe();
+        detectionUnsubscribe();
+      };
    }, [camera.id]);
 
   const toggleStream = () => {
@@ -211,32 +215,42 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             <p className="text-red-500 text-sm font-medium">Camera Offline</p>
           </div>
         </div>
-       ) : isStreaming && currentFrame ? (
-        <img
-          src={currentFrame}
-          alt={`${camera.name} stream`}
-          className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
-        />
-      ) : (
-        <div 
-          className="h-full flex items-center justify-center cursor-pointer"
-          onClick={isLoading ? undefined : toggleStream}
-        >
-          {isLoading ? (
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 text-white/80 animate-spin mx-auto mb-2" />
-              <p className="text-white/60 text-sm">
-                {connectionStatus === 'connecting' ? 'Connecting...' : 'Waiting for video...'}
-              </p>
-            </div>
-          ) : (
-            <div className="text-center">
-              <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
-              <p className="text-white/60 text-sm">Click to Start Stream</p>
-            </div>
-          )}
-        </div>
-      )}
+        ) : isStreaming && currentFrame ? (
+         <>
+         <img
+           src={currentFrame}
+           alt={`${camera.name} stream`}
+           className={`h-full w-full ${fullscreen ? 'object-contain' : 'object-cover'}`}
+         />
+         <DetectionOverlay
+           cameraId={camera.id}
+           currentFrame={currentFrame}
+           showDetections={detections.length > 0}
+           detections={detections}
+           detectionResolution={detectionResolution}
+           displayResolution={displayResolution}
+         />
+         </>
+       ) : (
+         <div 
+           className="h-full flex items-center justify-center cursor-pointer"
+           onClick={isLoading ? undefined : toggleStream}
+         >
+           {isLoading ? (
+             <div className="text-center">
+               <Loader2 className="h-8 w-8 text-white/80 animate-spin mx-auto mb-2" />
+               <p className="text-white/60 text-sm">
+                 {connectionStatus === 'connecting' ? 'Connecting...' : 'Waiting for video...'}
+               </p>
+             </div>
+           ) : (
+             <div className="text-center">
+               <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
+               <p className="text-white/60 text-sm">Click to Start Stream</p>
+             </div>
+           )}
+         </div>
+       )}
 
        <div className="absolute top-2 right-2 flex items-center space-x-2">
          {isStreaming && displayFps > 0 && (

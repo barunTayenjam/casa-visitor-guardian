@@ -46,8 +46,8 @@ export class ConsolidatedDetectionService {
   private objectDetectionSettings = new Map<string, ObjectDetectionSettings>();
   private facialRecognitionSettings: FacialRecognitionSettings = {
     enabled: true,
-    minConfidence: 0.7,
-    recognitionThreshold: 0.6
+    minConfidence: 0.5, // Lower to detect more faces (filter later)
+    recognitionThreshold: 0.55 // Slightly lower threshold for better recognition
   };
   private redisCache = new Map<string, { result: DetectionResponse; timestamp: number }>();
   private redisClient: any;
@@ -128,11 +128,11 @@ export class ConsolidatedDetectionService {
   private initializeDefaultSettings() {
     this.objectDetectionSettings.set('default', { 
       enabled: true, 
-      sensitivity: 0.5, 
+      sensitivity: 50, // 0-100 scale
       cooldownPeriod: 1000,
-      minConfidence: 0.6,
-      maxDetections: 10,
-      targetClasses: ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle']
+      minConfidence: 0.35, // Lower threshold to detect more objects (filter later)
+      maxDetections: 20, // Allow more detections
+      targetClasses: ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'chair', 'couch', 'bed', 'dining table']
     });
   }
 

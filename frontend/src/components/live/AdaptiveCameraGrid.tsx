@@ -125,12 +125,12 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
           </div>
         ) : focusedCameraId ? (
           // Focused Mode - Show one camera full screen
-          <div className="w-full h-full">
+          <div className="w-full h-full flex items-center justify-center">
             {(() => {
               const camera = activeCameras.find(c => c.id === focusedCameraId);
               if (!camera) return null;
               return (
-                <div className="relative w-full h-full bg-black">
+                <div className="relative w-full h-full bg-black max-h-screen">
                   {/* Exit Focus Button */}
                   <button
                     className="absolute top-4 right-4 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all"
@@ -166,7 +166,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             {activeCameras.map((camera) => (
               <div
                 key={camera.id}
-                className="relative bg-black overflow-hidden cursor-pointer group"
+                className="relative bg-black overflow-hidden cursor-pointer group aspect-video"
                 onClick={() => handleCameraClick(camera.id)}
               >
                 {/* Camera Stream */}

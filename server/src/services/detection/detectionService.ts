@@ -1,5 +1,11 @@
 import { Repository } from 'typeorm';
-import { DetectionConfig } from '../models/DetectionConfig.js';
+import { DetectionConfig } from '../../models/DetectionConfig.js';
+import { Event } from '../../models/Event.js';
+import { Timeline } from '../../models/Timeline.js';
+import { AdaptiveRegion } from '../../models/AdaptiveRegion.js';
+import { AppDataSource } from '../../database.js';
+import { TimelineService } from '../timeline/timelineService.js';
+import { EnhancedDetectionService } from './enhancedDetectionService.js';
 import { cacheService } from '../cacheService.js';
 
 interface ThresholdConfig {
@@ -214,6 +220,51 @@ export class DetectionService {
 
   getScoreHistory(objectId: string): number[] {
     return this.scoreHistories.get(objectId)?.scores || [];
+  }
+
+  /**
+   * Process detection results using enhanced detection service
+   */
+  async processEnhancedDetection(
+    cameraId: string,
+    frame: Buffer,
+    detections: Array<{
+      label: string;
+      score: number;
+      object_id?: string;
+    }>,
+    eventType: 'motion' | 'person' | 'face' | 'object' | 'vehicle' | 'animal' = 'object',
+    processingTime: number = 0,
+    filePath?: string
+  ): Promise<Event> {
+    if (!AppDataSource.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const eventRepo = AppDataSource.getRepository(Event);
+    const configRepo = AppDataSource.getRepository(DetectionConfig);
+    const timelineService = new TimelineService(
+      AppDataSource.getRepository(Timeline),
+      AppDataSource.getRepository(AdaptiveRegion)
+    );
+    const enhancedDetectionService = new EnhancedDetectionService(eventRepo, timelineService, configRepo);
+
+    // Convert detections to the format expected by EnhancedDetectionService
+    const convertedDetections = detections.map(d => ({
+      class: d.label,
+      confidence: d.score,
+      bbox: { x: 0, y: 0, width: 0, height: 0 }, // Placeholder, will be filled by detection service
+      label: d.object_id,
+    }));
+
+    return await enhancedDetectionService.processDetectionResults(
+      cameraId,
+      frame,
+      convertedDetections,
+      eventType,
+      processingTime,
+      filePath
+    );
   }
 }
 

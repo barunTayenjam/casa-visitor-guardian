@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, ZoomIn, Calendar, Clock, AlertTriangle } from 'lucide-react';
+import { X, ZoomIn, Calendar, AlertTriangle } from 'lucide-react';
 import { colors, spacing } from '@/styles/design-tokens';
 import { cn } from '@/lib/utils';
-import apiService from '@/services/ApiService';
 
 interface DetectionEvent {
   id: string;
@@ -174,43 +173,12 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
                     <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
 
-                  {/* Event Type Badge */}
-                  <div className="absolute top-2 left-2">
-                    <div
-                      className="px-2 py-1 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: `${getEventTypeColor(event.event_type)}20`,
-                        color: getEventTypeColor(event.event_type),
-                        border: `1px solid ${getEventTypeColor(event.event_type)}40`,
-                      }}
-                    >
-                      {event.event_type}
+                  {/* Subtle Timestamp Badge - Bottom Right */}
+                  <div className="absolute bottom-2 right-2">
+                    <div className="px-2 py-1 rounded text-xs font-medium bg-black/40 backdrop-blur-sm text-white/80">
+                      {formatTimestamp(event.timestamp)}
                     </div>
                   </div>
-
-                  {/* Confidence Badge */}
-                  {event.confidence > 0 && (
-                    <div className="absolute top-2 right-2">
-                      <div className="px-2 py-1 rounded-full text-xs font-semibold bg-black/60 text-white">
-                        {Math.round(event.confidence)}%
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timestamp Badge */}
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <div className="px-2 py-1 rounded bg-black/60 backdrop-blur-sm">
-                      <div className="flex items-center gap-1 text-xs text-white/90">
-                        <Clock className="h-3 w-3" />
-                        <span>{formatTimestamp(event.timestamp)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Camera Name */}
-                <div className="mt-2">
-                  <p className="text-xs text-white/70 truncate">{event.cameraId}</p>
                 </div>
               </div>
             ))}

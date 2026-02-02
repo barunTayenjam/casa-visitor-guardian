@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { Camera } from '@/types/security';
 import { CameraStream } from '@/components/dashboard/CameraStream';
 import { X } from 'lucide-react';
@@ -20,7 +20,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 }) => {
   const [layout, setLayout] = useState<GridLayout>('adaptive');
 
-  const activeCameras = cameras.filter(c => c.status === 'online');
+  // Memoize active cameras to prevent recalculation
+  const activeCameras = useMemo(() => cameras.filter(c => c.status === 'online'), [cameras]);
   const cameraCount = activeCameras.length;
 
   // Determine optimal grid based on camera count and layout preference

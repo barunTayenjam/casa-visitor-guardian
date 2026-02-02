@@ -20,7 +20,18 @@ const StreamDashboard = () => {
     notifications: true,
   });
 
-  const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>();
+  const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>(undefined);
+
+  const handleCameraFocus = (cameraId: string) => {
+    console.log('Focus camera:', cameraId);
+    if (cameraId === 'undefined' || cameraId === undefined || cameraId === '') {
+      setFocusedCameraId(undefined);
+    } else if (focusedCameraId === cameraId) {
+      setFocusedCameraId(undefined);
+    } else {
+      setFocusedCameraId(cameraId);
+    }
+  };
 
   const handleSystemAction = (action: string, enabled: boolean) => {
     setSystemStatus(prev => {
@@ -140,7 +151,7 @@ const StreamDashboard = () => {
         <AdaptiveCameraGrid
           cameras={cameras}
           focusedCameraId={focusedCameraId}
-          onCameraFocus={setFocusedCameraId}
+          onCameraFocus={handleCameraFocus}
         />
       </div>
 

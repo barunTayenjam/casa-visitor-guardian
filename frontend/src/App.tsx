@@ -14,16 +14,18 @@ const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
 const EventsPage = lazy(() => import("./pages/EventsPage.new"));
 const SettingsPage = lazy(() => import("./pages/Settings.new"));
 const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
+const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline.new"));
+const ReviewPage = lazy(() => import("./pages/Review.new"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return <LoadingFallback />;
   }
-  
-  return isAuthenticated ? <Navigate to="/app" replace /> : <Navigate to="/login" replace />;
+
+  return isAuthenticated ? <Navigate to="/app/streams" replace /> : <Navigate to="/login" replace />;
 };
 
 const queryClient = new QueryClient();
@@ -97,33 +99,55 @@ const App = () => {
                           <StreamDashboard />
                         </ErrorBoundary>
                       </ProtectedRoute>
-                    }>
-                    <Route index element={<Navigate to="/app/streams" replace />} />
-                    
-                    <Route path="streams" element={
+                    } />
+
+                  <Route path="/app/streams" element={
+                      <ProtectedRoute>
                         <ErrorBoundary fallback={ErrorFallback}>
                           <StreamDashboard />
                         </ErrorBoundary>
-                      } />
+                      </ProtectedRoute>
+                    } />
 
-                    <Route path="events" element={
+                  <Route path="/app/events" element={
+                      <ProtectedRoute>
                         <ErrorBoundary fallback={ErrorFallback}>
                           <EventsPage />
                         </ErrorBoundary>
-                      } />
+                      </ProtectedRoute>
+                    } />
 
-                    <Route path="settings" element={
+                  <Route path="/app/settings" element={
+                      <ProtectedRoute>
                         <ErrorBoundary fallback={ErrorFallback}>
                           <SettingsPage />
                         </ErrorBoundary>
-                      } />
+                      </ProtectedRoute>
+                    } />
 
-                    <Route path="analytics" element={
+                  <Route path="/app/analytics" element={
+                      <ProtectedRoute>
                         <ErrorBoundary fallback={ErrorFallback}>
                           <AnalyticsPage />
                         </ErrorBoundary>
-                      } />
-                  </Route>
+                      </ProtectedRoute>
+                    } />
+
+                  <Route path="/app/visitors" element={
+                      <ProtectedRoute>
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <VisitorTimeline />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } />
+
+                  <Route path="/app/review" element={
+                      <ProtectedRoute>
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <ReviewPage />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } />
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>

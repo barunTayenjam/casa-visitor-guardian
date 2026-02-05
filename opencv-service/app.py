@@ -233,9 +233,90 @@ class YOLOObjectDetector:
         self.net = None
         self.layer_names = None
         self.input_size = 640  # YOLOv5/YOLOv8 standard input size
-        self.confidence_threshold = 0.3  # Lowered to detect more objects (filtering happens later)
-        self.nms_threshold = 0.45  # Non-maximum suppression threshold
+        self.confidence_threshold = 0.5  # Increased for better accuracy (was 0.3)
+        self.nms_threshold = 0.40  # Improved to reduce duplicate boxes (was 0.45)
         self.model_type = None  # 'yolov8', 'yolov5' or 'yolov4'
+        
+        # Per-class confidence thresholds based on camera configuration
+        self.class_thresholds = {
+            'person': 0.65,
+            'car': 0.65,
+            'truck': 0.65,
+            'bus': 0.65,
+            'motorcycle': 0.60,
+            'bicycle': 0.60,
+            'dog': 0.55,
+            'cat': 0.55,
+            'bird': 0.50,
+            'horse': 0.55,
+            'sheep': 0.55,
+            'cow': 0.55,
+            'elephant': 0.55,
+            'bear': 0.55,
+            'zebra': 0.55,
+            'giraffe': 0.55,
+            'backpack': 0.50,
+            'umbrella': 0.50,
+            'handbag': 0.50,
+            'tie': 0.50,
+            'suitcase': 0.50,
+            'frisbee': 0.50,
+            'skis': 0.50,
+            'snowboard': 0.50,
+            'sports ball': 0.50,
+            'kite': 0.50,
+            'baseball bat': 0.50,
+            'baseball glove': 0.50,
+            'skateboard': 0.50,
+            'surfboard': 0.50,
+            'tennis racket': 0.50,
+            'bottle': 0.45,
+            'wine glass': 0.45,
+            'cup': 0.45,
+            'fork': 0.45,
+            'knife': 0.45,
+            'spoon': 0.45,
+            'bowl': 0.45,
+            'banana': 0.45,
+            'apple': 0.45,
+            'sandwich': 0.45,
+            'orange': 0.45,
+            'broccoli': 0.45,
+            'carrot': 0.45,
+            'hot dog': 0.45,
+            'pizza': 0.45,
+            'donut': 0.45,
+            'cake': 0.45,
+            'chair': 0.50,
+            'couch': 0.50,
+            'potted plant': 0.45,
+            'bed': 0.50,
+            'dining table': 0.50,
+            'toilet': 0.50,
+            'tv': 0.50,
+            'laptop': 0.50,
+            'mouse': 0.50,
+            'remote': 0.50,
+            'keyboard': 0.50,
+            'cell phone': 0.50,
+            'microwave': 0.50,
+            'oven': 0.50,
+            'toaster': 0.50,
+            'sink': 0.50,
+            'refrigerator': 0.50,
+            'book': 0.45,
+            'clock': 0.45,
+            'vase': 0.45,
+            'scissors': 0.45,
+            'teddy bear': 0.45,
+            'hair drier': 0.45,
+            'toothbrush': 0.45,
+        }
+        
+        # Minimum box area to filter out small detections (false positives)
+        self.min_box_area = 1500  # Minimum area in pixels
+        self.min_box_width = 30   # Minimum width in pixels
+        self.min_box_height = 30  # Minimum height in pixels
 
     def initialize(self):
         """Initialize YOLO detector - prefers YOLOv8 for accuracy, falls back to YOLOv5/YOLOv4"""
@@ -313,6 +394,17 @@ class YOLOObjectDetector:
             print(f"OpenCV Service: Failed to initialize YOLO: {e}")
             # Fallback to basic detection
             self.initialized = True
+
+    def _get_class_threshold(self, class_name: str) -> float:
+        """Get confidence threshold for a specific class"""
+        return self.class_thresholds.get(class_name, self.confidence_threshold)
+    
+    def _is_valid_box(self, x: int, y: int, w: int, h: int) -> bool:
+        """Check if box meets minimum size requirements"""
+        box_area = w * h
+        return (w >= self.min_box_width and 
+                h >= self.min_box_height and 
+                box_area >= self.min_box_area)
 
     def detect_objects(self, image_path: str, file_hash: str, file_path: str = '', file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
         """Perform object detection using YOLO model"""
@@ -423,21 +515,26 @@ class YOLOObjectDetector:
                         # Coordinates are NORMALIZED 0-1
                         # No object confidence - class scores only
                         
-                        # Get box coordinates (normalized, center format)
-                        x_center = float(detection[0])
-                        y_center = float(detection[1])
-                        box_w = float(detection[2])
-                        box_h = float(detection[3])
-                        
-                        # Get class scores (everything after box coordinates)
+                        # Get class scores first to check threshold early
                         class_scores = detection[4:]
                         class_id = int(np.argmax(class_scores))
                         class_conf = float(class_scores[class_id])
                         
+                        # Get class name and its specific threshold
+                        class_name = class_names[class_id] if class_id < len(class_names) else f"object_{class_id}"
+                        class_threshold = self._get_class_threshold(class_name)
+                        
                         # YOLOv8 doesn't have separate object confidence, use class confidence
                         confidence = class_conf
                         
-                        if confidence > self.confidence_threshold:
+                        # Check against class-specific threshold
+                        if confidence > class_threshold:
+                            # Get box coordinates (normalized, center format)
+                            x_center = float(detection[0])
+                            y_center = float(detection[1])
+                            box_w = float(detection[2])
+                            box_h = float(detection[3])
+                            
                             # Convert from center format to corner format
                             # Scale to original image size
                             x = int((x_center - box_w / 2) * width)
@@ -451,7 +548,8 @@ class YOLOObjectDetector:
                             box_w = min(width - x, box_w)
                             box_h = min(height - y, box_h)
                             
-                            if box_w > 0 and box_h > 0:
+                            # Filter by box size to remove small false positives
+                            if self._is_valid_box(x, y, box_w, box_h):
                                 boxes.append([x, y, box_w, box_h])
                                 confidences.append(float(confidence))
                                 class_ids.append(int(class_id))
@@ -482,7 +580,12 @@ class YOLOObjectDetector:
                         # Final confidence = object_conf * class_conf
                         confidence = obj_conf * class_conf
                         
-                        if confidence > self.confidence_threshold:
+                        # Get class name and its specific threshold
+                        class_name = class_names[class_id] if class_id < len(class_names) else f"object_{class_id}"
+                        class_threshold = self._get_class_threshold(class_name)
+                        
+                        # Check against class-specific threshold
+                        if confidence > class_threshold:
                             # Convert from center format to corner format
                             # x, y, w, h are in PIXEL coordinates relative to input size (640x640)
                             center_x = float(x)
@@ -505,7 +608,8 @@ class YOLOObjectDetector:
                             box_w = min(width - x, box_w)
                             box_h = min(height - y, box_h)
                             
-                            if box_w > 0 and box_h > 0:
+                            # Filter by box size to remove small false positives
+                            if self._is_valid_box(x, y, box_w, box_h):
                                 boxes.append([x, y, box_w, box_h])
                                 confidences.append(float(confidence))
                                 class_ids.append(int(class_id))
@@ -516,8 +620,12 @@ class YOLOObjectDetector:
                             scores = detection[5:]
                             class_id = np.argmax(scores)
                             confidence = scores[class_id]
+                            
+                            # Get class name and its specific threshold
+                            class_name = class_names[class_id] if class_id < len(class_names) else f"object_{class_id}"
+                            class_threshold = self._get_class_threshold(class_name)
 
-                            if confidence > self.confidence_threshold:
+                            if confidence > class_threshold:
                                 center_x = int(detection[0] * width)
                                 center_y = int(detection[1] * height)
                                 w = int(detection[2] * width)
@@ -525,10 +633,18 @@ class YOLOObjectDetector:
 
                                 x = int(center_x - w / 2)
                                 y = int(center_y - h / 2)
+                                
+                                # Ensure box is within image bounds
+                                x = max(0, x)
+                                y = max(0, y)
+                                w = min(width - x, w)
+                                h = min(height - y, h)
 
-                                boxes.append([x, y, w, h])
-                                confidences.append(float(confidence))
-                                class_ids.append(int(class_id))
+                                # Filter by box size to remove small false positives
+                                if self._is_valid_box(x, y, w, h):
+                                    boxes.append([x, y, w, h])
+                                    confidences.append(float(confidence))
+                                    class_ids.append(int(class_id))
 
                 # Apply non-maximum suppression
                 indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence_threshold, self.nms_threshold)

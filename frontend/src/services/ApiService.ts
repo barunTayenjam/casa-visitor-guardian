@@ -305,11 +305,12 @@ interface BatchResults {
   results: BatchResult[];
 }
 
-interface BatchResult {
+ interface BatchResult {
   filename: string;
   timestamp: string;
   cameraId: string;
   persons: Array<{
+    class: string;
     confidence: number;
     boundingBox: {
       x: number;

@@ -141,6 +141,9 @@ services:
       - ./opencv-service/models:/app/models
       - ./opencv-service/data:/app/data
       - ./opencv-service/known_faces:/app/known_faces
+      - ./data/detections:/app/data/detections
+      - ./data/events:/app/data/events
+      - ./data/snapshots:/app/data/snapshots
     depends_on:
       postgres:
         condition: service_healthy

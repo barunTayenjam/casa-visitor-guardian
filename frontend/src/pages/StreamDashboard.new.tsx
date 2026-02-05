@@ -7,7 +7,7 @@ import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { RecentDetectionsCarousel } from '@/components/live/RecentDetectionsCarousel';
 import { colors, spacing } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings } from 'lucide-react';
+import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const StreamDashboard = () => {
@@ -120,6 +120,11 @@ const StreamDashboard = () => {
         action: () => navigate('/app/settings'),
       },
       {
+        key: 'b',
+        description: 'Go to Batch Detection',
+        action: () => navigate('/app/batch-detection'),
+      },
+      {
         key: 'r',
         description: 'Refresh cameras',
         action: () => {
@@ -157,6 +162,7 @@ const StreamDashboard = () => {
               { key: '1', desc: 'Go to Streams' },
               { key: '2', desc: 'Go to Events' },
               { key: 'S', desc: 'Go to Settings' },
+              { key: 'B', desc: 'Go to Batch Detection' },
               { key: 'R', desc: 'Refresh page' },
               { key: '?', desc: 'Show this help' },
             ].map((shortcut) => (
@@ -271,6 +277,15 @@ const StreamDashboard = () => {
             >
               <Calendar className="h-4 w-4 mr-2" />
               <span className="hidden md:inline">Events</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-white/80 hover:text-white hover:bg-white/5"
+              onClick={() => navigate('/app/batch-detection')}
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              <span className="hidden md:inline">Batch Detection</span>
             </Button>
           </div>
         </div>

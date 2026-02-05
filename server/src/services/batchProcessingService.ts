@@ -171,17 +171,18 @@ export class BatchProcessingService extends EventEmitter {
     }
 
     try {
-      // Query from detection_files table
+      // Query from events table (since detection_files doesn't exist)
       let query = `
         SELECT
-          df.original_filename as filename,
-          df.capture_timestamp as timestamp,
-          df.camera_id as cameraId,
-          df.storage_path as filePath,
-          df.file_size as size
-        FROM detection_files df
-        WHERE df.file_type IN ('event_face', 'event_motion')
-          AND df.is_deleted = false
+          e.file_path as filePath,
+          e.timestamp as timestamp,
+          e.camera_id as cameraId,
+          REGEXP_REPLACE(e.file_path, '.*/', '') as filename,
+          0 as size
+        FROM events e
+        WHERE e.event_type IN ('motion', 'object', 'face')
+          AND e.file_path IS NOT NULL
+          AND e.file_path != ''
       `;
 
       const params: any[] = [];
@@ -189,25 +190,25 @@ export class BatchProcessingService extends EventEmitter {
 
       // Add time range filters
       if (options.startTime) {
-        query += ` AND df.capture_timestamp >= $${paramIndex}`;
+        query += ` AND e.timestamp >= $${paramIndex}`;
         params.push(options.startTime);
         paramIndex++;
       }
 
       if (options.endTime) {
-        query += ` AND df.capture_timestamp <= $${paramIndex}`;
+        query += ` AND e.timestamp <= $${paramIndex}`;
         params.push(options.endTime);
         paramIndex++;
       }
 
       // Add camera filter
       if (options.cameraIds && options.cameraIds.length > 0) {
-        query += ` AND df.camera_id = ANY($${paramIndex})`;
+        query += ` AND e.camera_id = ANY($${paramIndex})`;
         params.push(options.cameraIds);
         paramIndex++;
       }
 
-      query += ` ORDER BY df.capture_timestamp DESC LIMIT 10000`;
+      query += ` ORDER BY e.timestamp DESC LIMIT 10000`;
 
       const result = await (this.db as any).dataSource.query(query, params);
 
@@ -217,7 +218,7 @@ export class BatchProcessingService extends EventEmitter {
           timestamp: new Date(row.timestamp),
           cameraId: row.cameraid,
           filePath: row.filepath,
-          size: parseInt(row.size)
+          size: parseInt(row.size) || 0
         });
       }
 
@@ -456,17 +457,12 @@ export class BatchProcessingService extends EventEmitter {
       }
 
       // Create worker for processing
-      // Always use compiled .js worker file
-      const workerPath = path.join(__dirname, '../../dist/services/batchProcessingWorker.js');
+      // Use compiled .cjs worker file
+      const workerPath = path.join(__dirname, '../../dist/services/batchProcessingWorker.cjs');
 
-      // Fallback to source .js if dist doesn't exist (dev mode)
-      const finalWorkerPath = fs.existsSync(workerPath)
-        ? workerPath
-        : path.join(__dirname, 'batchProcessingWorker.js');
+      console.log(`Starting batch worker: ${workerPath}`);
 
-      console.log(`Starting batch worker: ${finalWorkerPath}`);
-
-      const worker = new Worker(finalWorkerPath, {
+      const worker = new Worker(workerPath, {
         workerData: {
           events,
           options: job.options,

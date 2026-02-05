@@ -21,7 +21,11 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
   const [layout, setLayout] = useState<GridLayout>('adaptive');
 
   // Memoize active cameras to prevent recalculation
-  const activeCameras = useMemo(() => cameras.filter(c => c.status === 'online'), [cameras]);
+  // Include cameras with online or warning status
+  const activeCameras = useMemo(() => 
+    cameras.filter(c => c.status === 'online' || c.status === 'warning'), 
+    [cameras]
+  );
   const cameraCount = activeCameras.length;
 
   // Determine optimal grid based on camera count and layout preference

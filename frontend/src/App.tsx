@@ -16,6 +16,8 @@ const SettingsPage = lazy(() => import("./pages/Settings.new"));
 const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline.new"));
 const ReviewPage = lazy(() => import("./pages/Review.new"));
+const BatchDetectionPage = lazy(() => import("./pages/BatchDetectionPage"));
+const BatchResultsPage = lazy(() => import("./pages/BatchResultsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -148,7 +150,23 @@ const App = () => {
                         </ErrorBoundary>
                       </ProtectedRoute>
                     } />
-                  
+
+                  <Route path="/app/batch-detection" element={
+                      <ProtectedRoute>
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <BatchDetectionPage />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } />
+
+                  <Route path="/app/batch-results/:jobId?" element={
+                      <ProtectedRoute>
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <BatchResultsPage />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } />
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

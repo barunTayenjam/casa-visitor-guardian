@@ -88,30 +88,39 @@ class SimpleOpenCVClient {
 
   async detectBatch(imagePaths: string[]): Promise<any> {
     try {
-      const formData = new FormData();
-      imagePaths.forEach((imagePath, index) => {
-        const fileBuffer = fs.readFileSync(imagePath);
-        const blob = new Blob([fileBuffer]);
-        formData.append('images', blob, `image_${index}.jpg`);
-      });
-      formData.append('batchHash', `batch_${Date.now()}`);
+      // Use the new /detect-batch-paths endpoint that accepts file paths
+      const payload = {
+        imagePaths: imagePaths,
+        batchHash: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
 
-      const response = await fetch(`${this.serviceUrl}/detect-batch`, {
+      console.log(`OpenCV Client: Sending batch request for ${imagePaths.length} images`);
+
+      const response = await fetch(`${this.serviceUrl}/detect-batch-paths`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`OpenCV Client: HTTP ${response.status}: ${errorText}`);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log(`OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`);
+      return result;
     } catch (error: any) {
       console.error('OpenCV batch detection failed:', error);
       return {
         success: false,
         batchHash: '',
-        totalImages: 0,
+        totalImages: imagePaths.length,
+        successful: 0,
+        failed: imagePaths.length,
         results: [],
         totalProcessingTime: 0,
         averageProcessingTime: 0,
@@ -179,10 +188,9 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
 
 // Removed database saving function - using metadata updates instead
 
-async function updateDetectionFilesMetadata(results: any[]): Promise<void> {
+async function updateProcessedImagesTable(results: any[]): Promise<void> {
   let client;
   try {
-    // Create direct PostgreSQL connection for worker
     client = new Client({
       host: process.env.DB_HOST || 'postgres',
       port: parseInt(process.env.DB_PORT || '5432'),
@@ -195,46 +203,61 @@ async function updateDetectionFilesMetadata(results: any[]): Promise<void> {
 
     for (const result of results) {
       try {
-        const hash = generateFileHash(result.filename, result.timestamp);
+        const id = `${workerData.jobId}_${result.filename}`;
+        
+        const knownFaces = result.faces.filter((f: any) => f.isKnown).length;
+        const unknownFaces = result.faces.filter((f: any) => !f.isKnown).length;
 
-        const metadata = {
-          detections: [
-            ...result.persons.map((p: any) => ({
-              class: 'person',
-              confidence: p.confidence,
-              bbox: p.boundingBox
-            })),
-            ...result.faces.map((f: any) => ({
-              class: 'face',
-              confidence: f.confidence,
-              bbox: f.boundingBox,
-              name: f.personName,
-              isKnown: f.isKnown
-            }))
-          ],
+        const personTypes = result.persons.map((p: any) => p.class || 'person');
+        const faceTypes = result.faces.map(() => 'face');
+        const allTypes = [...personTypes, ...faceTypes];
+        const uniqueTypes = Array.from(new Set(allTypes));
+        
+        const detectionJson = {
+          persons: result.persons,
+          faces: result.faces,
           detected_at: result.timestamp,
-          detection_types: [...new Set([
-            ...result.persons.map(() => 'person'),
-            ...result.faces.map(() => 'face')
-          ])],
-          batch_job_id: workerData.jobId
+          detection_types: uniqueTypes
         };
 
-        // Update detection_files table metadata
         await client.query(
-          `UPDATE detection_files
-           SET metadata = $1::jsonb, updated_at = NOW()
-           WHERE file_hash = $2`,
-          [JSON.stringify(metadata), hash]
+          `INSERT INTO processed_images 
+           (id, job_id, filename, file_path, camera_id, image_timestamp, 
+            person_count, face_count, known_face_count, unknown_face_count, 
+            status, detection_json, file_hash, processed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+           ON CONFLICT (id) DO UPDATE SET
+             person_count = EXCLUDED.person_count,
+             face_count = EXCLUDED.face_count,
+             known_face_count = EXCLUDED.known_face_count,
+             unknown_face_count = EXCLUDED.unknown_face_count,
+             detection_json = EXCLUDED.detection_json,
+             status = EXCLUDED.status,
+             processed_at = NOW()`,
+          [
+            id,
+            workerData.jobId,
+            result.filename,
+            result.filename,
+            result.cameraId,
+            result.timestamp,
+            result.persons.length,
+            result.faces.length,
+            knownFaces,
+            unknownFaces,
+            result.persons.length > 0 || result.faces.length > 0 ? 'success' : 'no_detections',
+            JSON.stringify(detectionJson),
+            generateFileHash(result.filename, result.timestamp)
+          ]
         );
       } catch (error) {
-        console.error('Error updating metadata for ' + result.filename + ':', error);
+        console.error('Error updating processed_images for ' + result.filename + ':', error);
       }
     }
 
-    console.log('Updated detection_files metadata for ' + results.length + ' images');
+    console.log('Updated processed_images table for ' + results.length + ' images');
   } catch (error) {
-    console.error('Error updating detection_files metadata:', error);
+    console.error('Error updating processed_images table:', error);
   } finally {
     if (client) {
       await client.end();
@@ -250,15 +273,15 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
   for (let i = 0; i < events.length; i += batchSize) {
     const batch = events.slice(i, i + batchSize);
     const batchPaths = batch.map(e => e.filePath);
-    
+
     try {
       const batchResult = await opencvService.detectBatch(batchPaths);
-      
+
       if (batchResult.success && batchResult.results) {
         for (let j = 0; j < batchResult.results.length; j++) {
           const event = batch[j];
           const detectionResult = batchResult.results[j];
-          
+
           const result = {
             filename: event.filename,
             timestamp: event.timestamp.toISOString(),
@@ -269,17 +292,32 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
 
           if (detectionResult.success && detectionResult.detections) {
             const allDetections = detectionResult.detections;
-            
+
             if (options.detectionTypes.includes('person') || options.detectionTypes.includes('both')) {
               result.persons = allDetections
                 .filter((d: any) => d.class === 'person')
                 .filter((d: any) => d.confidence >= options.confidenceThreshold)
                 .map((d: any) => ({
+                  class: d.class,
                   confidence: d.confidence,
                   boundingBox: d.bbox
                 }));
             }
-            
+
+            // Capture all other objects (cars, trucks, dogs, packages, etc.)
+            const otherObjects = allDetections
+              .filter((d: any) => d.class !== 'person' && d.class !== 'face')
+              .filter((d: any) => d.confidence >= options.confidenceThreshold);
+
+            if (otherObjects.length > 0) {
+              // Add other objects to persons array with class info
+              result.persons.push(...otherObjects.map((d: any) => ({
+                class: d.class,
+                confidence: d.confidence,
+                boundingBox: d.bbox
+              })));
+            }
+
             if (options.detectionTypes.includes('face') || options.detectionTypes.includes('both')) {
               result.faces = allDetections
                 .filter((d: any) => d.class === 'face')
@@ -293,8 +331,20 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
                 }));
             }
           }
-          
+
           results.push(result);
+        }
+      } else {
+        // Batch failed entirely, add empty results for all events in this batch
+        console.error('Batch detection failed:', batchResult.error);
+        for (const event of batch) {
+          results.push({
+            filename: event.filename,
+            timestamp: event.timestamp.toISOString(),
+            cameraId: event.cameraId,
+            persons: [],
+            faces: []
+          });
         }
       }
     } catch (error) {
@@ -310,7 +360,7 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
       }
     }
   }
-  
+
   return results;
 }
 
@@ -349,8 +399,8 @@ async function main() {
       });
     }
 
-    // Save results to detection_files metadata
-    await updateDetectionFilesMetadata(results);
+    // Save results to processed_images table
+    await updateProcessedImagesTable(results);
 
     // Optionally save batch summary file if requested
     if (options.saveResults && options.outputFormat !== 'database') {

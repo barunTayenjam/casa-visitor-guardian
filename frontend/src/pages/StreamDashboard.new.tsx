@@ -3,23 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useCameras } from '@/contexts/CameraContext';
 import { useToast } from '@/hooks/use-toast';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
-import { QuickActionsBar } from '@/components/live/QuickActionsBar';
 import { RecentDetectionsCarousel } from '@/components/live/RecentDetectionsCarousel';
 import { colors, spacing } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Keyboard, BarChart3 } from 'lucide-react';
+import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const StreamDashboard = () => {
   const navigate = useNavigate();
   const { cameras } = useCameras();
   const { toast } = useToast();
+  const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
 
-  const [systemStatus, setSystemStatus] = useState({
-    armed: true,
-    recording: true,
-    motionDetection: true,
-    notifications: true,
+  const wakeLock = useWakeLock({
+    enabled: wakeLockEnabled,
+    onError: (error) => {
+      console.error('Wake Lock error:', error);
+      toast({
+        title: 'Wake Lock Issue',
+        description: 'Screen may still sleep. Try keeping app in foreground.',
+        variant: 'destructive',
+      });
+    }
   });
 
   const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>(undefined);
@@ -34,19 +40,6 @@ const StreamDashboard = () => {
     } else {
       setFocusedCameraId(cameraId);
     }
-  };
-
-  const handleSystemAction = (action: string, enabled: boolean) => {
-    setSystemStatus(prev => {
-      const newState = { ...prev, [action]: enabled };
-      
-      toast({
-        title: `${action.charAt(0).toUpperCase() + action.slice(1)} ${enabled ? 'Enabled' : 'Disabled'}`,
-        description: `System ${action} has been ${enabled ? 'enabled' : 'disabled'}.`,
-      });
-      
-      return newState;
-    });
   };
 
   const handleTakeSnapshot = async () => {
@@ -83,7 +76,8 @@ const StreamDashboard = () => {
     navigate('/app/settings');
   };
 
-  const activeCameras = cameras.filter(c => c.status === 'online');
+  // Include cameras with online or warning status
+  const activeCameras = cameras.filter(c => c.status === 'online' || c.status === 'warning');
 
   // Keyboard shortcuts
   useKeyboardShortcuts(
@@ -232,6 +226,36 @@ const StreamDashboard = () => {
           <div className="flex items-center gap-3">
             <Button
               size="sm"
+              variant={wakeLockEnabled ? "default" : "ghost"}
+              className={wakeLockEnabled 
+                ? "bg-green-600 hover:bg-green-700 text-white relative" 
+                : "text-white/80 hover:text-white hover:bg-white/5"
+              }
+              onClick={() => {
+                const newState = !wakeLockEnabled;
+                setWakeLockEnabled(newState);
+                toast({
+                  title: newState ? '🔴 Screen Stay On Enabled' : 'Screen Stay On Disabled',
+                  description: newState 
+                    ? 'Keep this app OPEN and in foreground. Works best while charging.' 
+                    : 'Screen may sleep automatically',
+                  duration: newState ? 6000 : 3000,
+                });
+              }}
+            >
+              <Power className={`h-4 w-4 ${!wakeLockEnabled ? 'mr-0 md:mr-2' : 'mr-2'}`} />
+              <span className="hidden md:inline">
+                {wakeLockEnabled ? 'Stay On' : 'Stay On'}
+              </span>
+              {wakeLockEnabled && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                </span>
+              )}
+            </Button>
+            <Button
+              size="sm"
               variant="ghost"
               className="text-white/80 hover:text-white hover:bg-white/5 hidden md:flex"
               onClick={() => navigate('/app/analytics')}
@@ -265,18 +289,37 @@ const StreamDashboard = () => {
       </div>
 
       {/* Bottom Actions Bar */}
-      <QuickActionsBar
-        systemArmed={systemStatus.armed}
-        recordingEnabled={systemStatus.recording}
-        motionDetectionEnabled={systemStatus.motionDetection}
-        notificationsEnabled={systemStatus.notifications}
-        onSystemArmToggle={(enabled) => handleSystemAction('armed', enabled)}
-        onRecordingToggle={(enabled) => handleSystemAction('recording', enabled)}
-        onMotionDetectionToggle={(enabled) => handleSystemAction('motionDetection', enabled)}
-        onNotificationsToggle={(enabled) => handleSystemAction('notifications', enabled)}
-        onTakeSnapshot={handleTakeSnapshot}
-        onOpenSettings={handleOpenSettings}
-      />
+      <div
+        className="absolute bottom-0 left-0 right-0 z-40"
+        style={{
+          background: `linear-gradient(to top, ${colors.glass.heavy}, transparent)`,
+          backdropFilter: 'blur(10px)',
+          borderTop: `1px solid ${colors.border.subtle}`,
+        }}
+      >
+        <div className="px-4 md:px-6 py-3 md:py-4">
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+              onClick={handleTakeSnapshot}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Snapshot
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+              onClick={handleOpenSettings}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
     </>
   );

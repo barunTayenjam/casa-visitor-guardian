@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Upload, 
-  User, 
+import {
+  Upload,
+  User,
   Users,
   RefreshCw,
   Trash2,
@@ -33,21 +33,25 @@ export const FaceRecognitionManager: React.FC = () => {
   const loadKnownFaces = useCallback(async () => {
     try {
       setIsLoading(true);
-      // In a real implementation, we would fetch from the backend
-      // For now, we'll use mock data
-      const mockFaces: KnownFace[] = [
-        { id: '1', name: 'John Doe', imageCount: 12, lastTrained: '2025-10-20' },
-        { id: '2', name: 'Jane Smith', imageCount: 8, lastTrained: '2025-10-19' },
-        { id: '3', name: 'Bob Johnson', imageCount: 5, lastTrained: '2025-10-18' }
-      ];
-      setKnownFaces(mockFaces);
+      const response = await fetch('/api/visitors/faces/known');
+      const data = await response.json();
+
+      if (data.success && data.faces) {
+        // Transform backend data to component format
+        const faces: KnownFace[] = data.faces.map((face: any) => ({
+          id: face.id || face.name,
+          name: face.name,
+          imageCount: face.image_count || face.images || 1,
+          lastTrained: face.last_trained || face.created_at || new Date().toISOString().split('T')[0],
+        }));
+        setKnownFaces(faces);
+      } else {
+        setKnownFaces([]);
+      }
     } catch (error) {
       console.error('Error loading known faces:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load known faces",
-        variant: "destructive",
-      });
+      // Don't show toast on initial load - just show empty state
+      setKnownFaces([]);
     } finally {
       setIsLoading(false);
     }
@@ -84,24 +88,37 @@ export const FaceRecognitionManager: React.FC = () => {
     }
 
     try {
-      // In a real implementation, we would send the image to the backend
-      // For now, we'll simulate the API call
-      toast({
-        title: 'Success',
-        description: `Face for ${personName} added successfully`
+      const formData = new FormData();
+      formData.append('name', personName);
+      formData.append('image', selectedImage);
+
+      const response = await fetch('/api/visitors/faces/register', {
+        method: 'POST',
+        body: formData,
       });
 
-      // Reset form
-      setPersonName('');
-      setSelectedImage(null);
-      
-      // Reload known faces
-      loadKnownFaces();
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: `Face for ${personName} added successfully`
+        });
+
+        // Reset form
+        setPersonName('');
+        setSelectedImage(null);
+
+        // Reload known faces
+        loadKnownFaces();
+      } else {
+        throw new Error(data.error || 'Failed to add face');
+      }
     } catch (error) {
       console.error('Error adding face:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add face',
+        description: error instanceof Error ? error.message : 'Failed to add face',
         variant: 'destructive'
       });
     }
@@ -110,17 +127,27 @@ export const FaceRecognitionManager: React.FC = () => {
   const handleRetrainModel = async () => {
     setIsTraining(true);
     try {
-      // In a real implementation, we would call the retrain endpoint
-      // For now, we'll simulate the API call
-      toast({
-        title: 'Success',
-        description: 'Face recognition model retrained successfully'
+      const response = await fetch('/api/visitors/faces/recognize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retrain' }),
       });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Face recognition model retrained successfully'
+        });
+      } else {
+        throw new Error(data.error || 'Failed to retrain');
+      }
     } catch (error) {
       console.error('Error retraining model:', error);
       toast({
         title: 'Error',
-        description: 'Failed to retrain model',
+        description: error instanceof Error ? error.message : 'Failed to retrain model',
         variant: 'destructive'
       });
     } finally {
@@ -130,20 +157,28 @@ export const FaceRecognitionManager: React.FC = () => {
 
   const handleDeleteFace = async (id: string) => {
     try {
-      // In a real implementation, we would delete from the backend
-      // For now, we'll simulate the API call
-      toast({
-        title: 'Success',
-        description: 'Face removed successfully'
+      const response = await fetch(`/api/visitors/faces/known/${id}`, {
+        method: 'DELETE',
       });
-      
-      // Update local state
-      setKnownFaces(knownFaces.filter(face => face.id !== id));
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Face removed successfully'
+        });
+
+        // Update local state
+        setKnownFaces(knownFaces.filter(face => face.id !== id));
+      } else {
+        throw new Error(data.error || 'Failed to delete face');
+      }
     } catch (error) {
       console.error('Error deleting face:', error);
       toast({
         title: 'Error',
-        description: 'Failed to remove face',
+        description: error instanceof Error ? error.message : 'Failed to remove face',
         variant: 'destructive'
       });
     }
@@ -158,19 +193,10 @@ export const FaceRecognitionManager: React.FC = () => {
             Add and manage known faces for facial recognition
           </p>
         </div>
-        
-        <Button onClick={handleRetrainModel} disabled={isTraining}>
-          {isTraining ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Training...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retrain Model
-            </>
-          )}
+
+        <Button onClick={loadKnownFaces} disabled={isLoading} variant="outline" size="sm">
+          <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
+          Refresh
         </Button>
       </div>
 
@@ -196,7 +222,7 @@ export const FaceRecognitionManager: React.FC = () => {
                 placeholder="Enter person's name"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="faceImage">Face Image</Label>
               <div className="flex items-center gap-2">
@@ -207,22 +233,22 @@ export const FaceRecognitionManager: React.FC = () => {
                   onChange={handleImageUpload}
                   className="flex-1"
                 />
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" type="button">
                   <Upload className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </div>
-          
+
           {selectedImage && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded">
               <CheckCircle className="h-4 w-4 text-green-500" />
               <span className="text-sm">{selectedImage.name}</span>
             </div>
           )}
-          
-          <Button 
-            onClick={handleAddFace} 
+
+          <Button
+            onClick={handleAddFace}
             disabled={!personName.trim() || !selectedImage}
             className="w-full"
           >
@@ -257,8 +283,8 @@ export const FaceRecognitionManager: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {knownFaces.map((face) => (
-                <div 
-                  key={face.id} 
+                <div
+                  key={face.id}
                   className="border rounded-lg p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -274,7 +300,7 @@ export const FaceRecognitionManager: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -321,5 +347,10 @@ export const FaceRecognitionManager: React.FC = () => {
     </div>
   );
 };
+
+// Helper function for className
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export default FaceRecognitionManager;

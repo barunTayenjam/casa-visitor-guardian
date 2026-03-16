@@ -9,11 +9,12 @@ import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { 
-  Calendar as CalendarIcon, 
-  Play, 
-  CheckCircle2, 
-  XCircle, 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import {
+  Calendar as CalendarIcon,
+  Play,
+  CheckCircle2,
+  XCircle,
   Loader2,
   Download,
   Image as ImageIcon,
@@ -77,6 +78,8 @@ export default function BatchDetectionPage() {
   const [error, setError] = useState<string | null>(null);
   const [historicalJobs, setHistoricalJobs] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(true);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [showJobDetails, setShowJobDetails] = useState(false);
 
   // Load historical batch jobs on mount
   useEffect(() => {
@@ -337,7 +340,10 @@ export default function BatchDetectionPage() {
                   <div
                     key={job.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition cursor-pointer"
-                    onClick={() => navigate(`/app/batch-results/${job.id}`)}
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setShowJobDetails(true);
+                    }}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -367,7 +373,7 @@ export default function BatchDetectionPage() {
                       </div>
                     </div>
                     <Button variant="ghost" size="sm">
-                      View Results →
+                      View Details
                     </Button>
                   </div>
                 ))}
@@ -568,6 +574,83 @@ export default function BatchDetectionPage() {
         </div>
       </div>
     </div>
+
+    {/* Job Details Dialog */}
+    <Dialog open={showJobDetails} onOpenChange={setShowJobDetails}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Batch Job Details</DialogTitle>
+          <DialogDescription>
+            Detailed information about the selected batch detection job
+          </DialogDescription>
+        </DialogHeader>
+        {selectedJob && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Job ID</h4>
+                <p className="text-sm font-mono">{selectedJob.id}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                <Badge variant={selectedJob.status === 'completed' ? 'default' : 'secondary'}>
+                  {selectedJob.status}
+                </Badge>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Start Time</h4>
+                <p className="text-sm">
+                  {selectedJob.startTime ? new Date(selectedJob.startTime).toLocaleString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Processing Time</h4>
+                <p className="text-sm">
+                  {selectedJob.results?.processingTime 
+                    ? `${Math.round(selectedJob.results.processingTime / 1000)}s` 
+                    : 'N/A'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+              <div className="text-center">
+                <p className="text-2xl font-bold">{selectedJob.progress?.total || 0}</p>
+                <p className="text-xs text-muted-foreground">Total Images</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{selectedJob.progress?.successful || 0}</p>
+                <p className="text-xs text-muted-foreground">With Detections</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-red-500">{selectedJob.progress?.failed || 0}</p>
+                <p className="text-xs text-muted-foreground">No Detections</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-medium mb-2">Actions</h4>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => {
+                    setShowJobDetails(false);
+                    navigate(`/app/batch-results/${selectedJob.id}`);
+                  }}
+                >
+                  View Full Results
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowJobDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

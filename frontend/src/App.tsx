@@ -18,6 +18,7 @@ const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline.new"));
 const ReviewPage = lazy(() => import("./pages/Review.new"));
 const BatchDetectionPage = lazy(() => import("./pages/BatchDetectionPage"));
 const BatchResultsPage = lazy(() => import("./pages/BatchResultsPage"));
+const DayHighlightsPage = lazy(() => import("./pages/DayHighlights.new"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -163,6 +164,14 @@ const App = () => {
                       <ProtectedRoute>
                         <ErrorBoundary fallback={ErrorFallback}>
                           <BatchResultsPage />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } />
+
+                  <Route path="/app/highlights/:date" element={
+                      <ProtectedRoute>
+                        <ErrorBoundary fallback={ErrorFallback}>
+                          <DayHighlightsPage />
                         </ErrorBoundary>
                       </ProtectedRoute>
                     } />

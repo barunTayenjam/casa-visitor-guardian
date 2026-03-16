@@ -1,6 +1,6 @@
 [
     {
-        "id": "cam1",
+            "id": "cam1",
         "name": "Front Door",
         "enabled": true,
         "streams": [
@@ -13,9 +13,9 @@
             }
         ],
         "detect": {
-            "width": 640,
-            "height": 360,
-            "fps": 3
+            "width": 1280,
+            "height": 720,
+            "fps": 5
         },
         "live": {
             "fps": 4
@@ -34,29 +34,29 @@
             "track": ["person", "car", "dog", "cat", "package"],
             "filters": {
                 "person": {
-                    "minArea": 5000,
+                    "minArea": 2500,
                     "maxArea": 100000,
-                    "threshold": 0.7
+                    "threshold": 0.45
                 },
                 "car": {
-                    "minArea": 10000,
+                    "minArea": 5000,
                     "maxArea": 200000,
-                    "threshold": 0.7
+                    "threshold": 0.45
                 },
                 "dog": {
-                    "minArea": 3000,
+                    "minArea": 1500,
                     "maxArea": 80000,
-                    "threshold": 0.6
+                    "threshold": 0.35
                 },
                 "cat": {
-                    "minArea": 2000,
+                    "minArea": 1000,
                     "maxArea": 60000,
-                    "threshold": 0.6
+                    "threshold": 0.35
                 },
                 "package": {
-                    "minArea": 1000,
+                    "minArea": 500,
                     "maxArea": 30000,
-                    "threshold": 0.6
+                    "threshold": 0.35
                 }
             }
         },
@@ -97,7 +97,7 @@
         "credentialId": null
     },
     {
-        "id": "cam2",
+            "id": "cam2",
         "name": "Back Door",
         "enabled": true,
         "streams": [
@@ -110,9 +110,9 @@
             }
         ],
         "detect": {
-            "width": 640,
-            "height": 360,
-            "fps": 3
+            "width": 1280,
+            "height": 720,
+            "fps": 5
         },
         "live": {
             "fps": 4
@@ -131,24 +131,24 @@
             "track": ["person", "car", "dog", "cat"],
             "filters": {
                 "person": {
-                    "minArea": 5000,
+                    "minArea": 2500,
                     "maxArea": 100000,
-                    "threshold": 0.7
+                    "threshold": 0.45
                 },
                 "car": {
-                    "minArea": 10000,
+                    "minArea": 5000,
                     "maxArea": 200000,
-                    "threshold": 0.7
+                    "threshold": 0.45
                 },
                 "dog": {
-                    "minArea": 3000,
+                    "minArea": 1500,
                     "maxArea": 80000,
-                    "threshold": 0.6
+                    "threshold": 0.35
                 },
                 "cat": {
-                    "minArea": 2000,
+                    "minArea": 1000,
                     "maxArea": 60000,
-                    "threshold": 0.6
+                    "threshold": 0.35
                 }
             }
         },

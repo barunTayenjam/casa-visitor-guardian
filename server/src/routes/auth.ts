@@ -7,9 +7,9 @@ import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
 
 export function configureAuthRoutes(app: Express) {
-  // Register new user
-  app.post('/api/auth/register', 
-    createAuthRateLimit(),
+  // Register new user (ADMIN ONLY - public registration disabled)
+  app.post('/api/auth/register',
+    authenticate({ roles: ['admin'] }),
     validate({
       body: {
         username: {

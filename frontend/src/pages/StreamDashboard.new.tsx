@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
-import { RecentDetectionsCarousel } from '@/components/live/RecentDetectionsCarousel';
 import { colors, spacing } from '@/styles/design-tokens';
 import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -144,7 +143,7 @@ const StreamDashboard = () => {
     <>
     {/* Keyboard Shortcuts Help Modal */}
     {showHelp && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)', backdropFilter: 'blur(10px)' }} onClick={() => setShowHelp(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)' }} onClick={() => setShowHelp(false)}>
         <div className="max-w-md w-full bg-slate-900 rounded-xl border border-white/10 p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -186,7 +185,6 @@ const StreamDashboard = () => {
         className="relative z-30 px-4 md:px-6 py-3 border-b"
         style={{
           background: colors.glass.light,
-          backdropFilter: 'blur(10px)',
           borderColor: colors.border.subtle,
         }}
       >
@@ -291,9 +289,6 @@ const StreamDashboard = () => {
         </div>
       </div>
 
-      {/* Recent Detections Carousel */}
-      <RecentDetectionsCarousel limit={12} />
-
       {/* Main Content - Camera Grid */}
       <div className="flex-1 relative overflow-hidden">
         <AdaptiveCameraGrid
@@ -308,7 +303,6 @@ const StreamDashboard = () => {
         className="absolute bottom-0 left-0 right-0 z-40"
         style={{
           background: `linear-gradient(to top, ${colors.glass.heavy}, transparent)`,
-          backdropFilter: 'blur(10px)',
           borderTop: `1px solid ${colors.border.subtle}`,
         }}
       >

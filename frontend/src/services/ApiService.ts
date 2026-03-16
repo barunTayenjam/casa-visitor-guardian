@@ -3006,16 +3006,19 @@ class ApiService {
     }[];
   }> {
     try {
-       const response = await this.get<{ success: boolean; data: {
-    timeline: Array<{
-      timestamp: string;
-      cameraId: string;
-      cameraName: string;
-      visitorCount: number;
-      knownVisitors: number;
-      unknownVisitors: number;
-    }>;
-  } }>('/visitors/timeline', params);
+       const response = await this.get<{
+         success: boolean;
+         data: {
+           timeline: Array<{
+             timestamp: string;
+             cameraId: string;
+             cameraName: string;
+             visitorCount: number;
+             knownVisitors: number;
+             unknownVisitors: number;
+           }>;
+         };
+       }>('/visitors/timeline', params);
       if (response.success && response.data) {
         return response.data;
       }
@@ -3026,6 +3029,85 @@ class ApiService {
         'Failed to get visitor timeline',
         500,
         'GET_VISITOR_TIMELINE_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // ==================== HIGHLIGHTS API ====================
+
+  async getDayHighlights(date: string, options?: { limit?: number; sort?: 'recent' | 'persons' | 'faces' | 'unknown' | 'confidence' }): Promise<{
+    success: boolean;
+    date: string;
+    sort: string;
+    highlights: Array<{
+      id: string;
+      filename: string;
+      cameraId: string;
+      timestamp: string;
+      eventType: string;
+      confidence: number;
+      personsDetected: number;
+      facesDetected: number;
+      knownFacesCount: number;
+      unknownFacesCount: number;
+      objectDetections: any[];
+      faceDetections: any[];
+      imageUrl: string;
+      metadata: any;
+    }>;
+    summary: {
+      total: number;
+      totalPersons: number;
+      totalFaces: number;
+      knownFaces: number;
+    };
+  }> {
+    try {
+      const params: any = {};
+      if (options?.limit) params.limit = options.limit;
+      if (options?.sort) params.sort = options.sort;
+      
+      const response = await this.get<{ success: boolean; date: string; sort: string; highlights: any[]; summary: any }>(`/highlights/${date}`, params);
+      if (response.success) {
+        return response;
+      }
+      throw new ApiError('Failed to get day highlights', 400, 'GET_DAY_HIGHLIGHTS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get day highlights',
+        500,
+        'GET_DAY_HIGHLIGHTS_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  async getDaySummary(date: string): Promise<{
+    success: boolean;
+    date: string;
+    summary: {
+      totalEvents: number;
+      totalPersons: number;
+      totalFaces: number;
+      knownFaces: number;
+      nightEvents: number;
+    };
+    hourly: Array<{ hour: number; count: number }>;
+  }> {
+    try {
+      const response = await this.get<{ success: boolean; date: string; summary: any; hourly: any[] }>(`/highlights/${date}/summary`);
+      if (response.success) {
+        return response;
+      }
+      throw new ApiError('Failed to get day summary', 400, 'GET_DAY_SUMMARY_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'Failed to get day summary',
+        500,
+        'GET_DAY_SUMMARY_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

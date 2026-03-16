@@ -126,8 +126,8 @@ export class OptimizedMotionDetector extends EventEmitter {
         adaptiveMode: true,
         nightModeSensitivity: 90, // Maximum sensitivity for night
         quietHours: { start: '22:00', end: '06:00' }, // Reduce alerts at night
-        autoDetectObjects: true,      // Automatically run object detection
-        autoDetectFaces: true,        // Automatically run face detection
+        autoDetectObjects: false,     // ACCURACY FIX: Disabled - too many false positives
+        autoDetectFaces: false,        // ACCURACY: Disabled - too many false positives
         detectionPriority: 'deferred' // Changed from 'immediate' to reduce CPU load
       });
     });

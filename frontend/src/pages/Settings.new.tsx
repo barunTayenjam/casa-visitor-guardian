@@ -4,6 +4,9 @@ import {
   Settings as SettingsIcon,
   ChevronLeft,
   Save,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
@@ -11,10 +14,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { changePassword } = useAuth();
   const [hasChanges, setHasChanges] = useState(false);
 
   const [settings, setSettings] = useState({
@@ -24,6 +29,18 @@ const SettingsPage = () => {
   });
 
   const [originalSettings] = useState(settings);
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const updateSetting = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -45,6 +62,54 @@ const SettingsPage = () => {
       title: 'Changes discarded',
       description: 'Your settings have been reset to the last saved values.',
     });
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Passwords do not match',
+        description: 'New password and confirm password must be the same.',
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast({
+        variant: 'destructive',
+        title: 'Password too short',
+        description: 'Password must be at least 8 characters long.',
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      toast({
+        title: 'Password changed',
+        description: 'Your password has been updated successfully.',
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Password change failed',
+        description: error instanceof Error ? error.message : 'Failed to change password. Please check your current password and try again.',
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
   const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
@@ -134,6 +199,88 @@ const SettingsPage = () => {
                   </select>
                 </div>
               </div>
+            </SettingCard>
+
+            <div className="mb-6 mt-8">
+              <h2 className="text-xl font-semibold text-white">Change Password</h2>
+              <p className="text-sm text-white/50 mt-1">Update your account password</p>
+            </div>
+
+            <SettingCard>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-white">Current Password</Label>
+                  <div className="relative mt-2">
+                    <Input
+                      type={showPasswords.current ? 'text' : 'password'}
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility('current')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                    >
+                      {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-white">New Password</Label>
+                  <div className="relative mt-2">
+                    <Input
+                      type={showPasswords.new ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      minLength={8}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility('new')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                    >
+                      {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-white">Confirm New Password</Label>
+                  <div className="relative mt-2">
+                    <Input
+                      type={showPasswords.confirm ? 'text' : 'password'}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      minLength={8}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility('confirm')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                    >
+                      {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button 
+                    type="submit" 
+                    disabled={isChangingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                    className="w-full sm:w-auto"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                  </Button>
+                </div>
+              </form>
             </SettingCard>
           </div>
         </div>

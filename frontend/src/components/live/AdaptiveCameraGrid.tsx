@@ -107,7 +107,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
     <div className="relative w-full h-full flex flex-col">
       {/* Layout Controls - Minimalist - Hidden on mobile */}
       <div className="absolute top-4 right-4 z-30 flex items-center gap-2 hidden md:flex">
-        <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 border border-white/10">
+        <div className="flex items-center gap-1 bg-black/60 rounded-lg p-1 border border-white/10">
           <Button
             size="sm"
             variant={layout === 'adaptive' ? 'default' : 'ghost'}
@@ -162,7 +162,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                 <div className="relative w-full h-full bg-black max-h-screen">
                   {/* Exit Focus Button */}
                   <button
-                    className="absolute top-4 right-4 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all"
+                    className="absolute top-4 right-4 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
                     onClick={() => handleCameraClick(camera.id)}
                     title="Exit fullscreen"
                   >

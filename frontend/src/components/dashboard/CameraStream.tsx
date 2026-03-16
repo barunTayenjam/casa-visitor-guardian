@@ -5,7 +5,6 @@ import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
 import { Camera, Detection } from '@/types/security';
-import { DetectionOverlay } from './DetectionOverlay';
 
 interface CameraStreamProps {
   camera: Camera;
@@ -25,10 +24,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentFrame, setCurrentFrame] = useState<string | null>(null);
-  const [detections, setDetections] = useState<Detection[]>([]);
-  const [detectionResolution, setDetectionResolution] = useState<{ width: number; height: number } | undefined>();
-  const [displayResolution, setDisplayResolution] = useState<{ width: number; height: number } | undefined>();
+  const imgRef = useRef<HTMLImageElement>(null);
   
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
@@ -78,8 +74,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     
     streamActionRef.current = "stop";
     setIsStreaming(false);
-    setCurrentFrame(null);
-    setDetections([]);
     console.log(`[CameraStream] 🔴 Set isStreaming to false for ${camera.id}`);
     stopCameraStream(camera.id).catch(err => {
       console.error(`[CameraStream] ❌ Failed to stop stream for ${camera.id}:`, err);
@@ -124,7 +118,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     // Frame rate limiting to prevent excessive updates
     let lastFrameUpdate = 0;
-    const FRAME_UPDATE_INTERVAL = 100; // ~10 FPS max update rate (100ms)
+    const FRAME_UPDATE_INTERVAL = 66; // Increased to ~15 FPS for smoother video
 
     const handleFrame = (data: { cameraId: string; data: string; timestamp: string }) => {
       if (data.cameraId === camera.id) {
@@ -134,28 +128,22 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
           lastFrameUpdate = now;
 
-          // Create a new image object to properly handle loading
-          const img = new Image();
-          img.onload = () => {
-            // Only update state if the image loaded successfully
-            setCurrentFrame(`data:image/jpeg;base64,${data.data}`);
+          // Directly update the img element src via ref to bypass React rendering cycle
+          if (imgRef.current) {
+            imgRef.current.src = `data:image/jpeg;base64,${data.data}`;
+          }
 
-            // FPS calculation
-            frameCountRef.current++;
-            const perfNow = performance.now();
-            const elapsed = perfNow - lastFrameTimeRef.current;
+          // FPS calculation
+          frameCountRef.current++;
+          const perfNow = performance.now();
+          const elapsed = perfNow - lastFrameTimeRef.current;
 
-            if (elapsed >= 1000) {
-              const fps = Math.round((frameCountRef.current * 1000) / elapsed);
-              setDisplayFps(fps);
-              frameCountRef.current = 0;
-              lastFrameTimeRef.current = perfNow;
-            }
-          };
-          img.onerror = () => {
-            console.error(`[CameraStream] 💥 Failed to load image frame for ${camera.id}`);
-          };
-          img.src = `data:image/jpeg;base64,${data.data}`;
+          if (elapsed >= 2000) { // Update FPS display every 2 seconds
+            const fps = Math.round((frameCountRef.current * 1000) / elapsed);
+            setDisplayFps(fps);
+            frameCountRef.current = 0;
+            lastFrameTimeRef.current = perfNow;
+          }
         }
       }
     };
@@ -168,30 +156,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       }
     };
 
-     // Listen for detection events
-      const handleDetection = (data: {
-        cameraId: string;
-        detections: Detection[];
-        detectionResolution?: { width: number; height: number };
-        displayResolution?: { width: number; height: number };
-      }) => {
-        if (data.cameraId === camera.id) {
-          console.log(`[CameraStream] 🎯 Received ${data.detections.length} detections for ${camera.id}:`, data.detections);
-          setDetections(data.detections);
-          setDetectionResolution(data.detectionResolution);
-          setDisplayResolution(data.displayResolution);
-        }
-      };
-      
       const frameUnsubscribe = socketService.on('frame', handleFrame);
       const errorUnsubscribe = socketService.on('camera-error', handleError);
-      const detectionUnsubscribe = socketService.on('detection', handleDetection);
 
       return () => {
         console.log(`[CameraStream] 🗑️ Unregistering WebSocket listeners for ${camera.id}`);
         frameUnsubscribe();
         errorUnsubscribe();
-        detectionUnsubscribe();
       };
    }, [camera.id]);
 
@@ -204,7 +175,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
   };
 
-  const isLoading = connectionStatus === 'connecting' || (isStreaming && !currentFrame);
+  const isLoading = connectionStatus === 'connecting' || isStreaming;
 
   return (
     <div className="relative w-full h-full bg-slate-900">
@@ -215,41 +186,32 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             <p className="text-red-500 text-sm font-medium">Camera Offline</p>
           </div>
         </div>
-         ) : isStreaming && currentFrame ? (
+         ) : (
          <>
          <img
-           src={currentFrame}
+           ref={imgRef}
            alt={`${camera.name} stream`}
-           className="h-full w-full object-contain"
+           className={`h-full w-full object-contain ${!isStreaming ? 'hidden' : ''}`}
          />
-         <DetectionOverlay
-           cameraId={camera.id}
-           currentFrame={currentFrame}
-           showDetections={detections.length > 0}
-           detections={detections}
-           detectionResolution={detectionResolution}
-           displayResolution={displayResolution}
-         />
+         {!isStreaming && (
+            <div 
+              className="h-full flex items-center justify-center cursor-pointer"
+              onClick={isLoading && connectionStatus === 'connecting' ? undefined : toggleStream}
+            >
+              {isLoading && connectionStatus === 'connecting' ? (
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 text-white/80 animate-spin mx-auto mb-2" />
+                  <p className="text-white/60 text-sm">Connecting...</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
+                  <p className="text-white/60 text-sm">Click to Start Stream</p>
+                </div>
+              )}
+            </div>
+         )}
          </>
-       ) : (
-         <div 
-           className="h-full flex items-center justify-center cursor-pointer"
-           onClick={isLoading ? undefined : toggleStream}
-         >
-           {isLoading ? (
-             <div className="text-center">
-               <Loader2 className="h-8 w-8 text-white/80 animate-spin mx-auto mb-2" />
-               <p className="text-white/60 text-sm">
-                 {connectionStatus === 'connecting' ? 'Connecting...' : 'Waiting for video...'}
-               </p>
-             </div>
-           ) : (
-             <div className="text-center">
-               <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
-               <p className="text-white/60 text-sm">Click to Start Stream</p>
-             </div>
-           )}
-         </div>
        )}
 
        <div className="absolute top-2 right-2 flex items-center space-x-2">

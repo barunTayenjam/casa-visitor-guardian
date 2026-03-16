@@ -7,6 +7,12 @@ export default defineConfig({
   server: {
     host: "::",
     port: 5173,
+    allowedHosts: [
+      'argus.tayenjam.qzz.io',  // Allow the specific host mentioned in error
+      'localhost',
+      '127.0.0.1',
+      '::1'
+    ],
     proxy: {
       "/api": {
         target: process.env.VITE_BACKEND_URL || "http://sentryvision-backend:9753",

@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
@@ -8,22 +8,37 @@ jest.mock('../config/index.js');
 describe('Authentication Routes', () => {
   let app: any;
   let mockDb: any;
+  let adminToken: string;
+  let userToken: string;
 
   beforeEach(() => {
     app = require('./index.ts').default;
     mockDb = {
       getRepository: jest.fn(),
     };
+
+    // Generate test tokens
+    adminToken = jwt.sign(
+      { userId: 'admin-123', username: 'admin', role: 'admin' },
+      'test-secret',
+      { expiresIn: '1h' }
+    );
+    userToken = jwt.sign(
+      { userId: 'user-123', username: 'testuser', role: 'user' },
+      'test-secret',
+      { expiresIn: '1h' }
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/auth/register', () => {
-    it('should register a new user', async () => {
+  describe('POST /api/auth/register (Admin Only)', () => {
+    it('should allow admin to register a new user', async () => {
       const response = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           username: 'newuser',
           email: 'newuser@example.com',
@@ -36,9 +51,38 @@ describe('Authentication Routes', () => {
       expect(response.body.token).toBeDefined();
     });
 
+    it('should reject registration attempt by non-admin user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          username: 'newuser',
+          email: 'newuser@example.com',
+          password: 'Password123!'
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('permissions');
+    });
+
+    it('should reject registration without authentication', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          username: 'newuser',
+          email: 'newuser@example.com',
+          password: 'Password123!'
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+
     it('should reject duplicate username', async () => {
       const response = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           username: 'existinguser',
           email: 'different@example.com',
@@ -52,6 +96,7 @@ describe('Authentication Routes', () => {
     it('should validate password requirements', async () => {
       const response = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           username: 'testuser',
           email: 'test@example.com',
@@ -64,6 +109,7 @@ describe('Authentication Routes', () => {
     it('should validate email format', async () => {
       const response = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           username: 'testuser',
           email: 'invalid-email',

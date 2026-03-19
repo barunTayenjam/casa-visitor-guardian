@@ -9,6 +9,7 @@ import { consolidatedDetectionService, DetectionResult, FaceDetection } from './
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
+import NotificationService from '../services/notificationService.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -30,6 +31,21 @@ interface OptimizedMotionSettings {
   autoDetectObjects: boolean;      // Automatically run object detection
   autoDetectFaces: boolean;        // Automatically run face detection
   detectionPriority: 'immediate' | 'deferred'; // When to run detection
+  
+  // PHASE 1.1: Multi-frame validation settings
+  requiredConsecutiveFrames: number; // Frames of motion required before triggering (default: 3)
+  maxConsecutiveResetTime: number; // ms to reset consecutive count if no motion (default: 3000)
+  
+  // PHASE 1.2: Preprocessing settings
+  minContourArea: number; // Minimum contour area to filter noise (default: 500)
+  useGaussianBlur: boolean; // Apply Gaussian blur preprocessing (default: true)
+  blurKernelSize: number; // Gaussian blur kernel size (default: 5)
+  
+  // PHASE 1.3: Adaptive thresholds
+  timeZones: {
+    day: { start: string; end: string; sensitivityMultiplier: number };
+    night: { start: string; end: string; sensitivityMultiplier: number };
+  };
 }
 
 // Motion event with enhanced metadata
@@ -89,6 +105,7 @@ export class OptimizedMotionDetector extends EventEmitter {
   private lastEventTimes = new Map<string, number>();
   private eventCounts = new Map<string, number>(); // Per hour
   private frameBuffer = new Map<string, Buffer[]>();
+  private consecutiveMotionCount = new Map<string, number>(); // PHASE 1.1: Track consecutive motion frames
   private workers: Worker[] = [];
   private metrics: PerformanceMetrics;
   private isOptimized = false;
@@ -118,17 +135,26 @@ export class OptimizedMotionDetector extends EventEmitter {
     this.streamManager.getAllCameras().forEach(camera => {
       this.cameraSettings.set(camera.id, {
         enabled: true,
-        sensitivity: 90, // Increased to 90 for maximum sensitivity
-        cooldownPeriod: 10000, // Reduced from 30s to 10s (faster detection)
-        detectionInterval: 3000, // Reduced from 5s to 3s (more frequent checks)
-        minConfidence: 5, // Lowered from 40 to 5 to catch any motion
-        maxEventsPerHour: 100, // Increased from 30 to allow more events
+        sensitivity: 90,
+        cooldownPeriod: 10000,
+        detectionInterval: 3000,
+        minConfidence: 5,
+        maxEventsPerHour: 100,
         adaptiveMode: true,
-        nightModeSensitivity: 90, // Maximum sensitivity for night
-        quietHours: { start: '22:00', end: '06:00' }, // Reduce alerts at night
-        autoDetectObjects: false,     // ACCURACY FIX: Disabled - too many false positives
-        autoDetectFaces: false,        // ACCURACY: Disabled - too many false positives
-        detectionPriority: 'deferred' // Changed from 'immediate' to reduce CPU load
+        nightModeSensitivity: 90,
+        quietHours: { start: '22:00', end: '06:00' },
+        autoDetectObjects: false,
+        autoDetectFaces: false,
+        detectionPriority: 'deferred',
+        requiredConsecutiveFrames: 3,
+        maxConsecutiveResetTime: 3000,
+        minContourArea: 500,
+        useGaussianBlur: true,
+        blurKernelSize: 5,
+        timeZones: {
+          day: { start: '06:00', end: '22:00', sensitivityMultiplier: 1.0 },
+          night: { start: '22:00', end: '06:00', sensitivityMultiplier: 1.2 }
+        }
       });
     });
   }
@@ -338,17 +364,31 @@ export class OptimizedMotionDetector extends EventEmitter {
 
     try {
       console.log(`[OptimizedMotion] ${cameraId}: Comparing frames (buffer size: ${buffer.length})...`);
-      // Compare first and last frame in buffer for more significant motion detection
-      // Frames are ~1-2 seconds apart, so comparing first and last gives 2-4 seconds difference
       const motionDetected = await this.compareFramesAsync(
-        buffer[0],  // Oldest frame
-        buffer[buffer.length - 1],  // Newest frame
-        settings.sensitivity
+        buffer[0],
+        buffer[buffer.length - 1],
+        settings.sensitivity,
+        cameraId
       );
 
       console.log(`[OptimizedMotion] ${cameraId}: Motion confidence ${motionDetected.confidence.toFixed(1)}% (threshold: ${settings.minConfidence}%)`);
+
       if (motionDetected.confidence > settings.minConfidence) {
-        await this.handleMotionDetected(cameraId, currentFrame, motionDetected);
+        const currentCount = this.consecutiveMotionCount.get(cameraId) || 0;
+        this.consecutiveMotionCount.set(cameraId, currentCount + 1);
+        console.log(`[OptimizedMotion] ${cameraId}: Consecutive motion frames: ${currentCount + 1}/${settings.requiredConsecutiveFrames}`);
+
+        if (currentCount + 1 >= settings.requiredConsecutiveFrames) {
+          await this.handleMotionDetected(cameraId, currentFrame, motionDetected);
+          this.consecutiveMotionCount.set(cameraId, 0);
+        }
+      } else {
+        const lastMotionTime = this.lastEventTimes.get(cameraId) || 0;
+        const timeSinceMotion = Date.now() - lastMotionTime;
+
+        if (timeSinceMotion > settings.maxConsecutiveResetTime) {
+          this.consecutiveMotionCount.set(cameraId, 0);
+        }
       }
     } catch (error) {
       console.error(`Error in motion detection for ${cameraId}:`, error);
@@ -359,55 +399,93 @@ export class OptimizedMotionDetector extends EventEmitter {
   private async compareFramesAsync(
     frame1: Buffer, 
     frame2: Buffer, 
-    sensitivity: number
+    sensitivity: number,
+    cameraId?: string
   ): Promise<{ confidence: number; motionArea: number }> {
     return new Promise((resolve, reject) => {
       try {
-        // Use OpenCV service for proper frame comparison
         const formData = new FormData();
         const blob1 = new Blob([new Uint8Array(frame1)], { type: 'image/jpeg' });
         const blob2 = new Blob([new Uint8Array(frame2)], { type: 'image/jpeg' });
         formData.append('image1', blob1, 'frame1.jpg');
         formData.append('image2', blob2, 'frame2.jpg');
 
+        let adjustedSensitivity = sensitivity;
+        let minContourArea = 500;
+        let useGaussianBlur = true;
+        let blurKernelSize = 5;
+
+        if (cameraId) {
+          const settings = this.cameraSettings.get(cameraId);
+          if (settings) {
+            adjustedSensitivity = this.getAdaptiveSensitivity(settings);
+            minContourArea = settings.minContourArea;
+            useGaussianBlur = settings.useGaussianBlur;
+            blurKernelSize = settings.blurKernelSize;
+          }
+        }
+
+        formData.append('min_contour_area', minContourArea.toString());
+        formData.append('use_gaussian_blur', useGaussianBlur ? 'true' : 'false');
+        formData.append('blur_kernel_size', blurKernelSize.toString());
+
         fetch(`${process.env.OPENCV_SERVICE_URL || 'http://localhost:8084'}/detect-motion`, {
           method: 'POST',
           body: formData,
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+          signal: AbortSignal.timeout(10000)
         })
           .then(response => response.json())
           .then(data => {
             console.log(`[OptimizedMotion] OpenCV response:`, JSON.stringify(data).substring(0, 200));
             if (data.success) {
-              // Use the confidence from OpenCV service
               const confidence = data.confidence || 0;
               const motionArea = data.motion_pixel_count || 0;
               
-              // Adjust confidence based on sensitivity setting
-              // sensitivity is 0-100, higher = more sensitive
-              const adjustedConfidence = confidence * (sensitivity / 50);
+              const adjustedConfidence = confidence * (adjustedSensitivity / 50);
               
               resolve({ 
                 confidence: Math.min(100, adjustedConfidence), 
                 motionArea 
               });
             } else {
-              // Fallback to simple comparison if service fails
               console.log(`[OptimizedMotion] OpenCV service failed, using fallback`);
-              this.fallbackCompareFrames(frame1, frame2, sensitivity).then(resolve).catch(reject);
+              this.fallbackCompareFrames(frame1, frame2, adjustedSensitivity).then(resolve).catch(reject);
             }
           })
           .catch(error => {
-            // Use fallback on error
             console.warn('OpenCV motion detection failed, using fallback:', error.message);
-            this.fallbackCompareFrames(frame1, frame2, sensitivity).then(resolve).catch(reject);
+            this.fallbackCompareFrames(frame1, frame2, adjustedSensitivity).then(resolve).catch(reject);
           });
       } catch (error) {
         reject(error);
       }
     });
   }
-  
+
+  private getAdaptiveSensitivity(settings: OptimizedMotionSettings): number {
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    for (const [zoneName, zoneConfig] of Object.entries(settings.timeZones)) {
+      const { start, end, sensitivityMultiplier } = zoneConfig;
+      let inZone = false;
+
+      if (start <= end) {
+        inZone = currentTime >= start && currentTime <= end;
+      } else {
+        inZone = currentTime >= start || currentTime <= end;
+      }
+
+      if (inZone) {
+        const adjusted = settings.sensitivity * sensitivityMultiplier;
+        console.log(`[OptimizedMotion] In ${zoneName} zone, adjusted sensitivity: ${settings.sensitivity} * ${sensitivityMultiplier} = ${adjusted}`);
+        return Math.min(100, adjusted);
+      }
+    }
+
+    return settings.sensitivity;
+  }
+
   // Fallback frame comparison when OpenCV service is unavailable
   private async fallbackCompareFrames(
     frame1: Buffer, 
@@ -725,6 +803,18 @@ export class OptimizedMotionDetector extends EventEmitter {
           await AppDataSource.getRepository(Event).save(event);
 
           console.log(`Motion event saved to events table: ${filename} (${frame.length} bytes, ${motionData.confidence}% confidence)`);
+
+          // Send notifications based on event type
+          NotificationService.notifyMotionEvent(event).catch((error) => {
+            console.error('Failed to send motion notification:', error);
+          });
+
+          // If there are unknown faces, send a face notification too
+          if (event.unknown_faces_count > 0) {
+            NotificationService.notifyUnknownFace(event).catch((error) => {
+              console.error('Failed to send face notification:', error);
+            });
+          }
         } catch (dbError) {
           console.error('Error saving motion event to events table:', dbError);
           // Continue execution even if database save fails

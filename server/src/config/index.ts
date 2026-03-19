@@ -182,6 +182,11 @@ export interface AppConfig {
   };
   streaming: {
     frameInterval: number;
+    lowResourceMode: boolean;
+    inactivityTimeout: number;
+    threads: number;
+    defaultFps: number;
+    defaultResolution: string;
   };
 }
 
@@ -251,8 +256,22 @@ export const config: AppConfig = {
     fileIndexOnSave: process.env.FILE_INDEX_ON_SAVE === 'true'
   },
   streaming: {
-    frameInterval: parseInt(process.env.FRAME_INTERVAL || '1000', 10) // 1 second default
+    frameInterval: parseInt(process.env.FRAME_INTERVAL || '1000', 10),
+    lowResourceMode: process.env.LOW_RESOURCE_MODE === 'true',
+    inactivityTimeout: parseInt(process.env.STREAM_INACTIVITY_TIMEOUT || '300000', 10),
+    threads: parseInt(process.env.FFMPEG_THREADS || '2', 10),
+    defaultFps: parseInt(process.env.DEFAULT_FPS || '2', 10),
+    defaultResolution: process.env.DEFAULT_RESOLUTION || '640x360'
   }
+};
+
+export interface StreamingConfig {
+  frameInterval: number;
+  lowResourceMode: boolean;
+  inactivityTimeout: number;
+  threads: number;
+  defaultFps: number;
+  defaultResolution: string;
 };
 
 export const getCameraById = (id: string): CameraConfig | undefined => {

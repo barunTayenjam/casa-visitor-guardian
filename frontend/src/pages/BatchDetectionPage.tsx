@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/ApiService';
 import { Calendar } from '../components/ui/calendar';
@@ -19,8 +19,13 @@ import {
   Download,
   Image as ImageIcon,
   List,
-  Clock
+  Clock,
+  RotateCw,
+  X
 } from 'lucide-react';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
 
 interface BatchResult {
   filename: string;
@@ -80,6 +85,10 @@ export default function BatchDetectionPage() {
   const [showHistory, setShowHistory] = useState(true);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+  const [processingRate, setProcessingRate] = useState<number>(0);
+  const cancelRequestRef = useRef<AbortController | null>(null);
 
   // Load historical batch jobs on mount
   useEffect(() => {
@@ -108,7 +117,7 @@ export default function BatchDetectionPage() {
     }
   }, [processing, batchJobId]);
 
-  const loadHistoricalJobs = async () => {
+  const loadHistoricalJobs = async (retries = MAX_RETRIES) => {
     try {
       const response = await fetch('/api/batch/jobs');
       const data = await response.json();
@@ -118,9 +127,14 @@ export default function BatchDetectionPage() {
           .sort((a: any, b: any) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime())
           .slice(0, 10);
         setHistoricalJobs(completedJobs);
+        setRetryCount(0);
       }
     } catch (err) {
       console.error('Error loading historical jobs:', err);
+      if (retries > 0) {
+        console.log(`Retrying loadHistoricalJobs... (${retries} attempts left)`);
+        setTimeout(() => loadHistoricalJobs(retries - 1), RETRY_DELAY);
+      }
     }
   };
 
@@ -208,11 +222,27 @@ export default function BatchDetectionPage() {
     }
   };
 
+  const cancelBatchJob = async () => {
+    if (!batchJobId) return;
+    
+    try {
+      console.log('[BatchDetection] Cancelling job:', batchJobId);
+      await apiService.cancelBatchJob(batchJobId);
+      setProcessing(false);
+      setPolling(false);
+      setStatus('cancelled');
+      if (cancelRequestRef.current) {
+        cancelRequestRef.current.abort();
+      }
+    } catch (err) {
+      console.error('[BatchDetection] Error cancelling job:', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel job');
+    }
+  };
+
   const checkJobStatus = async (jobId: string) => {
     try {
       console.log('[BatchDetection] Checking job status:', jobId);
-      
-      // The API returns { success: true, job: {...} }
       const jobResults: any = await apiService.getBatchResults(jobId);
       
       if (!jobResults || !jobResults.job) {
@@ -240,6 +270,21 @@ export default function BatchDetectionPage() {
           successful,
           failed: details.length - successful
         });
+        
+        // Calculate processing rate (images per second)
+        const startTime = new Date(job.startTime).getTime();
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        const rate = elapsedSeconds > 0 ? details.length / elapsedSeconds : 0;
+        setProcessingRate(rate);
+        
+        // Estimate time remaining
+        if (rate > 0 && job.results.totalImages > details.length) {
+          const remaining = job.results.totalImages - details.length;
+          const remainingSeconds = remaining / rate;
+          setEstimatedTimeRemaining(Math.round(remainingSeconds));
+        } else {
+          setEstimatedTimeRemaining(null);
+        }
         
         // Calculate object statistics
         const stats: ObjectStats = {};
@@ -513,9 +558,31 @@ export default function BatchDetectionPage() {
                   </div>
                 </div>
                 
+                {processingRate > 0 && (
+                  <div className="text-xs text-center text-muted-foreground">
+                    Processing at {processingRate.toFixed(1)} images/second
+                    {estimatedTimeRemaining && (
+                      <> • ~{Math.round(estimatedTimeRemaining / 60)} min remaining</>
+                    )}
+                  </div>
+                )}
+                
                 {batchJobId && (
-                  <div className="text-xs text-center text-muted-foreground font-mono">
-                    Job ID: {batchJobId}
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-xs text-muted-foreground font-mono">
+                      Job ID: {batchJobId}
+                    </div>
+                    {status === 'running' && (
+                      <Button 
+                        onClick={cancelBatchJob}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Cancel Job
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -573,10 +640,9 @@ export default function BatchDetectionPage() {
           )}
         </div>
       </div>
-    </div>
 
-    {/* Job Details Dialog */}
-    <Dialog open={showJobDetails} onOpenChange={setShowJobDetails}>
+      {/* Job Details Dialog */}
+      <Dialog open={showJobDetails} onOpenChange={setShowJobDetails}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Batch Job Details</DialogTitle>
@@ -651,6 +717,7 @@ export default function BatchDetectionPage() {
         )}
       </DialogContent>
     </Dialog>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-19T07:06:55.714Z"
+last_updated: "2026-03-19T08:15:31.100Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -19,7 +19,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 06 — Resource Optimization
+**Current focus:** Phase 6 Complete — Resource Optimization
 
 ---
 
@@ -32,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 | Research | ✓ Complete | 4 dimensions researched |
 | Requirements | ✓ Defined | 26 v1 requirements |
 | Roadmap | ✓ Created | 4 phases |
-| Milestone v1.0 | ⚠️ Partial Complete | 2/4 phases, 46% requirements |
+| Milestone v1.0 | ⚠️ Partial Complete | 4/6 phases, 67% requirements |
 
 ---
 
@@ -45,16 +45,17 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 | 3 | Face Recognition | ⚠️ Partial | 2/5 | 2/4 | 50% |
 | 4 | Storage Management | ✅ Complete | 5/5 | 4/4 | 100% |
 | 5 | Frontend Enhancement | ✅ Complete | 6/6 | 6/6 | 100% |
+| 6 | Resource Optimization | ✅ Complete | 4/5 | 4/5 | 80% |
 
-**Overall Progress:** 18/31 requirements complete (58%), 3/5 phases complete (60%)
+**Overall Progress:** 22/36 requirements complete (61%), 4/6 phases complete (67%)
 
 ---
 
 ## Wave Execution Status
 
-**Current Wave:** Phase 5 Complete - 3/5 phases (60%) complete
-**Next Phase:** Phase 3 (Face Recognition) - remaining plans 3.3, 3.4
-**Previous Phase:** Phase 5: Frontend Enhancement ✅ Complete
+**Current Wave:** Phase 6 Complete - 4/6 phases (67%) complete
+**Next Phase:** Phase 2 (Notifications & Events) - not started
+**Previous Phase:** Phase 6: Resource Optimization ✅ Complete
 
 ---
 
@@ -71,23 +72,25 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 | 2026-03-18 | Phase 3 Partial | Plans 3.1, 3.2 complete (embedding storage, cosine similarity) - Plans 3.3, 3.4 incomplete (visitor management UI, unknown face handling) |
 | 2026-03-19 | Phase 5 Created | Frontend Enhancement phase with 6 plans for batch detection, day highlights, events, gallery, settings, dashboard |
 | 2026-03-19 | Streaming Fixed | SocketService transport priority changed to WebSocket for better frame streaming |
-| 2026-03-19 | Phase 5 Complete | Plans 5.1-5.3, 5.5-5.6 complete - Batch retry logic, Day Highlights keyboard shortcuts, Events bulk operations, Settings verified, Dashboard fixed |
+| 2026-03-19 | Phase 5 Complete | Batch retry, Day Highlights, Events, Settings, Dashboard improved |
+| 2026-03-19 | Phase 6 Complete | Resource optimization - FFmpeg threads/FPS/resolution reduced, Docker limits added, batch detection thresholds tightened |
 
 ---
 
 ## Next Steps
 
-**Immediate Priority:** Complete Phase 3 (Face Recognition)
+**Immediate Priority:** Phase 2 (Notifications & Events)
 
 - **Effort:** 4-8 hours
-- **Remaining:** Plans 3.3 (Visitor Management UI), 3.4 (Unknown Face Handling)
-- **Deliverables:** TypeORM models, API routes, frontend components
+- **Remaining:** Browser push notifications, notification preferences, quiet hours, event filtering/search
+- **Deliverables:** NotificationService, event search API, notification preferences UI
 - **Timeline:** 1-2 days
+
+**Also Pending:** Phase 3 (Face Recognition) - Plans 3.3, 3.4 incomplete
 
 **Next Milestone (v1.1):** All Phases Complete
 
-- **Target:** 4/5 phases complete (87% requirements)
-- **Focus:** Visitor management and unknown face tracking
+- **Target:** 6/6 phases complete (100% requirements)
 
 ---
 
@@ -98,7 +101,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 - Research: enabled (investigates domain before each phase)
 - Plan check: enabled (verifies plans achieve goals)
 - Verifier: enabled (confirms deliverables match requirements)
-- Milestone completion: In Progress (3/5 phases complete, 1 partial)
+- Milestone completion: In Progress (4/6 phases complete, 67%)
 
 ---
 

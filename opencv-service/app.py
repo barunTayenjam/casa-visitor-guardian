@@ -233,22 +233,23 @@ class YOLOObjectDetector:
         self.net = None
         self.layer_names = None
         self.input_size = 640  # YOLOv5/YOLOv8 standard input size
-        self.confidence_threshold = 0.5  # Increased for better accuracy (was 0.3)
-        self.nms_threshold = 0.40  # Improved to reduce duplicate boxes (was 0.45)
+        self.confidence_threshold = 0.55  # Increased from 0.5 for better accuracy
+        self.nms_threshold = 0.30  # Lowered from 0.40 for more aggressive duplicate suppression
         self.model_type = None  # 'yolov8', 'yolov5' or 'yolov4'
         
         # Per-class confidence thresholds based on camera configuration
+        # Increased all thresholds for better accuracy (reduces false positives)
         self.class_thresholds = {
-            'person': 0.65,
-            'car': 0.65,
-            'truck': 0.65,
-            'bus': 0.65,
-            'motorcycle': 0.60,
-            'bicycle': 0.60,
-            'dog': 0.55,
-            'cat': 0.55,
-            'bird': 0.50,
-            'horse': 0.55,
+            'person': 0.70,
+            'car': 0.70,
+            'truck': 0.70,
+            'bus': 0.70,
+            'motorcycle': 0.65,
+            'bicycle': 0.65,
+            'dog': 0.60,
+            'cat': 0.60,
+            'bird': 0.55,
+            'horse': 0.60,
             'sheep': 0.55,
             'cow': 0.55,
             'elephant': 0.55,
@@ -270,42 +271,42 @@ class YOLOObjectDetector:
             'skateboard': 0.50,
             'surfboard': 0.50,
             'tennis racket': 0.50,
-            'bottle': 0.45,
-            'wine glass': 0.45,
-            'cup': 0.45,
-            'fork': 0.45,
-            'knife': 0.45,
-            'spoon': 0.45,
-            'bowl': 0.45,
-            'banana': 0.45,
-            'apple': 0.45,
-            'sandwich': 0.45,
-            'orange': 0.45,
-            'broccoli': 0.45,
-            'carrot': 0.45,
-            'hot dog': 0.45,
-            'pizza': 0.45,
-            'donut': 0.45,
-            'cake': 0.45,
-            'chair': 0.50,
-            'couch': 0.50,
-            'potted plant': 0.45,
-            'bed': 0.50,
-            'dining table': 0.50,
-            'toilet': 0.50,
-            'tv': 0.50,
-            'laptop': 0.50,
-            'mouse': 0.50,
-            'remote': 0.50,
-            'keyboard': 0.50,
-            'cell phone': 0.50,
-            'microwave': 0.50,
-            'oven': 0.50,
-            'toaster': 0.50,
-            'sink': 0.50,
-            'refrigerator': 0.50,
-            'book': 0.45,
-            'clock': 0.45,
+            'bottle': 0.65,
+            'wine glass': 0.65,
+            'cup': 0.65,
+            'fork': 0.65,
+            'knife': 0.65,
+            'spoon': 0.65,
+            'bowl': 0.65,
+            'banana': 0.65,
+            'apple': 0.65,
+            'sandwich': 0.65,
+            'orange': 0.65,
+            'broccoli': 0.65,
+            'carrot': 0.65,
+            'hot dog': 0.65,
+            'pizza': 0.65,
+            'donut': 0.65,
+            'cake': 0.65,
+            'chair': 0.60,
+            'couch': 0.60,
+            'potted plant': 0.65,
+            'bed': 0.60,
+            'dining table': 0.60,
+            'toilet': 0.60,
+            'tv': 0.60,
+            'laptop': 0.60,
+            'mouse': 0.60,
+            'remote': 0.60,
+            'keyboard': 0.60,
+            'cell phone': 0.60,
+            'microwave': 0.60,
+            'oven': 0.60,
+            'toaster': 0.60,
+            'sink': 0.60,
+            'refrigerator': 0.60,
+            'book': 0.60,
+            'clock': 0.60,
             'vase': 0.45,
             'scissors': 0.45,
             'teddy bear': 0.45,
@@ -314,9 +315,10 @@ class YOLOObjectDetector:
         }
         
         # Minimum box area to filter out small detections (false positives)
-        self.min_box_area = 1500  # Minimum area in pixels
-        self.min_box_width = 30   # Minimum width in pixels
-        self.min_box_height = 30  # Minimum height in pixels
+        # Increased from 1500 to 4000 for better accuracy
+        self.min_box_area = 4000  # Minimum area in pixels (was 1500)
+        self.min_box_width = 40   # Minimum width in pixels (was 30)
+        self.min_box_height = 40  # Minimum height in pixels (was 30)
 
     def initialize(self):
         """Initialize YOLO detector - prefers YOLOv8 for accuracy, falls back to YOLOv5/YOLOv4"""

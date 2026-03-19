@@ -15,3 +15,8 @@ export { Timeline } from './Timeline.js';
 export { AdaptiveRegion } from './AdaptiveRegion.js';
 export { DetectionConfig } from './DetectionConfig.js';
 export { RetentionPolicy } from './RetentionPolicy.js';
+export { NotificationSubscription } from './NotificationSubscription.js';
+export { NotificationLog } from './NotificationLog.js';
+export { NotificationPreferences } from './NotificationPreferences.js';
+export { FaceEmbedding } from './FaceEmbedding.js';
+export { StorageStats } from './StorageStats.js';

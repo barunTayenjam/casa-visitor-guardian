@@ -22,6 +22,10 @@ import { getDetectionsPath, getEventPath } from '../config/index.js';
 import { DetectionDataNormalizer } from '../utils/detectionDataNormalizer.js';
 import detectionRoutes from './detectionRoutes.js';
 import { configureDetectionRedoRoutes } from './detectionRedoRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import faceEmbeddingRoutes from './faceEmbeddingRoutes.js';
+import faceConfigRoutes from './faceConfigRoutes.js';
+import eventSearchService from '../services/eventSearchService.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -493,6 +497,35 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get debug info',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Streaming metrics endpoint (new)
+  app.get('/api/streaming/metrics', optionalAuth, (req: Request, res: Response) => {
+    try {
+      const cameras = getStreamManager().getAllCameras();
+      const metrics = cameras.map((camera: any) => ({
+        cameraId: camera.id,
+        cameraName: camera.name,
+        viewerCount: camera.activeViewers?.size || 0,
+        adaptiveFps: camera.adaptiveFps || 4,
+        isActive: camera.isActive,
+        bandwidth: camera.streams.get('live')?.lastFrame?.length || 0,
+        fps: camera.adaptiveFps || 4,
+      }));
+
+      res.json({
+        success: true,
+        metrics,
+        totalViewers: metrics.reduce((sum: number, m: any) => sum + m.viewerCount, 0),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get streaming metrics',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -1892,6 +1925,36 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   // Search events (database-based implementation)
   app.get('/api/events/search', async (req: Request, res: Response) => {
+    try {
+      const filters = {
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        cameraId: req.query.cameraId as string,
+        eventType: req.query.eventType as string,
+        confidence: req.query.confidence as string,
+        faceStatus: req.query.faceStatus as string,
+        page: parseInt(req.query.page as string) || 1,
+        pageSize: Math.min(parseInt(req.query.pageSize as string) || 20, 100),
+        sortBy: req.query.sortBy as string,
+        sortOrder: (req.query.sortOrder as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      };
+
+      const result = await eventSearchService.searchEvents(filters);
+
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      console.error('Error searching events:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to search events',
+      });
+    }
+  });
+
+  app.get('/api/events/search/legacy', async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100); // Max 100 per page
@@ -3535,7 +3598,72 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       res.status(500).json({ success: false, error: 'Failed to update facial recognition settings' });
     }
   });
-  
+
+  // Get motion detection settings
+  app.get('/api/detection/motion/settings', (req: Request, res: Response) => {
+    try {
+      const optimizedMotionDetector = (global as any).optimizedMotionDetector;
+      if (!optimizedMotionDetector) {
+        return res.status(404).json({ success: false, error: 'Motion detector not initialized' });
+      }
+
+      const { cameraId } = req.query;
+      if (cameraId && typeof cameraId === 'string') {
+        const settings = optimizedMotionDetector.getSettings(cameraId);
+        if (!settings) {
+          return res.status(404).json({ success: false, error: 'Camera not found' });
+        }
+        return res.json({ success: true, settings, cameraId });
+      }
+
+      const allCameras = streamManager.getAllCameras();
+      const allSettings: Record<string, any> = {};
+      allCameras.forEach((camera: Camera) => {
+        allSettings[camera.id] = optimizedMotionDetector.getSettings(camera.id);
+      });
+
+      res.json({ success: true, settings: allSettings });
+    } catch (error) {
+      console.error('Error getting motion detection settings:', error);
+      res.status(500).json({ success: false, error: 'Failed to get motion detection settings' });
+    }
+  });
+
+  // Update motion detection settings
+  app.put('/api/detection/motion/settings', (req: Request, res: Response) => {
+    try {
+      const { cameraId, sensitivity, requiredConsecutiveFrames, minContourArea, useGaussianBlur, blurKernelSize, timeZones } = req.body;
+      const optimizedMotionDetector = (global as any).optimizedMotionDetector;
+
+      if (!optimizedMotionDetector) {
+        return res.status(404).json({ success: false, error: 'Motion detector not initialized' });
+      }
+
+      if (!cameraId) {
+        return res.status(400).json({ success: false, error: 'cameraId is required' });
+      }
+
+      const updates: any = {};
+      if (sensitivity !== undefined) updates.sensitivity = sensitivity;
+      if (requiredConsecutiveFrames !== undefined) updates.requiredConsecutiveFrames = requiredConsecutiveFrames;
+      if (minContourArea !== undefined) updates.minContourArea = minContourArea;
+      if (useGaussianBlur !== undefined) updates.useGaussianBlur = useGaussianBlur;
+      if (blurKernelSize !== undefined) updates.blurKernelSize = blurKernelSize;
+      if (timeZones !== undefined) updates.timeZones = timeZones;
+
+      const updated = optimizedMotionDetector.updateSettings(cameraId, updates);
+
+      if (updated) {
+        res.json({ success: true, updated, cameraId });
+      } else {
+        res.status(404).json({ success: false, error: 'Camera not found or update failed' });
+      }
+    } catch (error) {
+      console.error('Error updating motion detection settings:', error);
+      res.status(500).json({ success: false, error: 'Failed to update motion detection settings' });
+    }
+  });
+
   // Get known persons
    app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
      try {
@@ -4895,8 +5023,17 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Configure notification routes
+  app.use('/api/notifications', notificationRoutes);
+
   // Configure detection routes (with enhanced functionality)
   app.use('/api/detection', detectionRoutes);
+
+  // Configure face embedding routes
+  app.use('/api/face-embeddings', faceEmbeddingRoutes);
+
+  // Configure face config routes
+  app.use('/api/face-config', faceConfigRoutes);
 
   // Configure detection redo routes
   configureDetectionRedoRoutes(app);

@@ -2,15 +2,32 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useCameras } from '@/contexts/CameraContext';
-import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard, Download, Share2 } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import apiService from '@/services/ApiService';
 import { cn } from '@/lib/utils';
+
+type CategoryFilter = 'all' | 'persons' | 'known' | 'unknown' | 'night';
+
+const KEYBOARD_SHORTCUTS = {
+  PLAY_PAUSE: ' ',
+  PREV: 'ArrowLeft',
+  NEXT: 'ArrowRight',
+  FIRST: 'Home',
+  LAST: 'End',
+  FULLSCREEN: 'f',
+  EXPORT: 'e',
+  FILTER_ALL: '1',
+  FILTER_PERSONS: '2',
+  FILTER_KNOWN: '3',
+  FILTER_UNKNOWN: '4',
+};
 
 interface HighlightEvent {
   id: string;
@@ -48,12 +65,25 @@ const DayHighlightsPage = () => {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [speed, setSpeed] = useState(3);
+  const [speed, setSpeed] = useState(0.5);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>('recent');
-
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentHighlight = highlights[currentIndex];
+  const filteredHighlights = highlights.filter(h => {
+    if (categoryFilter === 'all') return true;
+    if (categoryFilter === 'persons') return h.personsDetected > 0;
+    if (categoryFilter === 'known') return h.knownFacesCount > 0;
+    if (categoryFilter === 'unknown') return h.unknownFacesCount > 0;
+    if (categoryFilter === 'night') {
+      const hour = new Date(h.timestamp).getHours();
+      return hour >= 22 || hour <= 6;
+    }
+    return true;
+  });
 
   const getCameraName = (cameraId: string) => {
     const camera = cameras.find(c => c.id === cameraId);
@@ -66,12 +96,28 @@ const DayHighlightsPage = () => {
     setLoading(true);
     try {
       const [highlightsData, summaryData] = await Promise.all([
-        apiService.getDayHighlights(date, { limit: 50, sort: sortBy }),
+        apiService.getDayHighlights(date, { limit: 200, sort: sortBy }),
         apiService.getDaySummary(date)
       ]);
 
       if (highlightsData.success && highlightsData.highlights.length > 0) {
-        setHighlights(highlightsData.highlights);
+        // Always sort chronologically from 12:00 AM to end of day
+        const sortedHighlights = [...highlightsData.highlights].sort((a, b) => {
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
+        
+        // If viewing today, filter to only show events up to current time
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        
+        if (date === today) {
+          const filteredHighlights = sortedHighlights.filter(h => {
+            return new Date(h.timestamp).getTime() <= now.getTime();
+          });
+          setHighlights(filteredHighlights);
+        } else {
+          setHighlights(sortedHighlights);
+        }
         setCurrentIndex(0);
       } else {
         toast({
@@ -118,6 +164,59 @@ const DayHighlightsPage = () => {
       }
     };
   }, [isPlaying, highlights.length, speed]);
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
+      switch (e.key) {
+        case KEYBOARD_SHORTCUTS.PLAY_PAUSE:
+          e.preventDefault();
+          setIsPlaying(prev => !prev);
+          break;
+        case KEYBOARD_SHORTCUTS.PREV:
+          e.preventDefault();
+          goToPrevious();
+          break;
+        case KEYBOARD_SHORTCUTS.NEXT:
+          e.preventDefault();
+          goToNext();
+          break;
+        case KEYBOARD_SHORTCUTS.FIRST:
+          e.preventDefault();
+          setCurrentIndex(0);
+          break;
+        case KEYBOARD_SHORTCUTS.LAST:
+          e.preventDefault();
+          setCurrentIndex(filteredHighlights.length - 1);
+          break;
+        case KEYBOARD_SHORTCUTS.FILTER_ALL:
+          e.preventDefault();
+          setCategoryFilter('all');
+          break;
+        case KEYBOARD_SHORTCUTS.FILTER_PERSONS:
+          e.preventDefault();
+          setCategoryFilter('persons');
+          break;
+        case KEYBOARD_SHORTCUTS.FILTER_KNOWN:
+          e.preventDefault();
+          setCategoryFilter('known');
+          break;
+        case KEYBOARD_SHORTCUTS.FILTER_UNKNOWN:
+          e.preventDefault();
+          setCategoryFilter('unknown');
+          break;
+        case '?':
+          e.preventDefault();
+          setShowKeyboardHelp(prev => !prev);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filteredHighlights.length]);
 
   const goToPrevious = () => {
     setCurrentIndex(prev => (prev - 1 + highlights.length) % highlights.length);
@@ -214,6 +313,16 @@ const DayHighlightsPage = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={() => setShowKeyboardHelp(true)} variant="outline" size="sm">
+                    <Keyboard className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
               <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700 text-white">
                 <Filter className="w-4 h-4 mr-2" />
@@ -239,6 +348,51 @@ const DayHighlightsPage = () => {
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
+        </div>
+
+        {/* Category Filters */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            onClick={() => setCategoryFilter('all')}
+            variant={categoryFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+          >
+            All ({highlights.length})
+          </Button>
+          <Button
+            onClick={() => setCategoryFilter('persons')}
+            variant={categoryFilter === 'persons' ? 'default' : 'outline'}
+            size="sm"
+          >
+            <Users className="w-3 h-3 mr-1" />
+            Persons ({highlights.filter(h => h.personsDetected > 0).length})
+          </Button>
+          <Button
+            onClick={() => setCategoryFilter('known')}
+            variant={categoryFilter === 'known' ? 'default' : 'outline'}
+            size="sm"
+          >
+            <UserCheck className="w-3 h-3 mr-1" />
+            Known ({highlights.filter(h => h.knownFacesCount > 0).length})
+          </Button>
+          <Button
+            onClick={() => setCategoryFilter('unknown')}
+            variant={categoryFilter === 'unknown' ? 'default' : 'outline'}
+            size="sm"
+          >
+            ? ({highlights.filter(h => h.unknownFacesCount > 0).length})
+          </Button>
+          <Button
+            onClick={() => setCategoryFilter('night')}
+            variant={categoryFilter === 'night' ? 'default' : 'outline'}
+            size="sm"
+          >
+            <Moon className="w-3 h-3 mr-1" />
+            Night ({highlights.filter(h => {
+              const hour = new Date(h.timestamp).getHours();
+              return hour >= 22 || hour <= 6;
+            }).length})
+          </Button>
         </div>
 
         {summary && (
@@ -321,16 +475,16 @@ const DayHighlightsPage = () => {
                   <Slider
                     value={[speed]}
                     onValueChange={(value) => setSpeed(value[0])}
-                    min={1}
-                    max={10}
-                    step={1}
+                    min={0.3}
+                    max={5}
+                    step={0.1}
                     className="w-full"
                   />
                 </div>
 
                 <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
-                  <span>{currentIndex + 1} of {highlights.length}</span>
-                  <span>Press Space to play/pause</span>
+                  <span>{currentIndex + 1} of {filteredHighlights.length} (filtered from {highlights.length})</span>
+                  <span className="text-xs text-slate-500">Press ? for keyboard shortcuts</span>
                 </div>
               </div>
             </Card>
@@ -415,6 +569,59 @@ const DayHighlightsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showKeyboardHelp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowKeyboardHelp(false)}>
+          <Card className="bg-slate-800 border-slate-700 p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Keyboard className="w-5 h-5" />
+              Keyboard Shortcuts
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Play / Pause</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">Space</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Previous Event</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">←</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Next Event</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">→</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">First Event</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">Home</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Last Event</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">End</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Filter: All</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">1</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Filter: Persons</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">2</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Filter: Known</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">3</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Filter: Unknown</span>
+                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">4</kbd>
+              </div>
+            </div>
+            <Button onClick={() => setShowKeyboardHelp(false)} variant="outline" className="w-full mt-4">
+              Close
+            </Button>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

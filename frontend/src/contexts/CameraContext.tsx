@@ -232,7 +232,10 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
     try {
-      socketService.stopStream(id);
+      console.log(`🛑 CameraContext: Stopping stream for camera ${id}`);
+      // Emit stopStream event
+      socketService.socket?.emit('stopStream', { cameraId: id });
+      console.log(`✅ CameraContext: Stop request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to stop stream for camera ${id}:`, err);
       throw err;

@@ -371,7 +371,12 @@
 <a name='L306'></a><a href='#L306'>306</a>
 <a name='L307'></a><a href='#L307'>307</a>
 <a name='L308'></a><a href='#L308'>308</a>
-<a name='L309'></a><a href='#L309'>309</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -559,6 +564,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -792,12 +802,17 @@ export interface Rec<span class="cstat-no" title="statement not covered" >ordCon
   };
 }
 &nbsp;
+export interface LiveConfig {
+  fps?: number;
+}
+&nbsp;
 export interface CameraConfig {
   id: string;
   name: string;
   enabled: boolean;
   streams: CameraStreamConfig[];
   detect: DetectConfig;
+  live?: LiveConfig;
   record?: RecordConfig;
   zones?: ZoneConfig[];
   objects?: {
@@ -806,67 +821,67 @@ export interface CameraConfig {
   };
   motion?: {
     enabled?: boolean;
-    threshold?: number;
-    contourArea?: number;
+    threshold?: number;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+<span class="cstat-no" title="statement not covered" >    contourArea?: number;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
     mask?: string;
-  };
-  nightMode: boolean;
-  credentialId?: string;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
-}<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-&nbsp;
-export interface DatabaseConfig {<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
-  host: string;<span class="cstat-no" title="statement not covered" ></span>
-  port: number;<span class="cstat-no" title="statement not covered" ></span>
-  name: string;<span class="cstat-no" title="statement not covered" ></span>
-  us<span class="cstat-no" title="statement not covered" >ername?: string;</span>
-  passwo<span class="cstat-no" title="statement not covered" >rd?: string;</span>
-}
+  };<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+  nightMode: bool<span class="cstat-no" title="statement not covered" >ean;</span>
+  credentialId?: s<span class="cstat-no" title="statement not covered" >tring;</span>
+}<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-export i<span class="cstat-no" title="statement not covered" >nterface MQTTConfig {</span>
-  enabled?: boolean;
-  host?: <span class="cstat-no" title="statement not covered" >string;</span>
-  port?:<span class="cstat-no" title="statement not covered" > number;</span>
-  topicPrefix?: string;
-  user?: string;
-  passwo<span class="cstat-no" title="statement not covered" >rd?: string;</span>
-  qos?: 0 | 1 | 2;
-}
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
-export interface <span class="cstat-no" title="statement not covered" >AppConfig {</span>
+export i<span class="cstat-no" title="statement not covered" >nterface DatabaseConfig {</span>
+  host: string;
+  port: n<span class="cstat-no" title="statement not covered" >umber;</span>
+  name: <span class="cstat-no" title="statement not covered" >string;</span>
+  username?: string;
+  passwor<span class="cstat-no" title="statement not covered" >d?: string;</span>
+}<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+export interface MQTTConfig {
+  enable<span class="cstat-no" title="statement not covered" >d?: boolean;</span>
+  host?: string;
+  port?: number;
+  topicPrefix?: string;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+  user?: string;<span class="cstat-no" title="statement not covered" ></span>
+  password?: strin<span class="cstat-no" title="statement not covered" >g;</span>
+  qos?: 0 | 1 | 2;<span class="cstat-no" title="statement not covered" ></span>
+}<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+export interface AppConfig {<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
   port: number;<span class="cstat-no" title="statement not covered" ></span>
   nodeEnv: string;<span class="cstat-no" title="statement not covered" ></span>
-  jw<span class="cstat-no" title="statement not covered" >tSecret: string;</span>
-  jwtExpiresIn: string;
-  database: DatabaseConfig;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
-  mqtt: MQTTConfi<span class="cstat-no" title="statement not covered" >g;</span>
-  cameras: CameraC<span class="cstat-no" title="statement not covered" >onfig[];</span>
-  security: {<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >    bcryptRounds: number;</span>
-    maxLoginAttempts: number;
-    lockoutDuration: number;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
-<span class="cstat-no" title="statement not covered" >    rateLimitWindow: number;</span>
-    rate<span class="cstat-no" title="statement not covered" >LimitMax: number;</span>
-  };
-  storage<span class="cstat-no" title="statement not covered" >: {</span>
-    snap<span class="cstat-no" title="statement not covered" >shotsDir: string;</span>
-    eventsDir: string;
-    detec<span class="cstat-no" title="statement not covered" >tionsDir: string;</span>
-    rete<span class="cstat-no" title="statement not covered" >ntionDays: number;</span>
-    archivePath: string;
-    enabl<span class="cstat-no" title="statement not covered" >eFileIndexing: boolean;</span>
-    file<span class="cstat-no" title="statement not covered" >IndexOnSave: boolean;</span>
-  };
-  streaming: {
+  jwtSecret: string;<span class="cstat-no" title="statement not covered" ></span>
+  jw<span class="cstat-no" title="statement not covered" >tExpiresIn: string;</span>
+  database: DatabaseConfig;
+  mqtt: MQTTConfig;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+  ca<span class="cstat-no" title="statement not covered" >meras: CameraConfig[];</span>
+  securi<span class="cstat-no" title="statement not covered" >ty: {</span>
+    bcryptRounds: number;
+    maxLo<span class="cstat-no" title="statement not covered" >ginAttempts: number;</span>
+    lock<span class="cstat-no" title="statement not covered" >outDuration: number;</span>
+    rateLimitWindow: number;
+    rateL<span class="cstat-no" title="statement not covered" >imitMax: number;</span>
+  };<span class="cstat-no" title="statement not covered" ></span>
+  storage: {
+    snaps<span class="cstat-no" title="statement not covered" >hotsDir: string;</span>
+    even<span class="cstat-no" title="statement not covered" >tsDir: string;</span>
+    detectionsDir: string;
+    retentionDays: number;
+    arch<span class="cstat-no" title="statement not covered" >ivePath: string;</span>
+    enableFileIndexing: boolean;
+    fileIndexOnSave: boolean;
+  };<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+  st<span class="cstat-no" title="statement not covered" >reaming: {</span>
     fram<span class="cstat-no" title="statement not covered" >eInterval: number;</span>
-  };
+  };<span class="cstat-no" title="statement not covered" ></span>
 }
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
-expo<span class="cstat-no" title="statement not covered" >rt const config: AppConfig = {</span>
-  port: <span class="cstat-no" title="statement not covered" >parseInt(process.env.PORT || '9753', 10),</span>
-  nodeEnv: p<span class="cstat-no" title="statement not covered" >rocess.env.NODE_ENV || 'development',</span>
+&nbsp;
+export const<span class="cstat-no" title="statement not covered" > config: AppConfig = {</span>
+  port: parseInt(process.env.PORT || '9753', 10),
+  nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
-  database: <span class="cstat-no" title="statement not covered" >{</span>
+  database: {
     host: process.env.DB_HOST || '172.26.0.3',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'sentryvision',
@@ -994,7 +1009,7 @@ export const validateConfig = (): void =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-26T16:55:48.029Z
+                at 2026-03-18T17:07:09.943Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

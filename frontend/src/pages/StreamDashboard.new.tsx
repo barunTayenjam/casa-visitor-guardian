@@ -6,7 +6,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { colors, spacing } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings, Layers } from 'lucide-react';
+import { Shield, Activity, Calendar, Keyboard, BarChart3, Power, Download, Settings, Layers, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const StreamDashboard = () => {
@@ -124,6 +124,11 @@ const StreamDashboard = () => {
         action: () => navigate('/app/batch-detection'),
       },
       {
+        key: 'h',
+        description: 'Go to Highlights',
+        action: () => navigate(`/app/highlights/${new Date().toISOString().split('T')[0]}`),
+      },
+      {
         key: 'r',
         description: 'Refresh cameras',
         action: () => {
@@ -162,6 +167,7 @@ const StreamDashboard = () => {
               { key: '2', desc: 'Go to Events' },
               { key: 'S', desc: 'Go to Settings' },
               { key: 'B', desc: 'Go to Batch Detection' },
+              { key: 'H', desc: 'Go to Highlights' },
               { key: 'R', desc: 'Refresh page' },
               { key: '?', desc: 'Show this help' },
             ].map((shortcut) => (
@@ -284,6 +290,15 @@ const StreamDashboard = () => {
             >
               <Layers className="h-4 w-4 mr-2" />
               <span className="hidden md:inline">Batch Detection</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-white/80 hover:text-white hover:bg-white/5"
+              onClick={() => navigate(`/app/highlights/${new Date().toISOString().split('T')[0]}`)}
+            >
+              <CalendarCheck className="h-4 w-4 mr-2" />
+              <span className="hidden md:inline">Highlights</span>
             </Button>
           </div>
         </div>

@@ -1,9 +1,10 @@
 # Roadmap: SentryVision Home Security System
 
 **Created:** 2026-03-18
+**Updated:** 2026-03-19
 **Granularity:** Coarse
-**Total Phases:** 4
-**Total Requirements:** 25 (all mapped)
+**Total Phases:** 5
+**Total Requirements:** 31 (all mapped)
 
 ## Phase Summary
 
@@ -13,6 +14,7 @@
 | 2 | Notifications & Events | Add push notifications and event search/filtering | NOTF-01 to NOTF-05, EVNT-01 to EVNT-06 | 11 |
 | 3 | Face Recognition | Improve face matching accuracy and management | FACE-01 to FACE-05 | 5 |
 | 4 | Storage Management | Implement retention policies and cleanup | STOR-01 to STOR-05 | 5 |
+| 5 | Frontend Enhancement | Review and fix all frontend pages | FE-01 to FE-06 | 6 |
 
 ---
 
@@ -100,6 +102,32 @@
 
 ---
 
+## Phase 5: Frontend Enhancement
+
+**Goal:** Review and fix all frontend pages and their functionality
+
+**Status:** ✅ Complete (2026-03-19)
+
+**Requirements:** FE-01, FE-02, FE-03, FE-04, FE-05, FE-06
+
+**Success Criteria:**
+1. ✅ Batch Detection page works correctly with proper API integration
+2. ✅ Day Highlights feature displays accurate event summaries
+3. ✅ Events page has proper filtering, pagination, and performance
+4. ⏭️ Gallery page - Deferred (feature not implemented)
+5. ✅ Settings page saves and loads preferences correctly
+6. ✅ Dashboard displays real-time data without freezing
+
+**Plans:**
+- **Plan 5.1:** ✅ Batch Detection Review & Fixes — retry logic, progress indicators, cancel button
+- **Plan 5.2:** ✅ Day Highlights Review & Fixes — keyboard shortcuts, category filters
+- **Plan 5.3:** ✅ Events Page Review & Fixes — bulk selection, export, keyboard nav
+- **Plan 5.4:** ⏭️ Gallery Page — Deferred (feature not currently implemented)
+- **Plan 5.5:** ✅ Settings Page — Verified existing implementation
+- **Plan 5.6:** ✅ Dashboard Review & Fixes — Socket.io transport fix
+
+---
+
 ## Requirement Coverage
 
 | Phase | Requirements | Count |
@@ -108,17 +136,18 @@
 | Phase 2 | NOTF-01, NOTF-02, NOTF-03, NOTF-04, NOTF-05, EVNT-01, EVNT-02, EVNT-03, EVNT-04, EVNT-05, EVNT-06 | 11 |
 | Phase 3 | FACE-01, FACE-02, FACE-03, FACE-04, FACE-05 | 5 |
 | Phase 4 | STOR-01, STOR-02, STOR-03, STOR-04, STOR-05 | 5 |
-| **Total** | | **25** |
+| Phase 5 | FE-01, FE-02, FE-03, FE-04, FE-05, FE-06 | 6 |
+| **Total** | | **31** |
 
-**Coverage:** 25/25 requirements mapped ✓
+**Coverage:** 31/31 requirements mapped ✓
 
 ---
 
 ## Future Phases (v2)
 
-**Phase 5:** Video Recording — Record video clips on events
-**Phase 6:** Smart Alerts — AI-powered alert prioritization
-**Phase 7:** Additional Cameras — Support for 3rd+ cameras
+**Phase 6:** Video Recording — Record video clips on events
+**Phase 7:** Smart Alerts — AI-powered alert prioritization
+**Phase 8:** Additional Cameras — Support for 3rd+ cameras
 
 ---
 *Roadmap created: 2026-03-18*

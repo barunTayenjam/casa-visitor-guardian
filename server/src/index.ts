@@ -31,6 +31,10 @@ import { Timeline } from './models/Timeline.js';
 import { AdaptiveRegion } from './models/AdaptiveRegion.js';
 import { DetectionConfig } from './models/DetectionConfig.js';
 import { PreviewService } from './services/preview/previewService.js';
+import { storageStatsService } from './services/storageStatsService.js';
+import { retentionPolicyService } from './services/retentionPolicyService.js';
+import { automatedCleanupService } from './services/automatedCleanupService.js';
+import storageRoutes from './routes/storageRoutes.js';
 
 dotenv.config({ path: './.env' });
 
@@ -326,6 +330,7 @@ app.get('/test', (req, res) => {
 configureAuthRoutes(app);
 configureRoutes(app, io);
 configureVisitorRoutes(app);
+app.use('/api/storage', storageRoutes);
 
 // Review & Timeline Routes (no auth required for read, auth for write)
 app.get('/api/review', async (req, res) => {
@@ -525,6 +530,20 @@ async function initializeServices() {
     (global as any).detectionConfigService = detectionService;
     (global as any).reviewService = reviewService;
     console.log('Review, timeline and detection services initialized successfully');
+
+    console.log('Initializing notification service...');
+    NotificationService.initialize();
+    (global as any).notificationService = NotificationService;
+    console.log('Notification service initialized successfully');
+
+    console.log('Initializing storage services...');
+    await storageStatsService.initialize();
+    await retentionPolicyService.initialize();
+    await automatedCleanupService.initialize();
+    (global as any).storageStatsService = storageStatsService;
+    (global as any).retentionPolicyService = retentionPolicyService;
+    (global as any).automatedCleanupService = automatedCleanupService;
+    console.log('Storage services initialized successfully');
 
   } catch (error) {
     console.error('Failed to initialize services:', error);

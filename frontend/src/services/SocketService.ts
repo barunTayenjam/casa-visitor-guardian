@@ -53,8 +53,9 @@ class SocketService {
         }
 
 
-        // Prefer polling transport for better proxy compatibility in all environments
-        const transports = ['polling', 'websocket'];
+        // Prefer websocket transport for better streaming performance
+        // WebSocket handles large binary frames (~500KB) much better than polling
+        const transports = ['websocket', 'polling'];
         
         this.socket = io(socketUrl, {
           transports,

@@ -39,6 +39,10 @@ const EventsPage = () => {
     dateRange: { start: undefined, end: undefined },
     confidence: 'all',
   });
+  
+  // Bulk selection state
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   const selectedEvent = events.find(e => e.id === selectedEventId) || null;
   const cameraNames = cameras.map(c => c.name);
@@ -134,6 +138,84 @@ const EventsPage = () => {
     }
   };
 
+  // Bulk selection handlers
+  const toggleEventSelection = (eventId: string) => {
+    setSelectedEventIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId);
+      } else {
+        newSet.add(eventId);
+      }
+      setShowBulkActions(newSet.size > 0);
+      return newSet;
+    });
+  };
+
+  const selectAllEvents = () => {
+    if (selectedEventIds.size === events.length) {
+      setSelectedEventIds(new Set());
+      setShowBulkActions(false);
+    } else {
+      const allIds = new Set(events.map(e => e.id));
+      setSelectedEventIds(allIds);
+      setShowBulkActions(true);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedEventIds(new Set());
+    setShowBulkActions(false);
+  };
+
+  const bulkDelete = async () => {
+    if (selectedEventIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedEventIds.size} events?`);
+    if (!confirmed) return;
+
+    try {
+      const deletePromises = Array.from(selectedEventIds).map(id => apiService.archiveEvent(id));
+      await Promise.all(deletePromises);
+      toast({
+        title: 'Events Deleted',
+        description: `${selectedEventIds.size} events have been deleted.`,
+      });
+      clearSelection();
+      loadEvents();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete some events',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const bulkExport = () => {
+    if (selectedEventIds.size === 0) return;
+    
+    const selectedEvents = events.filter(e => selectedEventIds.has(e.id));
+    const exportData = selectedEvents.map(e => ({
+      id: e.id,
+      cameraId: e.cameraId,
+      timestamp: e.timestamp.toISOString(),
+      confidence: e.confidence,
+      labels: e.labels,
+    }));
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `events_export_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    toast({
+      title: 'Exported',
+      description: `${selectedEventIds.size} events exported to JSON.`,
+    });
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setSelectedEventId(null);
@@ -162,22 +244,33 @@ const EventsPage = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedEventId) return;
+      // Ctrl+A: Select all
+      if (e.ctrlKey && e.key === 'a' && !selectedEventId) {
+        e.preventDefault();
+        selectAllEvents();
+        return;
+      }
       
       if (e.key === 'Escape') {
-        setSelectedEventId(null);
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        goToPreviousEvent();
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        goToNextEvent();
+        if (showBulkActions) {
+          clearSelection();
+        } else {
+          setSelectedEventId(null);
+        }
+      } else if (selectedEventId) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          goToPreviousEvent();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          goToNextEvent();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedEventId, filteredEvents, selectedEvent]);
+  }, [selectedEventId, filteredEvents, selectedEvent, showBulkActions]);
 
   const stats = {
     total: totalEvents,
@@ -219,6 +312,57 @@ const EventsPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Bulk Actions */}
+          {showBulkActions ? (
+            <div className="flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 rounded-lg px-3 py-1">
+              <span className="text-sm text-white">
+                {selectedEventIds.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={selectAllEvents}
+                className="text-white/70 hover:text-white h-7 px-2"
+              >
+                {selectedEventIds.size === events.length ? 'Deselect All' : 'Select All'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={bulkExport}
+                className="text-white/70 hover:text-white h-7 px-2"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Export
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={bulkDelete}
+                className="text-red-400 hover:text-red-300 h-7 px-2"
+              >
+                <Archive className="h-3 w-3 mr-1" />
+                Delete
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearSelection}
+                className="text-white/70 hover:text-white h-7 px-2"
+              >
+                ✕
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowBulkActions(true)}
+              className="text-white/70 hover:text-white h-8"
+            >
+              Select
+            </Button>
+          )}
           <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
             <SelectTrigger className="w-[140px] h-8 bg-white/5 border-white/10 text-white/70 text-sm">
               <SelectValue />

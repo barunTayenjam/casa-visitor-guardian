@@ -15,6 +15,14 @@ services:
       - POSTGRES_USER=sentryvision
       - POSTGRES_PASSWORD=sentryvision123
       - TZ=Asia/Kolkata
+    command: >
+      postgres
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-64MB}
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-20}
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c effective_cache_size=128MB
+      -c huge_pages=off
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentryvision -d sentryvision"]
@@ -23,6 +31,14 @@ services:
       retries: 5
     networks:
       - sentryvision_network
+    deploy:
+      resources:
+        limits:
+          cpus: ${POSTGRES_CPU_LIMIT:-0.25}
+          memory: ${POSTGRES_MEM_LIMIT:-384M}
+        reservations:
+          cpus: ${POSTGRES_CPU_RESERVE:-0.1}
+          memory: ${POSTGRES_MEM_RESERVE:-192M}
 
   # Backend API Server (Development Mode)
   backend:
@@ -46,6 +62,14 @@ services:
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
+      # Resource optimization settings (for 1 core, 2GB RAM systems)
+      - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-false}
+      - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
+      - DEFAULT_FPS=${DEFAULT_FPS:-2}
+      - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
+      - STREAM_INACTIVITY_TIMEOUT=${STREAM_INACTIVITY_TIMEOUT:-300000}
+      # Node.js memory optimization
+      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-384}
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
@@ -70,6 +94,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: ${BACKEND_CPU_LIMIT:-1.0}
+          memory: ${BACKEND_MEM_LIMIT:-1024M}
+        reservations:
+          cpus: ${BACKEND_CPU_RESERVE:-0.5}
+          memory: ${BACKEND_MEM_RESERVE:-512M}
 
   # Frontend Development Server
   frontend:
@@ -105,6 +137,10 @@ services:
       - TZ=Asia/Kolkata
     volumes:
       - redis_data:/data
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAX_MEMORY:-50mb}
+      --maxmemory-policy allkeys-lru
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
@@ -113,6 +149,14 @@ services:
       retries: 5
     networks:
       - sentryvision_network
+    deploy:
+      resources:
+        limits:
+          cpus: ${REDIS_CPU_LIMIT:-0.1}
+          memory: ${REDIS_MEM_LIMIT:-64M}
+        reservations:
+          cpus: ${REDIS_CPU_RESERVE:-0.05}
+          memory: ${REDIS_MEM_RESERVE:-32M}
 
   # OpenCV Python Detection Service (Development Mode)
   opencv:
@@ -157,6 +201,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: ${OPENCV_CPU_LIMIT:-0.5}
+          memory: ${OPENCV_MEM_LIMIT:-512M}
+        reservations:
+          cpus: ${OPENCV_CPU_RESERVE:-0.25}
+          memory: ${OPENCV_MEM_RESERVE:-256M}
 
 networks:
   sentryvision_network:

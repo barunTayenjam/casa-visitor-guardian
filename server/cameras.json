@@ -91,7 +91,24 @@
             "threshold": 30,
             "contourArea": 60,
             "improveContrast": false,
-            "mask": ""
+            "mask": "",
+            "requiredConsecutiveFrames": 3,
+            "maxConsecutiveResetTime": 3000,
+            "minContourArea": 500,
+            "useGaussianBlur": true,
+            "blurKernelSize": 5,
+            "timeZones": {
+                "day": {
+                    "start": "06:00",
+                    "end": "22:00",
+                    "sensitivityMultiplier": 1.0
+                },
+                "night": {
+                    "start": "22:00",
+                    "end": "06:00",
+                    "sensitivityMultiplier": 1.2
+                }
+            }
         },
         "nightMode": false,
         "credentialId": null
@@ -175,7 +192,24 @@
             "threshold": 30,
             "contourArea": 60,
             "improveContrast": false,
-            "mask": ""
+            "mask": "",
+            "requiredConsecutiveFrames": 3,
+            "maxConsecutiveResetTime": 3000,
+            "minContourArea": 500,
+            "useGaussianBlur": true,
+            "blurKernelSize": 5,
+            "timeZones": {
+                "day": {
+                    "start": "06:00",
+                    "end": "22:00",
+                    "sensitivityMultiplier": 1.0
+                },
+                "night": {
+                    "start": "22:00",
+                    "end": "06:00",
+                    "sensitivityMultiplier": 1.2
+                }
+            }
         },
         "nightMode": false,
         "credentialId": null

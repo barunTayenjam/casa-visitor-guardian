@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/241</span>
+                <span class='fraction'>0/240</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/238</span>
+                <span class='fraction'>0/237</span>
             </div>
         
             
@@ -782,11 +782,7 @@
 <a name='L717'></a><a href='#L717'>717</a>
 <a name='L718'></a><a href='#L718'>718</a>
 <a name='L719'></a><a href='#L719'>719</a>
-<a name='L720'></a><a href='#L720'>720</a>
-<a name='L721'></a><a href='#L721'>721</a>
-<a name='L722'></a><a href='#L722'>722</a>
-<a name='L723'></a><a href='#L723'>723</a>
-<a name='L724'></a><a href='#L724'>724</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L720'></a><a href='#L720'>720</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -885,6 +881,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1116,12 +1113,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1347,7 +1340,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1608,48 +1600,48 @@ export class BatchProcessingService extends EventEmitter {
     }
   }
   
-  private async loadJobsFro<span class="cstat-no" title="statement not covered" >mDa</span>tabase(): Promise&lt;void&gt; {
+  private async loadJobsFromDatabase(): Promise&lt;void&gt; {
     if (!this.db) return;<span class="cstat-no" title="statement not covered" ></span>
-    
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      const dbJo<span class="cstat-no" title="statement not covered" >bs = await this.db.getJobs({ limit: 100 }); // Load last</span> 100 jobs
+    <span class="cstat-no" title="statement not covered" ></span>
+    try {
+      const <span class="cstat-no" title="statement not covered" >dbJobs = await this.db.getJobs({ limit: 100 }); // Load last 100 jobs</span>
       <span class="cstat-no" title="statement not covered" ></span>
-      for (const<span class="cstat-no" title="statement not covered" > dbJob of dbJo</span>bs) {
-        const options = typeof dbJob.options_json === 'string'
-          ? <span class="cstat-no" title="statement not covered" >JSON.parse(dbJob.options_json)</span>
-          : dbJo<span class="cstat-no" title="statement not covered" >b.options_json;</span>
+      for (const<span class="cstat-no" title="statement not covered" > dbJob of dbJobs) {</span>
+        const op<span class="cstat-no" title="statement not covered" >tions = typeof</span> dbJob.options_json === 'string'
+          ? JSON.parse(dbJob.options_json)
+          : <span class="cstat-no" title="statement not covered" >dbJob.options_json;</span>
         const jo<span class="cstat-no" title="statement not covered" >b: BatchProcessingJob = {</span>
           id: db<span class="cstat-no" title="statement not covered" >Job.id,</span>
-          status: dbJob.status,
+          status<span class="cstat-no" title="statement not covered" >: dbJob.status</span>,
           startTime: dbJob.start_time ? new Date(dbJob.start_time) : undefined,
-          en<span class="cstat-no" title="statement not covered" >dTime: dbJob.end_time ? new Date(dbJob.end_time) : undefined,</span>
-          progre<span class="cstat-no" title="statement not covered" >ss: {</span>
+          endTime: dbJob.end_time ? new Date(dbJob.end_time) : undefined,
+          pr<span class="cstat-no" title="statement not covered" >ogress: {</span>
             tota<span class="cstat-no" title="statement not covered" >l: dbJob.total_images,</span>
-            proc<span class="cstat-no" title="statement not covered" >essed: dbJob.p</span>rocessed_images,
-            successful: dbJob.successful_images,
-<span class="cstat-no" title="statement not covered" >            failed: dbJob.failed_images</span>
+            proc<span class="cstat-no" title="statement not covered" >essed: dbJob.processed_images,</span>
+            succ<span class="cstat-no" title="statement not covered" >essful: dbJob.</span>successful_images,
+            failed: dbJob.failed_images
           },<span class="cstat-no" title="statement not covered" ></span>
-          op<span class="cstat-no" title="statement not covered" >tions: { ...options, saveResults: options.saveResults ?? true },</span>
-          result<span class="cstat-no" title="statement not covered" >s: dbJob.status === 'completed' ? {</span>
-            totalImages: dbJob.total_images,
+          options: { ...opt<span class="cstat-no" title="statement not covered" >ions, saveResults: options.saveResults ?? true</span> },
+          re<span class="cstat-no" title="statement not covered" >sults: dbJob.status === 'completed' ? {</span>
+            tota<span class="cstat-no" title="statement not covered" >lImages: dbJob.total_images,</span>
             personDetections: dbJob.person_detections,
             faceDetections: dbJob.face_detections,
             processingTime: dbJob.processing_time_ms || 0,
             details: [] // Will be loaded on demand
           } : undefined,
           error: dbJob.error_message
-        };<span class="cstat-no" title="statement not covered" ></span>
-        
+        };
+        <span class="cstat-no" title="statement not covered" ></span>
         this.jobs.set(job.id, job);
-      }<span class="cstat-no" title="statement not covered" ></span>
+      }
       <span class="cstat-no" title="statement not covered" ></span>
-      console.log(`Loaded ${this.jobs.size} jobs from database`);
+      consol<span class="cstat-no" title="statement not covered" >e.log(`Load</span>ed ${this.jobs.size} jobs from database`);
     } catch (error) {
       console.error('Failed to load jobs from database:', error);
-<span class="fstat-no" title="function not covered" >    }</span>
-    <span class="cstat-no" title="statement not covered" ></span>
-    // Load batch re<span class="cstat-no" title="statement not covered" >sult files to create job entries for any missing jobs</span>
-    await this.loadBatchResultFiles();
+    }
+    <span class="fstat-no" title="function not covered" ></span>
+    // Load batch resu<span class="cstat-no" title="statement not covered" >lt files to create job entries for any missing jobs</span>
+    await this.loadB<span class="cstat-no" title="statement not covered" >atchResultFiles();</span>
   }
 &nbsp;
   private async loadBatchResultFiles(): Promise&lt;void&gt; {
@@ -1660,12 +1652,12 @@ export class BatchProcessingService extends EventEmitter {
   // Get available motion events for batch processing - now from database
   async getAvailableEvents(options: {
     startTime: Date;
-    endT<span class="cstat-no" title="statement not covered" >ime: Date;</span>
-    cameraIds?: string[];
-  }): Pr<span class="cstat-no" title="statement not covered" >omise&lt;Array&lt;{</span>
-    filename<span class="cstat-no" title="statement not covered" >: string;</span>
-      timestamp:<span class="cstat-no" title="statement not covered" > Date;</span>
-      cameraId: string;
+    endTime: Date;
+    came<span class="cstat-no" title="statement not covered" >raIds?: string[];</span>
+  }): Promise&lt;Array&lt;{
+    file<span class="cstat-no" title="statement not covered" >name: string;</span>
+      timest<span class="cstat-no" title="statement not covered" >amp: Date;</span>
+      cameraId: <span class="cstat-no" title="statement not covered" >string;</span>
       filePath: string;
       size: number;
     }&gt;&gt; {
@@ -1681,18 +1673,19 @@ export class BatchProcessingService extends EventEmitter {
       return events;
     }
 &nbsp;
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      // Query from detection_files table
+    try {
+      // Query f<span class="cstat-no" title="statement not covered" >rom events table (since detection_files doesn't</span> exist)
       let query = `
-        SELECT<span class="cstat-no" title="statement not covered" ></span>
-          df.original_filename as filename,
-          df.capture_timestamp as timestamp,
-<span class="cstat-no" title="statement not covered" >          df.camera_id as cameraId,</span>
-<span class="cstat-no" title="statement not covered" >          df.storage_path as fi</span>lePath,
-<span class="cstat-no" title="statement not covered" >          df.file_size</span> as size
-        FROM detection_files df
-        WHERE df.file_type IN ('event_face', 'event_motion')
-<span class="fstat-no" title="function not covered" ></span>          AND df.is_deleted = false
+        SELECT
+          e.file<span class="cstat-no" title="statement not covered" >_path as filePath,</span>
+          e.timestamp as timestamp,
+          e.camera_id as cameraId,
+<span class="cstat-no" title="statement not covered" >          REGEXP_REPLACE(e.file_path, </span>'.*/', '') as filename,
+<span class="cstat-no" title="statement not covered" >          0 as size</span>
+<span class="cstat-no" title="statement not covered" >        FROM events e</span>
+        WHERE e.event_type IN ('motion', 'object', 'face')
+          AND e.file_path IS NOT NULL
+<span class="fstat-no" title="function not covered" ></span>          AND e.file_path != ''
       `;<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
       const params: any[] = [];
@@ -1700,25 +1693,25 @@ export class BatchProcessingService extends EventEmitter {
 <span class="cstat-no" title="statement not covered" ></span>
       // Add time range filters
       if (options.startTime) {
-<span class="fstat-no" title="function not covered" ></span>        query += ` AND df.capture_timestamp &gt;= $${paramIndex}`;
+<span class="fstat-no" title="function not covered" ></span>        query += ` AND e.timestamp &gt;= $${paramIndex}`;
         params.push(<span class="cstat-no" title="statement not covered" >options.startTime);</span>
 <span class="cstat-no" title="statement not covered" >        paramIndex++;</span>
       }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
       if (op<span class="cstat-no" title="statement not covered" >tions.endTime) {</span>
-        quer<span class="cstat-no" title="statement not covered" >y += ` AND df.capture_time</span>stamp &lt;= $${paramIndex}`;
+        quer<span class="cstat-no" title="statement not covered" >y += ` AND e.timestamp &lt;= </span>$${paramIndex}`;
         para<span class="cstat-no" title="statement not covered" >ms.push(options.endTime);</span>
         para<span class="cstat-no" title="statement not covered" >mIndex++;</span>
       }
 <span class="cstat-no" title="statement not covered" ></span>
       // Add camera filter<span class="cstat-no" title="statement not covered" ></span>
       if (op<span class="cstat-no" title="statement not covered" >tions.cameraIds &amp;&amp; options.cameraIds.length &gt; 0) {</span>
-        query +=<span class="cstat-no" title="statement not covered" > ` AND df.camera_id </span>= ANY($${paramIndex})`;
+        query +=<span class="cstat-no" title="statement not covered" > ` AND e.camera_id =</span> ANY($${paramIndex})`;
         params.p<span class="cstat-no" title="statement not covered" >ush(options.cameraIds);</span>
         paramIndex++;
       }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-      query <span class="cstat-no" title="statement not covered" >+= ` ORDER BY df.capture_timesta</span>mp DESC LIMIT 10000`;
+      query <span class="cstat-no" title="statement not covered" >+= ` ORDER BY e.timestamp DESC L</span>IMIT 10000`;
 <span class="cstat-no" title="statement not covered" ></span>
       const result = await (this.db as any).dataSource.query(query, params);
 <span class="cstat-no" title="statement not covered" ></span>
@@ -1728,7 +1721,7 @@ export class BatchProcessingService extends EventEmitter {
           timestamp: ne<span class="cstat-no" title="statement not covered" >w D</span>ate(row.timestamp),
           cameraId: <span class="cstat-no" title="statement not covered" >row.camerai</span>d,
           filePath: row.filepath,
-<span class="cstat-no" title="statement not covered" >          size: parseInt(row.size)</span>
+<span class="cstat-no" title="statement not covered" >          size: parseInt(row.size) || 0</span>
         });
       }
 &nbsp;
@@ -1841,170 +1834,165 @@ export class BatchProcessingService extends EventEmitter {
     // Last 1 hour
     ranges.push({
       label: 'Last Hour',<span class="cstat-no" title="statement not covered" ></span>
-      value: {
-        start: new Date(now.getTime(<span class="cstat-no" title="statement not covered" >) - 60 * 60 * 1000),</span>
+      value:<span class="cstat-no" title="statement not covered" > {</span>
+        start: new Date(now<span class="cstat-no" title="statement not covered" >.getTime() - 60 * 60 * 1000),</span>
         end: now
       }
-    });<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
+    });
+&nbsp;
     // Last 6 hours
     ranges.push({
       label: 'Last 6 Hours',
-      value: {
+      value:<span class="cstat-no" title="statement not covered" > {</span>
         start: new Date(now.getTime() - 6 * 60 * 60 * 1000),
-        end: now
-      }
-    });<span class="cstat-no" title="statement not covered" ></span>
-&nbsp;
-    // Last <span class="cstat-no" title="statement not covered" >24 hours<span class="fstat-no" title="function not covered" ></span></span>
-    ranges.push(<span class="cstat-no" title="statement not covered" >{</span>
+        end:<span class="cstat-no" title="statement not covered" > now<span class="fstat-no" title="function not covered" ></span></span>
+      }<span class="cstat-no" title="statement not covered" ></span>
+    });
+<span class="cstat-no" title="statement not covered" ></span>
+    // Last 24 hours<span class="cstat-no" title="statement not covered" ></span>
+    ranges.push({<span class="cstat-no" title="statement not covered" ></span>
       label: 'Last 24 Hours',
       value: {<span class="cstat-no" title="statement not covered" ></span>
-        start: new Date(<span class="cstat-no" title="statement not covered" >now.getTime() - 24 * 60 * 60 * </span>1000),
+        start: new Date(<span class="cstat-no" title="statement not covered" >now.getTime() - 24 * 60 * </span>60 * 1000),
         end: now<span class="cstat-no" title="statement not covered" ></span>
-      }
+      }<span class="cstat-no" title="statement not covered" ></span>
     });<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
     // Last 7 days<span class="cstat-no" title="statement not covered" ></span>
     ranges.push({<span class="cstat-no" title="statement not covered" ></span>
       label: 'Last 7 Day<span class="cstat-no" title="statement not covered" >s',</span>
-      value: {
-        start: new Date(<span class="cstat-no" title="statement not covered" >now.getTime() - 7 * 24 </span>* 60 * 60 * 1000),
-        end: now<span class="cstat-no" title="statement not covered" ></span>
-      }<span class="cstat-no" title="statement not covered" ></span>
-    });<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-    // Custom range - get earliest event from database
-    try {
-      if (this.db) {
-        cons<span class="cstat-no" title="statement not covered" >t result = await (t<span class="fstat-no" title="function not covered" >hi</span>s.db as any).dataSource.query(</span>
-          'SELEC<span class="cstat-no" title="statement not covered" >T MIN(capture_timestamp) as min_timestamp FROM detection_</span>files WHERE is_deleted = false'
-        );<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-        if (resu<span class="cstat-no" title="statement not covered" >lt &amp;&amp; result.length &gt; 0 &amp;&amp; </span>result[0].min_timestamp) {
+      value: {<span class="cstat-no" title="statement not covered" ></span>
+        start: new Date(<span class="cstat-no" title="statement not covered" >now.get</span>Time() - 7 * 24 * 60 * 60 * 1000),
+        end: now
+      }
+    });
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+    // Custom ra<span class="cstat-no" title="statement not covered" >nge - get earliest event from database</span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      if (this.d<span class="cstat-no" title="statement not covered" >b) {</span>
+        const re<span class="cstat-no" title="statement not covered" >sult = await (this.db as an</span>y).dataSource.query(
+          'SELEC<span class="cstat-no" title="statement not covered" >T MIN(capture_timestamp) as m</span>in_timestamp FROM detection_files WHERE is_deleted = false'
+        );
+&nbsp;
+        if (<span class="cstat-no" title="statement not covered" >result &amp;&amp; result.l<span class="fstat-no" title="function not covered" >en</span>gth &gt; 0 &amp;&amp; result[0].min_timestamp) {</span>
           ranges<span class="cstat-no" title="statement not covered" >.push({</span>
             label: 'All Available',
-            value: {
-<span class="cstat-no" title="statement not covered" >              start: new Date(<span class="fstat-no" title="function not covered" >re</span>sult[0].min_timestamp),</span>
-              en<span class="cstat-no" title="statement not covered" >d: now</span>
-            }
+            valu<span class="cstat-no" title="statement not covered" >e: {</span>
+              start: new Date(result[0].min_timestamp),
+              end: n<span class="cstat-no" title="statement not covered" >ow</span>
+            }<span class="cstat-no" title="statement not covered" ></span>
           });<span class="cstat-no" title="statement not covered" ></span>
         }
-      }<span class="cstat-no" title="statement not covered" ></span>
-    } catch (error) {<span class="cstat-no" title="statement not covered" ></span>
-      console.warn('Error ge<span class="cstat-no" title="statement not covered" >tting earliest event:', error);</span>
+      }
+    } catch (error) {
+      console.warn('Error getting earliest event:', error);
     }
 &nbsp;
     return ranges;
   }
-&nbsp;
-  // Process next job in queue
+<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="fstat-no" title="function not covered" ></span></span></span></span>
+  // Process next job in queue<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="fstat-no" title="function not covered" ></span></span></span></span>
   private async processNextJob(): Promise&lt;void&gt; {
     // Check if we have capacity for more jobs
-    if (this.activeJobs.size &gt;= this.maxConcurrentJobs) {<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="fstat-no" title="function not covered" ></span></span></span></span>
-      return;<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="fstat-no" title="function not covered" ></span></span></span></span>
-    }
-&nbsp;
-    // Find next queued job
-    const queuedJobs = Array.from(this.jobs.values())
-      .filter(job =&gt; job.sta<span class="cstat-no" title="statement not covered" >tus === 'queued')</span>
-      .sort((a, b) =&gt; a.id.localeCompare(b.id));
-&nbsp;
-    if (queuedJobs.l<span class="cstat-no" title="statement not covered" >ength === 0) {</span>
+    if (this.activeJobs.size &gt;= this.maxConcurrentJobs) {
       return;
     }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+    // Find next queued job
+    const queuedJobs<span class="cstat-no" title="statement not covered" > = Array.from(this.jobs</span>.values())
+      .filter(job =&gt; job.status === 'queued')
+      .sort((a, b) =&gt;<span class="cstat-no" title="statement not covered" > a.id.localeCompare(b.id));</span>
 <span class="cstat-no" title="statement not covered" ></span>
-    const job = queu<span class="cstat-no" title="statement not covered" >edJobs[0];</span>
-    await this.runJo<span class="cstat-no" title="statement not covered" >b(job);</span>
+    if (queuedJobs.l<span class="cstat-no" title="statement not covered" >ength === 0) {</span>
+      return;<span class="cstat-no" title="statement not covered" ></span>
+    }
+<span class="cstat-no" title="statement not covered" ></span>
+    const job = queuedJo<span class="cstat-no" title="statement not covered" >bs[0];</span>
+    await this.runJob(job);<span class="cstat-no" title="statement not covered" ></span>
   }
-<span class="cstat-no" title="statement not covered" ></span>
-  // Run a single job<span class="cstat-no" title="statement not covered" ></span>
-  private async runJob(job: <span class="cstat-no" title="statement not covered" >BatchProcessingJob): Promise&lt;void&gt; {</span>
+&nbsp;
+  // Run a single job
+  private async runJob(job: BatchProcessingJob): Promise&lt;void&gt; {
     job.status = 'running';
     job.startTime = new Date();
-    job.progress.total = 0;
+    job.progress.total = 0;<span class="cstat-no" title="statement not covered" ></span>
     job.progress.processed = 0;
     job.progress.successful = 0;
-    job.progress.failed = 0;
-<span class="cstat-no" title="statement not covered" ></span>
-    // Update job status in database
+    job.progress.fai<span class="cstat-no" title="statement not covered" >led = 0;</span>
+&nbsp;
+    // Update job st<span class="cstat-no" title="statement not covered" >atus in database</span>
     if (this.db) {
-      try {<span class="cstat-no" title="statement not covered" ></span>
+      try {
         await this.db.updateJob(job.id, {
-          status: jo<span class="cstat-no" title="statement not covered" >b.status,</span>
-          start_time: job.startTime.toISOString()
-        });
-      } catch (error) {
-        console.error('Failed to update job status in database:', error);
-      }<span class="cstat-no" title="statement not covered" ></span>
+          status: job.status,
+          st<span class="cstat-no" title="statement not covered" >art_time: job.startTime.toISOString()</span>
+        });<span class="cstat-no" title="statement not covered" ></span>
+      } catc<span class="cstat-no" title="statement not covered" >h (error) {</span>
+        cons<span class="cstat-no" title="statement not covered" >ole.error('Failed to update job status in database:', error);</span>
+      }
     }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-    this.emi<span class="cstat-no" title="statement not covered" >t('jobStarted', job);</span>
+    this.emit('jobSt<span class="cstat-no" title="statement not covered" >arted', job);</span>
 &nbsp;
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      // Get eve<span class="cstat-no" title="statement not covered" >nts to process</span>
-      const events =<span class="cstat-no" title="statement not covered" > await this.getAvailableEvents({</span>
+    try {
+      // Get events to process
+      const events = await this.getAvailableEvents({
         startTime: job.options.timeRange.start,
         endTime: job.options.timeRange.end,
-        cameraIds: job.options.cameraIds
+        cameraIds: j<span class="cstat-no" title="statement not covered" >ob.options.cameraIds</span>
       });
 &nbsp;
-      job.progress.total = events.length;
-      this.emit('job<span class="cstat-no" title="statement not covered" >Progress', job);</span>
+      job.pr<span class="cstat-no" title="statement not covered" >ogress.total = events.length;</span>
+      this.e<span class="cstat-no" title="statement not covered" >mit('jobProgress', job);</span>
 &nbsp;
       if (events.length === 0) {
-        job.<span class="cstat-no" title="statement not covered" >status = 'completed';</span>
-        job.<span class="cstat-no" title="statement not covered" >endTime = new Date();</span>
-        job.results = {
+        job.status = 'completed';
+<span class="fstat-no" title="function not covered" ></span>        job.endTime = new Date();<span class="branch-0 cbranch-no" title="branch not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        job.results = {</span>
           totalImages: 0,
-          personDetections: 0,
-<span class="fstat-no" title="function not covered" ></span>          faceDetections: 0,<span class="branch-0 cbranch-no" title="branch not covered" ></span>
-<span class="cstat-no" title="statement not covered" >          processingTime: 0,</span>
+<span class="fstat-no" title="function not covered" ></span>          personDetections: 0,
+<span class="cstat-no" title="statement not covered" >          faceDetections: 0,</span>
+          pr<span class="cstat-no" title="statement not covered" >ocessingTime: 0,<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
           details: []
-<span class="fstat-no" title="function not covered" ></span>        };
+        };<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >        this.emit('jobCompleted', job);</span>
-        retu<span class="cstat-no" title="statement not covered" >rn;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-      }
+        return;<span class="cstat-no" title="statement not covered" ></span>
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+      // Create worker for pr<span class="cstat-no" title="statement not covered" >ocessing</span>
+      // Use compiled .cjs worker file
+      const work<span class="cstat-no" title="statement not covered" >erPath = path.join(__dirname, '../../dist/services/b</span>atchProcessingWorker.cjs');
+&nbsp;
+      console.log(`Starting batch worker: ${workerPath}`);
 <span class="cstat-no" title="statement not covered" ></span>
-      //<span class="cstat-no" title="statement not covered" > Create worker for processing</span>
-      // Always use compiled .<span class="cstat-no" title="statement not covered" >js wor</span>ker file
-      const <span class="cstat-no" title="statement not covered" >workerPath = path.join(__dirname, '../../dist/services/batchProcessingWorker.js');</span>
-&nbsp;
-      // Fallback to source .<span class="cstat-no" title="statement not covered" >js if dist doesn't exist (dev mode)</span>
-      const finalWorkerPath = fs.existsSync(workerPath)
-        ? worker<span class="cstat-no" title="statement not covered" >Path</span>
-        : path.join(__dirname, 'batchProcessingWorker.js');
-&nbsp;
-      console.lo<span class="cstat-no" title="statement not covered" >g(`Starting batch worker: ${finalWorkerPath}`);</span>
-&nbsp;
-      const <span class="cstat-no" title="statement not covered" >worker = new Worker(finalWorkerPath, {</span>
-        workerData: {
+      const worker = new Worker(workerPath, {
+        work<span class="cstat-no" title="statement not covered" >erData: {</span>
           events,
           options: job.options,
           jobId: job.id,
-<span class="cstat-no" title="statement not covered" >          outputDir: this.outputDir</span>
-        }
-<span class="fstat-no" title="function not covered" ></span>      });
-<span class="cstat-no" title="statement not covered" ></span>
-      this.a<span class="cstat-no" title="statement not covered" >ctiveJobs.s</span>et(job.id, worker);
-<span class="cstat-no" title="statement not covered" ></span>
-      // Han<span class="cstat-no" title="statement not covered" >dle worker messages</span>
-      worker.on('message', (message) =&gt; {
-        switch (message.type) {
-          ca<span class="cstat-no" title="statement not covered" >se 'progress':</span>
-<span class="cstat-no" title="statement not covered" >            job.progres</span>s = message.progress;
-            this.emit('jobProgress', job);
-            break;
+          outputDir: this.outputDir
+<span class="cstat-no" title="statement not covered" >        }</span>
+      });
 <span class="fstat-no" title="function not covered" ></span>
-<span class="cstat-no" title="statement not covered" >          case 'completed':</span>
+      th<span class="cstat-no" title="statement not covered" >is.activeJobs.set(job.id, worker);</span>
+<span class="cstat-no" title="statement not covered" ></span>
+      //<span class="cstat-no" title="statement not covered" > Handle worker messages</span>
+      worker<span class="cstat-no" title="statement not covered" >.on('message', (message) =&gt; {</span>
+        switch (message.type) {
+          case 'progress':
+<span class="cstat-no" title="statement not covered" >            job.progress = message.progress;</span>
+<span class="cstat-no" title="statement not covered" >            this.emit('</span>jobProgress', job);
+            break;
+&nbsp;
+<span class="fstat-no" title="function not covered" ></span>          case 'completed':
 <span class="cstat-no" title="statement not covered" >            job.status = 'completed';</span>
-            job.endTime = new Date();
-            job.results = message.results;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+<span class="cstat-no" title="statement not covered" >            job.endTime = new Date();</span>
+            job.results = message.results;
             this.emit('jobCompleted', job);<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
             break;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
 <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
           case 'error':<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
-            job.status = 'failed';
+            job.status = 'failed';<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
             job.endTime = new Date();
             job.error = message.error;
             this.emit('jobFailed', job);
@@ -2012,65 +2000,65 @@ export class BatchProcessingService extends EventEmitter {
         }
       });
 &nbsp;
-      //<span class="cstat-no" title="statement not covered" > Handle worker errors</span>
-      worker<span class="cstat-no" title="statement not covered" >.on('error', (error) =&gt; {</span>
-        console.error(`Worker error for job ${job.id}:`, error);
+      // Handle worker errors
+      wo<span class="cstat-no" title="statement not covered" >rker.on('error', (error) =&gt; {</span>
+        cons<span class="cstat-no" title="statement not covered" >ole.error(`Worker error for job ${job.</span>id}:`, error);
         job.status = 'failed';
-        job.<span class="cstat-no" title="statement not covered" >endTime = new Date();</span>
-        job.<span class="cstat-no" title="statement not covered" >error = error</span>.message;
-        this.emit('jobFailed', job);
+        job.endTime = new Date();
+        job.<span class="cstat-no" title="statement not covered" >error = error.message;</span>
+        this<span class="cstat-no" title="statement not covered" >.emit('jobFai</span>led', job);
       });
-<span class="fstat-no" title="function not covered" ></span>
-      //<span class="cstat-no" title="statement not covered" > Handle worker exit</span>
-      worker<span class="cstat-no" title="statement not covered" >.on('exit',</span> async (code) =&gt; {
-<span class="cstat-no" title="statement not covered" >        this.activeJobs.delete(job.id);</span>
+&nbsp;
+<span class="fstat-no" title="function not covered" ></span>      // Handle worker exit
+      wo<span class="cstat-no" title="statement not covered" >rker.on('exit', async (code) =&gt; {</span>
+        this<span class="cstat-no" title="statement not covered" >.activeJobs</span>.delete(job.id);
         <span class="cstat-no" title="statement not covered" ></span>
-        // Process next job if completed successfully
+        // P<span class="cstat-no" title="statement not covered" >rocess next job if completed successfully</span>
         if (code === 0 &amp;&amp; job.status === 'completed') {
-          //<span class="cstat-no" title="statement not covered" > Update job completion in database</span>
-          if<span class="cstat-no" title="statement not covered" > (this.db &amp;</span>&amp; job.results) {
-            try {
+          // Update job completion in database
+          if<span class="cstat-no" title="statement not covered" > (this.db &amp;&amp; job.results) {</span>
+<span class="cstat-no" title="statement not covered" >            try {</span>
               await this.db.updateJob(job.id, {
-<span class="fstat-no" title="function not covered" ></span>                status: job.status,<span class="branch-0 cbranch-no" title="branch not covered" ></span>
-<span class="cstat-no" title="statement not covered" >                end_time: job.endTime.toISOString(),</span>
-<span class="cstat-no" title="statement not covered" >                total_i</span>mages: job.progress.total,
-<span class="cstat-no" title="statement not covered" >                processed_images: job.progress.processed,</span>
+                status: job.status,
+<span class="fstat-no" title="function not covered" ></span>                end_time: job.endTime.<span class="branch-0 cbranch-no" title="branch not covered" >to</span>ISOString(),
+<span class="cstat-no" title="statement not covered" >                total_images: job.progress.total,</span>
+<span class="cstat-no" title="statement not covered" >                process</span>ed_images: job.progress.processed,
 <span class="cstat-no" title="statement not covered" >                successful_images: job.progress.successful,</span>
-                failed_images: job.progress.failed,
+<span class="cstat-no" title="statement not covered" >                failed_images: job.progress.failed,</span>
                 person_detections: job.results.personDetections,
-<span class="cstat-no" title="statement not covered" >                face_detections: job.results.faceDetections,</span>
-<span class="cstat-no" title="statement not covered" >                known_f</span>aces: job.results.details.reduce((sum, r) =&gt; sum + r.faces.filter((f: any) =&gt; f.isKnown).length, 0),
-                unknown_faces: job.results.details.reduce((sum, r) =&gt; sum + r.faces.filter((f: any) =&gt; !f.isKnown).length, 0),
+                face_detections: job.results.faceDetections,
+<span class="cstat-no" title="statement not covered" >                known_faces: job.results.details.reduce((sum, r) =&gt; sum</span> + r.faces.filter((f: any) =&gt; f.isKnown).length, 0),
+<span class="cstat-no" title="statement not covered" >                unknown</span>_faces: job.results.details.reduce((sum, r) =&gt; sum + r.faces.filter((f: any) =&gt; !f.isKnown).length, 0),
                 processing_time_ms: job.results.processingTime
               });
-<span class="fstat-no" title="function not covered" ></span>            } catch (error) {
-              consol<span class="cstat-no" title="statement not covered" >e.error('Fa</span>iled to update job completion in database:', error);
+            } catch (error) {
+<span class="fstat-no" title="function not covered" ></span>              console.error('Failed to update job completion in database:', error);
             }<span class="cstat-no" title="statement not covered" ></span>
-          }
-<span class="cstat-no" title="statement not covered" >          this.processNextJob();</span>
-        } el<span class="cstat-no" title="statement not covered" >se if (job.status === 'running') {</span>
-          job.st<span class="cstat-no" title="statement not covered" >atus = 'failed';</span>
-          job.endTime = new Date();
+          }<span class="cstat-no" title="statement not covered" ></span>
+          this.processNextJob();
+<span class="cstat-no" title="statement not covered" >        } else if (job.status === 'running') {</span>
+          jo<span class="cstat-no" title="statement not covered" >b.status = 'failed';</span>
+          job.en<span class="cstat-no" title="statement not covered" >dTime = new Date();</span>
           job.error = `Worker exited with code ${code}`;
           
-<span class="cstat-no" title="statement not covered" >          // Update job failure in database</span>
-          if (this.db) {<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >            try {</span>
-              await this.db.updat<span class="cstat-no" title="statement not covered" >eJob(job.id, {</span>
-                status: job.st<span class="cstat-no" title="statement not covered" >atus,</span>
-<span class="cstat-no" title="statement not covered" >                end_time: job.endTime.toISOString(),</span>
-                erro<span class="cstat-no" title="statement not covered" >r_message: job.error</span>
-              });
+          // Update job failure in database
+<span class="cstat-no" title="statement not covered" >          if (this.db) {</span>
+            try {<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >              await this.db.updateJob(job.id, {</span>
+                status: job.statu<span class="cstat-no" title="statement not covered" >s,</span>
+                end_time: job.<span class="cstat-no" title="statement not covered" >endTime.toISOString(),</span>
+<span class="cstat-no" title="statement not covered" >                error_message: job.error</span>
+              });<span class="cstat-no" title="statement not covered" ></span>
             } catch (error) {
               console.error('Failed to update job failure in database:', error);
             }
-          }<span class="cstat-no" title="statement not covered" ></span>
-          
+          }
+          <span class="cstat-no" title="statement not covered" ></span>
           this.emit('jobFailed', job);
           
           // Process next job even if this one failed
-          this.processNextJob();<span class="cstat-no" title="statement not covered" ></span>
-        }
+          this.processNextJob();
+        }<span class="cstat-no" title="statement not covered" ></span>
       });
 &nbsp;
     } catch (error) {
@@ -2239,7 +2227,7 @@ export default BatchProcessingService;</pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-26T16:55:48.029Z
+                at 2026-03-18T17:07:09.943Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

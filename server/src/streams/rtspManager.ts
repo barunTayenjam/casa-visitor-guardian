@@ -41,6 +41,7 @@ export interface CameraStream {
   width: number;
   height: number;
   fps: number;
+  viewerCount?: number; // Track active viewers for adaptive streaming
 }
 
 // Define camera interface with single shared process
@@ -55,6 +56,8 @@ export interface Camera {
   lastError?: string;
   mainProcess: ChildProcessWithoutNullStreams | null; // Single FFmpeg process shared across all roles
   activeRoles: Set<'detect' | 'record' | 'live'>; // Track which roles are currently requested
+  activeViewers: Set<string>; // Track active socket IDs for adaptive streaming
+  adaptiveFps: number; // Current FPS based on viewer count
 }
 
 // Load camera configuration from config (already converted to new format)
@@ -102,6 +105,118 @@ export class StreamManager {
     this.io.on('motionDetected', (event: any) => {
       this.emitDetectionEvent(event);
     });
+
+    // Setup Socket.IO connection tracking for adaptive streaming
+    this.setupConnectionTracking();
+  }
+
+  // Track active viewers for adaptive streaming
+  private setupConnectionTracking(): void {
+    this.io.on('connection', (socket) => {
+      console.log(`[StreamManager] Client connected: ${socket.id}`);
+
+      // Handle stream requests with viewer tracking
+      socket.on('requestStream', (data: { cameraId: string; tier?: 'HIGH' | 'MEDIUM' | 'LOW' }) => {
+        const { cameraId, tier = 'MEDIUM' } = data;
+        const camera = this.cameras.get(cameraId);
+
+        if (!camera) {
+          socket.emit('streamError', { cameraId, error: 'Camera not found' });
+          return;
+        }
+
+        // Cancel any pending inactivity timeout (viewer reconnecting)
+        const pendingTimeout = (camera as any).pendingInactivityTimeout;
+        if (pendingTimeout) {
+          clearTimeout(pendingTimeout);
+          (camera as any).pendingInactivityTimeout = null;
+          console.log(`[StreamManager] Camera ${cameraId}: cancelled inactivity timeout (viewer reconnecting)`);
+        }
+
+        // Track viewer
+        camera.activeViewers.add(socket.id);
+        const viewerCount = camera.activeViewers.size;
+        console.log(`[StreamManager] Camera ${cameraId}: ${viewerCount} viewers`);
+
+        // Join appropriate room
+        const roomName = `camera-${cameraId}-live`;
+        socket.join(roomName);
+
+        // Start stream if not already active
+        if (!camera.activeRoles.has('live')) {
+          this.startStream(cameraId, 'live');
+        }
+
+        // Send current FPS
+        socket.emit('streamStarted', {
+          cameraId,
+          fps: camera.adaptiveFps,
+          viewerCount,
+          tier,
+        });
+
+        // Debug logging
+        if (cameraId === 'cam2') {
+          console.log(`[StreamManager] Emitted frame to ${roomName}, size: ${camera.streams.get('live')?.lastFrame?.length || 0}, viewers: ${viewerCount}`);
+        }
+      });
+
+      // Handle stream stops
+      socket.on('stopStream', (data: { cameraId: string }) => {
+        const { cameraId } = data;
+        const camera = this.cameras.get(cameraId);
+
+        if (camera) {
+          // Remove viewer
+          camera.activeViewers.delete(socket.id);
+          const viewerCount = camera.activeViewers.size;
+          console.log(`[StreamManager] Camera ${cameraId}: ${viewerCount} viewers (after disconnect)`);
+
+          // Leave room
+          socket.leave(`camera-${cameraId}-live`);
+
+          // Stop stream if no more viewers
+          if (viewerCount === 0 && camera.activeRoles.has('live')) {
+            this.stopStream(cameraId, 'live');
+          }
+
+          socket.emit('streamStopped', { cameraId, viewerCount });
+        }
+      });
+
+      // Handle disconnect
+      socket.on('disconnect', () => {
+        console.log(`[StreamManager] Client disconnected: ${socket.id}`);
+
+        // Remove from all camera viewer lists
+        this.cameras.forEach((camera, cameraId) => {
+          if (camera.activeViewers.has(socket.id)) {
+            camera.activeViewers.delete(socket.id);
+            const viewerCount = camera.activeViewers.size;
+            console.log(`[StreamManager] Camera ${cameraId}: ${viewerCount} viewers (after disconnect)`);
+
+            // Stop stream if no more viewers
+            if (viewerCount === 0 && camera.activeRoles.has('live')) {
+              this.stopStream(cameraId, 'live');
+            }
+          }
+        });
+      });
+    });
+  }
+
+  // Calculate optimal FPS based on viewer count
+  private getOptimalFps(viewerCount: number): number {
+    // Adaptive FPS strategy:
+    // 0-3 viewers: 4 FPS (high quality)
+    // 4-10 viewers: 3 FPS (medium)
+    // 11-20 viewers: 2 FPS (low)
+    // 21+ viewers: 1 FPS (minimal)
+    if (viewerCount === 0) return 1; // Minimal when no viewers
+    if (viewerCount <= 3) return 4;
+    if (viewerCount <= 10) return 3;
+    if (viewerCount <= 20) return 2;
+    return 1;
   }
 
   private emitDetectionEvent(event: any): void {
@@ -147,7 +262,9 @@ export class StreamManager {
       nightMode: cameraConfig.nightMode || false,
       retryCount: 0,
       mainProcess: null,
-      activeRoles: new Set()
+      activeRoles: new Set(),
+      activeViewers: new Set<string>(),
+      adaptiveFps: 4, // Start with 4 FPS
     };
 
     // Initialize streams from config (all roles share same stream URL)
@@ -159,12 +276,14 @@ export class StreamManager {
           process: null, // Each stream object has null, mainProcess is used
           isActive: false,
           lastFrame: null,
+          lastFrameSentTime: undefined,
           width: streamConfig.width || 1920,
           height: streamConfig.height || 1080,
-          fps: streamConfig.fps || 4
+          fps: streamConfig.fps || 4,
+          viewerCount: 0,
         });
         });
-      });
+    });
 
     this.cameras.set(camera.id, camera);
     return camera.id;
@@ -217,7 +336,14 @@ export class StreamManager {
         // Get the main stream URL (stream1)
         const mainStreamUrl = stream.url;
 
-        // Build ffmpeg args - use 1920x1080 @ 4fps for all roles
+        // Low-resource optimization settings
+        const isLowResource = config.streaming.lowResourceMode;
+        const threads = config.streaming.threads;
+        const fps = config.streaming.defaultFps;
+        const resolution = config.streaming.defaultResolution;
+        const [resWidth, resHeight] = resolution.split('x').map(Number);
+
+        // Build ffmpeg args - optimized for low resource usage
         const ffmpegArgs = [
           "-loglevel", "error",
           "-rtsp_transport", "tcp",
@@ -231,16 +357,16 @@ export class StreamManager {
           "-f", "mjpeg",
           "-pix_fmt", "yuvj420p",
           "-vcodec", "mjpeg",
-          "-q:v", "5",  // Good quality for all uses
-          "-threads", "4",
-          "-r", "4",  // 4 FPS for live streaming
+          "-q:v", isLowResource ? "8" : "5",  // Lower quality (higher number) for low-resource mode
+          "-threads", String(threads),  // Reduced threads for low-resource mode
+          "-r", String(fps),  // Reduced FPS for low-resource mode
           "-vf", camera.nightMode
-            ? `scale=1920:1080,eq=gamma=1.5:contrast=1.2:brightness=0.2`
-            : `scale=1920:1080`,
+            ? `scale=${resWidth}:${resHeight},eq=gamma=1.5:contrast=1.2:brightness=0.2`
+            : `scale=${resWidth}:${resHeight}`,
           "pipe:1",
         ];
 
-        console.log(`*** CAMERA ${cameraId} STARTING SINGLE SHARED STREAM (1920x1080 @ 4fps) for role: ${role} ***`);
+        console.log(`*** CAMERA ${cameraId} STARTING STREAM (${resolution} @ ${fps}fps, ${threads} threads) ***`);
 
         const process = spawn(ffmpegPath, ffmpegArgs, {
           stdio: ["pipe", "pipe", "pipe"],
@@ -319,25 +445,30 @@ export class StreamManager {
               s.lastFrame = frameBuffer;
             });
 
-            // Emit frames to all active roles (without client count check)
+            // Emit frames to all active roles with adaptive streaming
             camera.activeRoles.forEach((activeRole) => {
               const roleStream = camera.streams.get(activeRole);
               if (roleStream) {
                 const roomName = `camera-${cameraId}-${activeRole}`;
 
                 const now = Date.now();
-                const fps = 4; // Fixed 4 FPS for all roles
-                const frameInterval = 1000 / fps;
+
+                // Adaptive FPS based on viewer count
+                const viewerCount = activeRole === 'live' ? camera.activeViewers.size : 1;
+                const adaptiveFps = this.getOptimalFps(viewerCount);
+                camera.adaptiveFps = adaptiveFps;
+                const frameInterval = 1000 / adaptiveFps;
 
                 if (!roleStream.lastFrameSentTime || now - roleStream.lastFrameSentTime >= frameInterval) {
                   roleStream.lastFrameSentTime = now;
 
-                  // Emit frame to room - let Socket.io handle room lookup
+                  // Emit frame with camera ID to ensure proper routing
+                  // Using base64 for compatibility (binary in object can have Socket.io serialization issues)
                   this.io.to(roomName).emit("frame", {
                     cameraId,
                     role: activeRole,
-                    data: frameBuffer.toString("base64"),
                     timestamp: new Date().toISOString(),
+                    data: frameBuffer.toString("base64") // Base64 encoded for reliable transmission
                   });
 
                   // Record frame emission for health monitoring
@@ -347,7 +478,7 @@ export class StreamManager {
                   if (cameraId === 'cam2') {
                      console.log(`[StreamManager] Emitted frame to ${roomName}, size: ${frameBuffer.length}`);
                    }
-                 }
+                  }
                }
              });
 
@@ -380,6 +511,13 @@ export class StreamManager {
     const camera = this.cameras.get(cameraId);
     if (!camera) return false;
 
+    // Cancel any pending inactivity timeout
+    const pendingTimeout = (camera as any).pendingInactivityTimeout;
+    if (pendingTimeout) {
+      clearTimeout(pendingTimeout);
+      (camera as any).pendingInactivityTimeout = null;
+    }
+
     if (role) {
       // Record stream stop for health monitoring
       this.healthMonitor.recordStreamStopped(cameraId, role);
@@ -391,18 +529,29 @@ export class StreamManager {
         stream.isActive = false;
       }
 
-      // If no more roles are active, kill the main FFmpeg process
+      // If no more roles are active, start inactivity timeout before killing FFmpeg
       if (camera.activeRoles.size === 0 && camera.mainProcess) {
-        console.log(`Stopping main FFmpeg process for ${cameraId} (all roles inactive)`);
-        camera.mainProcess.kill('SIGTERM');
-        camera.mainProcess = null;
-        camera.isActive = false;
+        const timeout = config.streaming.inactivityTimeout;
+        
+        // Start inactivity timer - only kill FFmpeg if no new viewers connect
+        (camera as any).pendingInactivityTimeout = setTimeout(() => {
+          if (camera.activeRoles.size === 0 && camera.mainProcess) {
+            console.log(`Inactivity timeout reached - stopping main FFmpeg process for ${cameraId}`);
+            camera.mainProcess.kill('SIGTERM');
+            camera.mainProcess = null;
+            camera.isActive = false;
 
-        // Mark all stream objects as inactive
-        camera.streams.forEach((s) => {
-          s.isActive = false;
-          s.process = null;
-        });
+            // Mark all stream objects as inactive
+            camera.streams.forEach((s) => {
+              s.isActive = false;
+              s.process = null;
+            });
+          }
+          (camera as any).pendingInactivityTimeout = null;
+        }, timeout);
+        
+        console.log(`Stream inactive - will stop FFmpeg in ${timeout/1000}s if no viewers reconnect`);
+        return true;
       }
 
       return true;

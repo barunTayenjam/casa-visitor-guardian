@@ -34,29 +34,29 @@
             "track": ["person", "car", "dog", "cat", "package"],
             "filters": {
                 "person": {
-                    "minArea": 2500,
+                    "minArea": 3000,
                     "maxArea": 100000,
-                    "threshold": 0.45
+                    "threshold": 0.65
                 },
                 "car": {
                     "minArea": 5000,
                     "maxArea": 200000,
-                    "threshold": 0.45
+                    "threshold": 0.65
                 },
                 "dog": {
-                    "minArea": 1500,
+                    "minArea": 2000,
                     "maxArea": 80000,
-                    "threshold": 0.35
+                    "threshold": 0.60
                 },
                 "cat": {
-                    "minArea": 1000,
+                    "minArea": 1500,
                     "maxArea": 60000,
-                    "threshold": 0.35
+                    "threshold": 0.60
                 },
                 "package": {
-                    "minArea": 500,
+                    "minArea": 800,
                     "maxArea": 30000,
-                    "threshold": 0.35
+                    "threshold": 0.60
                 }
             }
         },
@@ -88,15 +88,15 @@
         ],
         "motion": {
             "enabled": true,
-            "threshold": 30,
-            "contourArea": 60,
-            "improveContrast": false,
+            "threshold": 50,
+            "contourArea": 80,
+            "improveContrast": true,
             "mask": "",
             "requiredConsecutiveFrames": 3,
             "maxConsecutiveResetTime": 3000,
-            "minContourArea": 500,
+            "minContourArea": 800,
             "useGaussianBlur": true,
-            "blurKernelSize": 5,
+            "blurKernelSize": 7,
             "timeZones": {
                 "day": {
                     "start": "06:00",
@@ -148,24 +148,24 @@
             "track": ["person", "car", "dog", "cat"],
             "filters": {
                 "person": {
-                    "minArea": 2500,
+                    "minArea": 3000,
                     "maxArea": 100000,
-                    "threshold": 0.45
+                    "threshold": 0.65
                 },
                 "car": {
                     "minArea": 5000,
                     "maxArea": 200000,
-                    "threshold": 0.45
+                    "threshold": 0.65
                 },
                 "dog": {
-                    "minArea": 1500,
+                    "minArea": 2000,
                     "maxArea": 80000,
-                    "threshold": 0.35
+                    "threshold": 0.60
                 },
                 "cat": {
-                    "minArea": 1000,
+                    "minArea": 1500,
                     "maxArea": 60000,
-                    "threshold": 0.35
+                    "threshold": 0.60
                 }
             }
         },
@@ -189,15 +189,15 @@
         ],
         "motion": {
             "enabled": true,
-            "threshold": 30,
-            "contourArea": 60,
-            "improveContrast": false,
+            "threshold": 50,
+            "contourArea": 80,
+            "improveContrast": true,
             "mask": "",
             "requiredConsecutiveFrames": 3,
             "maxConsecutiveResetTime": 3000,
-            "minContourArea": 500,
+            "minContourArea": 800,
             "useGaussianBlur": true,
-            "blurKernelSize": 5,
+            "blurKernelSize": 7,
             "timeZones": {
                 "day": {
                     "start": "06:00",

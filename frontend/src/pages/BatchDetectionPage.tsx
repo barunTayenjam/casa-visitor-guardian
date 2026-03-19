@@ -206,7 +206,7 @@ export default function BatchDetectionPage() {
           end: endOfDay.toISOString()
         },
         detectionTypes: ['both'],
-        confidenceThreshold: 30,
+        confidenceThreshold: 50, // Increased from 30 to reduce false positives
         saveResults: true,
         outputFormat: 'json'
       });

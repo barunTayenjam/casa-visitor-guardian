@@ -119,4 +119,12 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
+## Session Context
+
+**Last Session:** Phase 7 context gathered (2026-03-23)
+- Resume file: `.planning/phases/07-security-improvements-fix-critical-vulnerabilities-rtsp-credentials-rate-limiting-input-validation/07-CONTEXT.md`
+- Status: Ready for planning
+
+---
+
 *State updated: 2026-03-23 - Quick task 260323-svj: Minimized streaming page UI*

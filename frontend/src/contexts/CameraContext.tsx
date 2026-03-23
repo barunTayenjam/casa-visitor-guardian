@@ -44,6 +44,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [streamingCameras, setStreamingCameras] = useState<Set<string>>(new Set());
 
   // Update a camera's last seen timestamp
   const updateCameraLastSeen = (id: string) => {
@@ -212,6 +213,11 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Start streaming from a camera
   const startCameraStream = useCallback(async (id: string) => {
     try {
+      if (streamingCameras.has(id)) {
+        console.log(`⚠️ CameraContext: Camera ${id} already streaming, skipping`);
+        return;
+      }
+
       console.log(`🎬 CameraContext: Requesting stream for camera ${id}`);
 
       // Ensure socket is connected before requesting stream
@@ -221,20 +227,25 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       socketService.requestStream(id);
+      setStreamingCameras(prev => new Set(prev).add(id));
       updateCamera(id, { status: 'online' });
       console.log(`✅ CameraContext: Stream request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to start stream for camera ${id}:`, err);
       throw err;
     }
-  }, [socketService, updateCamera]);
+  }, [socketService, updateCamera, streamingCameras]);
 
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
     try {
       console.log(`🛑 CameraContext: Stopping stream for camera ${id}`);
-      // Emit stopStream event
       socketService.socket?.emit('stopStream', { cameraId: id });
+      setStreamingCameras(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       console.log(`✅ CameraContext: Stop request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to stop stream for camera ${id}:`, err);

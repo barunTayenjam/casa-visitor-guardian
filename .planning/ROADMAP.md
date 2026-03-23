@@ -1,9 +1,9 @@
 # Roadmap: SentryVision Home Security System
 
 **Created:** 2026-03-18
-**Updated:** 2026-03-19
+**Updated:** 2026-03-23
 **Granularity:** Coarse
-**Total Phases:** 5
+**Total Phases:** 6
 **Total Requirements:** 31 (all mapped)
 
 ## Phase Summary
@@ -140,14 +140,6 @@
 | **Total** | | **31** |
 
 **Coverage:** 31/31 requirements mapped ✓
-
----
-
-## Future Phases (v2)
-
-**Phase 6:** Video Recording — Record video clips on events
-**Phase 7:** Smart Alerts — AI-powered alert prioritization
-**Phase 8:** Additional Cameras — Support for 3rd+ cameras
 
 ---
 *Roadmap created: 2026-03-18*

@@ -3,8 +3,12 @@
 **Created:** 2026-03-18
 **Updated:** 2026-03-23
 **Granularity:** Coarse
-**Total Phases:** 6
-**Total Requirements:** 31 (all mapped)
+
+## Milestones
+
+- ✅ **v1.0 Resource Optimization** — Phases 1-6 (shipped 2026-03-23)
+
+---
 
 ## Phase Summary
 
@@ -18,7 +22,7 @@
 
 ---
 
-## Phase 1: Detection Quality
+## Phase 1: Detection Quality ✅ Complete (2026-03-18)
 
 **Goal:** Reduce false positives from motion detection, improve accuracy
 
@@ -38,7 +42,7 @@
 
 ---
 
-## Phase 2: Notifications & Events
+## Phase 2: Notifications & Events ✅ Complete (2026-03-19)
 
 **Goal:** Real-time push notifications and powerful event search/filtering
 
@@ -60,7 +64,7 @@
 
 ---
 
-## Phase 3: Face Recognition
+## Phase 3: Face Recognition ✅ Complete (2026-03-19)
 
 **Goal:** Improve face matching accuracy and management UX
 
@@ -81,7 +85,7 @@
 
 ---
 
-## Phase 4: Storage Management
+## Phase 4: Storage Management ✅ Complete (2026-03-18)
 
 **Goal:** Implement retention policies and automated cleanup
 
@@ -102,13 +106,33 @@
 
 ---
 
-## Phase 5: Frontend Enhancement
+## Phase 5: Frontend Enhancement ✅ Complete (2026-03-19)
 
 **Goal:** Review and fix all frontend pages and their functionality
 
-**Status:** ✅ Complete (2026-03-19)
-
 **Requirements:** FE-01, FE-02, FE-03, FE-04, FE-05, FE-06
+
+---
+
+## Phase 6: Resource Optimization ✅ Complete (2026-03-19)
+
+**Goal:** Optimize system resource usage for constrained deployments
+
+**Requirements:** RO-01, RO-02, RO-03, RO-04, RO-05
+
+**Success Criteria:**
+1. Resource baseline documented with current usage metrics
+2. FFmpeg optimization reduces CPU/memory consumption by ~50%
+3. Docker resource limits prevent system overload
+4. Stream-on-demand reduces idle resource usage
+5. Low-resource mode enables deployment on 1 CPU, 2GB systems
+
+**Plans:**
+- **Plan 6.1:** Resource Audit & Analysis — Document current resource usage and establish optimization baseline
+- **Plan 6.2:** FFmpeg Process Optimization — Reduce threads, FPS, and resolution
+- **Plan 6.3:** Docker Resource Limits — Add CPU/memory limits to all containers
+- **Plan 6.4:** Stream-on-Demand — Implement inactivity timeout for idle streams
+- **Plan 6.5:** Configuration & UI — Add LOW_RESOURCE_MODE configuration options
 
 **Success Criteria:**
 1. ✅ Batch Detection page works correctly with proper API integration

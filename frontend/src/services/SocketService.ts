@@ -5,6 +5,7 @@ class SocketService {
   private socket: Socket | null = null;
   private callbacks: Map<string, Set<(...args: unknown[]) => void>> = new Map();
   private isConnecting: boolean = false;
+  private requestedStreams: Set<string> = new Set();
 
   constructor() {
     // Socket service initialized
@@ -53,10 +54,14 @@ class SocketService {
         }
 
 
+        // Mobile detection for transport configuration
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
         // Prefer websocket transport for better streaming performance
         // WebSocket handles large binary frames (~500KB) much better than polling
-        const transports = ['websocket', 'polling'];
-        
+        // Mobile: use polling first (better compatibility), then upgrade to WebSocket
+        const transports = isMobile ? ['polling', 'websocket'] : ['websocket', 'polling'];
+
         this.socket = io(socketUrl, {
           transports,
           reconnection: true,
@@ -64,12 +69,12 @@ class SocketService {
           reconnectionDelayMax: 5000,
           reconnectionAttempts: 10,
           path: '/socket.io',
-          timeout: 20000, // Increased timeout
-          forceNew: true,
+          timeout: isMobile ? 30000 : 20000,
+          forceNew: false,
           autoConnect: true,
           randomizationFactor: 0.5,
           upgrade: true,
-          rememberUpgrade: false
+          rememberUpgrade: true
         });
 
         this.socket.on('connect', () => {
@@ -167,17 +172,29 @@ class SocketService {
 
   // Request a camera stream
   requestStream(cameraId: string, role: 'detect' | 'record' | 'live' = 'live') {
+    const streamKey = `${cameraId}-${role}`;
+
+    if (this.requestedStreams.has(streamKey)) {
+      console.log(`⚠️ SocketService: Stream already requested for ${streamKey}, skipping`);
+      return;
+    }
+
     console.log(`📡 SocketService: Requesting stream for camera ${cameraId} role ${role}, socket connected: ${this.socket?.connected}`);
     if (!this.socket?.connected) {
       console.warn('❌ Socket not connected, cannot request stream');
       return;
     }
+
+    this.requestedStreams.add(streamKey);
     this.socket.emit('requestStream', { cameraId, role });
     console.log(`✅ SocketService: Stream request emitted for camera ${cameraId} role ${role}`);
   }
 
   // Stop streaming a camera
   stopStream(cameraId: string, role: 'detect' | 'record' | 'live' = 'live') {
+    const streamKey = `${cameraId}-${role}`;
+    this.requestedStreams.delete(streamKey);
+
     if (!this.socket?.connected) {
       return;
     }

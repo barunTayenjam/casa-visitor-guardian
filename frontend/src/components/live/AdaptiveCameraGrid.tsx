@@ -170,7 +170,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   </button>
 
                   {/* Camera Stream */}
-                  <CameraStream camera={camera} autoStart={true} />
+                  <CameraStream key={`focused-${camera.id}`} camera={camera} autoStart={true} />
                 </div>
               );
             })()}
@@ -185,7 +185,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                 onClick={() => handleCameraClick(camera.id)}
               >
                 {/* Camera Stream */}
-                <CameraStream camera={camera} autoStart={true} />
+                <CameraStream key={`grid-${camera.id}`} camera={camera} autoStart={true} />
               </div>
             ))}
           </div>

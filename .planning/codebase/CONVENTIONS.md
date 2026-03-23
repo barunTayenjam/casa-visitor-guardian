@@ -1,257 +1,752 @@
-# Code Conventions
+# SentryVision Code Conventions
 
-## TypeScript Conventions
+## Overview
 
-### Strict Mode
-- **Enabled project-wide**: `strict: true` in all tsconfig.json files
-- **No implicit any**: All variables must have explicit types or be inferred
-- **Strict null checks**: Null and undefined must be explicitly handled
-- **Strict bind/call/apply**: Function context checking enforced
+SentryVision follows modern TypeScript/JavaScript conventions with React on the frontend and Express on the backend. The codebase prioritizes type safety, modularity, and maintainability while remaining pragmatic.
 
-### File Organization
-- **Extensions**: 
-  - `.tsx` for React components with JSX
-  - `.ts` for TypeScript files without JSX
-  - `.js` only for configuration files
-- **Naming**:
-  - Components: PascalCase (e.g., `CameraGrid.tsx`)
-  - Files and directories: camelCase (e.g., `apiService.ts`)
-  - Constants: UPPER_SNAKE_CASE (e.g., `MAX_DETECTION_INTERVAL`)
-  - Interface names: Prefix with `I` (e.g., `ICameraConfig`) - though this appears inconsistent
-  - Type aliases: PascalCase (e.g., `DetectionResult`)
+## General Principles
+
+- **Type safety first:** TypeScript for both frontend and backend
+- **Explicit over implicit:** Clear naming, explicit types where useful
+- **Composition over inheritance:** Prefer composition patterns
+- **Separation of concerns:** Clear boundaries between layers
+- **DRY (Don't Repeat Yourself):** Extract common logic
+- **Pragmatic over dogmatic:** Practical solutions over strict patterns
+
+## Code Style
+
+### Frontend (React + TypeScript)
+
+**Component Structure:**
+```typescript
+// Imports: External libraries first, then internal
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import type { User } from '@/types/security';
+
+// Interface definitions
+interface MyComponentProps {
+  title: string;
+  onAction: () => void;
+}
+
+// Component function
+export function MyComponent({ title, onAction }: MyComponentProps) {
+  // Hooks first
+  const [state, setState] = useState(initialValue);
+  const { user } = useAuth();
+
+  // Effects
+  useEffect(() => {
+    // Effect logic
+  }, [dependencies]);
+
+  // Event handlers
+  const handleClick = () => {
+    onAction();
+  };
+
+  // Render
+  return (
+    <div className="container">
+      <h1>{title}</h1>
+      <Button onClick={handleClick}>Action</Button>
+    </div>
+  );
+}
+```
+
+**Naming Conventions:**
+- **Components:** PascalCase (`CameraGrid.tsx`, `EventCard.tsx`)
+- **Hooks:** camelCase with 'use' prefix (`useAuth.ts`, `useCamera.ts`)
+- **Utilities:** camelCase (`formatDate`, `cn`)
+- **Types/Interfaces:** PascalCase (`User`, `CameraConfig`)
+- **Constants:** UPPER_SNAKE_CASE (`MAX_RETRIES`, `DEFAULT_TIMEOUT`)
+- **File names:** Match export (PascalCase for components, camelCase for utilities)
+
+**Component Patterns:**
+- Functional components with hooks (no class components)
+- Props interfaces defined before component
+- Hooks ordered: useState → useEffect → custom hooks
+- Event handlers prefixed with 'handle' (`handleClick`, `handleSubmit`)
+- Boolean props: `isOpen`, `isLoading`, `hasPermission`
+- Render props sparingly (prefer composition)
+
+**State Management:**
+- **Local state:** useState for component-specific state
+- **Global state:** React Context for auth, camera, socket
+- **Server state:** React Query for API data (caching, revalidation)
+- **Form state:** React Hook Form for forms
+
+**Styling Conventions:**
+- TailwindCSS utility classes
+- `cn()` helper for conditional classes
+- Responsive: mobile-first approach
+- Dark mode: via `next-themes` provider
+- Consistent spacing (4px grid: `p-4`, `gap-2`, `m-8`)
+
+### Backend (Node.js + Express + TypeScript)
+
+**Route Handler Structure:**
+```typescript
+// Imports
+import express from 'express';
+import { z } from 'zod';
+import { AppDataSource } from '../database.js';
+import { User } from '../models/User.js';
+
+// Validation schema
+const createUserSchema = z.object({
+  username: z.string().min(3).max(50),
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
+// Router
+const router = express.Router();
+
+// Middleware
+router.use(authenticate);
+router.use(rateLimiter);
+
+// GET endpoint
+router.get('/', async (req, res) => {
+  try {
+    const users = await AppDataSource.getRepository(User).find();
+    res.json({ success: true, data: users });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST endpoint with validation
+router.post('/', async (req, res) => {
+  try {
+    const validatedData = createUserSchema.parse(req.body);
+    const user = await createUserService(validatedData);
+    res.status(201).json({ success: true, data: user });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, errors: error.errors });
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+export default router;
+```
+
+**Naming Conventions:**
+- **Routes:** camelCase with 'Routes' suffix (`authRoutes`, `visitorRoutes`)
+- **Services:** camelCase with 'Service' suffix (`detectionService`, `notificationService`)
+- **Models:** PascalCase (`User`, `Event`, `Visitor`)
+- **Middleware:** camelCase (`authenticate`, `validateRequest`)
+- **Utilities:** camelCase (`logger`, `fileHelper`)
+
+**File Organization:**
+- One export per file (default export)
+- ES modules (type: "module" in package.json)
+- Import with `.js` extension (TypeScript requirement)
+- Barrel files: `index.ts` for exporting multiple items
+
+**Function Conventions:**
+- Async functions: use `async/await` (no callbacks)
+- Error handling: try-catch with meaningful error messages
+- Return types: explicit return types on exported functions
+- Parameter validation: Zod schemas for API inputs
+
+**Service Pattern:**
+```typescript
+export class DetectionService {
+  private repository: Repository<Event>;
+
+  constructor() {
+    this.repository = AppDataSource.getRepository(Event);
+  }
+
+  async createEvent(data: CreateEventDto): Promise<Event> {
+    try {
+      const event = this.repository.create(data);
+      return await this.repository.save(event);
+    } catch (error) {
+      this.logError(error, { context: 'createEvent' });
+      throw new Error('Failed to create event');
+    }
+  }
+
+  private logError(error: Error, context?: any): void {
+    console.error(`[DetectionService] Error:`, {
+      message: error.message,
+      stack: error.stack,
+      context
+    });
+  }
+}
+
+export const detectionService = new DetectionService();
+```
+
+**Database Access:**
+- TypeORM repositories for data access
+- Queries in services, not in routes
+- Use transactions for multi-step operations
+- Eager loading with `relations` option
+- Parameterized queries (no SQL injection)
+
+### OpenCV Service (Python + Flask)
+
+**Conventions:**
+- Snake_case for functions and variables (`detect_motion`, `get_frames`)
+- PascalCase for classes (`FaceRecognizer`, `MotionDetector`)
+- Type hints on all functions
+- Docstrings for public functions
+- Error handling with try-except
+
+```python
+def detect_motion(frame: np.ndarray, threshold: float = 0.002) -> Dict[str, Any]:
+    """
+    Detect motion in frame using MOG2 background subtraction.
+
+    Args:
+        frame: Input frame as numpy array
+        threshold: Motion threshold (0-1)
+
+    Returns:
+        Dictionary with detection results
+    """
+    try:
+        # Detection logic
+        results = process_frame(frame, threshold)
+        return {"success": True, "data": results}
+    except Exception as e:
+        logger.error(f"Motion detection failed: {str(e)}")
+        return {"success": False, "error": str(e)}
+```
+
+## Import Conventions
 
 ### Import Order
-1. **External libraries** (from node_modules)
-   ```typescript
-   import express from 'express';
-   import { z } from 'zod';
-   ```
-2. **Internal absolute imports** (using @ alias)
-   ```typescript
-   import { ApiService } from '@/services/ApiService';
-   import { useAuth } from '@/hooks/useAuth';
-   ```
-3. **Internal relative imports**
-   ```typescript
-   import { validateRequest } from '../middleware/validation';
-   import type { Event } from '../models/Event';
-   ```
-4. **Type-only imports** (when only importing types)
-   ```typescript
-   import type { CameraConfig } from '../config/index';
-   ```
 
-### Formatting
-- **Semicolons**: Required
-- **Quotes**: Single quotes for strings (`'hello'`), double quotes only in JSX attributes
-- **Indentation**: 2 spaces
-- **Line length**: No strict limit, but prefer readability
-- **Function spacing**: Empty line between function declarations
-- **Object spacing**: Spaces inside braces (`{ prop: value }`)
-- **Array spacing**: No spaces in brackets (`[item1, item2]`)
+**Frontend:**
+```typescript
+// 1. External libraries
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-### Naming Conventions
-#### Variables and Functions
-- **camelCase** for variables, functions, and method names
-- **Descriptive names**: Prefer clarity over brevity
-- **Boolean variables**: Prefix with `is`, `has`, `should`, `can` (e.g., `isLoading`, `hasAccess`)
-- **Function names**: Verb-first (e.g., `calculateTotal`, `validateInput`, `processEvent`)
+// 2. Internal imports (absolute with @ alias)
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
-#### Constants
-- **UPPER_SNAKE_CASE** for module-level constants
-- **Enums**: PascalCase for enum name, UPPER_SNAKE_CASE for values
-- **Configuration keys**: UPPER_SNAKE_CASE
+// 3. Type imports
+import type { User } from '@/types/security';
+```
 
-#### Classes and Interfaces
-- **PascalCase** for class and interface names
-- **Interfaces**: May optionally prefix with `I` (inconsistent in codebase)
-- **Methods**: camelCase within classes
+**Backend:**
+```typescript
+// 1. Node.js built-ins
+import path from 'node:path';
+import fs from 'node:fs';
 
-#### React Components
-- **PascalCase** for component names
-- **Props**: camelCase
-- **Event handlers**: Prefix with `handle` or `on` (e.g., `handleClick`, `onSubmit`)
-- **State variables**: Use `useState` hooks with descriptive names
+// 2. External packages
+import express from 'express';
+import { Repository } from 'typeorm';
 
-### React-Specific Conventions
-#### Component Structure
-1. **Imports** (external, internal, types)
-2. **Component definition**
-3. **Hooks** (useState, useEffect, custom hooks)
-4. **Event handlers**
-5. **Render return statement**
+// 3. Internal imports (relative)
+import { User } from '../models/User.js';
+import { logger } from '../utils/logger.js';
+```
 
-#### Hooks Usage
-- **Custom hooks**: Prefix with `use` (e.g., `useAuth`, `useCameraStream`)
-- **Built-in hooks**: Follow React rules of hooks
-- **Dependency arrays**: Exhaustive deps for useEffect/useCallback
+**Import Guidelines:**
+- Use absolute imports with `@/` alias for frontend
+- Use relative imports for backend (with `.js` extension)
+- Group imports by type (external, internal, types)
+- Sort imports alphabetically within groups
+- No unused imports (ESLint rule)
 
-#### JSX
-- **Self-closing tags**: For elements without children (`<img src={src} />`)
-- **Multiline JSX**: Wrap in parentheses
-- **Conditional rendering**: Prefer ternary operators or logical AND
-- **List keys**: Stable, predictable IDs (not array indices when order matters)
+## Error Handling
 
-### Error Handling
-#### Synchronous Code
-- **Try/catch**: For synchronous operations that may throw
-- **Custom errors**: Extend Error class for domain-specific errors
-- **Error boundaries**: React components for UI error isolation
+### Frontend Error Handling
 
-#### Asynchronous Code
-- **Try/catch**: Around await expressions
-- **Promise rejection**: `.catch()` for unhandled rejections
-- **Service layer**: Consistent error formatting and logging
-- **Controller level**: Convert to appropriate HTTP responses
+**Component-Level:**
+```typescript
+try {
+  await mutation.mutateAsync(data);
+} catch (error) {
+  console.error('Operation failed:', error);
+  toast.error('Failed to complete operation');
+}
+```
 
-#### Logging
-- **Logger service**: Use centralized logger (`logger.ts`)
-- **Levels**: 
-  - `error`: Unexpected failures requiring attention
-  - `warn`: Potential issues or deprecated usage
-  - `info`: Important operational events
-  - `debug`: Detailed troubleshooting information
-- **Context**: Include relevant IDs, timestamps, and metadata
+**Global Error Boundary:**
+```typescript
+<ErrorBoundary fallback={<ErrorFallback />}>
+  <App />
+</ErrorBoundary>
+```
 
-### Security Conventions
-#### Authentication
-- **JWT handling**: Never store tokens in localStorage; use HttpOnly cookies
-- **Password validation**: Server-side validation regardless of client checks
-- **Route protection**: Middleware-based authentication checking
-- **Session management**: Server-side session tracking with Redis
+**API Error Handling (React Query):**
+```typescript
+const query = useQuery({
+  queryKey: ['events'],
+  queryFn: fetchEvents,
+  retry: 3,
+  onError: (error) => {
+    console.error('Failed to fetch events:', error);
+  }
+});
+```
 
-#### Input Validation
-- **Zod schemas**: Validate all incoming data (query, params, body)
-- **Schema location**: Near route definitions or in validation middleware
-- **Sanitization**: Input sanitization middleware for XSS prevention
-- **Type coercion**: Explicit conversion with validation
+### Backend Error Handling
 
-#### Data Protection
-- **PII handling**: Minimize collection and retention
-- **Encryption**: Sensitive data at rest and in transit
-- **Access logs**: Audit trail for sensitive operations
-- **Principle of least privilege**: Database and service accounts
+**Route Handlers:**
+```typescript
+router.post('/endpoint', async (req, res) => {
+  try {
+    // Business logic
+    const result = await service.doSomething(req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    // Log error
+    logger.error('Operation failed', { error, context: req.body });
 
-## Backend-Specific Conventions
+    // Return appropriate status
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    if (error instanceof AuthError) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
-### Express Route Organization
-#### Route Files
-- **Size consideration**: Split large route files (like index.ts) by concern
-- **HTTP verbs**: Use approprixate methods (GET for retrieval, POST for creation, etc.)
-- **Path parameters**: Prefixed with colon (`:cameraId`)
-- **Query parameters**: For filtering, pagination, sorting
-- **Status codes**: Semantic use of HTTP status codes
+    // Generic error
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+```
 
-#### Controller Pattern
-- **Thin controllers**: Delegate business logic to services
-- **Input validation**: At controller entrance using Zod
-- **Response formatting**: Consistent success/error response structure
-- **Async handling**: Try/catch with error forwarding to error middleware
+**Service Layer:**
+```typescript
+async performOperation(data: any): Promise<Result> {
+  try {
+    // Validate
+    if (!data.requiredField) {
+      throw new ValidationError('requiredField is missing');
+    }
 
-### Service Layer
-#### Dependency Injection
-- **Constructor injection**: Services receive dependencies via parameters
-- **No service locator pattern**: Explicit dependencies preferred
-- **Circular dependency avoidance**: Through careful design and interfaces
+    // Execute
+    const result = await repository.save(data);
+    return result;
+  } catch (error) {
+    this.logError(error, { context: 'performOperation', data });
+    throw error; // Re-throw for route handler to catch
+  }
+}
+```
 
-#### Business Logic
-- **Single responsibility**: Each service handles one domain concern
-- **Transaction boundaries**: Services manage database transactions when needed
-- **External service wrapping**: Abstraction for third-party APIs
-- **Testing facilitation**: Interfaces or clear contracts for mocking
+**Custom Error Classes:**
+```typescript
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
 
-### Database/TypeORM Conventions
-#### Entity Design
-- **Decorators**: Use @Entity, @Column, @PrimaryColumn, etc.
-- **Relationships**: Explicit @OneToMany, @ManyToOne, etc. with proper inverses
-- **Naming**: Match database column names unless explicitly specified
-- **Indexes**: Explicit @Index decorator for performance
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+```
 
-#### Migrations
-- **SQL files**: Plain SQL in database/migrations/ directory
-- **Naming convention**: Numeric prefix for ordering (001_, 002_, etc.)
-- **Idempotency**: Design migrations to be safely reapplicable
-- **Data preservation**: Careful with destructive operations
+### Error Logging
 
-#### Repository Usage
-- **Encapsulation**: Services use repositories rather than direct EntityManager
-- **Custom methods**: Repository extensions for complex queries
-- **Transaction management**: Use QueryRunner for complex transactions
+**Frontend:**
+```typescript
+// Utility function (from utils.ts)
+export function logError(error: unknown, context?: string): void {
+  const timestamp = new Date().toISOString();
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : undefined;
 
-## Frontend-Specific Conventions
+  console.error(`[${timestamp}] ${context ? `${context}: ` : ''}${message}`, stack || '');
+}
+```
 
-### State Management
-#### React Query
-- **Query keys**: Arrays for hierarchical invalidation (`['events', cameraId]`)
-- **Stale time**: Configure based on data volatility
-- **Cache time**: Longer stale time for less frequently changing data
-- **Background updates**: Refetching on window focus/reconnect
+**Backend:**
+```typescript
+// BaseService pattern
+protected logError(error: Error, context?: any): void {
+  console.error(`[${this.serviceName}] Error:`, {
+    message: error.message,
+    stack: error.stack,
+    context
+  });
+}
+```
 
-#### Context API
-- **Limited use**: Primarily for global state like auth, theme, settings
-- **Performance**: Split contexts to prevent unnecessary re-renders
-- **Default values**: Provide meaningful defaults for consumers
+## Naming Patterns
 
-### Component Patterns
-#### Presentation vs Container
-- **Separation of concerns**: Presentational components focus on UI
-- **Container components**: Handle data fetching and state management
-- **Reusability**: Presentational components are highly reusable
+### Boolean Variables
+- Prefix with `is`, `has`, `should`, `can`
+```typescript
+const isActive = true;
+const hasPermission = false;
+const shouldRetry = true;
+const canDelete = false;
+```
 
-#### Styling
-- **TailwindCSS**: Utility-first approach
-- **Component extraction**: When utility classes become repetitive
-- **Variants**: Use `twMerge` and `clsx` for conditional classes
-- **Dark mode**: `dark:` prefix for dark variant styling
+### Functions
+- Verb-first for actions
+```typescript
+// Good
+function getUserById(id: string) { }
+function createEvent(data: EventData) { }
+function handleError(error: Error) { }
 
-#### Forms
-- **React Hook Form**: With Zod validation via resolver
-- **Field validation**: Per-field and form-level validation
-- **Error display**: Field-specific and general form errors
-- **Loading states**: Submission and validation loading indicators
+// Avoid
+function user() { }
+function data() { }
+```
 
-## Development Process Conventions
+### Event Handlers
+- Prefix with `handle` or `on`
+```typescript
+const handleClick = () => { };
+const handleSubmit = (data: FormData) => { };
+const onUserLogin = (user: User) => { };
+```
 
-### Branching Strategy
-- **Main branch**: Production-ready code
-- **Feature branches**: Short-lived branches for features/fixes
-- **Pull required**: All changes via pull request with review
-- **Naming**: `feature/`, `bugfix/`, `refactor/`, `docs/` prefixes
+### Constants
+- UPPER_SNAKE_CASE
+```typescript
+const MAX_RETRY_ATTEMPTS = 3;
+const DEFAULT_TIMEOUT = 30000;
+const API_BASE_URL = 'https://api.example.com';
+```
+
+### Types/Interfaces
+- PascalCase, descriptive names
+```typescript
+interface User { }
+type UserRole = 'admin' | 'user' | 'viewer';
+interface CameraConfig { }
+type DetectionResult = SuccessResult | ErrorResult;
+```
+
+## Commenting Conventions
+
+### JSDoc Comments
+Use for exported functions and complex logic:
+```typescript
+/**
+ * Detects motion in a video frame using background subtraction.
+ *
+ * @param frame - The video frame to analyze (Buffer or base64 string)
+ * @param threshold - Motion detection threshold (0-100, default: 50)
+ * @param options - Additional detection options
+ * @returns Promise resolving to detection results with confidence score
+ * @throws {Error} When frame format is invalid
+ *
+ * @example
+ * ```typescript
+ * const result = await detectMotion(frameBuffer, 60, { useGaussianBlur: true });
+ * console.log(`Motion detected: ${result.hasMotion}, confidence: ${result.confidence}%`);
+ * ```
+ */
+async function detectMotion(
+  frame: Buffer | string,
+  threshold: number = 50,
+  options?: DetectionOptions
+): Promise<DetectionResult> {
+  // Implementation
+}
+```
+
+### Inline Comments
+- Use for "why", not "what"
+- Keep comments up-to-date
+- Avoid obvious comments
+
+```typescript
+// Good: Explains why
+// Use Gaussian blur to reduce noise before thresholding
+const blurred = cv2.GaussianBlur(frame, (5, 5), 0);
+
+// Bad: States the obvious
+// Increment counter
+counter++;
+```
+
+### TODO Comments
+Mark with TODO for future work:
+```typescript
+// TODO: Implement adaptive thresholding based on time of day
+// FIXME: This is a workaround for https://github.com/issue/123
+// HACK: Temporary fix until FFmpeg 6.0 is released
+```
+
+## File Organization
+
+### Frontend Component File
+```typescript
+// 1. Imports
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { MyComponentProps } from './types';
+
+// 2. Types/Interfaces
+interface MyComponentProps {
+  title: string;
+}
+
+// 3. Component
+export function MyComponent({ title }: MyComponentProps) {
+  // Hooks
+  const [state, setState] = useState();
+
+  // Handlers
+  const handleClick = () => { };
+
+  // Effects
+  useEffect(() => { }, []);
+
+  // Render
+  return <div>{title}</div>;
+}
+
+// 4. Sub-components (if any)
+function SubComponent() {
+  return <span>Sub</span>;
+}
+
+// 5. Styles (if CSS-in-JS)
+const styles = {
+  container: 'p-4 bg-white rounded',
+};
+```
+
+### Backend Service File
+```typescript
+// 1. Imports
+import { Repository } from 'typeorm';
+import { Event } from '../models/Event.js';
+
+// 2. Types/Interfaces
+interface CreateEventDto {
+  cameraId: string;
+  confidence: number;
+}
+
+// 3. Service class
+export class EventService {
+  private repository: Repository<Event>;
+
+  constructor() {
+    this.repository = AppDataSource.getRepository(Event);
+  }
+
+  // Public methods
+  async create(data: CreateEventDto): Promise<Event> {
+    // Implementation
+  }
+
+  // Private helpers
+  private validate(data: any): boolean {
+    // Implementation
+  }
+}
+
+// 4. Export singleton
+export const eventService = new EventService();
+```
+
+## Code Quality
+
+### ESLint Rules
+**Frontend (`.eslintrc`):**
+- `react-hooks/rules-of-hooks` - Enforce hooks rules
+- `@typescript-eslint/no-unused-vars` - No unused vars
+- `react-refresh/only-export-components` - Fast refresh optimization
+
+**Backend:**
+- No strict ESLint config (relies on TypeScript compiler)
+
+### TypeScript Configuration
+**Frontend (`tsconfig.json`):**
+- `strict: false` - Disabled for pragmatic development
+- `target: ES2020`
+- `module: ESNext`
+- `jsx: react-jsx`
+
+**Backend (`tsconfig.json`):**
+- `strict: false` - Disabled for pragmatic development
+- `target: ES2022`
+- `module: nodenext`
+- `moduleResolution: nodenext`
+
+### Linting Commands
+```bash
+# Frontend
+npm run lint           # Check linting
+npm run lint:fix       # Auto-fix issues
+npm run typecheck      # TypeScript type check
+
+# Backend
+npm run build          # TypeScript compilation
+```
+
+## Git Conventions
 
 ### Commit Messages
-- **Conventional Commits**: type(scope): description format
-- **Types**: feat, fix, docs, style, refactor, perf, test, chore
-- **Scopes**: Optional module or component name
-- **Description**: Imperative mood ("add" not "added" or "adding")
+Follow conventional commits:
+```
+feat: add camera streaming feature
+fix: resolve motion detection false positives
+docs: update README with setup instructions
+refactor: simplify event service
+test: add auth endpoint tests
+chore: upgrade dependencies
+```
 
-### Code Review
-- **Checklist**:
-  - [ ] Functionality matches requirements
-  - [ ] Follows established conventions
-  - [ ] Includes appropriate tests
-  - [ ] No console.log or debugger statements
-  - [ ] Proper error handling
-  - [ ] Performance considerations addressed
-  - [ ] Security implications considered
+### Branch Naming
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `refactor/` - Code refactoring
+- `docs/` - Documentation updates
 
-### Documentation
-- **JSDoc**: For public APIs and complex functions
-- **Inline comments**: For non-obvious logic or important notes
-- **README updates**: When adding/removing features or changing setup
-- **API documentation**: Keep in sync with implementation
+## Security Conventions
 
-## Legacy and Migration Considerations
+### Sensitive Data
+- **Never commit:** `.env` files, credentials, API keys
+- **Use environment variables:** For all secrets
+- **TypeORM:** Parameterized queries (no SQL injection)
+- **Input validation:** Zod schemas on all API inputs
+- **Password hashing:** bcrypt with salt rounds
+- **JWT:** HttpOnly cookies, short-lived access tokens
 
-### Areas for Improvement
-1. **Inconsistent interface naming**: Mixed usage of I prefix
-2. **Large route files**: index.ts is very large and could be split
-3. **Error handling patterns**: Some inconsistency in error propagation
-4. **Configuration management**: Multiple sources (environment, JSON files, hardcoded)
-5. **Service coupling**: Direct HTTP calls to OpenCV service rather than abstraction
+### RTSP Credentials
+- **File:** `server/cameras.json`
+- **Format:** RTSP URLs with embedded credentials
+- **Risk:** Exposed in file (local network only)
+- **Recommendation:** Use separate credential management
 
-### Established Patterns to Maintain
-1. **TypeScript strictness**: Continue enforcing type safety
-2. **Modular service architecture**: Keep separating concerns
-3. **Validation-first approach**: Validate inputs at boundaries
-4. **Security-conscious defaults**: Secure by default implementation
-5. **Testability**: Design for testability with dependency injection
+## Performance Conventions
+
+### Frontend
+- **Code splitting:** React.lazy() for routes
+- **Image optimization:** JPEG quality 80%, lazy loading
+- **Debouncing:** User input events (search, filters)
+- **Memoization:** useMemo, useCallback for expensive operations
+
+### Backend
+- **Connection pooling:** TypeORM manages DB connections
+- **Caching:** Redis for frequently accessed data
+- **Async operations:** Non-blocking I/O
+- **Batch operations:** Bulk inserts/updates
+
+### Database
+- **Indexes:** On frequently queried columns
+- **Pagination:** Limit result sets (avoid SELECT *)
+- **Eager loading:** Use `relations` to avoid N+1 queries
+
+## Testing Conventions
+
+### Test Structure
+```typescript
+describe('Feature', () => {
+  // Setup
+  let mockService: any;
+
+  beforeEach(() => {
+    mockService = createMock();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Specific Behavior', () => {
+    it('should do something when condition is met', async () => {
+      // Arrange
+      const input = { value: 'test' };
+
+      // Act
+      const result = await performAction(input);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.value).toBe('test');
+    });
+  });
+});
+```
+
+### Test Naming
+- Should describe behavior: "should [do something] when [condition]"
+- Use `it()` for individual tests
+- Use `describe()` for grouping
+
+## Documentation Conventions
+
+### Code Comments
+- Public APIs: JSDoc comments
+- Complex logic: Explanation of algorithm/approach
+- Workarounds: Mark with `HACK:` or `FIXME:`
+- Future work: Mark with `TODO:`
+
+### README Files
+- Project root: Overview, setup, quick start
+- Service directories: Purpose, usage examples
+- Component directories: Component props, usage
+
+## Anti-Patterns to Avoid
+
+### Frontend
+- ❌ Class components (use functional with hooks)
+- ❌ Prop drilling (use React Context)
+- ❌ Managing server state with useState (use React Query)
+- ❌ Inline styles (use TailwindCSS classes)
+- ❌ `any` type (use proper types or `unknown`)
+
+### Backend
+- ❌ Callback hell (use async/await)
+- ❌ Business logic in routes (use services)
+- ❌ Direct SQL queries (use TypeORM)
+- ❌ Global state (use services/singletons)
+- ❌ Blocking operations (use async/promises)
+
+### General
+- ❌ Hardcoded values (use constants/env vars)
+- ❌ Magic numbers (use named constants)
+- ❌ Deeply nested code (extract functions)
+- ❌ Premature optimization (measure first)
+- ❌ Copy-paste code (DRY principle)
+
+## Best Practices Summary
+
+**Do:**
+- Use TypeScript types
+- Write error handling (try-catch)
+- Extract reusable logic
+- Name variables descriptively
+- Comment complex logic
+- Use const by default, let when needed
+- Keep functions small (< 50 lines)
+- Use async/await for async code
+- Validate inputs (Zod schemas)
+- Log errors with context
+
+**Don't:**
+- Use `any` type loosely
+- Ignore errors (silent failures)
+- Repeat code (extract functions)
+- Use vague names (data, stuff, temp)
+- Comment obvious code
+- Use var (use const/let)
+- Write long functions (> 100 lines)
+- Mix callbacks and promises
+- Trust user input (always validate)
+- Log without context

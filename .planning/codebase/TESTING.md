@@ -1,95 +1,30 @@
-# Testing Approach
+# SentryVision Testing Guide
 
 ## Overview
-SentryVision employs a comprehensive testing strategy with unit, integration, and end-to-end tests. The primary testing framework is Jest, with different configurations and utilities for frontend and backend testing.
 
-## Testing Framework
+SentryVision uses Jest as the testing framework for both frontend and backend. Tests are organized alongside source code with a focus on unit testing routes, services, and models. The project maintains an 80% coverage threshold for all code.
 
-### Jest
-- **Primary testing framework** for both frontend and backend
-- **Version**: ^30.2.0
-- **Configuration**: 
-  - Root: `jest.config.js` (configured for backend/server tests)
-  - Frontend: Inherited from Vite/react-scripts setup
-- **Features**:
-  - Mocking and spying capabilities
-  - Code coverage reporting
-  - Watch mode for development
-  - Parallel test execution
-  - TypeScript support via ts-jest
+## Testing Stack
 
-### Testing Libraries
-#### Frontend
-- **React Testing Library**: For testing React components
-  - Focuses on user behavior rather than implementation details
-  - Queries elements by role, label, text, etc.
-  - Encourages accessible component design
-- **Jest DOM**: Custom Jest matchers for DOM assertions
-- **User Event**: Simulates user interactions
+### Frontend Testing
+**Framework:** Jest 30.2.0
+**Environment:** jsdom (browser simulation)
+**Additional Tools:**
+- React Testing Library (component testing)
+- ts-jest (TypeScript preprocessor)
+- @jest/globals (global test functions)
 
-#### Backend
-- **Supertest**: For testing HTTP endpoints
-  - Version: ^7.1.4
-  - High-level abstraction for testing HTTP
-  - Built on top of superagent
-  - Assertions for status codes, headers, and response bodies
-- **Test Doubles**: Jest's built-in mocking functionality
-  - Manual mocks for external dependencies
-  - SpyOn for tracking function calls
-  - Mock implementations for services and repositories
-
-## Test Organization
-
-### Backend Tests (`/server/tests/`)
-```
-tests/
-├── setup.ts                  # Test environment setup
-├── setup.test.ts             # Verifies test setup
-├── basic.test.ts             # Basic functionality tests
-├── services/                 # Service layer tests
-│   ├── authenticationService.test.ts
-│   └── basic.test.ts
-├── routes/                   # Route handler tests
-│   ├── auth.test.ts          # Authentication endpoints
-│   ├── batchDetection.test.ts # Batch processing endpoints
-│   ├── reviewRoutes.test.ts  # Review segment endpoints
-│   └── visitorRoutes.test.ts # Visitor management endpoints
-└── utils/                    # Utility function tests
-    ├── fileHash.test.ts
-    ├── encryption.test.ts
-    ├── cronJobs.test.ts
-    └── logger.test.ts
-```
-
-### Frontend Tests
-Frontend tests are co-located with the source files they test:
-```
-frontend/src/
-├── components/
-│   ├── *.test.tsx           # Component tests
-│   └── ...
-├── pages/
-│   ├── *.test.tsx           # Page tests
-│   └── ...
-├── hooks/
-│   ├── *.test.ts            # Custom hook tests
-│   └── ...
-├── services/
-│   ├── *.test.ts            # Service tests
-│   └── ...
-├── contexts/
-│   ├── *.test.ts            # Context tests
-│   └── ...
-└── lib/
-    ├── *.test.ts            # Utility tests
-    └── ...
-```
-
-Note: Based on codebase examination, frontend test files appear to be minimal or not yet extensively implemented, while backend has a more established test suite.
+### Backend Testing
+**Framework:** Jest 30.2.0
+**Environment:** Node (server-side)
+**Additional Tools:**
+- Supertest 7.1.4 (HTTP endpoint testing)
+- ts-jest (TypeScript preprocessor)
+- @jest/globals (global test functions)
 
 ## Test Configuration
 
-### Backend Jest Configuration (`jest.config.js`)
+### Root Jest Config (`jest.config.js`)
 ```javascript
 module.exports = {
   preset: 'ts-jest/presets/default-esm',
@@ -128,200 +63,643 @@ module.exports = {
 };
 ```
 
-### Key Configuration Points
-- **ESM Support**: Configured for TypeScript ES modules
-- **Test Environment**: Node.js environment for backend tests
-- **Coverage Collection**: 
-  - Collects from all backend source files
-  - Excludes declaration files and test files themselves
-  - Threshold: 80% for branches, functions, lines, statements
-- **Test Matching**: Flexible pattern matching for test files
-- **Transform**: Uses ts-jest for TypeScript compilation
-- **Timeout**: 10 second test timeout
+### Server Jest Config (`server/jest.config.js`)
+Same as root config but scoped to server directory.
 
-## Testing Patterns and Practices
+## Test Structure
 
-### Unit Testing
-#### Service Layer Tests
-- **Isolation**: Services tested with mocked dependencies
-- **Mocking**: External services (OpenCV, database, email) mocked
-- **Focus**: Business logic validation and error handling
-- **Examples**:
-  - Authentication service: JWT generation, validation, MFA handling
-  - Detection service: Result normalization, confidence calculation
-  - Notification service: Email templating, send logic
+### File Naming Convention
+- Test files: `*.test.ts` or `*.spec.ts`
+- Location: Alongside source code or in `tests/` directory
+- Examples:
+  - `server/src/routes/auth.test.ts`
+  - `server/src/models/Event.test.ts`
+  - `server/src/routes/reviewRoutes.test.ts`
 
-#### Repository/DAO Tests
-- **Limited**: Most data access tested through service tests
-- **Direct testing**: Complex queries or performance-critical operations
-- **Mock database**: Using in-memory SQLite or jest.mocked repositories
+### Test File Organization
 
-#### Utility Function Tests
-- **Pure functions**: String manipulation, date formatting, validation
-- **Edge cases**: Boundary conditions and error conditions
-- **Examples**:
-  - Password security: Hashing and validation
-  - Encryption: Symmetric encryption/decryption
-  - File operations: Safe file handling, path resolution
-  - JWT service: Token generation and verification
+**Backend Route Tests:**
+```typescript
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import request from 'supertest';
 
-### Integration Testing
-#### API Endpoint Tests
-- **Supertest**: Actual HTTP requests to running Express app
-- **Test database**: Isolated test schema for database operations
-- **Middleware stack**: Full middleware execution (auth, validation, etc.)
-- **Authentication**: Mocked or bypassed for test scenarios
-- **Examples**:
-  - Auth endpoints: Login, logout, refresh, MFA flows
-  - Event endpoints: Creation, retrieval, filtering, deletion
-  - Review endpoints: Segment creation, acknowledgment, filtering
-  - Visitor endpoints: CRUD operations and timeline queries
+describe('Feature Name', () => {
+  let app: any;
+  let mockDb: any;
 
-#### Service Integration Tests
-- **Cross-service interactions**: Testing how services work together
-- **Limited mocking**: Some external dependencies mocked, others real
-- **Database**: Real test database connections
-- **Examples**:
-  - Detection pipeline: Motion → Object/Face detection → Storage
-  - Notification triggering: Event → Alert generation → Delivery
-  - Batch processing: Job queuing → Processing → Completion
+  // Setup before all tests
+  beforeEach(() => {
+    app = require('./index.ts').default;
+    mockDb = {
+      getRepository: jest.fn(),
+    };
+  });
 
-### End-to-End Testing
-- **Limited implementation**: Based on codebase examination, E2E tests appear to be minimal
-- **Potential tools**: Cypress or Playwright would be typical choices
-- **Current approach**: Likies rely on integration tests for critical user flows
+  // Cleanup after each test
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-## Test Data and Fixtures
+  // Test groups
+  describe('GET /endpoint', () => {
+    it('should return data when authenticated', async () => {
+      // Arrange
+      const token = generateTestToken('admin');
 
-### Factories and Test Data Generation
-#### Factory Pattern
-- **Location**: `/server/tests/utils/factories.ts`
-- **Purpose**: Generate test data for entities and models
-- **Usage**: Consistently create test objects with valid data
-- **Customization**: Override default values for specific test scenarios
+      // Act
+      const response = await request(app)
+        .get('/api/endpoint')
+        .set('Authorization', `Bearer ${token}`);
 
-#### Test Data Management
-- **Isolated database**: Test schema separate from development/production
-- **Seeding**: Common test data loaded before test suites
-- **Cleanup**: Database cleared between tests to ensure isolation
-- **Fixtures**: Pre-defined test scenarios for complex setups
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+  });
+});
+```
 
-### Mocking Strategies
-#### External Services
-- **OpenCV Service**: Mocked HTTP responses for detection results
-- **Email Service**: Mocked nodemailer transport
-- **Push Notifications**: Mocked web-push library
-- **MQTT**: Mocked mqtt client connections
-- **File System**: Mocked fs operations where appropriate
+**Model Tests:**
+```typescript
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { Event } from './Event.js';
 
-#### Timing Functions
-- **Jest fake timers**: For testing timeouts, intervals, and delays
-- **Date mocking**: For time-sensitive functionality
-- **Cron jobs**: Testing scheduling logic without waiting
+describe('Event Model', () => {
+  let mockAppDataSource: any;
+
+  beforeEach(() => {
+    mockAppDataSource = {
+      getRepository: jest.fn().mockReturnValue({
+        create: jest.fn(),
+        findOne: jest.fn(),
+        find: jest.fn(),
+        save: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      }),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Event entity', () => {
+    it('should create a new Event instance', () => {
+      const event = new Event();
+      event.event_type = 'motion';
+      event.file_path = '/path/to/snapshot.jpg';
+      event.camera_id = 'cam1';
+
+      expect(event.event_type).toBe('motion');
+      expect(event.file_path).toBe('/path/to/snapshot.jpg');
+      expect(event.camera_id).toBe('cam1');
+    });
+
+    it('should set default values', () => {
+      const event = new Event();
+
+      expect(event.thumbnail_path).toBeNull();
+      expect(event.metadata).toBeNull();
+    });
+  });
+});
+```
+
+## Testing Patterns
+
+### AAA Pattern (Arrange-Act-Assert)
+```typescript
+it('should update user email', async () => {
+  // Arrange
+  const userId = 'user-123';
+  const newEmail = 'newemail@example.com';
+  const mockUser = { id: userId, email: 'old@example.com' };
+  mockDb.findOne.mockResolvedValue(mockUser);
+
+  // Act
+  const result = await userService.updateEmail(userId, newEmail);
+
+  // Assert
+  expect(result.email).toBe(newEmail);
+  expect(mockDb.save).toHaveBeenCalledWith(
+    expect.objectContaining({ email: newEmail })
+  );
+});
+```
+
+### Mocking Database
+```typescript
+beforeEach(() => {
+  // Mock TypeORM repository
+  mockRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  mockDb.getRepository.mockReturnValue(mockRepository);
+});
+
+it('should find all events', async () => {
+  const mockEvents = [
+    { id: '1', event_type: 'motion' },
+    { id: '2', event_type: 'person' }
+  ];
+  mockRepository.find.mockResolvedValue(mockEvents);
+
+  const events = await eventService.findAll();
+
+  expect(events).toEqual(mockEvents);
+  expect(mockRepository.find).toHaveBeenCalled();
+});
+```
+
+### Mocking External Services
+```typescript
+jest.mock('../services/opencvMicroserviceClient.js');
+
+it('should detect motion using OpenCV service', async () => {
+  const mockDetectionResult = {
+    hasMotion: true,
+    confidence: 0.85
+  };
+
+  (opencvService.detectMotion as jest.Mock).mockResolvedValue(mockDetectionResult);
+
+  const result = await detectionService.detectMotion(frameData);
+
+  expect(result.hasMotion).toBe(true);
+  expect(opencvService.detectMotion).toHaveBeenCalledWith(frameData);
+});
+```
+
+### Testing Async Operations
+```typescript
+it('should handle async errors', async () => {
+  const expectedError = new Error('Database connection failed');
+  mockRepository.save.mockRejectedValue(expectedError);
+
+  await expect(eventService.createEvent(data))
+    .rejects
+    .toThrow('Database connection failed');
+
+  expect(mockRepository.save).toHaveBeenCalled();
+});
+```
+
+## Testing Best Practices
+
+### Do's
+- ✅ Use descriptive test names: "should [do something] when [condition]"
+- ✅ Follow AAA pattern (Arrange, Act, Assert)
+- ✅ Test one thing per test
+- ✅ Use beforeEach/afterEach for setup/teardown
+- ✅ Mock external dependencies (database, APIs)
+- ✅ Test edge cases and error conditions
+- ✅ Keep tests independent (no shared state)
+- ✅ Use meaningful assertions
+
+### Don'ts
+- ❌ Test implementation details (test behavior, not code)
+- ❌ Write tests that depend on execution order
+- ❌ Mock everything (only mock external dependencies)
+- ❌ Use vague assertions (`expect(result).toBeDefined()`)
+- ❌ Ignore failing tests
+- ❌ Write tests that are too brittle
 
 ## Coverage Requirements
-- **Threshold**: 80% for branches, functions, lines, and statements (global)
-- **Enforcement**: Configured in jest.config.js
-- **Reporting**: Text, lcov, and HTML reports generated
-- **Monitoring**: Coverage tracked over time to prevent regression
 
-## Test Execution
+### Current Threshold: 80%
+All code must maintain at least 80% coverage for:
+- **Branches:** Conditional logic coverage
+- **Functions:** Function execution coverage
+- **Lines:** Line execution coverage
+- **Statements:** Statement execution coverage
 
-### Scripts
-#### Backend
+### Running Coverage
+```bash
+# Backend
+npm run test           # Run tests with coverage
+npm run test:coverage  # Explicit coverage report
+
+# Frontend (if configured)
+cd frontend
+npm run test:coverage
+```
+
+### Coverage Reports
+Generated in:
+- Console output (text format)
+- `coverage/` directory (HTML report)
+- `coverage/lcov.info` (for CI tools)
+
+## Test Categories
+
+### Unit Tests
+**Purpose:** Test individual functions/classes in isolation
+
+**Examples:**
+- Model validation logic
+- Service methods
+- Utility functions
+- Custom hooks
+
+```typescript
+describe('EventService', () => {
+  it('should create event with valid data', async () => {
+    const data = { event_type: 'motion', camera_id: 'cam1' };
+    const event = await eventService.create(data);
+    expect(event.event_type).toBe('motion');
+  });
+});
+```
+
+### Integration Tests
+**Purpose:** Test interactions between components
+
+**Examples:**
+- API endpoint to database
+- Route to service to repository
+- Middleware to route handler
+
+```typescript
+describe('POST /api/events', () => {
+  it('should create event and save to database', async () => {
+    const eventData = { event_type: 'motion', camera_id: 'cam1' };
+    const response = await request(app)
+      .post('/api/events')
+      .send(eventData)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(201);
+    expect(mockRepository.save).toHaveBeenCalled();
+  });
+});
+```
+
+### Endpoint Tests (Supertest)
+**Purpose:** Test HTTP endpoints end-to-end
+
+```typescript
+describe('Authentication Routes', () => {
+  describe('POST /api/auth/register', () => {
+    it('should allow admin to register a new user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username: 'newuser',
+          email: 'newuser@example.com',
+          password: 'Password123!'
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.user.username).toBe('newuser');
+    });
+
+    it('should reject registration attempt by non-admin user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          username: 'newuser',
+          email: 'newuser@example.com',
+          password: 'Password123!'
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('permissions');
+    });
+  });
+});
+```
+
+## Test Data Management
+
+### Test Fixtures
+```typescript
+const testUser = {
+  id: 'user-123',
+  username: 'testuser',
+  email: 'test@example.com',
+  role: 'user'
+};
+
+const testEvent = {
+  id: 'event-123',
+  event_type: 'motion',
+  camera_id: 'cam1',
+  timestamp: new Date().toISOString()
+};
+```
+
+### Mock Data Generation
+```typescript
+function createMockEvent(overrides = {}) {
+  return {
+    id: 'event-' + Math.random(),
+    event_type: 'motion',
+    camera_id: 'cam1',
+    confidence: 0.85,
+    timestamp: new Date().toISOString(),
+    ...overrides
+  };
+}
+```
+
+### Database Transactions in Tests
+```typescript
+it('should rollback on error', async () => {
+  await AppDataSource.transaction(async (transactionalEntityManager) => {
+    // Perform operations
+    const event = transactionalEntityManager.create(Event, data);
+    await transactionalEntityManager.save(event);
+
+    // Simulate error
+    throw new Error('Test error');
+  });
+
+  // Verify rollback
+  const count = await repository.count();
+  expect(count).toBe(0);
+});
+```
+
+## Current Test Coverage
+
+### Existing Tests
+| File | Description |
+|------|-------------|
+| `server/src/routes/auth.test.ts` | Authentication endpoints |
+| `server/src/routes/batchDetection.test.ts` | Batch detection endpoints |
+| `server/src/routes/reviewRoutes.test.ts` | Review segment endpoints |
+| `server/src/routes/visitorRoutes.test.ts` | Visitor management endpoints |
+| `server/src/models/Event.test.ts` | Event entity tests |
+| `server/src/models/User.test.ts` | User entity tests |
+| `server/src/models/Role.test.ts` | Role entity tests |
+| `server/src/models/AuditLog.test.ts` | Audit log entity tests |
+| `server/src/services/review/reviewService.test.ts` | Review service tests |
+| `server/src/services/timeline/timelineService.test.ts` | Timeline service tests |
+| `server/src/services/detection/detectionService.test.ts` | Detection service tests |
+
+### Test Gaps
+Areas needing more tests:
+- OpenCV service integration (Python)
+- Real-time streaming (Socket.io)
+- Motion detection logic
+- Face recognition pipeline
+- Notification service
+- Storage cleanup jobs
+- Frontend component tests
+
+## Running Tests
+
+### Backend Tests
 ```bash
 # Run all tests
-npm test
+cd server
+npm run test:server
+
+# Run tests in watch mode
+npm run test:server -- --watch
+
+# Run specific test file
+npm run test:server -- auth.test.ts
+
+# Run tests matching pattern
+npm run test:server -- --testNamePattern="should create"
+
+# Generate coverage report
+npm run test:server -- --coverage
+```
+
+### Frontend Tests
+```bash
+# Run all tests
+cd frontend
+npm run test
 
 # Run tests in watch mode
 npm run test:watch
 
-# Run tests with coverage
+# Run coverage
 npm run test:coverage
 
-# Run specific test suites
-npm run test:services
-npm run test:utils
+# Run specific test pattern
+npm run test -- --testPathPattern="services"
 ```
 
-#### Frontend (based on package.json scripts)
+### Root Level
 ```bash
-# Run all tests
-npm test
+# Run backend tests
+npm run test:server
 
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run specific test types
-npm run test:setup
-npm run test:services
-npm run test:utils
+# Run frontend tests
+npm run test
 ```
 
-### Continuous Integration
-- **Pre-commit**: Linting and type checking
-- **Pull request**: Tests run on CI platform
-- **Main branch**: Tests required to pass before merge
-- **Nightly**: Extended test runs including coverage reports
+## CI/CD Integration
 
-## Best Practices and Conventions
+### GitHub Actions (if configured)
+```yaml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm install
+      - run: npm run test:server
+      - run: npm run test
+```
 
-### Test Naming
-- **Files**: Same name as source with `.test.ts` suffix
-- **Blocks**: `describe()` for units under test
-- **Assertions**: `it()` or `test()` for individual test cases
-- **Behavioral**: Focus on what the code does, not how
-- **Examples**:
-  - `describe('AuthenticationService', () => {`
-  - `it('should generate valid JWT token', () => {`
-  - `it('should reject invalid credentials', () => {`
+### Pre-commit Hooks (if configured)
+```json
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run test && npm run lint"
+    }
+  }
+}
+```
 
-### Arrange-Act-Assert Pattern
-1. **Arrange**: Set up test data, mocks, and preconditions
-2. **Act**: Execute the function or method being tested
-3. **Assert**: Verify expected outcomes and side effects
+## Testing Database
 
-### Testing Philosophy
-- **Test behavior, not implementation**: Resistant to refactoring
-- **Test at appropriate levels**: Unit for logic, integration for interactions
-- **Maintain test isolation**: No shared state between tests
-- **Fast tests**: Prefer unit tests over slow end-to-end when possible
-- **Meaningful assertions**: Check for specific expected outcomes
-- **Edge cases**: Test boundary conditions and error paths
-- **Positive and negative**: Test both valid and invalid inputs
+### Test Database Setup
+```typescript
+// tests/setup.ts
+import { AppDataSource } from '../src/database.js';
 
-### Common Test Utilities
-#### Test Helpers
-- **Request builders**: For creating HTTP test requests
-- **Response validators**: For checking response structures
-- **Authentication mocks**: For bypassing auth in tests
-- **Database reset**: Utilities to clean test database
-- **Time controllers**: For manipulating dates and timers
+beforeAll(async () => {
+  // Initialize test database
+  await AppDataSource.initialize({
+    type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'test',
+    password: 'test',
+    database: 'sentryvision_test',
+    synchronize: true,
+    dropSchema: true
+  });
+});
 
-#### Mock Repositories
-- **Interface adherence**: Matching repository method signatures
-- **Configurable responses**: Return predefined data or throw errors
-- **Call tracking**: Monitoring which methods were called with what args
-- **Reset capability**: Clear call history between tests
+afterAll(async () => {
+  // Close connection
+  await AppDataSource.destroy();
+});
 
-## Areas for Improvement
+afterEach(async () => {
+  // Clean tables after each test
+  const entities = AppDataSource.entityMetadatas;
+  for (const entity of entities) {
+    const repository = AppDataSource.getRepository(entity.name);
+    await repository.clear();
+  }
+});
+```
 
-### Current Gaps
-1. **Frontend testing**: Limited test coverage for components, hooks, and pages
-2. **End-to-end testing**: Minimal implementation of user flow tests
-3. **Test maintenance**: Some tests may be brittle due to implementation details
-4. **Performance testing**: Lack of load and stress testing for detection pipeline
-5. **Security testing**: Limited penetration testing or vulnerability scanning
+## Debugging Tests
 
-### Recommended Enhancements
-1. **Increase frontend test coverage**: Add React Testing Library tests for components
-2. **Implement E2E tests**: Use Cypress or Playwright for critical user journeys
-3. **Add visual regression testing**: For UI component consistency
-4. **Implement contract testing**: For backend-frontend API agreements
-5. **Add chaos engineering**: Test system behavior under failure conditions
-6. **Implement mutation testing**: To assess test effectiveness
-7. **Add API contract validation**: Using tools like Pact or Dredd
-8. **Implement performance benchmarks**: For detection latency and throughput
+### Debug Mode
+```bash
+# Run tests in debug mode
+node --inspect-brk node_modules/.bin/jest --runInBand
+
+# Then attach debugger in VS Code
+```
+
+### Console Output
+```typescript
+it('should log debug info', () => {
+  console.log('Debug:', variable);
+  expect(true).toBe(true);
+});
+```
+
+### Test Isolation
+```bash
+# Run single test file
+npm run test:server -- auth.test.ts
+
+# Run single test
+npm run test:server -- --testNamePattern="should login"
+```
+
+## Performance Testing
+
+### Load Testing (not implemented)
+Consider tools like:
+- Artillery (API load testing)
+- k6 (Performance testing)
+- JMeter (Load testing)
+
+### Benchmarking (not implemented)
+```typescript
+describe('Performance', () => {
+  it('should complete detection within 100ms', async () => {
+    const start = Date.now();
+    await detectionService.detectMotion(frame);
+    const duration = Date.now() - start;
+
+    expect(duration).toBeLessThan(100);
+  });
+});
+```
+
+## Testing Anti-Patterns
+
+### Brittle Tests
+```typescript
+// Bad: Tests implementation
+it('should call repository.find', () => {
+  await service.getAll();
+  expect(mockRepository.find).toHaveBeenCalled();
+});
+
+// Good: Tests behavior
+it('should return all events', () => {
+  const events = await service.getAll();
+  expect(events).toHaveLength(10);
+});
+```
+
+### Overspecified Tests
+```typescript
+// Bad: Too many assertions
+it('should create event', () => {
+  const event = await service.create(data);
+  expect(event.id).toBeDefined();
+  expect(event.event_type).toBe('motion');
+  expect(event.camera_id).toBe('cam1');
+  expect(event.timestamp).toBeDefined();
+  expect(event.confidence).toBe(0.85);
+  expect(event.metadata).toBeNull();
+});
+
+// Good: One assertion per test
+it('should create event with correct type', () => {
+  const event = await service.create(data);
+  expect(event.event_type).toBe('motion');
+});
+```
+
+### Shared State
+```typescript
+// Bad: Tests depend on order
+let eventId;
+
+it('should create event', async () => {
+  const event = await service.create(data);
+  eventId = event.id;
+});
+
+it('should update event', async () => {
+  await service.update(eventId, { event_type: 'person' });
+});
+
+// Good: Each test is independent
+it('should create and update event', async () => {
+  const event = await service.create(data);
+  const updated = await service.update(event.id, { event_type: 'person' });
+  expect(updated.event_type).toBe('person');
+});
+```
+
+## Future Testing Improvements
+
+### Recommended Additions
+1. **Frontend component tests** - React Testing Library
+2. **E2E tests** - Playwright or Cypress
+3. **Visual regression tests** - Percy or Chromatic
+4. **Contract tests** - OpenAPI validation
+5. **Performance tests** - Load testing for detection endpoints
+6. **Integration tests** - Full stack tests with test database
+
+### Testing Goals
+- Increase coverage to 90%+
+- Add E2E tests for critical paths
+- Implement visual regression testing
+- Add load testing for streaming endpoints
+- Contract testing for API contracts
+
+## Resources
+
+### Documentation
+- Jest: https://jestjs.io/
+- Supertest: https://github.com/visionmedia/supertest
+- React Testing Library: https://testing-library.com/react
+
+### Internal
+- Test files: `server/src/**/*.test.ts`
+- Jest config: `jest.config.js`, `server/jest.config.js`
+- Test scripts: `package.json` → `scripts`

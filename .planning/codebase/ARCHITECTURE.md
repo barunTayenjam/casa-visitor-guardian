@@ -1,323 +1,468 @@
-# System Architecture
+# SentryVision Architecture
 
-## Overview
-SentryVision follows a microservices-inspired architecture with clearly separated concerns:
-- **Frontend**: React/TypeScript SPA for user interface
-- **Backend**: Node.js/Express API server with TypeScript
-- **Database**: PostgreSQL for persistent storage
-- **Computer Vision Service**: Python/OpenCV service for detection algorithms
-- **Real-time Communication**: Socket.IO for live updates
-- **Caching Layer**: Redis for sessions and performance optimization
+## System Overview
 
-## Architectural Patterns
+SentryVision is a distributed home security system with a three-tier architecture: React frontend, Node.js/Express backend, and PostgreSQL database. A Python Flask microservice handles computer vision operations (OpenCV), and Redis provides caching. The system processes RTSP camera feeds for real-time motion detection, facial recognition, and object detection.
 
-### Layered Architecture
-The system employs a layered approach with separation of concerns:
+## Architectural Pattern
 
-1. **Presentation Layer** (Frontend)
-   - React components with TypeScript
-   - State management via React Query and Context API
-   - Real-time updates via Socket.IO client
-   - UI library: TailwindCSS + shadcn/ui (Radix UI primitives)
+**Three-tier client-server architecture** with microservice elements:
 
-2. **Application Layer** (Backend)
-   - RESTful API controllers (Express routes)
-   - Business logic services
-   - Data access layer (TypeORM repositories)
-   - Cross-cutting concerns (authentication, validation, logging)
-
-3. **Domain Layer**
-   - TypeORM entities representing business concepts
-   - Enumerated types and domain-specific logic
-   - Validation rules and business invariants
-
-4. **Infrastructure Layer**
-   - Database configuration and connection pooling
-   - External service integrations (OpenCV, Redis, email)
-   - File system operations and storage management
-   - Third-party API clients
-
-### Microservice-Inspired Design
-While not a pure microservices architecture, the system employs microservice principles:
-
-- **OpenCV Service**: Independent Python service handling computer vision tasks
-  - Communicates via HTTP REST API
-  - Can be scaled independently based on CV workload
-  - Technology isolation (Python vs Node.js/TS stack)
-
-- **Modular Backend**: Backend organized into distinct service modules
-  - Authentication service
-  - Detection service
-  - Notification service
-  - Review service
-  - Timeline service
-  - Each service encapsulates related functionality
-
-### Event-Driven Architecture
-- **Internal Event Bus**: Custom event emitter for decoupled communication
-- **Socket.IO Events**: Real-time bidirectional communication with clients
-- **Message Queuing Concepts**: Batch processing with job queues
-- **WebSocket Rooms**: Camera-specific communication channels
-
-### Pipeline Architecture
-Detection processing follows a pipeline pattern:
 ```
-RTSP Stream → Frame Extraction → Motion Detection → 
-Object Detection → Face Recognition → Result Aggregation → 
-Storage & Alerting → Real-time Updates
+┌─────────────────────────────────────────────────────────────┐
+│                     Frontend (React)                         │
+│  State: Context API + React Query                           │
+│  Real-time: Socket.io Client                                │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTP + WebSocket
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  Backend (Node.js/Express)                   │
+│  API: REST + WebSocket (Socket.io)                          │
+│  Auth: JWT + TOTP MFA                                       │
+│  Business Logic: Services                                   │
+└─────┬───────────────┬───────────────┬───────────────────────┘
+      │               │               │
+      ↓               ↓               ↓
+┌───────────┐  ┌─────────────┐  ┌──────────┐
+│ OpenCV    │  │ PostgreSQL  │  │  Redis   │
+│ Service   │  │ Database    │  │  Cache   │
+│ (Python)  │  │             │  │          │
+└───────────┘  └─────────────┘  └──────────┘
 ```
 
-Each stage can be enabled/disabled or replaced independently.
+## Core Architectural Layers
+
+### 1. Presentation Layer (Frontend)
+
+**Framework:** React 18 with TypeScript
+
+**Key Patterns:**
+- **Component composition:** Functional components with hooks
+- **Context pattern:** Global state via React Context (Auth, Camera, Socket, Events)
+- **Server state:** React Query for API caching and synchronization
+- **Client-side routing:** React Router v6
+- **Lazy loading:** Code splitting with React.lazy()
+- **Error boundaries:** Error isolation per component tree
+
+**State Management:**
+- **Local state:** useState, useReducer
+- **Global state:** Context API (AuthContext, CameraContext, SocketContext, EventsContext)
+- **Server state:** React Query (automatic caching, revalidation, background updates)
+- **Form state:** React Hook Form with Zod validation
+
+**Data Flow:**
+```
+User Interaction
+    ↓
+Component Event Handler
+    ↓
+Context Action / API Call (React Query)
+    ↓
+Backend API
+    ↓
+State Update (Re-render)
+```
+
+### 2. Application Layer (Backend)
+
+**Framework:** Express with TypeScript (ES modules)
+
+**Key Patterns:**
+- **Middleware chain:** CORS, JSON parsing, authentication, rate limiting, validation
+- **Router separation:** Modular route files (auth, events, visitors, detection, etc.)
+- **Service layer:** Business logic isolated in services/
+- **Repository pattern:** TypeORM entities for database access
+- **Dependency injection:** Services receive dependencies via constructor
+- **Event-driven:** EventEmitter for internal pub/sub
+
+**Request Processing Pipeline:**
+```
+Incoming Request
+    ↓
+CORS Middleware
+    ↓
+JSON Parser
+    ↓
+Rate Limiter
+    ↓
+Authentication Middleware (JWT)
+    ↓
+Authorization Check (Role-based)
+    ↓
+Route Handler
+    ↓
+Service Layer (Business Logic)
+    ↓
+Repository (TypeORM)
+    ↓
+Database
+    ↓
+Response
+```
+
+**Service Layer Architecture:**
+- `authenticationService.ts` - Auth logic (login, MFA, tokens)
+- `detectionService.ts` - Detection operations
+- `reviewService.ts` - Review segment management
+- `timelineService.ts` - Timeline queries
+- `notificationService.ts` - Email and push notifications
+- `batchProcessingService.ts` - Async batch detection jobs
+- `opencvMicroserviceClient.ts` - OpenCV service client
+
+### 3. Data Layer (Database)
+
+**ORM:** TypeORM with PostgreSQL
+
+**Patterns:**
+- **Active Record:** Models inherit from TypeORM BaseEntity
+- **Repository pattern:** `repository.findOne()`, `repository.find()`
+- **Relations:** Eager loading with `relations` option
+- **Migrations:** SQL files in `database/migrations/`
+- **Transactions:** Critical operations wrapped in transactions
+
+**Entity Models (17 tables):**
+- `User`, `Role`, `UserSession` - User management
+- `Event`, `DetectionConfig`, `ProcessedImage` - Detection data
+- `Visitor`, `Timeline` - Visitor tracking
+- `ReviewSegment`, `UserReviewStatus` - Review workflow
+- `BatchJob` - Async processing
+- `NotificationPreferences`, `NotificationLog` - Notifications
+- `StorageStats`, `RetentionPolicy` - Storage management
+
+### 4. Infrastructure Layer
+
+**RTSP Stream Processing:**
+```
+RTSP Camera (IP Camera)
+    ↓
+FFmpeg (child process)
+    ↓
+Frame Extraction (JPEG)
+    ↓
+Motion Detection (OpenCV Service)
+    ↓
+Event Trigger
+    ↓
+Database + Notification
+```
+
+**Real-time Communication:**
+- **Protocol:** WebSocket via Socket.io
+- **Server:** Socket.io 4.7.2 (backend)
+- **Client:** Socket.io Client 4.8.1 (frontend)
+- **Rooms:** Camera-specific rooms for streaming
+- **Events:** `requestStream`, `frame`, `motionDetected`, `objectDetected`
+
+**Computer Vision Service:**
+- **Framework:** Flask (Python)
+- **Port:** 8084
+- **Protocol:** HTTP (REST)
+- **Communication:** Backend → Axios → OpenCV Service
+- **Operations:** Motion detection, face recognition, object detection
+
+## Data Flow Patterns
+
+### Authentication Flow
+
+```
+1. POST /api/auth/login
+   ↓
+2. authenticationService validates credentials
+   ↓
+3. bcrypt.compare() for password
+   ↓
+4. Check MFA enabled
+   ↓
+5. Generate JWT tokens (access + refresh)
+   ↓
+6. Store session in user_sessions table
+   ↓
+7. Set HttpOnly cookies
+   ↓
+8. Return user data
+```
+
+### Motion Detection Flow
+
+```
+1. RTSP Stream (FFmpeg child process)
+   ↓
+2. Extract frames at 2-4 FPS
+   ↓
+3. Send to OpenCV Service (/detect endpoint)
+   ↓
+4. Background subtraction (MOG2)
+   ↓
+5. Contour detection
+   ↓
+6. Motion threshold check
+   ↓
+7. If motion detected:
+   a. Save image to disk
+   b. Create Event record in DB
+   c. Emit Socket.io event
+   d. Send notification
+   ↓
+8. Trigger object/face detection (async)
+```
+
+### Camera Streaming Flow
+
+```
+Client: Socket.emit('requestStream', { cameraId })
+    ↓
+Backend: StreamManager.startStream(cameraId)
+    ↓
+FFmpeg: Spawn child process for RTSP stream
+    ↓
+Frame Loop: Extract JPEG at 4 FPS
+    ↓
+Socket.io: Emit 'frame' event to client room
+    ↓
+Client: Update <img> src with base64 frame
+    ↓
+Client: Socket.emit('stopStream') when done
+    ↓
+Backend: Kill FFmpeg process, cleanup
+```
+
+### Face Recognition Flow
+
+```
+1. Motion detected with person
+   ↓
+2. Send frame to OpenCV Service (/recognize-faces)
+   ↓
+3. Face detection (dlib CNN)
+   ↓
+4. Face embedding (128-d vector)
+   ↓
+5. Compare with known_faces database
+   ↓
+6. Euclidean distance < 0.6 = match
+   ↓
+7. Update Event with face_detections
+   ↓
+8. If unknown face:
+   a. Create Visitor record
+   b. Emit alert
+   ↓
+9. Store embedding in face_embeddings table
+```
 
 ## Key Architectural Decisions
 
-### Technology Stack Choices
-1. **TypeScript Throughout**: 
-   - Frontend and backend use TypeScript for type safety
-   - Shared type definitions where applicable
-   - Strict mode enabled project-wide
+### Why Three-tier Architecture?
+- **Separation of concerns:** UI, business logic, data isolated
+- **Scalability:** Each tier can scale independently
+- **Maintainability:** Clear boundaries between layers
+- **Testability:** Each layer can be tested independently
 
-2. **React 18 + Vite**:
-   - Modern React features (concurrent rendering, automatic batching)
-   - Fast development server with HMR
-   - Optimized production builds
+### Why Microservice for OpenCV?
+- **Isolation:** Python CV libraries don't pollute Node.js
+- **Resource management:** CV operations in separate process
+- **Fault tolerance:** OpenCV crash doesn't crash backend
+- **Technology fit:** Python has better CV library ecosystem
 
-3. **Node.js/Express Backend**:
-   - Mature, well-understood platform
-   - Excellent npm ecosystem
-   - Good performance for I/O-heavy applications
+### Why Socket.io?
+- **Automatic fallback:** WebSocket → long polling
+- **Room-based messaging:** Efficient camera streaming
+- **Reconnection:** Automatic reconnection handling
+- **Cross-browser:** Works on all browsers
 
-4. **PostgreSQL Choice**:
-   - Relational data fits the domain well
-   - JSONB columns for flexible detection results
-   - Strong ACID guarantees for security-critical data
-   - Excellent tooling and community support
+### Why TypeORM?
+- **TypeScript-first:** Great type safety
+- **Active Record pattern:** Simple query API
+- **Migrations:** Built-in migration support
+- **Decorators:** Clean entity definitions
 
-5. **Python/OpenCV for CV**:
-   - Industry-standard computer vision library
-   - Mature algorithms and community support
-   - Easy integration with ML models
+### Why React Query?
+- **Server state:** Separate from client state
+- **Automatic caching:** Reduces API calls
+- **Background refetch:** Fresh data automatically
+- **Optimistic updates:** Better UX
 
-6. **Socket.IO for Real-time**:
-   - Fallback mechanisms for proxy/load balancer compatibility
-   - Room-based scoping for efficient broadcasting
-   - Binary data support for video frames
+## Security Architecture
 
-### Data Flow Architecture
-#### Detection Pipeline
-1. **Stream Ingestion**: RTSPManager captures frames via FFmpeg
-2. **Motion Analysis**: OpenCV service detects motion using MOG2
-3. **Trigger Evaluation**: Motion triggers object/face detection
-4. **Object Detection**: YOLO model identifies objects of interest
-5. **Face Processing**: Face detection and recognition pipeline
-6. **Result Normalization**: Standardized format for storage
-7. **Persistence**: Events saved to PostgreSQL and filesystem
-8. **Notification**: Alerts generated based on rules
-9. **Broadcast**: Real-time updates sent to connected clients
+### Authentication Layers
+1. **Password hashing:** bcrypt with salt rounds
+2. **JWT tokens:** Access (15min) + Refresh (7 days)
+3. **TOTP MFA:** Optional 2FA via speakeasy
+4. **Session tracking:** user_sessions table for revocation
 
-#### Request Handling Flow
-1. **HTTP Request**: Received by Express router
-2. **Middleware**: CORS, parsing, validation, authentication
-3. **Route Handler**: Controller validates input and delegates
-4. **Service Layer**: Business logic executed
-5. **Data Access**: TypeORM repositories interact with database
-6. **Response**: Formatted JSON returned to client
+### Authorization Layers
+1. **Role-based access:** admin, user, viewer
+2. **Route protection:** ProtectedRoute component (frontend)
+3. **API middleware:** authMiddleware (backend)
+4. **Permission checks:** role-based in services
 
-### Scalability Considerations
-#### Horizontal Scaling
-- **Frontend**: Naturally scalable via CDN and load balancing
-- **Backend**: Stateless services enable horizontal scaling
-  - Requires Redis adapter for Socket.IO
-  - Shared database with connection pooling
-- **OpenCV Service**: CPU-intensive, can run multiple instances behind load balancer
-- **Database**: Read replicas for analytics workloads
-- **Redis**: Clustered deployment for session storage
+### Data Security
+1. **Input validation:** Zod schemas on all endpoints
+2. **SQL injection prevention:** TypeORM parameterized queries
+3. **XSS prevention:** React auto-escaping
+4. **CORS:** Configured origins
+5. **Rate limiting:** 100 req/15min per IP
+6. **Security headers:** Helmet.js
 
-#### Vertical Scaling
-- **Increased Detection Frequency**: Higher FPS processing
-- **More Concurrent Streams**: Increased worker threads/processes
-- **Larger Models**: Upgrading YOLO/face recognition models
-- **Extended Retention**: More storage for video archives
+### RTSP Security
+- **Credentials in config:** Not in code
+- **Local network:** RTSP not exposed externally
+- **HTTPS proxy:** Recommended for remote access
 
-### Resilience Patterns
-#### Fault Tolerance
-- **Circuit Breaker**: Protects against failing external services
-- **Retry Logic**: Exponential backoff for transient failures
-- **Graceful Degradation**: Reduced functionality when services unavailable
-- **Health Checks**: Liveness and readiness probes for orchestration
+## Scalability Architecture
 
-#### Data Protection
-- **Database Transactions**: ACID properties for critical operations
-- **Backup Strategies**: Regular database snapshots
-- **File System Integrity**: Hash-based verification for critical files
-- **Access Controls**: Principle of least privilege throughout
+### Horizontal Scaling
+- **Stateless backend:** No session state in memory
+- **Redis sessions:** Shared session store
+- **Load balancing:** Can add backend instances
+- **Database pooling:** TypeORM connection pool
 
-### Security Architecture
-#### Defense in Depth
-1. **Network Layer**: 
-   - Internal service communication only exposed internally
-   - External access limited to API gateway
-   - Firewall rules restricting port access
+### Vertical Scaling
+- **Resource limits:** Docker CPU/memory limits
+- **Low resource mode:** Configurable for 1-core systems
+- **Adaptive FPS:** Reduce FPS based on viewer count
+- **Detection interval:** Configurable (default 3s)
 
-2. **Application Layer**:
-   - Authentication: JWT + refresh tokens + TOTP MFA
-   - Authorization: Role-based access control (RBAC)
-   - Input Validation: Zod schemas on all endpoints
-   - Output Encoding: XSS prevention in templates
-   - Security Headers: Helmet.js configuration
+### Performance Optimizations
+- **Code splitting:** React lazy loading
+- **Image compression:** JPEG quality 80%
+- **Detection caching:** Redis 1-hour TTL
+- **Database indexes:** On timestamp, camera_id
+- **Connection pooling:** TypeORM and pg
 
-3. **Data Layer**:
-   - Encryption at rest for sensitive data
-   - Field-level encryption for PII where required
-   - Secure database connections (SSL/TLS)
-   - Principle of least privilege for database users
+## Fault Tolerance
 
-4. **Infrastructure Layer**:
-   - Container security scanning
-   - Minimal base images
-   - Runtime security constraints
-   - Secret management via environment variables
+### Error Boundaries
+- **React ErrorBoundary:** Isolate component errors
+- **Global error handler:** Catch unhandled errors
+- **Fallback UI:** Graceful error display
 
-#### API Security
-- **Rate Limiting**: Per-IP and per-user limits
-- **CORS**: Strict origin whitelisting
-- **Security Headers**: CSP, HSTS, X-Frame-Options, etc.
-- **HTTP Methods**: Proper use of GET/POST/PUT/DELETE
-- **Status Codes**: Semantic use of HTTP status codes
+### Service Health
+- **Health checks:** /api/health endpoint
+- **Docker health checks:** All containers
+- **Retry logic:** Exponential backoff
+- **Circuit breaker:** opencvMicroserviceClient
 
-## Communication Patterns
+### Data Integrity
+- **Database transactions:** Multi-step operations
+- **Rollback:** On transaction failure
+- **Validation:** Before DB write
+- **Audit logging:** All sensitive operations
 
-### Synchronous Communication
-#### HTTP/REST
-- **Frontend →Backend**: JSON over HTTPS with JWT authentication
-- **Backend →OpenCV Service**: HTTP JSON API for CV tasks
-- **Backend →External Services**: Email, SMS, webhook providers
-- **Database Queries**: TypeORM/PostgreSQL SQL communication
+## Concurrency Model
 
-#### WebSocket/Socket.IO
-- **Bidirectional**: Full-duplex communication channel
-- **Events**: Typed events with structured payloads
-- **Rooms**: Logical channels for camera-specific broadcasting
-- **Binary Data**: Efficient transmission of video frames
-- **Fallbacks**: Polling-based transports for incompatible proxies
+### Backend (Node.js)
+- **Event loop:** Non-blocking I/O
+- **Async/await:** All async operations
+- **Worker threads:** For motion detection (experimental)
+- **Child processes:** FFmpeg for RTSP streams
 
-### Asynchronous Communication
-#### Message Queuing
-- **Batch Processing**: Job queue for non-real-time tasks
-- **Event Publishing**: Internal event bus for decoupled components
-- **Scheduled Tasks**: Cron-based timing for maintenance operations
+### Frontend (React)
+- **Concurrent mode:** React 18 features
+- **Suspense:** For lazy loading
+- **Transitions:** Non-blocking UI updates
 
-#### Streaming
-- **Video Frames**: Continuous stream of processed frames
-- **Detection Results**: Real-time stream of detection events
-- **Analytics Data**: Periodic aggregation of metrics
+### OpenCV Service (Python)
+- **Flask:** WSGI threads (default)
+- **Synchronous:** CV operations block
+- **No async:** Python's GIL limitation
 
 ## Deployment Architecture
 
-### Containerized Deployment
-#### Docker Services
-1. **Frontend**: 
-   - Node.js base with built React assets
-   - Serves static files and handles client-side routing
-   - Port: 5173
+### Container Strategy
+- **Docker Compose:** Multi-container orchestration
+- **Service isolation:** Each tier in separate container
+- **Volume mounts:** Persistent data
+- **Network isolation:** Internal Docker network
 
-2. **Backend**:
-   - Node.js with compiled TypeScript
-   - Express API server and Socket.IO
-   - Port: 9753
+### Service Dependencies
+```
+frontend → backend → postgres
+                   → redis
+                   → opencv → postgres
+                          → redis
+```
 
-3. **OpenCV Service**:
-   - Python base with OpenCV and dependencies
-   - Flask REST API for computer vision
-   - Port: 8084
+### Resource Allocation
+- **Backend:** 1 CPU core, 1GB RAM
+- **Frontend:** 0.5 CPU core, 512MB RAM
+- **PostgreSQL:** 0.25 CPU core, 384MB RAM
+- **Redis:** 0.1 CPU core, 64MB RAM
+- **OpenCV:** 0.5 CPU core, 512MB RAM
 
-4. **PostgreSQL**:
-   - Official PostgreSQL image
-   - Persistent volume for data storage
-   - Port: 5432
+## Monitoring & Observability
 
-5. **Redis**:
-   - Official Redis image
-   - Persistent volume for durability
-   - Port: 6379
+### Health Monitoring
+- **Health checks:** All services
+- **Heartbeat:** Socket.io connections
+- **Stream health:** StreamHealthMonitor
 
-#### Container Orchestration
-- **docker-compose.yml**: Defines service dependencies and networks
-- **Health Checks**: Each service has liveness/readiness probes
-- **Resource Limits**: CPU/memory constraints per container
-- **Restart Policies**: Automatic recovery from failures
-- **Logging**: JSON logging to stdout/stderr for aggregation
+### Logging
+- **Backend:** Debug library with namespaces
+- **Frontend:** Browser console
+- **Audit logs:** Database table
 
-### Network Architecture
-#### Internal Communication
-- **Backend ↔ OpenCV Service**: HTTP over Docker network
-- **Backend ↔ PostgreSQL**: TCP/IP over Docker network
-- **Backend ↔ Redis**: TCP/IP over Docker network
-- **Frontend ↔ Backend**: Proxied via Vite in dev, direct in prod
+### Metrics
+- **Storage stats:** storageStatsService
+- **Event counts:** Database queries
+- **Performance:** Detection time tracking
 
-#### External Communication
-- **Clients → Frontend**: HTTPS (HTTP in development)
-- **Frontend → Backend**: Proxied API calls (same origin)
-- **System → Email/SMS**: External SMTP/API providers
-- **System → Web Push**: VAPID-authenticated push services
-- **System → MQTT**: Optional IoT broker communication
+## Extension Points
 
-### Storage Architecture
-#### Persistent Volumes
-- **PostgreSQL Data**: Database files and WAL logs
-- **Redis Data**: In-memory dataset with AOF persistence
-- **Uploaded Media**: Event images, snapshots, and recordings
-- **Application Logs**: Debug and audit logs (optional persistence)
+### Adding New Detection Types
+1. Add endpoint to OpenCV service (app.py)
+2. Add client method in opencvMicroserviceClient.ts
+3. Call from detection service
+4. Store in Event model
 
-#### Ephemeral Storage
-- **Container Filesystems**: Application code and temporary files
-- **In-Memory Caches**: Frequently accessed data
-- **Processing Buffers**: Video frame buffers during analysis
+### Adding New Cameras
+1. Add entry to cameras.json
+2. Restart backend (or hot reload)
+3. Camera auto-registered in StreamManager
 
-## Evolutionary Architecture
+### Adding New Notifications
+1. Add channel in notificationService.ts
+2. Add user preferences in UI
+3. Store in notification_preferences table
 
-### Extension Points
-#### Plug-in Architecture
-- **Detection Algorithms**: Easy to add new CV models
-- **Notification Channels**: Add email, SMS, Slack, etc.
-- **Storage Backends**: Local, S3, GCS, Azure Blob
-- **Authentication Providers**: LDAP, OAuth, SAML
+### Adding New Analytics
+1. Add endpoint in analytics routes
+2. Query database with aggregations
+3. Create UI components with Recharts
 
-#### API Extensibility
-- **Versioning**: Path-based API versioning ready
-- **Webhooks**: Outgoing integrations for third-party systems
-- **Event Subscriptions**: External systems can subscribe to events
-- **Custom Fields**: Extension mechanisms for domain-specific data
+## Technology Rationale
 
-### Technical Debt Management
-#### Identified Areas
-1. **Service Coupling**: Direct HTTP calls to OpenCV service
-   - Planned: Message queue abstraction
+| Decision | Rationale |
+|----------|-----------|
+| React over Vue/Angular | Larger ecosystem, better TypeScript support |
+| Express over Fastify/Koa | Mature ecosystem, middleware support |
+| PostgreSQL over MongoDB | ACID compliance, better for security data |
+| Python OpenCV over Node.js OpenCV | Better CV library ecosystem (face-recognition, dlib) |
+| Socket.io over raw WebSocket | Automatic fallback, room-based messaging |
+| Docker over bare metal | Consistent environment, easy deployment |
+| Redis over in-memory cache | Persistent cache, shared across instances |
 
-2. **Database Migrations**: Manual SQL files
-   - Planned: Migration framework integration
+## Architectural Trade-offs
 
-3. **Configuration Management**: Multiple config sources
-   - Planned: Centralized configuration service
+### Strengths
+- ✅ Modular and maintainable
+- ✅ Clear separation of concerns
+- ✅ Type-safe (TypeScript)
+- ✅ Real-time capable
+- ✅ Fault-tolerant
+- ✅ Easy to test
 
-4. **Error Handling**: Inconsistent patterns across services
-   - Planned: Standardized error handling middleware
+### Weaknesses
+- ❌ Complexity overhead (multiple services)
+- ❌ Docker resource overhead
+- ❌ Python service adds deployment complexity
+- ❌ TypeORM strict mode disabled (loose typing)
+- ❌ No message queue (direct HTTP calls)
 
-### Refactoring Opportunities
-#### Short-term
-1. **Repository Pattern Refinement**: Consistent interface usage
-2. **Service Interface Extraction**: Better decoupling
-3. **Configuration Consolidation**: Single source of truth
-4. **Logging Standardization**: Uniform format and levels
-
-#### Medium-term
-1. **CQRS Implementation**: Separate read/write models
-2. **Event Sourcing**: For audit-critical operations
-3. **Microservice Boundaries**: Better service decomposition
-4. **API Gateway**: Centralized API management
-
-#### Long-term
-1. **Cloud-Native Migration**: Kubernetes deployment
-2. **Service Mesh**: Istio/Linkerd for traffic management
-3. **Event Streaming**: Kafka/Pulsar for high-volume events
-4. **AI/ML Platform**: Model management and experimentation
+### Mitigations
+- Docker Compose for simple deployment
+- Resource limits for low-spec systems
+- Health checks and monitoring
+- Circuit breaker for external calls
+- Comprehensive testing

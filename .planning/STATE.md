@@ -92,6 +92,14 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260323-svj | Fix streaming page - make it minimal with working stream view as main screen | 2026-03-23 | 6f765bb | [260323-svj-fix-streaming-page](./quick/260323-svj-fix-streaming-page-make-it-minimal-with-/) |
+
+---
+
 ## Notes
 
 - Mode: yolo (auto-approve, no confirmation gates)
@@ -103,4 +111,4 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
-*State updated: 2026-03-23 - Milestone v1.0 shipped - 6/6 phases (100%), 31/31 requirements (100%)*
+*State updated: 2026-03-23 - Quick task 260323-svj: Minimized streaming page UI*

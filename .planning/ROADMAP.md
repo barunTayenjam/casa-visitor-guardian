@@ -165,6 +165,16 @@
 
 **Coverage:** 31/31 requirements mapped ✓
 
+### Phase 7: Security improvements: Fix critical vulnerabilities (RTSP credentials, rate limiting, input validation)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 7 to break down)
+
 ---
 *Roadmap created: 2026-03-18*
 *Last updated: 2026-03-18 after initial creation*

@@ -92,6 +92,14 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 7 added: Security improvements - Fix critical vulnerabilities (RTSP credentials, rate limiting, input validation) (2026-03-23)
+
+---
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |

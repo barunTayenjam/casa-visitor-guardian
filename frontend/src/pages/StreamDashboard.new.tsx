@@ -5,7 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { colors } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Power, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui';
+import { Shield, Activity, Calendar, Power } from 'lucide-react';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 
 /**

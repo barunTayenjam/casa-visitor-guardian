@@ -11,7 +11,7 @@ interface RateLimitRequest extends Request {
   user?: JWTPayload;
 }
 
-export async function rateLimitMiddleware(tier?: RateLimitTierType) {
+export function rateLimitMiddleware(tier?: RateLimitTierType) {
   return async (req: RateLimitRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const limitTier = tier || getRateLimitTierForPath(req.path);

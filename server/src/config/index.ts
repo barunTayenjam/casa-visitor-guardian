@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { decryptCredential, isEncryptedCredential, type EncryptedCredential } from '../services/credentialEncryption.js';
 import { logger } from '../utils/logger.js';
-import { AppDataSource } from '../database.js';
-import { SecurityEvent, SecurityEventType } from '../models/SecurityEvent.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -14,15 +12,22 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-async function logSecurityEvent(eventType: SecurityEventType, details: Record<string, unknown>): Promise<void> {
+// Note: Security event logging deferred to avoid circular dependency with database
+// This function will be called later when database is available
+async function logSecurityEventDeferred(eventType: string, details: Record<string, unknown>): Promise<void> {
   try {
-    if (!AppDataSource.isInitialized) {
+    // Import dynamically to avoid circular dependency during initialization
+    const { AppDataSource: DS } = await import('../database.js');
+    const { SecurityEvent, SecurityEventType } = await import('../models/SecurityEvent.js');
+
+    if (!DS.isInitialized) {
+      logger.warn(`Security event (database not ready): ${eventType}`, 'Config', details);
       return;
     }
 
-    const securityEventRepo = AppDataSource.getRepository(SecurityEvent);
+    const securityEventRepo = DS.getRepository(SecurityEvent);
     const event = securityEventRepo.create({
-      eventType,
+      eventType: eventType as any,
       details
     });
     await securityEventRepo.save(event);
@@ -39,7 +44,7 @@ function decryptStreamPath(streamPath: string | EncryptedCredential): string {
       return decrypted;
     } catch (error) {
       logger.error('Failed to decrypt credential, logging security event', 'Config', error);
-      logSecurityEvent(SecurityEventType.CREDENTIAL_DECRYPTION_FAILED, {
+      logSecurityEventDeferred('CREDENTIAL_DECRYPTION_FAILED', {
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
       }).catch(() => {});
@@ -47,7 +52,7 @@ function decryptStreamPath(streamPath: string | EncryptedCredential): string {
     }
   } else {
     logger.warn('Detected plaintext RTSP credential in configuration', 'Config');
-    logSecurityEvent(SecurityEventType.PLAINTEXT_CREDENTIALS_DETECTED, {
+    logSecurityEventDeferred('PLAINTEXT_CREDENTIALS_DETECTED', {
       timestamp: new Date().toISOString()
     }).catch(() => {});
     return streamPath;

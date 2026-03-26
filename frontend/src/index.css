@@ -163,6 +163,39 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Theme-aware glass panels */
+  .glass-panel {
+    @apply bg-white/5 dark:bg-white/5 backdrop-blur-sm border border-white/10 dark:border-white/10;
+  }
+
+  .glass-panel-solid {
+    @apply bg-card/80 backdrop-blur-sm border border-border;
+  }
+
+  /* Theme-aware input fields */
+  .input-theme {
+    @apply bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10;
+  }
+
+  /* Theme-aware button text */
+  .btn-ghost {
+    @apply text-foreground/80 hover:text-foreground hover:bg-white/5;
+  }
+
+  /* Theme-aware card surface */
+  .card-surface {
+    @apply bg-card border border-border rounded-xl;
+  }
+
+  /* Theme-aware text variants */
+  .text-muted {
+    @apply text-muted-foreground;
+  }
+
+  .text-secondary {
+    @apply text-foreground/70;
+  }
 }
 
 .debug-border {

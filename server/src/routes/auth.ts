@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { authService } from '../auth/index.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
-import { createAuthRateLimit } from '../middleware/rateLimit.js';
+import { createAuthRateLimit } from '../middleware/enhancedRateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';

@@ -142,10 +142,11 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
         {controlsVisible && (
           <div className="absolute bottom-3 right-3 flex items-center gap-1">
             <button
-              className="h-8 w-8 flex items-center justify-center rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+              className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
               title="Mute/Unmute"
+              aria-label="Mute or unmute"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
               </svg>
@@ -153,11 +154,12 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
             
             {!isFocused && (
               <button
-                className="h-8 w-8 flex items-center justify-center rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
                 onClick={onFocus}
                 title="Expand to fullscreen"
+                aria-label="Expand to fullscreen"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                 </svg>
               </button>

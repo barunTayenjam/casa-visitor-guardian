@@ -10,6 +10,7 @@ import { Calendar, TrendingUp, AlertTriangle, Clock, User, Grid, List, ChevronLe
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import apiService from '@/services/ApiService';
 import { useNavigate } from 'react-router-dom';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
@@ -454,11 +455,10 @@ const EventsPage = () => {
                 >
                   <div className="relative aspect-video bg-black overflow-hidden">
                     {event.imageUrl ? (
-                      <img
+                      <ProgressiveImage
                         src={event.imageUrl}
                         alt={event.cameraName}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        loading="lazy"
+                        className="w-full h-full"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -530,13 +530,12 @@ const EventsPage = () => {
                   }}
                   onClick={() => handleEventSelect(event.id)}
                 >
-                  <div className="relative w-32 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black">
+                   <div className="relative w-32 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black">
                     {event.imageUrl ? (
-                      <img
+                      <ProgressiveImage
                         src={event.imageUrl}
                         alt={event.cameraName}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        loading="lazy"
+                        className="w-full h-full"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

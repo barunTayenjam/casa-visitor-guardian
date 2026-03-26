@@ -3,6 +3,7 @@ import { MotionEvent } from '@/types/security';
 import { X, Download, Trash2, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { colors } from '@/styles/design-tokens';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -133,10 +134,10 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
         {/* Event Image */}
         <div className="relative aspect-video bg-black">
           {!imageError && event.imageUrl ? (
-            <img
+            <ProgressiveImage
               src={event.imageUrl}
               alt={event.cameraName}
-              className="w-full h-full object-contain"
+              className="w-full h-full"
               onError={() => setImageError(true)}
             />
           ) : (

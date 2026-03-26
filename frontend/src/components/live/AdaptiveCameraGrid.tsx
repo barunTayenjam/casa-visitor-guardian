@@ -300,12 +300,21 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
           </div>
         ) : (
           // Grid Mode - Show all cameras
-          <div className={getGridClasses()}>
+          <div className={getGridClasses()} role="group" aria-label="Camera grid">
             {activeCameras.map((camera) => (
               <div
                 key={camera.id}
                 className="relative bg-black overflow-hidden cursor-pointer group aspect-video"
                 onClick={() => handleCameraClick(camera.id)}
+                role="button"
+                tabIndex={0}
+                aria-label={`${camera.name} camera feed`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleCameraClick(camera.id);
+                  }
+                }}
               >
                 {/* Camera Stream */}
                 <CameraStream key={`grid-${camera.id}`} camera={camera} autoStart={true} />

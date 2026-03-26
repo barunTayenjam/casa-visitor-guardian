@@ -350,6 +350,7 @@ const EventsPage = () => {
                 variant="ghost"
                 onClick={clearSelection}
                 className="text-white/70 hover:text-white h-7 px-2"
+                aria-label="Clear selection"
               >
                 ✕
               </Button>
@@ -381,6 +382,8 @@ const EventsPage = () => {
                 'p-2 rounded transition-all',
                 viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
               )}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
             >
               <Grid className="h-4 w-4" />
             </button>
@@ -390,6 +393,8 @@ const EventsPage = () => {
                 'p-2 rounded transition-all',
                 viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
               )}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
             >
               <List className="h-4 w-4" />
             </button>

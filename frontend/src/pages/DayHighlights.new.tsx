@@ -427,7 +427,7 @@ const DayHighlightsPage = () => {
                 {currentHighlight?.imageUrl ? (
                   <img
                     src={currentHighlight.imageUrl}
-                    alt={currentHighlight.filename}
+                    alt={`Day highlight: ${currentHighlight.event_type || 'event'} from ${currentHighlight.cameraId}`}
                     className="w-full h-full object-contain"
                   />
                 ) : (

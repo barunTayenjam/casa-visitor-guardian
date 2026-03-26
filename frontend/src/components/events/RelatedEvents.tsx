@@ -107,7 +107,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({
               {event.imageUrl ? (
                 <img
                   src={event.imageUrl}
-                  alt={event.cameraName}
+                  alt={`Related event: ${event.labels?.[0] || 'detection'} on ${event.cameraName}`}
                   className="w-full h-full object-cover"
                 />
               ) : (

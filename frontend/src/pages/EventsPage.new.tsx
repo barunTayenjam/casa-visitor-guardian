@@ -462,7 +462,7 @@ const EventsPage = () => {
                     {event.imageUrl ? (
                       <ProgressiveImage
                         src={event.imageUrl}
-                        alt={event.cameraName}
+                        alt={`Motion event: ${event.labels?.[0] || 'detection'} on ${event.cameraName}`}
                         className="w-full h-full"
                       />
                     ) : (
@@ -539,7 +539,7 @@ const EventsPage = () => {
                     {event.imageUrl ? (
                       <ProgressiveImage
                         src={event.imageUrl}
-                        alt={event.cameraName}
+                        alt={`Motion event: ${event.labels?.[0] || 'detection'} on ${event.cameraName}`}
                         className="w-full h-full"
                       />
                     ) : (

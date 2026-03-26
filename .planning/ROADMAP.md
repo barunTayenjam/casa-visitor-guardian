@@ -165,16 +165,44 @@
 
 **Coverage:** 31/31 requirements mapped ✓
 
-### Phase 7: Security improvements: Fix critical vulnerabilities (RTSP credentials, rate limiting, input validation)
+### Phase 7: Security Improvements — Fix critical vulnerabilities ✅ Complete (2026-03-26)
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** Fix RTSP credential exposure, rate limiting, and input validation issues
 
-Plans:
-- [ ] TBD (run /gsd:plan-phase 7 to break down)
+**Success Criteria:**
+1. RTSP credentials encrypted at rest
+2. Rate limiting prevents abuse
+3. All API inputs validated
+
+**Plans:** 1/1 complete
+
+### Phase 8: UI/UX Improvements — User experience enhancement 📋 Planning (2026-03-26)
+
+**Goal:** Enhance user experience to match industry standards
+
+**Requirements:**
+- UX-01: Severity-based motion alerts
+- UX-02: Stream quality indicators
+- UX-03: Mobile touch optimization
+- UX-04: Progressive loading states
+- UX-05: Dark mode support
+- UX-06: WCAG AA accessibility
+
+**Success Criteria:**
+1. Users assess system status in < 3 seconds
+2. Mobile task completion > 90%
+3. Accessibility score > 95%
+4. Dark mode respects system preference
+
+**Plans:** 6/6 planned
+
+- **Plan 8.1:** Severity-Based Motion Alerts — Progressive disclosure by threat level
+- **Plan 8.2:** Stream Quality Indicators — Real-time health metrics
+- **Plan 8.3:** Mobile Touch Target Optimization — 44x44px minimum, thumb zone controls
+- **Plan 8.4:** Progressive Loading States — Skeleton screens, thumbnails
+- **Plan 8.5:** Dark Mode Implementation — System-aware with manual override
+- **Plan 8.6:** WCAG AA Accessibility — ARIA labels, keyboard nav, focus indicators
 
 ---
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-03-18 after initial creation*
+*Last updated: 2026-03-26 - Phase 8 added*

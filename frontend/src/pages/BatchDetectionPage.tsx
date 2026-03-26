@@ -740,7 +740,7 @@ function DetectionCard({ result }: { result: BatchResult }) {
           {!imageError ? (
             <img
               src={imageUrl}
-              alt={result.filename}
+              alt={`Detection result: ${result.filename} from ${result.cameraId || 'camera'}`}
               className="w-full h-full object-cover"
               onError={() => setImageError(true)}
             />

@@ -255,7 +255,7 @@ const AnalyticsPage = () => {
             </div>
           </div>
           <div className="h-8 w-px bg-white/10 hidden md:block" />
-          <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 border border-white/10">
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 border border-white/10" role="group" aria-label="Time range selection">
             {(['7d', '30d', '90d'] as const).map((range) => (
               <button
                 key={range}
@@ -264,6 +264,8 @@ const AnalyticsPage = () => {
                   'px-4 py-2 rounded-lg text-xs font-medium transition-all',
                   timeRange === range ? 'bg-white/10 text-white shadow' : 'text-white/60 hover:text-white'
                 )}
+                aria-label={range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}
+                aria-pressed={timeRange === range}
               >
                 {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
               </button>

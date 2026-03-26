@@ -1,61 +1,88 @@
 /**
  * Design Tokens for SentryVision UI
  * Modern Minimalist Style - Clean, Professional, Unifi/Ring-inspired
+ * Supports both dark and light themes via CSS custom properties
  */
 
-export const colors = {
-  // Base colors
+// Dark theme tokens (default)
+export const darkColors = {
   background: {
-    primary: '#0a0e27',    // Deep navy - main background
-    secondary: '#151932',  // Lighter navy - panels/cards
-    tertiary: '#1e293b',   // Slate - elevated surfaces
+    primary: '#0a0e27',
+    secondary: '#151932',
+    tertiary: '#1e293b',
   },
-  
-  // Text colors
   text: {
-    primary: '#f1f5f9',    // Off-white - primary text
-    secondary: '#94a3b8',  // Gray - secondary text
-    muted: '#64748b',      // Darker gray - labels, hints
+    primary: '#f1f5f9',
+    secondary: '#94a3b8',
+    muted: '#64748b',
   },
-  
-  // Border & Dividers
   border: {
-    subtle: '#1e293b',     // Very subtle border
-    default: '#334155',    // Default border
-    hover: '#475569',      // Hover border
+    subtle: '#1e293b',
+    default: '#334155',
+    hover: '#475569',
   },
-  
-  // Status colors - Minimalist palette
-  status: {
-    success: '#10b981',    // Green - healthy, recording
-    warning: '#f59e0b',    // Amber - caution
-    error: '#ef4444',      // Red - critical, offline
-    info: '#3b82f6',       // Blue - informational
-  },
-  
-  // Detection type colors
-  detection: {
-    motion: '#f59e0b',     // Amber - motion events
-    person: '#22c55e',     // Green - person detection
-    vehicle: '#3b82f6',    // Blue - vehicle detection
-    face: '#8b5cf6',       // Purple - face recognition
-    package: '#06b6d4',    // Cyan - package detection
-  },
-  
-  // Interactive states
   interactive: {
     hover: 'rgba(255, 255, 255, 0.05)',
     active: 'rgba(255, 255, 255, 0.08)',
     focus: 'rgba(59, 130, 246, 0.15)',
   },
-  
-  // Glassmorphism
   glass: {
     light: 'rgba(15, 23, 42, 0.6)',
     medium: 'rgba(15, 23, 42, 0.8)',
     heavy: 'rgba(15, 23, 42, 0.95)',
   },
 };
+
+// Light theme tokens — WCAG AA compliant (4.5:1 minimum contrast)
+export const lightColors = {
+  background: {
+    primary: '#ffffff',
+    secondary: '#f8fafc',
+    tertiary: '#f1f5f9',
+  },
+  text: {
+    primary: '#0f172a',   // slate-950 — 15.4:1 on white
+    secondary: '#475569', // slate-600 — 7.0:1 on white
+    muted: '#64748b',     // slate-500 — 4.6:1 on white
+  },
+  border: {
+    subtle: '#f1f5f9',
+    default: '#e2e8f0',
+    hover: '#cbd5e1',
+  },
+  interactive: {
+    hover: 'rgba(0, 0, 0, 0.04)',
+    active: 'rgba(0, 0, 0, 0.06)',
+    focus: 'rgba(59, 130, 246, 0.15)',
+  },
+  glass: {
+    light: 'rgba(255, 255, 255, 0.6)',
+    medium: 'rgba(255, 255, 255, 0.8)',
+    heavy: 'rgba(255, 255, 255, 0.95)',
+  },
+};
+
+// Shared theme tokens (work in both modes)
+export const colors = {
+  ...darkColors,
+  status: {
+    success: '#10b981',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    info: '#3b82f6',
+  },
+  detection: {
+    motion: '#f59e0b',
+    person: '#22c55e',
+    vehicle: '#3b82f6',
+    face: '#8b5cf6',
+    package: '#06b6d4',
+  },
+};
+
+// Export darkTokens alias for plan reference
+export const darkTokens = darkColors;
+export const lightTokens = lightColors;
 
 export const spacing = {
   xs: '4px',

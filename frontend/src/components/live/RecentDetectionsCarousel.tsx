@@ -170,7 +170,7 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
                   {/* Event Image */}
                   <img
                     src={event.imageUrl}
-                    alt={event.event_type}
+                    alt={`Detection: ${event.event_type} on ${event.cameraId}`}
                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                     onError={(e) => {
                       e.currentTarget.src = '/placeholder-event.svg';
@@ -206,7 +206,7 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
 
             {/* Image */}
             <div className="relative bg-black flex-1">
-              <img src={selectedEvent.imageUrl} alt={selectedEvent.event_type} className="w-full object-contain max-h-[50vh] md:max-h-[70vh]" onError={(e) => {
+              <img src={selectedEvent.imageUrl} alt={`Enlarged view: ${selectedEvent.event_type} detection on ${selectedEvent.cameraId}`} className="w-full object-contain max-h-[50vh] md:max-h-[70vh]" onError={(e) => {
                 e.currentTarget.src = '/placeholder-event.svg';
               }} />
             </div>

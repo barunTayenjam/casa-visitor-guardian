@@ -139,7 +139,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           {!imageError && event.imageUrl ? (
             <ProgressiveImage
               src={event.imageUrl}
-              alt={event.cameraName}
+              alt={`Event from ${event.cameraName}: ${event.labels?.[0] || 'motion detection'}`}
               className="w-full h-full"
               onError={() => setImageError(true)}
             />

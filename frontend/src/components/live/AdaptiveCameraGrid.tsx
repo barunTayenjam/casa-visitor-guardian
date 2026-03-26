@@ -1,7 +1,7 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Camera } from '@/types/security';
 import { CameraStream } from '@/components/dashboard/CameraStream';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -103,8 +103,84 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
     }
   };
 
+  // Swipe gesture tracking
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD = 50;
+
+  const getFocusedIndex = useCallback(() => {
+    if (!focusedCameraId) return -1;
+    return activeCameras.findIndex(c => c.id === focusedCameraId);
+  }, [focusedCameraId, activeCameras]);
+
+  const navigateCamera = useCallback((direction: 'prev' | 'next') => {
+    if (activeCameras.length < 2) return;
+    const currentIndex = getFocusedIndex();
+    let nextIndex: number;
+    if (currentIndex === -1) {
+      nextIndex = direction === 'next' ? 0 : activeCameras.length - 1;
+    } else {
+      nextIndex = direction === 'next'
+        ? (currentIndex + 1) % activeCameras.length
+        : (currentIndex - 1 + activeCameras.length) % activeCameras.length;
+    }
+    onCameraFocus?.(activeCameras[nextIndex].id);
+  }, [activeCameras, getFocusedIndex, onCameraFocus]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    if (absDx < SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD) return;
+
+    if (absDx > absDy) {
+      // Horizontal swipe — switch camera
+      navigateCamera(dx > 0 ? 'prev' : 'next');
+    } else {
+      // Vertical swipe — fullscreen toggle
+      if (dy < 0 && !focusedCameraId && activeCameras.length > 0) {
+        // Swipe up: enter fullscreen on first camera
+        onCameraFocus?.(activeCameras[0].id);
+      } else if (dy > 0 && focusedCameraId) {
+        // Swipe down: exit fullscreen
+        onCameraFocus?.(undefined as unknown as string);
+      }
+    }
+  }, [focusedCameraId, activeCameras, navigateCamera, onCameraFocus]);
+
+  // Keyboard navigation (F for fullscreen, arrow keys for camera switch)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'f' || e.key === 'F') {
+        if (focusedCameraId) {
+          onCameraFocus?.(undefined as unknown as string);
+        } else if (activeCameras.length > 0) {
+          onCameraFocus?.(activeCameras[0].id);
+        }
+      }
+      if (e.key === 'ArrowLeft') navigateCamera('prev');
+      if (e.key === 'ArrowRight') navigateCamera('next');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedCameraId, activeCameras, onCameraFocus, navigateCamera]);
+
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div
+      className="relative w-full h-full flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Layout Controls - Minimalist - Hidden on mobile */}
       <div className="absolute top-4 right-4 z-30 flex items-center gap-2 hidden md:flex">
         <div className="flex items-center gap-1 bg-black/60 rounded-lg p-1 border border-white/10">
@@ -162,19 +238,62 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             {(() => {
               const camera = activeCameras.find(c => c.id === focusedCameraId);
               if (!camera) return null;
+              const camIndex = getFocusedIndex();
               return (
                 <div className="relative w-full h-full bg-black max-h-screen">
                   {/* Exit Focus Button */}
                   <button
-                    className="absolute top-4 right-4 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
+                    className="absolute top-4 right-4 z-20 min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
                     onClick={() => handleCameraClick(camera.id)}
                     title="Exit fullscreen"
+                    aria-label="Exit fullscreen"
                   >
                     <X className="h-5 w-5" />
                   </button>
 
+                  {/* Swipe Navigation Arrows (mobile) */}
+                  {activeCameras.length > 1 && (
+                    <>
+                      <button
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                        onClick={() => navigateCamera('prev')}
+                        title="Previous camera"
+                        aria-label="Previous camera"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                        onClick={() => navigateCamera('next')}
+                        title="Next camera"
+                        aria-label="Next camera"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </>
+                  )}
+
                   {/* Camera Stream */}
                   <CameraStream key={`focused-${camera.id}`} camera={camera} autoStart={true} />
+
+                  {/* Camera Position Indicator */}
+                  {activeCameras.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+                      {activeCameras.map((cam, i) => (
+                        <button
+                          key={cam.id}
+                          className={cn(
+                            "rounded-full transition-all",
+                            cam.id === focusedCameraId
+                              ? "w-2.5 h-2.5 bg-white"
+                              : "w-2 h-2 bg-white/40 hover:bg-white/60"
+                          )}
+                          onClick={() => onCameraFocus?.(cam.id)}
+                          aria-label={`Switch to ${cam.name}`}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}

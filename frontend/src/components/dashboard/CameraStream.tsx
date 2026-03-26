@@ -11,6 +11,7 @@ import { QualityWarning } from '@/components/dashboard/QualityWarning';
 import { MotionAlertOverlay } from '@/components/live/MotionAlertOverlay';
 import { ScreenshotButton } from '@/components/live/ScreenshotButton';
 import { ConnectionStateOverlay } from '@/components/live/ConnectionStateOverlay';
+import { CameraStreamSkeleton } from '@/components/ui/LoadingSkeleton';
 import { cn } from '@/lib/utils';
 
 interface CameraStreamProps {
@@ -34,6 +35,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [lastFrame, setLastFrame] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   
   // Enhanced metrics
@@ -204,13 +206,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
       const now = Date.now();
 
-      // Limit frame updates to prevent excessive rendering
-      if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
-        lastFrameUpdate = now;
+        // Limit frame updates to prevent excessive rendering
+        if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
+          lastFrameUpdate = now;
 
-        // Update image with base64 data
-        if (imgRef.current) {
-          imgRef.current.src = `data:image/jpeg;base64,${data.data}`;
+          const frameDataUrl = `data:image/jpeg;base64,${data.data}`;
+
+          // Update image with base64 data
+          if (imgRef.current) {
+            imgRef.current.src = frameDataUrl;
+          }
+
+          // Cache last frame for thumbnail placeholder
+          setLastFrame(frameDataUrl);
           
           // Update bandwidth estimate (base64 is ~33% larger than raw)
           const base64Size = data.data.length * 0.75;
@@ -303,6 +311,21 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         </div>
       ) : (
         <>
+          {/* Thumbnail placeholder while stream connects */}
+          {!isStreaming && (connectionState === 'connecting' || connectionState === 'reconnecting') && (
+            <div className="absolute inset-0 z-25">
+              {lastFrame ? (
+                <img
+                  src={lastFrame}
+                  alt={`${camera.name} last frame`}
+                  className="h-full w-full object-contain opacity-60 blur-[2px] scale-[1.02]"
+                />
+              ) : (
+                <CameraStreamSkeleton />
+              )}
+            </div>
+          )}
+
           {/* Connection State Overlay */}
           {(connectionState === 'connecting' || connectionState === 'error' || connectionState === 'reconnecting') && (
             <ConnectionStateOverlay
@@ -343,10 +366,17 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
           {!isStreaming && connectionState === 'idle' && (
              <div 
-               className="h-full flex items-center justify-center cursor-pointer"
+               className="absolute inset-0 h-full flex items-center justify-center cursor-pointer"
                onClick={toggleStream}
              >
-               <div className="text-center">
+               {lastFrame && (
+                 <img
+                   src={lastFrame}
+                   alt={`${camera.name} last frame`}
+                   className="absolute inset-0 h-full w-full object-contain opacity-40 blur-[1px]"
+                 />
+               )}
+               <div className="relative z-10 text-center">
                  <Play className="h-12 w-12 text-white/80 hover:text-white transition-colors mx-auto mb-2" />
                  <p className="text-white/60 text-sm">Click to Start Stream</p>
                </div>

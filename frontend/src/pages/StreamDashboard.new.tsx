@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { colors } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Power } from 'lucide-react';
+import { Shield, Activity, Calendar, Power, Camera as CameraIcon, Maximize2, Volume2, VolumeX, BellOff } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 
@@ -19,6 +19,7 @@ const StreamDashboard = () => {
   const { toast } = useToast();
   const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [muted, setMuted] = useState(true);
 
   const wakeLock = useWakeLock({
     enabled: wakeLockEnabled,
@@ -200,6 +201,58 @@ const StreamDashboard = () => {
             focusedCameraId={focusedCameraId}
             onCameraFocus={handleCameraFocus}
           />
+        </div>
+
+        {/* Mobile Action Bar — thumb zone (bottom 30%) */}
+        <div className="md:hidden absolute bottom-0 left-0 right-0 z-40 px-4 pb-6 pt-3"
+          style={{
+            background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+          }}
+        >
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="min-h-[48px] min-w-[48px] h-12 w-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+              onClick={handleTakeSnapshot}
+              title="Take Screenshot"
+              aria-label="Take screenshot"
+            >
+              <CameraIcon className="h-5 w-5" />
+            </Button>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className="min-h-[48px] min-w-[48px] h-12 w-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+              onClick={() => setMuted(!muted)}
+              title={muted ? 'Unmute' : 'Mute'}
+              aria-label={muted ? 'Unmute' : 'Mute'}
+            >
+              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </Button>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className="min-h-[48px] min-w-[48px] h-12 w-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+              onClick={() => handleCameraFocus(focusedCameraId || '')}
+              title={focusedCameraId ? 'Exit fullscreen' : 'Fullscreen camera'}
+              aria-label={focusedCameraId ? 'Exit fullscreen' : 'Fullscreen camera'}
+            >
+              <Maximize2 className="h-5 w-5" />
+            </Button>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className="min-h-[48px] min-w-[48px] h-12 w-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+              title="Snooze alerts"
+              aria-label="Snooze alerts"
+            >
+              <BellOff className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </div>
     </TooltipProvider>

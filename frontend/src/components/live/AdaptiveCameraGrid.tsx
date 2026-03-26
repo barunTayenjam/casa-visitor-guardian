@@ -112,7 +112,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             size="sm"
             variant={layout === 'adaptive' ? 'default' : 'ghost'}
             onClick={() => handleLayoutChange('adaptive')}
-            className="h-8 px-3 text-xs font-medium"
+            className="min-h-[44px] min-w-[44px] px-3 text-xs font-medium"
+            aria-label="Auto layout"
           >
             Auto
           </Button>
@@ -120,7 +121,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             size="sm"
             variant={layout === '1x1' ? 'default' : 'ghost'}
             onClick={() => handleLayoutChange('1x1')}
-            className="h-8 px-3 text-xs font-medium"
+            className="min-h-[44px] min-w-[44px] px-3 text-xs font-medium"
+            aria-label="1x1 layout"
           >
             1x1
           </Button>
@@ -128,7 +130,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             size="sm"
             variant={layout === '2x2' ? 'default' : 'ghost'}
             onClick={() => handleLayoutChange('2x2')}
-            className="h-8 px-3 text-xs font-medium"
+            className="min-h-[44px] min-w-[44px] px-3 text-xs font-medium"
+            aria-label="2x2 layout"
           >
             2x2
           </Button>
@@ -136,7 +139,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             size="sm"
             variant={layout === '3x3' ? 'default' : 'ghost'}
             onClick={() => handleLayoutChange('3x3')}
-            className="h-8 px-3 text-xs font-medium"
+            className="min-h-[44px] min-w-[44px] px-3 text-xs font-medium"
+            aria-label="3x3 layout"
           >
             3x3
           </Button>

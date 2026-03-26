@@ -88,11 +88,12 @@ export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
       onClick={handleScreenshot}
       disabled={isCapturing || !imgRef.current}
       title="Take Screenshot"
+      aria-label="Take screenshot"
     >
       {isCapturing ? (
-        <Download className="h-4 w-4 animate-pulse" />
+        <Download className="h-5 w-5 animate-pulse" />
       ) : (
-        <Camera className="h-4 w-4" />
+        <Camera className="h-5 w-5" />
       )}
     </Button>
   );

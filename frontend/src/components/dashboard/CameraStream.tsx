@@ -405,19 +405,20 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
                 <ScreenshotButton
                   camera={camera}
                   imgRef={imgRef}
-                  className="bg-black/50 text-white hover:bg-black/70 h-8 w-8"
+                  className="bg-black/50 text-white hover:bg-black/70 min-h-[44px] min-w-[44px] h-11 w-11"
                 />
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="bg-black/50 text-white hover:bg-black/70 h-8 w-8"
+                  className="bg-black/50 text-white hover:bg-black/70 min-h-[44px] min-w-[44px] h-11 w-11"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleStream();
                   }}
                   title="Stop Stream"
+                  aria-label="Stop stream"
                 >
-                  <Pause className="h-4 w-4" />
+                  <Pause className="h-5 w-5" />
                 </Button>
               </>
             )}
@@ -426,18 +427,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="bg-black/50 text-white hover:bg-black/70 h-8 w-8"
+                className="bg-black/50 text-white hover:bg-black/70 min-h-[44px] min-w-[44px] h-11 w-11"
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleStream();
                 }}
                 disabled={isLoading}
                 title={isStreaming ? "Connecting..." : "Start Stream"}
+                aria-label={isStreaming ? "Connecting" : "Start stream"}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <Play className="h-4 w-4" />
+                  <Play className="h-5 w-5" />
                 )}
               </Button>
             )}

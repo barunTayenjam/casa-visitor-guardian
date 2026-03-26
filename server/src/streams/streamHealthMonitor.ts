@@ -30,7 +30,7 @@ export class StreamHealthMonitor {
     
     this.config = {
       intervalMs: config?.intervalMs || 30000, // 30 seconds
-      staleThresholdMs: config?.staleThresholdMs || 120000, // 2 minutes
+      staleThresholdMs: config?.staleThresholdMs || 300000, // 5 minutes (increased from 2 min)
       maxRestarts: config?.maxRestarts || 3
     };
   }

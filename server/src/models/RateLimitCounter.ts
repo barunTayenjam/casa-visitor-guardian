@@ -8,8 +8,8 @@ import {
 } from 'typeorm';
 
 @Entity('rate_limit_counters')
-@Index(['user_id', 'endpoint', 'window_start'])
-@Index(['window_start'])
+@Index(['userId', 'endpoint', 'windowStart'])
+@Index(['windowStart'])
 export class RateLimitCounter {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

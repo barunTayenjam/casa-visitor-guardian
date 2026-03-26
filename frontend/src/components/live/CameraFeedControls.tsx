@@ -22,22 +22,24 @@ export const CameraFeedControls: React.FC<CameraFeedControlsProps> = ({
       <Button
         size="icon"
         variant="ghost"
-        className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+        className="min-h-[44px] min-w-[44px] h-11 w-11 text-white/80 hover:text-white hover:bg-white/10"
         onClick={() => setMuted(!muted)}
         title={muted ? 'Unmute' : 'Mute'}
+        aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
       </Button>
       
       {!isFocused && (
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+          className="min-h-[44px] min-w-[44px] h-11 w-11 text-white/80 hover:text-white hover:bg-white/10"
           onClick={onFullscreen}
           title="Expand to fullscreen"
+          aria-label="Expand to fullscreen"
         >
-          <Maximize2 className="h-4 w-4" />
+          <Maximize2 className="h-5 w-5" />
         </Button>
       )}
     </div>

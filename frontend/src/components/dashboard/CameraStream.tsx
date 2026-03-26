@@ -6,6 +6,7 @@ import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
 import { Camera, Detection } from '@/types/security';
 import { StreamHealthIndicator } from '@/components/live/StreamHealthIndicator';
+import { StreamQualityIndicator } from '@/components/dashboard/StreamQualityIndicator';
 import { MotionAlertOverlay } from '@/components/live/MotionAlertOverlay';
 import { ScreenshotButton } from '@/components/live/ScreenshotButton';
 import { ConnectionStateOverlay } from '@/components/live/ConnectionStateOverlay';
@@ -357,14 +358,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             </div>
           </div>
 
-          {/* Top Right: Stream Health Indicator */}
+          {/* Top Right: Stream Quality Indicator */}
           {connectionState === 'connected' && isStreaming && (
             <div className="absolute top-3 right-3 z-20">
-              <StreamHealthIndicator
-                fps={displayFps || 0}
-                bandwidth={bandwidth}
-                latency={latency}
-                viewerCount={viewerCount}
+              <StreamQualityIndicator
+                metrics={{
+                  resolution: camera.isActive && camera.config?.streams?.[0]?.width 
+                    ? `${camera.config.streams[0].width}x${camera.config.streams[0].height}`
+                    : '720p',
+                  fps: displayFps || 0,
+                  bandwidth: Math.round(bandwidth / 1024), // Convert to Kbps
+                  latency: latency
+                }}
               />
             </div>
           )}

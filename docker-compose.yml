@@ -60,6 +60,12 @@ services:
       - JWT_ACCESS_SECRET=dev-jwt-access-secret-change-in-production
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret-change-in-production
       - CREDENTIAL_ENCRYPTION_KEY=dev-credential-encryption-key-32bytes-min
+      - RATE_LIMIT_STANDARD_REQUESTS=100
+      - RATE_LIMIT_STANDARD_WINDOW=900000
+      - RATE_LIMIT_DETECTION_REQUESTS=10
+      - RATE_LIMIT_DETECTION_WINDOW=60000
+      - RATE_LIMIT_BATCH_REQUESTS=5
+      - RATE_LIMIT_BATCH_WINDOW=3600000
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections

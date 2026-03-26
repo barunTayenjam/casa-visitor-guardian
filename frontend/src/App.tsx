@@ -34,25 +34,25 @@ const AuthRedirect = () => {
 const queryClient = new QueryClient();
 
 const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () => void }) => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full text-center">
-      <div className="text-red-500 mb-4">
+  <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full text-center">
+      <div className="text-destructive mb-4">
         <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <h1 className="text-xl font-bold text-white mb-2">Something went wrong</h1>
-      <p className="text-slate-400 mb-4">{error?.message || 'Unknown error occurred'}</p>
+      <h1 className="text-xl font-bold text-foreground mb-2">Something went wrong</h1>
+      <p className="text-muted-foreground mb-4">{error?.message || 'Unknown error occurred'}</p>
       <div className="space-x-2">
         <button 
           onClick={resetError} 
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
         >
           Try Again
         </button>
         <button 
           onClick={() => window.location.reload()} 
-          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          className="px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-colors"
         >
           Reload Page
         </button>
@@ -62,11 +62,11 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
 );
 
 const LoadingFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-900">
+  <div className="min-h-screen flex items-center justify-center bg-background">
     <div className="text-center">
-      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-      <div className="text-white text-lg">Loading...</div>
-      <div className="text-slate-400 text-sm mt-2">Initializing SentryVision</div>
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <div className="text-foreground text-lg">Loading...</div>
+      <div className="text-muted-foreground text-sm mt-2">Initializing SentryVision</div>
     </div>
   </div>
 );

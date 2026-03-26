@@ -100,6 +100,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
               onClick={onPrevious}
               disabled={!hasPrevious}
+              aria-label="Previous event"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -109,6 +110,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
               onClick={onNext}
               disabled={!hasNext}
+              aria-label="Next event"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -123,6 +125,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             variant="ghost"
             className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5"
             onClick={onClose}
+            aria-label="Close event details"
           >
             <X className="h-4 w-4" />
           </Button>

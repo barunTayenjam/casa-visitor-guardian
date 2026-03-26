@@ -197,10 +197,10 @@ export const RecentDetectionsCarousel: React.FC<RecentDetectionsCarouselProps> =
 
       {/* Modal for Enlarged View */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)', backdropFilter: 'blur(10px)' }} onClick={() => setSelectedEvent(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.90)', backdropFilter: 'blur(10px)' }} onClick={() => setSelectedEvent(null)} role="dialog" aria-modal="true" aria-label="Event preview" onKeyDown={(e) => { if (e.key === 'Escape') setSelectedEvent(null); }} tabIndex={-1}>
           <div className="relative max-w-5xl w-full bg-slate-900 rounded-xl overflow-hidden border border-white/10 max-h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Close Button */}
-            <button className="absolute top-2 md:top-4 right-2 md:right-4 z-10 h-8 w-8 md:h-10 md:w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all" onClick={() => setSelectedEvent(null)}>
+            <button className="absolute top-2 md:top-4 right-2 md:right-4 z-10 h-8 w-8 md:h-10 md:w-10 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 transition-all" onClick={() => setSelectedEvent(null)} aria-label="Close preview">
               <X className="h-4 w-4 md:h-5 md:w-5" />
             </button>
 

@@ -285,6 +285,7 @@ const SettingsPage = () => {
                       type="button"
                       onClick={() => togglePasswordVisibility('current')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPasswords.current ? 'Hide current password' : 'Show current password'}
                     >
                       {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -306,6 +307,7 @@ const SettingsPage = () => {
                       type="button"
                       onClick={() => togglePasswordVisibility('new')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPasswords.new ? 'Hide new password' : 'Show new password'}
                     >
                       {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -327,6 +329,7 @@ const SettingsPage = () => {
                       type="button"
                       onClick={() => togglePasswordVisibility('confirm')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
                     >
                       {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>

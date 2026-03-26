@@ -125,6 +125,15 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                   )}
                   onClick={() => timeEvents[0] && onEventSelect?.(timeEvents[0].id)}
                   title={`${timeEvents.length} events`}
+                  aria-label={`${timeEvents.length} event${timeEvents.length > 1 ? 's' : ''} at ${format(timeEvents[0].timestamp, 'PPP p')}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      timeEvents[0] && onEventSelect?.(timeEvents[0].id);
+                    }
+                  }}
                 >
                   {/* Event Count Badge */}
                   {timeEvents.length > 1 && (
@@ -157,6 +166,8 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
             zoom === 'hour' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
           )}
           onClick={() => setZoom('hour')}
+          aria-label="Zoom to 1 hour"
+          aria-pressed={zoom === 'hour'}
         >
           1H
         </button>
@@ -166,6 +177,8 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
             zoom === 'day' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
           )}
           onClick={() => setZoom('day')}
+          aria-label="Zoom to 1 day"
+          aria-pressed={zoom === 'day'}
         >
           1D
         </button>
@@ -175,6 +188,8 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
             zoom === 'week' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
           )}
           onClick={() => setZoom('week')}
+          aria-label="Zoom to 1 week"
+          aria-pressed={zoom === 'week'}
         >
           1W
         </button>

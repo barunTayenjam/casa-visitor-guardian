@@ -218,6 +218,7 @@ export default function Login() {
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
                         disabled={isLoading}
+                        aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
                       >
                         {showLoginPassword ? (
                           <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -329,6 +330,7 @@ export default function Login() {
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowRegisterPassword(!showRegisterPassword)}
                         disabled={isLoading}
+                        aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
                       >
                         {showRegisterPassword ? (
                           <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -361,6 +363,7 @@ export default function Login() {
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         disabled={isLoading}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                       >
                         {showConfirmPassword ? (
                           <EyeOff className="h-4 w-4 text-muted-foreground" />

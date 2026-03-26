@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { StreamManager, Camera, streamManager } from '../streams/rtspManager.js';
 import { validate, commonSchemas } from '../middleware/validation.js';
-import { createAuthRateLimit, createStreamRateLimit } from '../middleware/rateLimit.js';
+import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { requireUser, requireAdmin, optionalAuth } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import auditLogger from '../utils/auditLogger.js';
@@ -4014,6 +4014,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   }
 
   // Batch detection endpoint - process all events with OpenCV
+  // Note: Rate limiting should be applied here using rateLimitMiddleware('BATCH')
+  // TODO: Move to separate router file to apply rate limiting properly
   app.post('/api/detection/batch-process', async (req: Request, res: Response) => {
     try {
       const { startDate, endDate, limit } = req.body;

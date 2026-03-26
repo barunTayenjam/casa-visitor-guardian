@@ -21,3 +21,4 @@ export { NotificationPreferences } from './NotificationPreferences.js';
 export { FaceEmbedding } from './FaceEmbedding.js';
 export { StorageStats } from './StorageStats.js';
 export { SecurityEvent } from './SecurityEvent.js';
+export { RateLimitCounter } from './RateLimitCounter.js';

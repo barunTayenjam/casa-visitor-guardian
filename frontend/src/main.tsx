@@ -2,7 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { initTheme } from './lib/theme'
 import { logger } from './lib/logger.js'
+
+// Apply saved theme before React renders to prevent flash
+initTheme()
 
 // Error handling for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {

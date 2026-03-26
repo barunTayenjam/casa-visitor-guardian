@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
@@ -7,20 +7,32 @@ import {
   Eye,
   EyeOff,
   Lock,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { type Theme, getStoredTheme, storeTheme, applyTheme } from '@/lib/theme';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { changePassword } = useAuth();
   const [hasChanges, setHasChanges] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
 
   const [settings, setSettings] = useState({
     systemName: 'SentryVision',
@@ -112,6 +124,16 @@ const SettingsPage = () => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const handleThemeChange = (value: Theme) => {
+    setTheme(value);
+    storeTheme(value);
+    applyTheme(value);
+    toast({
+      title: 'Theme updated',
+      description: `Switched to ${value === 'system' ? 'system preference' : value + ' mode'}.`,
+    });
+  };
+
   const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
     <div className={cn('p-5 rounded-xl border space-y-4', className)} style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
       {children}
@@ -197,6 +219,47 @@ const SettingsPage = () => {
                     <option value="de">German</option>
                     <option value="hi">Hindi</option>
                   </select>
+                </div>
+              </div>
+            </SettingCard>
+
+            <div className="mb-6 mt-8">
+              <h2 className="text-xl font-semibold text-white">Appearance</h2>
+              <p className="text-sm text-white/50 mt-1">Customize the look and feel</p>
+            </div>
+
+            <SettingCard>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-white">Theme</Label>
+                  <Select value={theme} onValueChange={(v) => handleThemeChange(v as Theme)}>
+                    <SelectTrigger className="mt-2 w-full bg-white/5 border-white/10 text-white">
+                      <SelectValue placeholder="Select theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">
+                        <span className="flex items-center gap-2">
+                          <Sun className="h-4 w-4" />
+                          Light
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="dark">
+                        <span className="flex items-center gap-2">
+                          <Moon className="h-4 w-4" />
+                          Dark
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="system">
+                        <span className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4" />
+                          System
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-white/40 mt-1.5">
+                    System mode matches your operating system preference
+                  </p>
                 </div>
               </div>
             </SettingCard>

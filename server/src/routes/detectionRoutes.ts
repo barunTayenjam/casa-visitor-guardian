@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { DetectionConfig } from '../models/DetectionConfig.js';
@@ -10,6 +11,8 @@ import { TimelineService } from '../services/timeline/timelineService.js';
 import { EnhancedDetectionService } from '../services/detection/enhancedDetectionService.js';
 
 const router = Router();
+
+router.use(rateLimitMiddleware('DETECTION'));
 
 const ThresholdSchema = z.object({
   min_score: z.number().min(0).max(1),

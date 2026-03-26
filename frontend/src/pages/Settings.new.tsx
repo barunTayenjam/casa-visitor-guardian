@@ -135,16 +135,16 @@ const SettingsPage = () => {
   };
 
   const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div className={cn('p-5 rounded-xl border space-y-4', className)} style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
+    <div className={cn('card-surface p-5 space-y-4', className)}>
       {children}
     </div>
   );
 
   return (
-    <div className="w-full min-h-screen flex flex-col" style={{ backgroundColor: colors.background.primary }}>
-      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: colors.glass.light, backdropFilter: 'blur(10px)', borderColor: colors.border.subtle }}>
+    <div className="w-full min-h-screen flex flex-col bg-background">
+      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between bg-background/80 backdrop-blur-sm border-border">
         <div className="flex items-center gap-4 md:gap-6">
-          <Button size="sm" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/5" onClick={() => navigate('/app/streams')}>
+          <Button size="sm" variant="ghost" className="btn-ghost" onClick={() => navigate('/app/streams')}>
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
@@ -153,14 +153,14 @@ const SettingsPage = () => {
               <SettingsIcon className="h-5 w-5" style={{ color: colors.status.info }} />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-white">Settings</h1>
-              <p className="text-xs text-white/50 hidden sm:block">Configure your SentryVision system</p>
+              <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Configure your SentryVision system</p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {hasChanges && (
-            <Button size="sm" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/5" onClick={handleReset}>
+            <Button size="sm" variant="ghost" className="btn-ghost" onClick={handleReset}>
               Reset
             </Button>
           )}
@@ -175,28 +175,28 @@ const SettingsPage = () => {
         <div className="p-4 md:p-6 max-w-4xl">
           <div className="space-y-6">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white">General Settings</h2>
-              <p className="text-sm text-white/50 mt-1">Configure basic system preferences</p>
+              <h2 className="text-xl font-semibold text-foreground">General Settings</h2>
+              <p className="text-sm text-muted-foreground mt-1">Configure basic system preferences</p>
             </div>
 
             <SettingCard>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium text-white">System Name</Label>
+                  <Label className="text-sm font-medium text-foreground">System Name</Label>
                   <Input
                     type="text"
                     value={settings.systemName}
                     onChange={(e) => updateSetting('systemName', e.target.value)}
-                    className="mt-2 bg-white/5 border-white/10 text-white focus:bg-white/10"
+                    className="mt-2 input-theme"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-white">Timezone</Label>
+                  <Label className="text-sm font-medium text-foreground">Timezone</Label>
                   <select
                     value={settings.timezone}
                     onChange={(e) => updateSetting('timezone', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500"
+                    className="mt-2 w-full px-3 py-2 rounded-lg bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
                     <option value="America/New_York">America/New_York (EST, UTC-5)</option>
@@ -207,11 +207,11 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-white">Language</Label>
+                  <Label className="text-sm font-medium text-foreground">Language</Label>
                   <select
                     value={settings.language}
                     onChange={(e) => updateSetting('language', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500"
+                    className="mt-2 w-full px-3 py-2 rounded-lg bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
@@ -224,16 +224,16 @@ const SettingsPage = () => {
             </SettingCard>
 
             <div className="mb-6 mt-8">
-              <h2 className="text-xl font-semibold text-white">Appearance</h2>
-              <p className="text-sm text-white/50 mt-1">Customize the look and feel</p>
+              <h2 className="text-xl font-semibold text-foreground">Appearance</h2>
+              <p className="text-sm text-muted-foreground mt-1">Customize the look and feel</p>
             </div>
 
             <SettingCard>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium text-white">Theme</Label>
+                  <Label className="text-sm font-medium text-foreground">Theme</Label>
                   <Select value={theme} onValueChange={(v) => handleThemeChange(v as Theme)}>
-                    <SelectTrigger className="mt-2 w-full bg-white/5 border-white/10 text-white">
+                    <SelectTrigger className="mt-2 w-full bg-muted border-input text-foreground">
                       <SelectValue placeholder="Select theme" />
                     </SelectTrigger>
                     <SelectContent>
@@ -257,7 +257,7 @@ const SettingsPage = () => {
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-white/40 mt-1.5">
+                  <p className="text-xs text-muted-foreground/70 mt-1.5">
                     System mode matches your operating system preference
                   </p>
                 </div>
@@ -265,26 +265,26 @@ const SettingsPage = () => {
             </SettingCard>
 
             <div className="mb-6 mt-8">
-              <h2 className="text-xl font-semibold text-white">Change Password</h2>
-              <p className="text-sm text-white/50 mt-1">Update your account password</p>
+              <h2 className="text-xl font-semibold text-foreground">Change Password</h2>
+              <p className="text-sm text-muted-foreground mt-1">Update your account password</p>
             </div>
 
             <SettingCard>
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium text-white">Current Password</Label>
+                  <Label className="text-sm font-medium text-foreground">Current Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.current ? 'text' : 'password'}
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      className="input-theme pr-10"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility('current')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -292,20 +292,20 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-white">New Password</Label>
+                  <Label className="text-sm font-medium text-foreground">New Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.new ? 'text' : 'password'}
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      className="input-theme pr-10"
                       minLength={8}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility('new')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -313,20 +313,20 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-white">Confirm New Password</Label>
+                  <Label className="text-sm font-medium text-foreground">Confirm New Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.confirm ? 'text' : 'password'}
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="bg-white/5 border-white/10 text-white focus:bg-white/10 pr-10"
+                      className="input-theme pr-10"
                       minLength={8}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility('confirm')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>

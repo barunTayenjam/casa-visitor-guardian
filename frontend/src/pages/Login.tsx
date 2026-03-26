@@ -145,35 +145,35 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-blue-600 rounded-full">
-              <Camera className="h-8 w-8 text-white" />
+            <div className="p-3 bg-primary rounded-full">
+              <Camera className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Home Security</h1>
-          <p className="text-slate-400">Secure your home with advanced monitoring</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Home Security</h1>
+          <p className="text-muted-foreground">Secure your home with advanced monitoring</p>
         </div>
 
         {/* Main Card */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-white">Welcome Back</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-2xl text-card-foreground">Welcome Back</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Sign in to access your security dashboard
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-slate-700">
-                <TabsTrigger value="login" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">
+              <TabsList className="grid w-full grid-cols-2 bg-muted">
+                <TabsTrigger value="login" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
                   Sign In
                 </TabsTrigger>
-                <TabsTrigger value="register" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">
+                <TabsTrigger value="register" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
                   Sign Up
                 </TabsTrigger>
               </TabsList>
@@ -182,32 +182,32 @@ export default function Login() {
               <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-slate-300">Username</Label>
+                    <Label htmlFor="username" className="text-foreground/80">Username</Label>
                     <div className="relative">
                       <Input
                         id="username"
                         type="text"
                         value={loginData.username}
                         onChange={(e) => handleLoginChange('username', e.target.value)}
-                        className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                        className="input-theme"
                         placeholder="Enter your username"
                         disabled={isLoading}
                       />
                     </div>
                     {validationErrors.username && (
-                      <p className="text-sm text-red-400">{validationErrors.username}</p>
+                      <p className="text-sm text-destructive">{validationErrors.username}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-slate-300">Password</Label>
+                    <Label htmlFor="password" className="text-foreground/80">Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
                         type={showLoginPassword ? 'text' : 'password'}
                         value={loginData.password}
                         onChange={(e) => handleLoginChange('password', e.target.value)}
-                        className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 pr-10"
+                        className="input-theme pr-10"
                         placeholder="Enter your password"
                         disabled={isLoading}
                       />
@@ -215,36 +215,36 @@ export default function Login() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-slate-600"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
                         disabled={isLoading}
                       >
                         {showLoginPassword ? (
-                          <EyeOff className="h-4 w-4 text-slate-400" />
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                          <Eye className="h-4 w-4 text-slate-400" />
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
                     {validationErrors.password && (
-                      <p className="text-sm text-red-400">{validationErrors.password}</p>
+                      <p className="text-sm text-destructive">{validationErrors.password}</p>
                     )}
                   </div>
 
                   {error && (
-                    <Alert className="bg-red-900/20 border-red-800 text-red-400">
+                    <Alert className="bg-destructive/10 border-destructive/30 text-destructive">
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
 
                   <Button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                         Signing in...
                       </div>
                     ) : (
@@ -261,64 +261,64 @@ export default function Login() {
               <TabsContent value="register" className="space-y-4">
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="reg-username" className="text-slate-300">Username</Label>
+                    <Label htmlFor="reg-username" className="text-foreground/80">Username</Label>
                     <Input
                       id="reg-username"
                       type="text"
                       value={registerData.username}
                       onChange={(e) => handleRegisterChange('username', e.target.value)}
-                      className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                      className="input-theme"
                       placeholder="Choose a username"
                       disabled={isLoading}
                     />
                     {validationErrors.username && (
-                      <p className="text-sm text-red-400">{validationErrors.username}</p>
+                      <p className="text-sm text-destructive">{validationErrors.username}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-slate-300">Email</Label>
+                    <Label htmlFor="email" className="text-foreground/80">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       value={registerData.email}
                       onChange={(e) => handleRegisterChange('email', e.target.value)}
-                      className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                      className="input-theme"
                       placeholder="Enter your email"
                       disabled={isLoading}
                     />
                     {validationErrors.email && (
-                      <p className="text-sm text-red-400">{validationErrors.email}</p>
+                      <p className="text-sm text-destructive">{validationErrors.email}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="role" className="text-slate-300">Role</Label>
+                    <Label htmlFor="role" className="text-foreground/80">Role</Label>
                     <Select
                       value={registerData.role}
                       onValueChange={(value: 'admin' | 'user' | 'viewer') => handleRegisterChange('role', value)}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectTrigger className="bg-muted border-input text-foreground">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-700 border-slate-600">
-                        <SelectItem value="viewer" className="text-white">Viewer - View only access</SelectItem>
-                        <SelectItem value="user" className="text-white">User - Standard access</SelectItem>
-                        <SelectItem value="admin" className="text-white">Admin - Full access</SelectItem>
+                      <SelectContent>
+                        <SelectItem value="viewer">Viewer - View only access</SelectItem>
+                        <SelectItem value="user">User - Standard access</SelectItem>
+                        <SelectItem value="admin">Admin - Full access</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reg-password" className="text-slate-300">Password</Label>
+                    <Label htmlFor="reg-password" className="text-foreground/80">Password</Label>
                     <div className="relative">
                       <Input
                         id="reg-password"
                         type={showRegisterPassword ? 'text' : 'password'}
                         value={registerData.password}
                         onChange={(e) => handleRegisterChange('password', e.target.value)}
-                        className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 pr-10"
+                        className="input-theme pr-10"
                         placeholder="Create a password"
                         disabled={isLoading}
                       />
@@ -326,31 +326,31 @@ export default function Login() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-slate-600"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowRegisterPassword(!showRegisterPassword)}
                         disabled={isLoading}
                       >
                         {showRegisterPassword ? (
-                          <EyeOff className="h-4 w-4 text-slate-400" />
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                          <Eye className="h-4 w-4 text-slate-400" />
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
                     {validationErrors.password && (
-                      <p className="text-sm text-red-400">{validationErrors.password}</p>
+                      <p className="text-sm text-destructive">{validationErrors.password}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password" className="text-slate-300">Confirm Password</Label>
+                    <Label htmlFor="confirm-password" className="text-foreground/80">Confirm Password</Label>
                     <div className="relative">
                       <Input
                         id="confirm-password"
                         type={showConfirmPassword ? 'text' : 'password'}
                         value={registerData.confirmPassword}
                         onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
-                        className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 pr-10"
+                        className="input-theme pr-10"
                         placeholder="Confirm your password"
                         disabled={isLoading}
                       />
@@ -358,36 +358,36 @@ export default function Login() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-slate-600"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-accent"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         disabled={isLoading}
                       >
                         {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4 text-slate-400" />
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                          <Eye className="h-4 w-4 text-slate-400" />
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
                     {validationErrors.confirmPassword && (
-                      <p className="text-sm text-red-400">{validationErrors.confirmPassword}</p>
+                      <p className="text-sm text-destructive">{validationErrors.confirmPassword}</p>
                     )}
                   </div>
 
                   {error && (
-                    <Alert className="bg-red-900/20 border-red-800 text-red-400">
+                    <Alert className="bg-destructive/10 border-destructive/30 text-destructive">
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
 
                   <Button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                         Creating account...
                       </div>
                     ) : (
@@ -403,7 +403,7 @@ export default function Login() {
           </CardContent>
 
           <CardFooter className="text-center">
-            <p className="text-sm text-slate-400 w-full">
+            <p className="text-sm text-muted-foreground w-full">
               By continuing, you agree to our Terms of Service and Privacy Policy
             </p>
           </CardFooter>

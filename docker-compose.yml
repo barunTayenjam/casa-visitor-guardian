@@ -59,6 +59,7 @@ services:
       - DB_PASSWORD=sentryvision123
       - JWT_ACCESS_SECRET=dev-jwt-access-secret-change-in-production
       - JWT_REFRESH_SECRET=dev-jwt-refresh-secret-change-in-production
+      - CREDENTIAL_ENCRYPTION_KEY=dev-credential-encryption-key-32bytes-min
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections

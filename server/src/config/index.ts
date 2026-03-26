@@ -2,6 +2,10 @@ import dotenv from 'dotenv';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { decryptCredential, isEncryptedCredential, type EncryptedCredential } from '../services/credentialEncryption.js';
+import { logger } from '../utils/logger.js';
+import { AppDataSource } from '../database.js';
+import { SecurityEvent, SecurityEventType } from '../models/SecurityEvent.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -9,6 +13,46 @@ const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
+
+async function logSecurityEvent(eventType: SecurityEventType, details: Record<string, unknown>): Promise<void> {
+  try {
+    if (!AppDataSource.isInitialized) {
+      return;
+    }
+
+    const securityEventRepo = AppDataSource.getRepository(SecurityEvent);
+    const event = securityEventRepo.create({
+      eventType,
+      details
+    });
+    await securityEventRepo.save(event);
+  } catch (error) {
+    logger.error('Failed to log security event', 'Config', error);
+  }
+}
+
+function decryptStreamPath(streamPath: string | EncryptedCredential): string {
+  if (isEncryptedCredential(streamPath)) {
+    try {
+      const decrypted = decryptCredential(streamPath);
+      logger.debug('Successfully decrypted RTSP credential', 'Config');
+      return decrypted;
+    } catch (error) {
+      logger.error('Failed to decrypt credential, logging security event', 'Config', error);
+      logSecurityEvent(SecurityEventType.CREDENTIAL_DECRYPTION_FAILED, {
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      }).catch(() => {});
+      throw error;
+    }
+  } else {
+    logger.warn('Detected plaintext RTSP credential in configuration', 'Config');
+    logSecurityEvent(SecurityEventType.PLAINTEXT_CREDENTIALS_DETECTED, {
+      timestamp: new Date().toISOString()
+    }).catch(() => {});
+    return streamPath;
+  }
+}
 
 export function getOpenCVServiceUrl(): string {
   return process.env.OPENCV_SERVICE_URL || 'http://opencv:8084';
@@ -213,27 +257,39 @@ export const config: AppConfig = {
   },
   cameras: (() => {
     try {
+      let cameras: CameraConfig[] = [];
+
       if (process.env.CAMERAS) {
         const parsed = JSON.parse(process.env.CAMERAS);
-        return parsed.map((camera: any) => {
+        cameras = parsed.map((camera: any) => {
           if (camera.streams && Array.isArray(camera.streams)) {
             return camera; // New format
           }
           return convertLegacyCameraConfig(camera); // Legacy format
         });
+      } else {
+        const camerasPath = path.join(__dirname, '../../cameras.json');
+        if (fs.existsSync(camerasPath)) {
+          const camerasData = fs.readFileSync(camerasPath, 'utf8');
+          const parsed = JSON.parse(camerasData);
+          cameras = parsed.map((camera: any) => {
+            if (camera.streams && Array.isArray(camera.streams)) {
+              return camera; // New format
+            }
+            return convertLegacyCameraConfig(camera); // Legacy format
+          });
+        }
       }
-      const camerasPath = path.join(__dirname, '../../cameras.json');
-      if (fs.existsSync(camerasPath)) {
-        const camerasData = fs.readFileSync(camerasPath, 'utf8');
-        const parsed = JSON.parse(camerasData);
-        return parsed.map((camera: any) => {
-          if (camera.streams && Array.isArray(camera.streams)) {
-            return camera; // New format
-          }
-          return convertLegacyCameraConfig(camera); // Legacy format
-        });
-      }
-      return [];
+
+      cameras = cameras.map(camera => ({
+        ...camera,
+        streams: camera.streams.map(stream => ({
+          ...stream,
+          path: decryptStreamPath(stream.path)
+        }))
+      }));
+
+      return cameras;
     } catch (error) {
       console.error('Failed to load camera configuration:', error);
       return [];

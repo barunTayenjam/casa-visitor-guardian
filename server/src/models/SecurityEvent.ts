@@ -16,9 +16,9 @@ export enum SecurityEventType {
 }
 
 @Entity('security_events')
-@Index(['event_type'])
+@Index(['eventType'])
 @Index(['timestamp'])
-@Index(['user_id'])
+@Index(['userId'])
 export class SecurityEvent {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

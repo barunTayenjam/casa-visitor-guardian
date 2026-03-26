@@ -2879,11 +2879,20 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   // Health check endpoint
   app.get('/api/health', (req: Request, res: Response) => {
-    res.json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      activeCameras: streamManager.getAllCameras().filter((c: any) => c.isActive).length
-    });
+    try {
+      const cameras = getStreamManager().getAllCameras();
+      res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        activeCameras: cameras.filter((c: any) => c.isActive).length
+      });
+    } catch (error) {
+      res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        activeCameras: 0
+      });
+    }
   });
 
   // System overview endpoint

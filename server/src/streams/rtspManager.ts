@@ -602,12 +602,15 @@ export class StreamManager {
       s.process = null;
     });
 
-    // Restart after a short delay
+    // Add random jitter (500ms - 2000ms) to stagger multiple camera restarts
+    // This prevents "DDoS" effect when multiple cameras restart simultaneously
+    const jitter = Math.floor(Math.random() * 1500) + 500;
+
     setTimeout(() => {
       // Start main process again - first active role will trigger it
       const rolesToStart: ('detect' | 'record' | 'live')[] = role ? [role] : ['live' as const];
       rolesToStart.forEach((r) => this.startStream(cameraId, r));
-    }, 1000);
+    }, 1000 + jitter);
 
     return true;
   }

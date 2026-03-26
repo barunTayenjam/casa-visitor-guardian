@@ -1,0 +1,464 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     SENTRYVISION STREAMING ARCHITECTURE                     │
+│                         Current State & Issues                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BACKEND (Node.js)                                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ rtspManager.ts (900 lines)                                          │   │
+│  │                                                                     │   │
+│  │  class StreamManager {                                              │   │
+│  │    cameras: Map<cameraId, Camera>                                  │   │
+│  │                                                                     │   │
+│  │    interface Camera {                                              │   │
+│  │      mainProcess: FFmpeg  ← ONE shared process per camera         │   │
+│  │      activeRoles: Set<detect|record|live>                          │   │
+│  │      activeViewers: Set<socketId>   ← Tracks viewers               │   │
+│  │      adaptiveFps: number                                           │   │
+│  │    }                                                                │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Socket.io Room: camera-cam1-live                                │
+│           │ Socket.io Room: camera-cam2-live                                │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ index.ts (Socket.io Handlers)                                       │   │
+│  │                                                                     │   │
+│  │  socket.on('requestStream') →                                      │   │
+│  │    streamManager.startStream(cameraId, role)                       │   │
+│  │    socket.join(`camera-${cameraId}-${role}`)  ← ⚠️ NO DEDUPE      │   │
+│  │                                                                     │   │
+│  │  socket.on('stopStream') →                                         │   │
+│  │    socket.leave(room)                                              │   │
+│  │    if (room.size === 0) streamManager.stopStream()                │   │
+│  │                                                                     │   │
+│  │  FFmpeg Process:                                                   │   │
+│  │    RTSP Stream → JPEG frames →                                     │   │
+│  │    io.to(room).emit('frame', {cameraId, data: base64})             │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Socket.io (WebSocket/Polling)
+                                    │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FRONTEND (React)                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ SocketService.ts (Singleton)                                        │   │
+│  │                                                                     │   │
+│  │  class SocketService {                                              │   │
+│  │    socket: Socket | null                                            │   │
+│  │    callbacks: Map<event, Set<callback>>  ← ⚠️ GROWS UNBOUNDED      │   │
+│  │                                                                     │   │
+│  │    connect() {                                                      │   │
+│  │      this.socket = io(url, {                                       │   │
+│  │        forceNew: true,        ← ⚠️ CREATES NEW CONNECTION         │   │
+│  │        rememberUpgrade: false  ← ⚠️ MOBILE INCOMPATIBLE            │   │
+│  │      })                                                            │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    requestStream(cameraId) {                                        │   │
+│  │      socket.emit('requestStream', {cameraId, role})                │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    on(event, callback) {                                           │   │
+│  │      this.callbacks.get(event)?.add(callback)  ← ⚠️ ADDS TO SET   │   │
+│  │      this.socket.on(event, callback)              ← ⚠️ REGISTERS  │   │
+│  │    }                                                                │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Socket connection (should be 1 per tab)                        │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ CameraContext.tsx                                                    │   │
+│  │                                                                     │   │
+│  │  startCameraStream(cameraId) {                                      │   │
+│  │    socketService.requestStream(cameraId)  ← ⚠️ NO DEDUPE CHECK     │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ React Context Provider                                         │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ StreamDashboard.tsx → AdaptiveCameraGrid.tsx                        │   │
+│  │                                                                     │   │
+│  │  GRID MODE:                                                         │   │
+│  │    {cameras.map(camera => (                                         │   │
+│  │      <CameraStream key={camera.id} camera={camera} autoStart={true}│   │
+│  │    ))}                                                               │   │
+│  │                                                                     │   │
+│  │  FOCUSED MODE:                                                      │   │
+│  │    <CameraStream key={focusedCamera.id} camera={camera}             │   │
+│  │                  autoStart={true} />                                │   │
+│  │    ↑ OLD COMPONENTS STILL MOUNTED!                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Renders multiple CameraStream components                        │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ CameraStream.tsx (EACH INSTANCE)                                     │   │
+│  │                                                                     │   │
+│  │  useEffect(() => {                                                  │   │
+│  │    if (autoStart && socketConnected) {                              │   │
+│  │      handleStreamStart()  ← ⚠️ TRIGGERS ON MOUNT                   │   │
+│  │    }                                                                │   │
+│  │  }, [autoStart, socketConnected])                                   │   │
+│  │                                                                     │   │
+│  │  useEffect(() => {                                                  │   │
+│  │    const handleFrame = (data) => {                                  │   │
+│  │      if (data.cameraId !== camera.id) return  ← FILTERS             │   │
+│  │      imgRef.current.src = data.base64                              │   │
+│  │    }                                                                │   │
+│  │    socketService.on('frame', handleFrame)  ← ⚠️ REGISTERS          │   │
+│  │  }, [camera.id])                                                    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ main.tsx                                                             │   │
+│  │                                                                     │   │
+│  │  <StrictMode>  ← ⚠️ DOUBLE MOUNTS EVERYTHING IN DEV                │   │
+│  │    <App />                                                          │   │
+│  │  </StrictMode>                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CONNECTION FLOW (Why 3 Connections Per Camera)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+User opens Dashboard (2 cameras configured)
+    │
+    ├─► StreamDashboard renders
+    │
+    ├─► AdaptiveCameraGrid renders in GRID MODE
+    │
+    ├─► React.StrictMode mounts components TWICE (dev only)
+    │   │
+    │   ├─► MOUNT 1:
+    │   │   ├─► CameraStream(cam1) mounts
+    │   │   │   └─► autoStart=true → requestStream('cam1')
+    │   │   │       └─► socket.emit('requestStream', {cameraId: 'cam1'})
+    │   │   │           └─► Backend: starts FFmpeg, socket joins room
+    │   │   │           └─► SocketService.on('frame', callback1)
+    │   │   │
+    │   │   └─► CameraStream(cam2) mounts
+    │   │       └─► autoStart=true → requestStream('cam2')
+    │   │           └─► socket.emit('requestStream', {cameraId: 'cam2'})
+    │   │               └─► Backend: starts FFmpeg, socket joins room
+    │   │               └─► SocketService.on('frame', callback2)
+    │   │
+    │   └─► MOUNT 2 (StrictMode remounts):
+    │       ├─► CameraStream(cam1) mounts AGAIN
+    │       │   └─► autoStart=true → requestStream('cam1') AGAIN
+    │       │       └─► socket.emit('requestStream', {cameraId: 'cam1'})
+    │       │           └─► Backend: sees duplicate, just joins room again
+    │       │           └─► SocketService.on('frame', callback3)  ← ⚠️ DUPLICATE
+    │       │
+    │       └─► CameraStream(cam2) mounts AGAIN
+    │           └─► autoStart=true → requestStream('cam2') AGAIN
+    │               └─► socket.emit('requestStream', {cameraId: 'cam2'})
+    │                   └─► Backend: sees duplicate, just joins room again
+    │                   └─► SocketService.on('frame', callback4)  ← ⚠️ DUPLICATE
+    │
+    ├─► CURRENT STATE (Grid View):
+    │   Camera 1: 2 connections (2 mounts)
+    │   Camera 2: 2 connections (2 mounts)
+    │   SocketService callbacks: 4 'frame' listeners registered
+    │   Backend rooms: camera-cam1-live (2 same sockets), camera-cam2-live (2 same)
+    │
+    ├─► USER CLICKS Camera 1 to focus
+    │   │
+    │   └─► AdaptiveCameraGrid switches to FOCUSED MODE
+    │       ├─► CameraStream(cam1) mounts (3rd instance!)
+    │       │   └─► autoStart=true → requestStream('cam1') AGAIN
+    │       │       └─► socket.emit('requestStream', {cameraId: 'cam1'})
+    │       │           └─► Backend: joins room again
+    │       │           └─► SocketService.on('frame', callback5)  ← ⚠️ 3RD COPY!
+    │       │
+    │       └─► ⚠️ OLD GRID COMPONENTS STILL MOUNTED!
+    │           └─► CameraStream(cam1) from grid (2 instances)
+    │           └─► CameraStream(cam2) from grid (2 instances)
+    │
+    └─► CURRENT STATE (Focused View):
+        Camera 1: 3 connections (2 from grid + 1 focused)
+        Camera 2: 2 connections (still from grid, not visible)
+        SocketService callbacks: 6 'frame' listeners registered!
+        Backend rooms: camera-cam1-live (3 same sockets), camera-cam2-live (2 same)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MOBILE ACCESS FAILURE                                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Mobile Browser Opens Dashboard
+    │
+    ├─► SocketService.connect() called
+    │   └─► io(url, {
+    │         forceNew: true,        ← ⚠️ iOS Safari: "Too many connections"
+    │         rememberUpgrade: false,← ⚠️ Forces re-upgrade, mobile proxies block
+    │         transports: ['websocket', 'polling']  ← WebSocket first (high overhead)
+    │       })
+    │
+    ├─► Connection attempt 1
+    │   └─► WebSocket upgrade fails (mobile proxy/battery saver)
+    │       └─→ Falls back to polling
+    │           └─► High latency, frequent drops
+    │
+    ├─► Connection attempt 2 (after page navigation or timeout)
+    │   └─► forceNew: true creates NEW socket instance
+    │       └─► Old socket not properly cleaned up
+    │           └─► Resource leak
+    │
+    └─► Frame delivery fails
+        ├─► base64 encoding adds 33% overhead (mobile CPU slow to decode)
+        ├─► 4 FPS too high for mobile bandwidth
+        └─► No bandwidth/quality adaptation
+            └─► RESULT: Streams don't load or constantly buffer
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SINGLE PERSISTENT BACKGROUND STREAM (Recommended Architecture)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BACKEND (Node.js)                                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ rtspManager.ts (Revised)                                            │   │
+│  │                                                                     │   │
+│  │  class StreamManager {                                              │   │
+│  │    cameras: Map<cameraId, Camera>                                  │   │
+│  │                                                                     │   │
+│  │    interface Camera {                                              │   │
+│  │      mainProcess: FFmpeg  ← ALWAYS RUNNING (background)            │   │
+│  │      activeViewers: Set<socketId>   ← Just tracks viewers           │   │
+│  │      lastFrame: Buffer            ← Latest frame cached            │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    async initialize() {                                            │   │
+│  │      // Start ALL cameras on server startup                        │   │
+│  │      for (const camera of configuredCameras) {                     │   │
+│  │        this.startFFmpeg(camera.id);  ← Single persistent process   │   │
+│  │      }                                                              │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    startStream(cameraId, role) {                                   │   │
+│  │      // FFmpeg already running! Just mark role as active           │   │
+│  │      camera.activeRoles.add(role);                                 │   │
+│  │      // Client joins room later                                    │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    stopStream(cameraId, role) {                                    │   │
+│  │      // Keep FFmpeg running! Just mark role as inactive            │   │
+│  │      camera.activeRoles.delete(role);                              │   │
+│  │      // Don't kill process, it's persistent                        │   │
+│  │    }                                                                │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ FFmpeg processes always running, emitting frames                  │
+│           │ to rooms (even if no viewers)                                     │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ index.ts (Revised Socket Handlers)                                  │   │
+│  │                                                                     │   │
+│  │  socket.on('requestStream') →                                      │   │
+│  │    const camera = streamManager.getCamera(cameraId);               │   │
+│  │    if (!camera.activeViewers.has(socket.id)) {  ← DEDUPE CHECK!    │   │
+│  │      socket.join(`camera-${cameraId}-live`);                       │   │
+│  │      camera.activeViewers.add(socket.id);                          │   │
+│  │      // Send last cached frame immediately (no lag)                │   │
+│  │      socket.emit('frame', camera.lastFrame);                       │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │  socket.on('disconnect') →                                         │   │
+│  │    cameras.forEach(camera => {                                     │   │
+│  │      camera.activeViewers.delete(socket.id);                       │   │
+│  │      // FFmpeg keeps running!                                       │   │
+│  │    });                                                              │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Socket.io (single connection per tab)
+                                    │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FRONTEND (React)                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ SocketService.ts (Revised)                                          │   │
+│  │                                                                     │   │
+│  │  class SocketService {                                              │   │
+│  │    private static instance: SocketService;  ← Singleton pattern    │   │
+│  │    requestedStreams: Set<cameraId> = new Set();  ← Track requests  │   │
+│  │                                                                     │   │
+│  │    connect() {                                                      │   │
+│  │      if (this.socket?.connected) return;  ← Reuse connection       │   │
+│  │      this.socket = io(url, {                                       │   │
+│  │        forceNew: false,         ← ✅ Reuse existing connection     │   │
+│  │        rememberUpgrade: true,    ← ✅ Remember successful upgrade  │   │
+│  │        transports: ['polling', 'websocket']  ← ✅ Mobile-friendly  │   │
+│  │      });                                                            │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    requestStream(cameraId) {                                        │   │
+│  │      if (this.requestedStreams.has(cameraId)) return;  ← ✅ DEDUPE │   │
+│  │      this.requestedStreams.add(cameraId);                          │   │
+│  │      socket.emit('requestStream', {cameraId, role});               │   │
+│  │    }                                                                │   │
+│  │                                                                     │   │
+│  │    stopStream(cameraId) {                                          │   │
+│  │      this.requestedStreams.delete(cameraId);  ← ✅ CLEANUP         │   │
+│  │      socket.emit('stopStream', {cameraId, role});                  │   │
+│  │    }                                                                │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Single socket.io connection reused across all components         │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ CameraContext.tsx (Revised)                                          │   │
+│  │                                                                     │   │
+│  │  startCameraStream(cameraId) {                                      │   │
+│  │    // Check context-level tracking                                  │   │
+│  │    if (this.streamingCameras.has(cameraId)) return;  ← ✅ DEDUPE   │   │
+│  │    this.streamingCameras.add(cameraId);                             │   │
+│  │    socketService.requestStream(cameraId);                           │   │
+│  │  }                                                                  │   │
+│  │                                                                     │   │
+│  │  stopCameraStream(cameraId) {                                       │   │
+│  │    this.streamingCameras.delete(cameraId);  ← ✅ CLEANUP            │   │
+│  │    socketService.stopStream(cameraId);                              │   │
+│  │  }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Context tracks active streams at app level                        │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ AdaptiveCameraGrid.tsx (Revised)                                    │   │
+│  │                                                                     │   │
+│  │  const [focusedCameraId, setFocusedCameraId] = useState();          │   │
+│  │                                                                     │   │
+│  │  return (                                                           │   │
+│  │    <>                                                                │   │
+│  │      {focusedCameraId ? (                                            │   │
+│  │        // Focused: ONE component, unmount others                    │   │
+│  │        <CameraStream                                                │   │
+│  │          key={focusedCameraId}  ← ✅ Forces remount on change       │   │
+│  │          camera={cameras.find(c => c.id === focusedCameraId)}       │   │
+│  │          autoStart={true}                                           │   │
+│  │        />                                                            │   │
+│  │      ) : (                                                            │   │
+│  │        // Grid: Multiple components                                  │   │
+│  │        cameras.map(camera => (                                       │   │
+│  │          <CameraStream                                                │   │
+│  │            key={camera.id}                                           │   │
+│  │            camera={camera}                                           │   │
+│  │            autoStart={true}                                          │   │
+│  │          />                                                            │   │
+│  │        ))                                                              │   │
+│  │      )}                                                                │   │
+│  │    </>                                                                 │   │
+│  │  )                                                                    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│           │                                                                 │
+│           │ Component lifecycle ensures only needed components mounted          │
+│           │                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ CameraStream.tsx (Revised)                                           │   │
+│  │                                                                     │   │
+│  │  useEffect(() => {                                                  │   │
+│  │    const handleFrame = (data) => {                                  │   │
+│  │      // Filter by cameraId to ignore other cameras' frames          │   │
+│  │      if (data.cameraId !== camera.id) return;                       │   │
+│  │      imgRef.current.src = data.base64;                              │   │
+│  │    };                                                                │   │
+│  │                                                                     │   │
+│  │    // Register listener ONCE per component instance                 │   │
+│  │    const unsubscribe = socketService.on('frame', handleFrame);      │   │
+│  │                                                                     │   │
+│  │    return () => {                                                   │   │
+│  │      unsubscribe();  ← ✅ Proper cleanup                            │   │
+│  │    };                                                                │   │
+│  │  }, [camera.id]);  ← Only re-register if camera changes             │   │
+│  │                                                                     │   │
+│  │  useEffect(() => {                                                  │   │
+│  │    // Auto-start only if not already streaming                      │   │
+│  │    if (autoStart && !isStreaming && socketConnected) {              │   │
+│  │      handleStreamStart();                                           │   │
+│  │    }                                                                │   │
+│  │  }, [autoStart, socketConnected, isStreaming]);                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MOBILE OPTIMIZATIONS                                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+SocketService.ts (mobile-aware):
+    connect() {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      this.socket = io(url, {
+        transports: isMobile 
+          ? ['polling', 'websocket']  ← ✅ Polling first for mobile
+          : ['websocket', 'polling'], ← WebSocket first for desktop
+        
+        timeout: isMobile ? 30000 : 20000,      ← ✅ Longer timeout for mobile
+        forceNew: false,                         ← ✅ Always reuse connection
+        rememberUpgrade: true,                   ← ✅ Remember successful upgrades
+        
+        // ✅ Use binary frames for mobile (faster than base64)
+        binaryType: 'arraybuffer'
+      });
+    }
+
+rtspManager.ts (adaptive quality):
+    private getOptimalConfig(viewerCount: number, isMobile: boolean) {
+      if (isMobile) {
+        return {
+          fps: 1,                    ← ✅ Lower FPS for mobile
+          resolution: '640x360',     ← ✅ Lower resolution
+          quality: 8,                ← ✅ Lower JPEG quality
+          encoding: 'binary'         ← ✅ ArrayBuffer not base64
+        };
+      }
+      
+      // Desktop config (existing adaptive logic)
+      return {
+        fps: this.getOptimalFps(viewerCount),
+        resolution: '1920x1080',
+        quality: 5,
+        encoding: 'base64'
+      };
+    }
+
+CameraStream.tsx (mobile-aware rendering):
+    useEffect(() => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      const handleFrame = (data) => {
+        if (data.cameraId !== camera.id) return;
+        
+        if (isMobile && data.data instanceof ArrayBuffer) {
+          // ✅ Direct binary rendering for mobile
+          const blob = new Blob([data.data], {type: 'image/jpeg'});
+          imgRef.current.src = URL.createObjectURL(blob);
+        } else {
+          // Desktop: base64 rendering
+          imgRef.current.src = `data:image/jpeg;base64,${data.data}`;
+        }
+      };
+      
+      socketService.on('frame', handleFrame);
+    }, [camera.id]);
+

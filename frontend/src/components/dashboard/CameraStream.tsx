@@ -206,16 +206,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
       const now = Date.now();
 
-        // Limit frame updates to prevent excessive rendering
-        if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
-          lastFrameUpdate = now;
+      // Limit frame updates to prevent excessive rendering
+      if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {
+        lastFrameUpdate = now;
 
+        // Update image with base64 data
+        if (imgRef.current) {
           const frameDataUrl = `data:image/jpeg;base64,${data.data}`;
-
-          // Update image with base64 data
-          if (imgRef.current) {
-            imgRef.current.src = frameDataUrl;
-          }
+          imgRef.current.src = frameDataUrl;
 
           // Cache last frame for thumbnail placeholder
           setLastFrame(frameDataUrl);

@@ -6,7 +6,6 @@ import {
   Activity,
   HardDrive,
   AlertTriangle,
-  ChevronLeft,
   Users,
   Car,
   Package,
@@ -14,10 +13,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
-import { Button } from '@/components/ui/button';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -27,13 +23,16 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Area,
   AreaChart,
 } from 'recharts';
 import { useCameras } from '@/contexts/CameraContext';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { PageLoading } from '@/components/ui/PageLoading';
 
 const AnalyticsPage = () => {
   const navigate = useNavigate();
@@ -57,8 +56,6 @@ const AnalyticsPage = () => {
     detectionsToday: 0,
     systemUptime: '99.2%',
   });
-
-  const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
 
   // Fetch analytics data from backend
   useEffect(() => {
@@ -194,134 +191,96 @@ const AnalyticsPage = () => {
     fetchAnalytics();
   }, [timeRange, cameras, toast]);
 
-  const StatCard = ({
-    title,
-    value,
-    change,
-    icon: Icon,
-    color,
-  }: {
-    title: string;
-    value: string | number;
-    change: string;
-    icon: any;
-    color: string;
-  }) => (
-    <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
-          <Icon className="h-5 w-5" style={{ color: color }} />
-        </div>
-        <span
-          className={cn(
-            'text-xs font-medium px-2 py-1 rounded-full',
-            change.startsWith('+') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          )}
-        >
-          {change}
-        </span>
-      </div>
-      <p className="text-2xl font-bold text-white">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-      <p className="text-xs text-white/50 mt-1">{title}</p>
-    </div>
-  );
+  const parseChange = (change: string): { value: number; label?: string } => {
+    const num = parseFloat(change);
+    return { value: isNaN(num) ? 0 : num };
+  };
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background.primary }}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60">Loading analytics...</p>
-        </div>
+      <div className="w-full min-h-screen bg-background">
+        <PageLoading message="Loading analytics..." />
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen" style={{ backgroundColor: colors.background.primary }}>
-      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: colors.glass.light, backdropFilter: 'blur(10px)', borderColor: colors.border.subtle }}>
-        <div className="flex items-center gap-4 md:gap-6">
-          <Button size="sm" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/5" onClick={() => navigate('/app/streams')}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
-              <BarChart3 className="h-5 w-5" style={{ color: colors.status.info }} />
+    <div className="w-full min-h-screen bg-background">
+      <div className="px-4 md:px-6 py-4 border-b border-border">
+        <PageHeader
+          title="Analytics"
+          subtitle="System insights and statistics"
+          icon={BarChart3}
+          backTo="/app/streams"
+          actions={
+            <div className="flex items-center gap-2 bg-muted rounded-xl p-1 border border-border" role="group" aria-label="Time range selection">
+              {(['7d', '30d', '90d'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={cn(
+                    'px-4 py-2 rounded-lg text-xs font-medium transition-all',
+                    timeRange === range ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  aria-label={range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}
+                  aria-pressed={timeRange === range}
+                >
+                  {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                </button>
+              ))}
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">Analytics</h1>
-              <p className="text-xs text-white/50 hidden sm:block">System insights and statistics</p>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-white/10 hidden md:block" />
-          <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 border border-white/10" role="group" aria-label="Time range selection">
-            {(['7d', '30d', '90d'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-xs font-medium transition-all',
-                  timeRange === range ? 'bg-white/10 text-white shadow' : 'text-white/60 hover:text-white'
-                )}
-                aria-label={range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}
-                aria-pressed={timeRange === range}
-              >
-                {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
-              </button>
-            ))}
-          </div>
-        </div>
+          }
+        />
       </div>
 
       <div className="p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Total Events"
+            label="Total Events"
             value={analyticsData.totalEvents}
-            change="+12%"
+            change={parseChange('+12%')}
             icon={Activity}
-            color={colors.status.info}
+            iconColor="text-blue-500"
           />
           <StatCard
-            title="Detections Today"
+            label="Detections Today"
             value={analyticsData.detectionsToday}
-            change="+8%"
+            change={parseChange('+8%')}
             icon={AlertTriangle}
-            color={colors.status.warning}
+            iconColor="text-amber-500"
           />
           <StatCard
-            title="Storage Used"
+            label="Storage Used"
             value={`${analyticsData.storageStats.used} GB`}
-            change={`${((analyticsData.storageStats.used / analyticsData.storageStats.total) * 100).toFixed(1)}%`}
+            change={parseChange(`${((analyticsData.storageStats.used / analyticsData.storageStats.total) * 100).toFixed(1)}%`)}
             icon={HardDrive}
-            color={colors.status.success}
+            iconColor="text-green-500"
           />
           <StatCard
-            title="System Uptime"
+            label="System Uptime"
             value={analyticsData.systemUptime}
-            change="+0.3%"
+            change={parseChange('+0.3%')}
             icon={TrendingUp}
-            color={colors.detection.person}
+            iconColor="text-blue-500"
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
+          <div className="p-5 rounded-xl border bg-card border-border">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Events Over Time</h3>
+              <h3 className="text-base font-semibold text-foreground">Events Over Time</h3>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.info }} />
-                  <span className="text-xs text-white/50">Events</span>
+                  <span className="text-xs text-muted-foreground">Events</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.detection.person }} />
-                  <span className="text-xs text-white/50">Persons</span>
+                  <span className="text-xs text-muted-foreground">Persons</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.detection.vehicle }} />
-                  <span className="text-xs text-white/50">Vehicles</span>
+                  <span className="text-xs text-muted-foreground">Vehicles</span>
                 </div>
               </div>
             </div>
@@ -358,8 +317,8 @@ const AnalyticsPage = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
-            <h3 className="text-base font-semibold text-white mb-4">Detection Types</h3>
+          <div className="p-5 rounded-xl border bg-card border-border">
+            <h3 className="text-base font-semibold text-foreground mb-4">Detection Types</h3>
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
@@ -387,10 +346,10 @@ const AnalyticsPage = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
+          <div className="p-5 rounded-xl border bg-card border-border">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Hourly Activity</h3>
-              <div className="flex items-center gap-1 text-xs text-white/50">
+              <h3 className="text-base font-semibold text-foreground">Hourly Activity</h3>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 Last 24 hours
               </div>
@@ -412,9 +371,9 @@ const AnalyticsPage = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
+          <div className="p-5 rounded-xl border bg-card border-border">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Camera Status</h3>
+              <h3 className="text-base font-semibold text-foreground">Camera Status</h3>
               <div className="flex items-center gap-1 text-xs text-green-400">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                 Online
@@ -426,11 +385,11 @@ const AnalyticsPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${camera.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`} />
-                      <span className="text-sm font-medium text-white">{camera.camera}</span>
+                      <span className="text-sm font-medium text-foreground">{camera.camera}</span>
                     </div>
-                    <span className="text-xs text-white/50">{camera.uptime}% uptime</span>
+                    <span className="text-xs text-muted-foreground">{camera.uptime}% uptime</span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -440,7 +399,7 @@ const AnalyticsPage = () => {
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-white/50">{camera.events} events recorded</span>
+                    <span className="text-muted-foreground">{camera.events} events recorded</span>
                     <span
                       className={cn('font-medium', camera.status === 'online' ? 'text-green-400' : 'text-red-400')}
                     >
@@ -453,34 +412,34 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-xl border" style={{ backgroundColor: colors.background.secondary, borderColor: colors.border.subtle }}>
+        <div className="p-5 rounded-xl border bg-card border-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Storage Overview</h3>
+            <h3 className="text-base font-semibold text-foreground">Storage Overview</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-6 bg-white/5 rounded-xl">
+            <div className="text-center p-6 bg-muted/50 rounded-xl">
               <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
                 <HardDrive className="h-6 w-6" style={{ color: colors.status.info }} />
               </div>
-              <p className="text-3xl font-bold text-white">{analyticsData.storageStats.used} GB</p>
-              <p className="text-sm text-white/60 mt-1">Used Space</p>
-              <p className="text-xs text-white/40 mt-1">of {analyticsData.storageStats.total} GB total</p>
+              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.used} GB</p>
+              <p className="text-sm text-muted-foreground mt-1">Used Space</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">of {analyticsData.storageStats.total} GB total</p>
             </div>
-            <div className="text-center p-6 bg-white/5 rounded-xl">
+            <div className="text-center p-6 bg-muted/50 rounded-xl">
               <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.warning}15` }}>
                 <Activity className="h-6 w-6" style={{ color: colors.status.warning }} />
               </div>
-              <p className="text-3xl font-bold text-white">{analyticsData.storageStats.events.toLocaleString()}</p>
-              <p className="text-sm text-white/60 mt-1">Total Events</p>
-              <p className="text-xs text-white/40 mt-1">stored in database</p>
+              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.events.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground mt-1">Total Events</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">stored in database</p>
             </div>
-            <div className="text-center p-6 bg-white/5 rounded-xl">
+            <div className="text-center p-6 bg-muted/50 rounded-xl">
               <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.detection.person}15` }}>
                 <Calendar className="h-6 w-6" style={{ color: colors.detection.person }} />
               </div>
-              <p className="text-3xl font-bold text-white">{analyticsData.storageStats.retentionDays}</p>
-              <p className="text-sm text-white/60 mt-1">Retention Days</p>
-              <p className="text-xs text-white/40 mt-1">auto-delete older events</p>
+              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.retentionDays}</p>
+              <p className="text-sm text-muted-foreground mt-1">Retention Days</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">auto-delete older events</p>
             </div>
           </div>
         </div>

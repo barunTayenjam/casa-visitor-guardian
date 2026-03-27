@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Filter, Download, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { Search, Filter, Download, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
 import ApiService from '@/services/ApiService';
 
 interface ProcessedImage {
@@ -181,66 +183,41 @@ export default function BatchResultsPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {jobId ? 'Batch Detection Results' : 'Batch Detection History'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {jobId 
-              ? `${pagination?.total || 0} images processed • Job: ${jobId}` 
-              : `${pagination?.total || 0} completed batch jobs`
-            }
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title={jobId ? 'Batch Detection Results' : 'Batch Detection History'}
+        subtitle={
+          jobId
+            ? `${pagination?.total || 0} images processed • Job: ${jobId}`
+            : `${pagination?.total || 0} completed batch jobs`
+        }
+        backTo="/app/batch-detection"
+        size="large"
+        actions={
           <Button variant="outline" onClick={() => jobId ? loadImages() : loadAllJobs()}>
             <Filter className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Images</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pagination?.total || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">With Detections</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">
-              {images.filter(i => i.personCount > 0 || i.faceCount > 0).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Persons Detected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">
-              {images.reduce((sum, i) => sum + i.personCount, 0)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Faces Detected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-600">
-              {images.reduce((sum, i) => sum + i.faceCount, 0)}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Total Images" value={pagination?.total || 0} />
+        <StatCard
+          label="With Detections"
+          value={images.filter(i => i.personCount > 0 || i.faceCount > 0).length}
+          iconColor="text-green-500"
+        />
+        <StatCard
+          label="Persons Detected"
+          value={images.reduce((sum, i) => sum + i.personCount, 0)}
+          iconColor="text-blue-500"
+        />
+        <StatCard
+          label="Faces Detected"
+          value={images.reduce((sum, i) => sum + i.faceCount, 0)}
+          iconColor="text-purple-500"
+        />
       </div>
 
       <Card>

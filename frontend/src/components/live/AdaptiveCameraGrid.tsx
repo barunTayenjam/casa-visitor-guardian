@@ -20,6 +20,41 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 }) => {
   const [layout, setLayout] = useState<GridLayout>('adaptive');
 
+  // Swipe transition state for camera switching
+  const [transitionOffset, setTransitionOffset] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [switchCameraId, setSwitchCameraId] = useState<string | undefined>(focusedCameraId);
+  const isTransitioningRef = useRef(false);
+
+  // Sync switchCameraId with focusedCameraId when not animating
+  useEffect(() => {
+    if (!isAnimating) {
+      setSwitchCameraId(focusedCameraId);
+    }
+  }, [focusedCameraId, isAnimating]);
+
+  // Perform camera switch with slide animation
+  const switchCameraWithAnimation = useCallback((direction: 'left' | 'right', targetCameraId: string) => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+    setTransitionOffset(direction === 'left' ? 60 : -60);
+    setIsAnimating(true);
+
+    requestAnimationFrame(() => {
+      setSwitchCameraId(targetCameraId);
+      requestAnimationFrame(() => {
+        setTransitionOffset(0);
+      });
+    });
+
+    const timeout = setTimeout(() => {
+      setIsAnimating(false);
+      isTransitioningRef.current = false;
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Memoize active cameras to prevent recalculation
   // Include cameras with online or warning status
   const activeCameras = useMemo(() => 
@@ -123,8 +158,14 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
         ? (currentIndex + 1) % activeCameras.length
         : (currentIndex - 1 + activeCameras.length) % activeCameras.length;
     }
-    onCameraFocus?.(activeCameras[nextIndex].id);
-  }, [activeCameras, getFocusedIndex, onCameraFocus]);
+    const targetId = activeCameras[nextIndex].id;
+
+    // Use smooth animation when already focused
+    if (focusedCameraId && currentIndex !== -1) {
+      switchCameraWithAnimation(direction === 'next' ? 'left' : 'right', targetId);
+    }
+    onCameraFocus?.(targetId);
+  }, [activeCameras, getFocusedIndex, focusedCameraId, onCameraFocus, switchCameraWithAnimation]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -157,6 +198,52 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
       }
     }
   }, [focusedCameraId, activeCameras, navigateCamera, onCameraFocus]);
+
+  // Mouse drag support for desktop camera switching
+  const mouseDragRef = useRef<{ startX: number; startY: number } | null>(null);
+  const mouseDraggingRef = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Left button only
+    mouseDragRef.current = { startX: e.clientX, startY: e.clientY };
+    mouseDraggingRef.current = false;
+
+    const handleMouseMove = (moveE: MouseEvent) => {
+      if (!mouseDragRef.current) return;
+      const dx = moveE.clientX - mouseDragRef.current.startX;
+      const dy = moveE.clientY - mouseDragRef.current.startY;
+      if (Math.abs(dx) > SWIPE_THRESHOLD / 2 || Math.abs(dy) > SWIPE_THRESHOLD / 2) {
+        mouseDraggingRef.current = true;
+      }
+    };
+
+    const handleMouseUp = (upE: MouseEvent) => {
+      if (mouseDragRef.current) {
+        const dx = upE.clientX - mouseDragRef.current.startX;
+        const dy = upE.clientY - mouseDragRef.current.startY;
+        mouseDragRef.current = null;
+
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+
+        if (absDx >= SWIPE_THRESHOLD && absDx > absDy) {
+          navigateCamera(dx > 0 ? 'prev' : 'next');
+        } else if (absDy >= SWIPE_THRESHOLD && absDy > absDx) {
+          if (dy < 0 && !focusedCameraId && activeCameras.length > 0) {
+            onCameraFocus?.(activeCameras[0].id);
+          } else if (dy > 0 && focusedCameraId) {
+            onCameraFocus?.(undefined as unknown as string);
+          }
+        }
+      }
+      mouseDraggingRef.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [navigateCamera, focusedCameraId, activeCameras, onCameraFocus]);
 
   // Keyboard navigation (F for fullscreen, arrow keys for camera switch)
   useEffect(() => {
@@ -233,18 +320,31 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             </div>
           </div>
         ) : focusedCameraId ? (
-          // Focused Mode - Show one camera full screen
+          // Focused Mode - Show one camera full screen with swipe transition
           <div className="w-full h-full flex items-center justify-center">
             {(() => {
-              const camera = activeCameras.find(c => c.id === focusedCameraId);
+              const camera = activeCameras.find(c => c.id === switchCameraId);
               if (!camera) return null;
-              const camIndex = getFocusedIndex();
               return (
-                <div className="relative w-full h-full bg-black max-h-screen">
+                <div
+                  className={cn(
+                    "relative w-full h-full bg-black max-h-screen select-none",
+                    isAnimating && "transition-transform duration-[250ms] ease-out"
+                  )}
+                  style={{ transform: `translateX(${transitionOffset}px)` }}
+                  onMouseDown={handleMouseDown}
+                  onTransitionEnd={(e) => {
+                    if (e.propertyName === 'transform' && isTransitioningRef.current) {
+                      setIsAnimating(false);
+                      isTransitioningRef.current = false;
+                    }
+                  }}
+                >
                   {/* Exit Focus Button */}
                   <button
                     className="absolute top-4 right-4 z-10 min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
-                    onClick={() => handleCameraClick(camera.id)}
+                    onClick={(e) => { e.stopPropagation(); handleCameraClick(camera.id); }}
+                    onMouseDown={(e) => e.stopPropagation()}
                     title="Exit fullscreen"
                     aria-label="Exit fullscreen"
                   >
@@ -256,7 +356,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                     <>
                       <button
                         className="absolute left-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
-                        onClick={() => navigateCamera('prev')}
+                        onClick={(e) => { e.stopPropagation(); navigateCamera('prev'); }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         title="Previous camera"
                         aria-label="Previous camera"
                       >
@@ -264,7 +365,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                       </button>
                       <button
                         className="absolute right-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
-                        onClick={() => navigateCamera('next')}
+                        onClick={(e) => { e.stopPropagation(); navigateCamera('next'); }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         title="Next camera"
                         aria-label="Next camera"
                       >
@@ -279,7 +381,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   {/* Camera Position Indicator */}
                   {activeCameras.length > 1 && (
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
-                      {activeCameras.map((cam, i) => (
+                      {activeCameras.map((cam) => (
                         <button
                           key={cam.id}
                           className={cn(
@@ -288,7 +390,19 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                               ? "w-2.5 h-2.5 bg-white"
                               : "w-2 h-2 bg-white/40 hover:bg-white/60"
                           )}
-                          onClick={() => onCameraFocus?.(cam.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentIdx = activeCameras.findIndex(c => c.id === focusedCameraId);
+                            const targetIdx = activeCameras.findIndex(c => c.id === cam.id);
+                            if (currentIdx !== -1 && targetIdx !== -1 && currentIdx !== targetIdx) {
+                              switchCameraWithAnimation(
+                                targetIdx > currentIdx ? 'left' : 'right',
+                                cam.id
+                              );
+                            }
+                            onCameraFocus?.(cam.id);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
                           aria-label={`Switch to ${cam.name}`}
                         />
                       ))}

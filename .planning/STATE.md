@@ -82,6 +82,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 2026-03-26 | Plan 8.6 Complete | WCAG AA: ARIA labels, keyboard nav, focus indicators, color contrast, alt text |
 | 2026-03-27 | Plan 9.1 Complete | StreamPanel drawer, QualitySection, RecentDetectionsSection components |
 | 2026-03-27 | Plan 9.4 Complete | Dead code cleanup (CameraFeed removed), z-index 3-tier consolidation, StreamMetrics extraction |
+| 2026-03-27 | Plan 9.2 Complete | StreamPanel integrated with tap-to-toggle, connection status simplified to status dot |
 
 ---
 
@@ -127,11 +128,11 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ## Session Context
 
-**Last Session:** Plan 9.4 Clean Up Dead Code and Z-Index Layering completed (2026-03-27)
+**Last Session:** Plan 9.2 Simplify CameraStream to Clean Feed completed (2026-03-27)
 
-- Resume file: `.planning/phases/09-streaming-ui-simplification/09.4-SUMMARY.md`
-- Status: Phase 09 executing — CameraStream stripped to clean feed, ready for StreamPanel integration (Plan 9.2)
+- Resume file: `.planning/phases/09-streaming-ui-simplification/09.2-SUMMARY.md`
+- Status: Phase 09 executing — StreamPanel integrated with tap-to-toggle, connection status simplified to minimal dot
 
 ---
 
-*State updated: 2026-03-27 - Plan 9.4: Clean Up Dead Code and Z-Index Layering complete*
+*State updated: 2026-03-27 - Plan 9.2: Simplify CameraStream to Clean Feed complete*

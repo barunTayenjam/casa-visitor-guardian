@@ -4,8 +4,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { useToast } from '@/hooks/use-toast';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
-import { colors } from '@/styles/design-tokens';
-import { Shield, Activity, Calendar, Power, Camera as CameraIcon, Maximize2, Volume2, VolumeX, BellOff } from 'lucide-react';
+import { Shield, Calendar, Power, Camera as CameraIcon, Maximize2, Volume2, VolumeX, BellOff } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 
@@ -76,8 +75,7 @@ const StreamDashboard = () => {
   return (
     <TooltipProvider>
       <div
-        className="relative w-full h-screen overflow-hidden flex flex-col"
-        style={{ backgroundColor: colors.background.primary }}
+        className="relative w-full h-screen overflow-hidden flex flex-col bg-background"
       >
         {/* Minimal Top Bar */}
         <div
@@ -90,11 +88,10 @@ const StreamDashboard = () => {
             {/* Left: Logo + Status */}
             <div className="flex items-center gap-3">
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-                style={{ backgroundColor: colors.interactive.hover }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform hover:bg-white/5"
                 onClick={() => setShowTooltip(!showTooltip)}
               >
-                <Shield className="h-5 w-5" style={{ color: colors.status.success }} />
+                <Shield className="h-5 w-5 text-emerald-500" />
               </div>
 
               <Tooltip open={showTooltip} onOpenChange={setShowTooltip}>
@@ -107,7 +104,7 @@ const StreamDashboard = () => {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="bg-slate-900 border-white/10">
-                  <p className="text-xs text-white/80">Click camera to focus • Press F to toggle fullscreen</p>
+                  <p className="text-xs text-white/80">Click camera to focus {'\u2022'} Press F to toggle fullscreen</p>
                 </TooltipContent>
               </Tooltip>
             </div>

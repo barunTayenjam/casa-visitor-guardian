@@ -243,7 +243,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                 <div className="relative w-full h-full bg-black max-h-screen">
                   {/* Exit Focus Button */}
                   <button
-                    className="absolute top-4 right-4 z-20 min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
+                    className="absolute top-4 right-4 z-10 min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all"
                     onClick={() => handleCameraClick(camera.id)}
                     title="Exit fullscreen"
                     aria-label="Exit fullscreen"
@@ -255,7 +255,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   {activeCameras.length > 1 && (
                     <>
                       <button
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
                         onClick={() => navigateCamera('prev')}
                         title="Previous camera"
                         aria-label="Previous camera"
@@ -263,7 +263,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                         <ChevronLeft className="h-6 w-6" />
                       </button>
                       <button
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all"
                         onClick={() => navigateCamera('next')}
                         title="Next camera"
                         aria-label="Next camera"
@@ -278,7 +278,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 
                   {/* Camera Position Indicator */}
                   {activeCameras.length > 1 && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
                       {activeCameras.map((cam, i) => (
                         <button
                           key={cam.id}

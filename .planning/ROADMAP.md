@@ -203,7 +203,7 @@
 - **Plan 8.5:** ✅ Dark Mode Implementation — System-aware with manual override
 - **Plan 8.6:** ✅ WCAG AA Accessibility — ARIA labels, keyboard nav, focus indicators
 
-### Phase 9: Streaming UI Simplification — Reduce overlay clutter 📋 Planning (2026-03-27)
+### Phase 9: Streaming UI Simplification — Reduce overlay clutter ✅ Complete (2026-03-27)
 
 **Goal:** Simplify streaming interface to just camera name + status, all info in tap-to-toggle panel
 
@@ -218,7 +218,31 @@
 3. Swipe gestures switch cameras with smooth transition
 4. No visual clutter or competing overlays
 
-**Plans:** 0/? planned
+**Plans:** 4/4 complete
+
+### Phase 10: App-Wide Navigation and UI/UX Consistency — Unified experience 📋 Planning (2026-03-27)
+
+**Goal:** Ensure consistent navigation patterns, visual design language, and UX patterns across all pages — not just the streaming interface.
+
+**Why:** Phase 9 simplified the streaming view, but the rest of the app (Dashboard, Events, Visitors, Analytics, Settings) may have inconsistent navigation, layout patterns, and visual hierarchy. This phase audits and unifies the experience.
+
+**Requirements:**
+- NAV-01: Consistent page navigation (sidebar/header/bottom bar — one pattern)
+- NAV-02: Consistent layout structure across all pages (header, content, actions)
+- NAV-03: Consistent component styling (buttons, cards, forms, lists)
+- NAV-04: Smooth page transitions and loading states
+
+**Success Criteria:**
+1. All pages follow the same navigation pattern
+2. Visual language is consistent (spacing, typography, colors)
+3. Page transitions feel smooth and predictable
+4. No jarring layout shifts between pages
+
+**Depends on:** Phase 9
+**Plans:** 0 planned
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
 
 ---
 *Roadmap created: 2026-03-18*

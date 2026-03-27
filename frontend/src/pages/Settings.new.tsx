@@ -135,7 +135,7 @@ const SettingsPage = () => {
   };
 
   const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div className={cn('card-surface p-5 space-y-4', className)}>
+    <div className={cn('bg-card border border-border rounded-xl p-5 space-y-4', className)}>
       {children}
     </div>
   );
@@ -144,7 +144,7 @@ const SettingsPage = () => {
     <div className="w-full min-h-screen flex flex-col bg-background">
       <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between bg-background/80 backdrop-blur-sm border-border">
         <div className="flex items-center gap-4 md:gap-6">
-          <Button size="sm" variant="ghost" className="btn-ghost" onClick={() => navigate('/app/streams')}>
+          <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
@@ -160,7 +160,7 @@ const SettingsPage = () => {
         </div>
         <div className="flex items-center gap-2">
           {hasChanges && (
-            <Button size="sm" variant="ghost" className="btn-ghost" onClick={handleReset}>
+            <Button size="sm" variant="ghost" onClick={handleReset}>
               Reset
             </Button>
           )}
@@ -187,7 +187,7 @@ const SettingsPage = () => {
                     type="text"
                     value={settings.systemName}
                     onChange={(e) => updateSetting('systemName', e.target.value)}
-                    className="mt-2 input-theme"
+                    className="mt-2"
                   />
                 </div>
 
@@ -278,7 +278,7 @@ const SettingsPage = () => {
                       type={showPasswords.current ? 'text' : 'password'}
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="input-theme pr-10"
+                      className="pr-10"
                       required
                     />
                     <button
@@ -299,7 +299,7 @@ const SettingsPage = () => {
                       type={showPasswords.new ? 'text' : 'password'}
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="input-theme pr-10"
+                      className="pr-10"
                       minLength={8}
                       required
                     />
@@ -321,7 +321,7 @@ const SettingsPage = () => {
                       type={showPasswords.confirm ? 'text' : 'password'}
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="input-theme pr-10"
+                      className="pr-10"
                       minLength={8}
                       required
                     />

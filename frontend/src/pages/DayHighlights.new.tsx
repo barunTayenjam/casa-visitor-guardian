@@ -2,14 +2,17 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useCameras } from '@/contexts/CameraContext';
-import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard, Download, Share2 } from 'lucide-react';
-import { colors } from '@/styles/design-tokens';
+import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { PageLoading } from '@/components/ui/PageLoading';
+import { EmptyState } from '@/components/ui/EmptyState';
 import apiService from '@/services/ApiService';
 import { cn } from '@/lib/utils';
 
@@ -250,7 +253,7 @@ const DayHighlightsPage = () => {
     if (hour >= 22 || hour <= 6) {
       return { label: 'Night Activity', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: <Moon className="w-4 h-4" /> };
     }
-    return { label: 'Motion', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30', icon: null };
+    return { label: 'Motion', color: 'bg-slate-500/20 text-muted-foreground border-slate-500/30', icon: null };
   };
 
   const getCategoryInfo = (highlight: HighlightEvent) => {
@@ -270,85 +273,85 @@ const DayHighlightsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-white text-lg">Loading Highlights...</div>
-        </div>
+      <div className="min-h-screen bg-background">
+        <PageLoading message="Loading Highlights..." />
       </div>
     );
   }
 
   if (highlights.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-        <Card className="bg-slate-800 border-slate-700 p-8 max-w-md text-center">
-          <Calendar className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">No Highlights Found</h2>
-          <p className="text-slate-400 mb-6">There were no events detected on {date ? formatDate(date) : 'this date'}</p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => changeDate(-1)} variant="outline">
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Previous Day
-            </Button>
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-7xl mx-auto">
+          <PageHeader
+            title="Day Highlights"
+            subtitle={date ? formatDate(date) : 'Select a date'}
+            icon={Calendar}
+            backTo="/app/events"
+            size="large"
+          />
+          <EmptyState
+            icon={Calendar}
+            title="No Highlights Found"
+            description={`There were no events detected on ${date ? formatDate(date) : 'this date'}`}
+            action={{ label: 'Previous Day', onClick: () => changeDate(-1) }}
+          />
+          <div className="flex gap-2 justify-center mt-4">
             <Button onClick={() => changeDate(1)} variant="outline">
               Next Day
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
+    <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Day Highlights</h1>
-            <p className="text-slate-400 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {date ? formatDate(date) : 'Select a date'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={() => setShowKeyboardHelp(true)} variant="outline" size="sm">
-                    <Keyboard className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-              <SelectTrigger className="w-[140px] bg-slate-800 border-slate-700 text-white">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="recent">Recent</SelectItem>
-                <SelectItem value="persons">Most People</SelectItem>
-                <SelectItem value="faces">Most Faces</SelectItem>
-                <SelectItem value="unknown">Unknown Faces</SelectItem>
-                <SelectItem value="confidence">High Confidence</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Prev
-            </Button>
-            <Button onClick={() => navigate('/app/events')} variant="outline" size="sm">
-              Events
-            </Button>
-            <Button onClick={() => changeDate(1)} variant="outline" size="sm">
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Day Highlights"
+          subtitle={date ? formatDate(date) : 'Select a date'}
+          icon={Calendar}
+          backTo="/app/events"
+          size="large"
+          actions={
+            <div className="flex gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={() => setShowKeyboardHelp(true)} variant="outline" size="sm">
+                      <Keyboard className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Recent</SelectItem>
+                  <SelectItem value="persons">Most People</SelectItem>
+                  <SelectItem value="faces">Most Faces</SelectItem>
+                  <SelectItem value="unknown">Unknown Faces</SelectItem>
+                  <SelectItem value="confidence">High Confidence</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Prev
+              </Button>
+              <Button onClick={() => changeDate(1)} variant="outline" size="sm">
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          }
+        />
 
         {/* Category Filters */}
         <div className="flex gap-2 mb-4">
@@ -397,32 +400,17 @@ const DayHighlightsPage = () => {
 
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="text-2xl font-bold text-white mb-1">{summary.totalEvents}</div>
-              <div className="text-xs text-slate-400">Total Events</div>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="text-2xl font-bold text-blue-400 mb-1">{summary.totalPersons}</div>
-              <div className="text-xs text-slate-400">Persons</div>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="text-2xl font-bold text-green-400 mb-1">{summary.knownFaces}</div>
-              <div className="text-xs text-slate-400">Known Faces</div>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="text-2xl font-bold text-purple-400 mb-1">{summary.nightEvents}</div>
-              <div className="text-xs text-slate-400">Night Events</div>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <div className="text-2xl font-bold text-orange-400 mb-1">{highlights.length}</div>
-              <div className="text-xs text-slate-400">Highlights</div>
-            </Card>
+            <StatCard icon={Calendar} label="Total Events" value={summary.totalEvents} />
+            <StatCard icon={Users} iconColor="text-blue-500" label="Persons" value={summary.totalPersons} />
+            <StatCard icon={UserCheck} iconColor="text-green-500" label="Known Faces" value={summary.knownFaces} />
+            <StatCard icon={Moon} iconColor="text-purple-500" label="Night Events" value={summary.nightEvents} />
+            <StatCard icon={Calendar} iconColor="text-orange-500" label="Highlights" value={highlights.length} />
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
+            <Card className="bg-card border-border overflow-hidden">
               <div className="relative aspect-video bg-black">
                 {currentHighlight?.imageUrl ? (
                   <img
@@ -431,7 +419,7 @@ const DayHighlightsPage = () => {
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-slate-500">
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
                     No image available
                   </div>
                 )}
@@ -448,8 +436,8 @@ const DayHighlightsPage = () => {
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{getCameraName(currentHighlight?.cameraId || '')}</h3>
-                    <p className="text-sm text-slate-400 flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-foreground">{getCameraName(currentHighlight?.cameraId || '')}</h3>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
                       <Clock className="w-3 h-3" />
                       {currentHighlight && formatTime(currentHighlight.timestamp)}
                     </p>
@@ -469,8 +457,8 @@ const DayHighlightsPage = () => {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Speed</span>
-                    <span className="text-white">{speed}s</span>
+                    <span className="text-muted-foreground">Speed</span>
+                    <span className="text-foreground">{speed}s</span>
                   </div>
                   <Slider
                     value={[speed]}
@@ -482,27 +470,27 @@ const DayHighlightsPage = () => {
                   />
                 </div>
 
-                <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
+                <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
                   <span>{currentIndex + 1} of {filteredHighlights.length} (filtered from {highlights.length})</span>
-                  <span className="text-xs text-slate-500">Press ? for keyboard shortcuts</span>
+                  <span className="text-xs text-muted-foreground">Press ? for keyboard shortcuts</span>
                 </div>
               </div>
             </Card>
           </div>
 
           <div className="space-y-4">
-            <Card className="bg-slate-800/50 border-slate-700 p-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Event Details</h3>
+            <Card className="bg-card border-border p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Event Details</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Confidence</span>
+                  <span className="text-muted-foreground">Confidence</span>
                   <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
                     {Math.round(currentHighlight?.confidence || 0)}%
                   </Badge>
                 </div>
                 {currentHighlight?.personsDetected > 0 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400 flex items-center gap-1">
+                    <span className="text-muted-foreground flex items-center gap-1">
                       <Users className="w-3 h-3" />
                       Persons
                     </span>
@@ -513,7 +501,7 @@ const DayHighlightsPage = () => {
                 )}
                 {currentHighlight?.facesDetected > 0 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Faces</span>
+                    <span className="text-muted-foreground">Faces</span>
                     <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
                       {currentHighlight.facesDetected}
                     </Badge>
@@ -521,7 +509,7 @@ const DayHighlightsPage = () => {
                 )}
                 {currentHighlight?.knownFacesCount > 0 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400 flex items-center gap-1">
+                    <span className="text-muted-foreground flex items-center gap-1">
                       <UserCheck className="w-3 h-3" />
                       Known
                     </span>
@@ -533,8 +521,8 @@ const DayHighlightsPage = () => {
               </div>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700 p-4 max-h-96 overflow-y-auto">
-              <h3 className="text-lg font-semibold text-white mb-4">Timeline</h3>
+            <Card className="bg-card border-border p-4 max-h-96 overflow-y-auto">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Timeline</h3>
               <div className="space-y-2">
                 {highlights.map((highlight, index) => {
                   const info = getCategoryInfo(highlight);
@@ -546,7 +534,7 @@ const DayHighlightsPage = () => {
                         'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all',
                         index === currentIndex
                           ? 'bg-blue-500/20 border border-blue-500/30'
-                          : 'hover:bg-slate-700/50 border border-transparent'
+                          : 'hover:bg-muted border border-transparent'
                       )}
                     >
                       <img
@@ -555,8 +543,8 @@ const DayHighlightsPage = () => {
                         className="w-16 h-12 object-cover rounded"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white truncate">{formatTime(highlight.timestamp)}</div>
-                        <div className="text-xs text-slate-400 truncate">{getCameraName(highlight.cameraId)}</div>
+                        <div className="text-sm text-foreground truncate">{formatTime(highlight.timestamp)}</div>
+                        <div className="text-xs text-muted-foreground truncate">{getCameraName(highlight.cameraId)}</div>
                       </div>
                       <Badge className={cn('text-xs', info.color)}>
                         {info.label}
@@ -573,47 +561,47 @@ const DayHighlightsPage = () => {
       {/* Keyboard Shortcuts Help Modal */}
       {showKeyboardHelp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowKeyboardHelp(false)}>
-          <Card className="bg-slate-800 border-slate-700 p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <Card className="bg-card border-border p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
               <Keyboard className="w-5 h-5" />
               Keyboard Shortcuts
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">Play / Pause</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">Space</kbd>
+                <span className="text-muted-foreground">Play / Pause</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">Space</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Previous Event</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">←</kbd>
+                <span className="text-muted-foreground">Previous Event</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">←</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Next Event</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">→</kbd>
+                <span className="text-muted-foreground">Next Event</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">→</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">First Event</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">Home</kbd>
+                <span className="text-muted-foreground">First Event</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">Home</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Last Event</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">End</kbd>
+                <span className="text-muted-foreground">Last Event</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">End</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Filter: All</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">1</kbd>
+                <span className="text-muted-foreground">Filter: All</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">1</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Filter: Persons</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">2</kbd>
+                <span className="text-muted-foreground">Filter: Persons</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">2</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Filter: Known</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">3</kbd>
+                <span className="text-muted-foreground">Filter: Known</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">3</kbd>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Filter: Unknown</span>
-                <kbd className="px-2 py-1 bg-slate-700 rounded text-white">4</kbd>
+                <span className="text-muted-foreground">Filter: Unknown</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-foreground">4</kbd>
               </div>
             </div>
             <Button onClick={() => setShowKeyboardHelp(false)} variant="outline" className="w-full mt-4">

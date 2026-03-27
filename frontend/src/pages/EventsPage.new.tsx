@@ -6,11 +6,13 @@ import { EventTimeline } from '@/components/events/EventTimeline';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
-import { Calendar, TrendingUp, AlertTriangle, Clock, User, Grid, List, ChevronLeft, Archive, Download } from 'lucide-react';
+import { Calendar, Clock, User, Grid, List, Archive, Download } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import apiService from '@/services/ApiService';
 import { useNavigate } from 'react-router-dom';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
@@ -284,122 +286,115 @@ const EventsPage = () => {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col" style={{ backgroundColor: colors.background.primary }}>
-      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: colors.glass.light, backdropFilter: 'blur(10px)', borderColor: colors.border.subtle }}>
-        <div className="flex items-center gap-4 md:gap-6">
-          <Button size="sm" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/5" onClick={() => navigate('/app/streams')}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
-              <Calendar className="h-5 w-5" style={{ color: colors.status.info }} />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">Events</h1>
-              <p className="text-xs text-white/50 hidden sm:block">Browse and manage security events</p>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-white/10 hidden md:block" />
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.info }} />
-              <span className="text-sm text-white/70">{stats.total} total</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.warning }} />
-              <span className="text-sm text-white/70">{stats.today} today</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Bulk Actions */}
-          {showBulkActions ? (
-            <div className="flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 rounded-lg px-3 py-1">
-              <span className="text-sm text-white">
-                {selectedEventIds.size} selected
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={selectAllEvents}
-                className="text-white/70 hover:text-white h-7 px-2"
-              >
-                {selectedEventIds.size === events.length ? 'Deselect All' : 'Select All'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={bulkExport}
-                className="text-white/70 hover:text-white h-7 px-2"
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Export
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={bulkDelete}
-                className="text-red-400 hover:text-red-300 h-7 px-2"
-              >
-                <Archive className="h-3 w-3 mr-1" />
-                Delete
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={clearSelection}
-                className="text-white/70 hover:text-white h-7 px-2"
-                aria-label="Clear selection"
-              >
-                ✕
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowBulkActions(true)}
-              className="text-white/70 hover:text-white h-8"
-            >
-              Select
-            </Button>
-          )}
-          <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-            <SelectTrigger className="w-[140px] h-8 bg-white/5 border-white/10 text-white/70 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="confidence">By Confidence</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                'p-2 rounded transition-all',
-                viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
+    <div className="w-full min-h-screen flex flex-col bg-background">
+      <div className="px-4 md:px-6 py-4 border-b border-border">
+        <PageHeader
+          title="Events"
+          subtitle="Browse and manage security events"
+          icon={Calendar}
+          backTo="/app/streams"
+          actions={
+            <div className="flex items-center gap-3">
+              {/* Inline stats */}
+              <div className="hidden md:flex items-center gap-3 mr-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="text-sm text-muted-foreground">{stats.total} total</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-sm text-muted-foreground">{stats.today} today</span>
+                </div>
+              </div>
+              {/* Bulk Actions */}
+              {showBulkActions ? (
+                <div className="flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 rounded-lg px-3 py-1">
+                  <span className="text-sm text-foreground">
+                    {selectedEventIds.size} selected
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={selectAllEvents}
+                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                  >
+                    {selectedEventIds.size === events.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={bulkExport}
+                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Export
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={bulkDelete}
+                    className="text-red-400 hover:text-red-300 h-7 px-2"
+                  >
+                    <Archive className="h-3 w-3 mr-1" />
+                    Delete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={clearSelection}
+                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                    aria-label="Clear selection"
+                  >
+                    ✕
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowBulkActions(true)}
+                  className="text-muted-foreground hover:text-foreground h-8"
+                >
+                  Select
+                </Button>
               )}
-              aria-label="Grid view"
-              aria-pressed={viewMode === 'grid'}
-            >
-              <Grid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'p-2 rounded transition-all',
-                viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
-              )}
-              aria-label="List view"
-              aria-pressed={viewMode === 'list'}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger className="w-[140px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="confidence">By Confidence</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1 border border-border">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    'p-2 rounded transition-all',
+                    viewMode === 'grid' ? 'bg-background text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === 'grid'}
+                >
+                  <Grid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    'p-2 rounded transition-all',
+                    viewMode === 'list' ? 'bg-background text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  aria-label="List view"
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          }
+        />
       </div>
 
       <SmartFilters cameras={cameraNames} onFiltersChange={setFilters} />
@@ -421,41 +416,36 @@ const EventsPage = () => {
             )}>
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="aspect-video bg-slate-800 rounded-xl" />
+                  <div className="aspect-video bg-muted rounded-xl" />
                   <div className="p-3 space-y-2">
-                    <div className="h-4 bg-slate-700 rounded w-3/4" />
-                    <div className="h-3 bg-slate-800 rounded w-1/2" />
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted/50 rounded w-1/2" />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: `${colors.status.warning}15` }}>
-                  <Calendar className="h-8 w-8" style={{ color: colors.status.warning }} />
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">No Events Found</h3>
-                <p className="text-sm text-white/50">Try adjusting your filters or check back later</p>
-              </div>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No Events Found"
+              description="Try adjusting your filters or check back later"
+            />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredEvents.map((event, index) => (
                 <div
                   key={event.id}
-                  className={cn(
-                    'relative rounded-xl overflow-hidden cursor-pointer',
-                    'transition-all duration-300',
-                    'hover:shadow-xl hover:scale-[1.02]',
-                    'hover:ring-2 hover:ring-white/20',
-                    selectedEventId === event.id && 'ring-2 ring-blue-500 shadow-xl',
-                    'group'
-                  )}
-                  style={{
-                    backgroundColor: colors.background.secondary,
-                    animationDelay: `${index * 30}ms`,
-                  }}
+                    className={cn(
+                      'relative rounded-xl overflow-hidden cursor-pointer bg-card',
+                      'transition-all duration-300',
+                      'hover:shadow-xl hover:scale-[1.02]',
+                      'hover:ring-2 hover:ring-white/20',
+                      selectedEventId === event.id && 'ring-2 ring-blue-500 shadow-xl',
+                      'group'
+                    )}
+                    style={{
+                      animationDelay: `${index * 30}ms`,
+                    }}
                   onClick={() => handleEventSelect(event.id)}
                 >
                   <div className="relative aspect-video bg-black overflow-hidden">
@@ -504,10 +494,10 @@ const EventsPage = () => {
                   <div className="p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors">
+                        <p className="text-sm font-semibold text-foreground truncate group-hover:text-blue-400 transition-colors">
                           {event.cameraName}
                         </p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-white/50">
+                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span className="truncate">{new Date(event.timestamp).toLocaleString()}</span>
                         </div>
@@ -522,17 +512,14 @@ const EventsPage = () => {
               {filteredEvents.map((event, index) => (
                 <div
                   key={event.id}
-                  className={cn(
-                    'flex items-center gap-4 p-3 rounded-xl cursor-pointer',
-                    'transition-all duration-300',
-                    'hover:shadow-lg hover:scale-[1.01]',
-                    'hover:ring-2 hover:ring-white/10',
-                    selectedEventId === event.id && 'ring-2 ring-blue-500 shadow-lg bg-blue-500/5',
-                    'group'
-                  )}
-                  style={{
-                    backgroundColor: colors.background.secondary,
-                  }}
+                    className={cn(
+                      'flex items-center gap-4 p-3 rounded-xl cursor-pointer bg-card',
+                      'transition-all duration-300',
+                      'hover:shadow-lg hover:scale-[1.01]',
+                      'hover:ring-2 hover:ring-white/10',
+                      selectedEventId === event.id && 'ring-2 ring-blue-500 shadow-lg bg-blue-500/5',
+                      'group'
+                    )}
                   onClick={() => handleEventSelect(event.id)}
                 >
                    <div className="relative w-32 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black">
@@ -550,7 +537,7 @@ const EventsPage = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors">
+                      <p className="text-sm font-semibold text-foreground truncate group-hover:text-blue-400 transition-colors">
                         {event.cameraName}
                       </p>
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -560,13 +547,13 @@ const EventsPage = () => {
                           </div>
                         )}
                         {event.confidence > 0 && (
-                          <div className="px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white/70">
+                          <div className="px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
                             {Math.round(event.confidence * 100)}%
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-white/50">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         <span>{new Date(event.timestamp).toLocaleString()}</span>
@@ -630,7 +617,7 @@ const EventsPage = () => {
                     return pages.map((pageNum, index) => (
                       pageNum === '...' ? (
                         <PaginationItem key={`ellipsis-${index}`}>
-                          <span className="flex h-9 w-9 items-center justify-center text-white/50">...</span>
+                          <span className="flex h-9 w-9 items-center justify-center text-muted-foreground">...</span>
                         </PaginationItem>
                       ) : (
                         <PaginationItem key={pageNum}>
@@ -669,7 +656,7 @@ const EventsPage = () => {
               onDelete={handleEventDelete}
               onDownload={handleEventDownload}
             />
-            <div className="w-full md:w-[500px] lg:w-[600px] border-t overflow-y-auto" style={{ borderColor: colors.border.subtle }}>
+            <div className="w-full md:w-[500px] lg:w-[600px] border-t border-border overflow-y-auto">
               <RelatedEvents
                 currentEvent={selectedEvent}
                 events={filteredEvents}

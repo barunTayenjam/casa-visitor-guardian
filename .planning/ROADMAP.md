@@ -176,7 +176,7 @@
 
 **Plans:** 1/1 complete
 
-### Phase 8: UI/UX Improvements — User experience enhancement 🔄 In Progress (2026-03-26)
+### Phase 8: UI/UX Improvements — User experience enhancement ✅ Complete (2026-03-26)
 
 **Goal:** Enhance user experience to match industry standards
 
@@ -194,15 +194,32 @@
 3. Accessibility score > 95%
 4. Dark mode respects system preference
 
-**Plans:** 1/6 complete
+**Plans:** 6/6 complete
 
-- **Plan 8.1:** Severity-Based Motion Alerts — Progressive disclosure by threat level
-- **Plan 8.2:** Stream Quality Indicators — Real-time health metrics
+- **Plan 8.1:** ✅ Severity-Based Motion Alerts — Progressive disclosure by threat level
+- **Plan 8.2:** ✅ Stream Quality Indicators — Real-time health metrics
 - **Plan 8.3:** ✅ Mobile Touch Target Optimization — 44x44px minimum, thumb zone controls, swipe gestures
-- **Plan 8.4:** Progressive Loading States — Skeleton screens, thumbnails
-- **Plan 8.5:** Dark Mode Implementation — System-aware with manual override
-- **Plan 8.6:** WCAG AA Accessibility — ARIA labels, keyboard nav, focus indicators
+- **Plan 8.4:** ✅ Progressive Loading States — Skeleton screens, thumbnails
+- **Plan 8.5:** ✅ Dark Mode Implementation — System-aware with manual override
+- **Plan 8.6:** ✅ WCAG AA Accessibility — ARIA labels, keyboard nav, focus indicators
+
+### Phase 9: Streaming UI Simplification — Reduce overlay clutter 📋 Planning (2026-03-27)
+
+**Goal:** Simplify streaming interface to just camera name + status, all info in tap-to-toggle panel
+
+**Requirements:**
+- SUI-01: Reduce visible overlays to camera name + connection status dot only
+- SUI-02: Tap-to-toggle slide-up panel for all hidden info (alerts, quality, controls)
+- SUI-03: Swipe left/right camera switching with smooth transitions
+
+**Success Criteria:**
+1. Stream view shows only video + camera name + status dot by default
+2. Single tap reveals slide-up panel with all info and controls
+3. Swipe gestures switch cameras with smooth transition
+4. No visual clutter or competing overlays
+
+**Plans:** 0/? planned
 
 ---
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-03-26 - Phase 8.3 complete*
+*Last updated: 2026-03-27 - Phase 8 complete, Phase 9 added*

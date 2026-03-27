@@ -5,6 +5,7 @@ import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
 import { Camera } from '@/types/security';
 import { ConnectionStateOverlay } from '@/components/live/ConnectionStateOverlay';
+import { StreamPanel } from '@/components/live/StreamPanel';
 import { CameraStreamSkeleton } from '@/components/ui/LoadingSkeleton';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +64,66 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   });
 
   const streamActionRef = useRef<"start" | "stop" | null>(null);
+  const connectionStartTimeRef = useRef<number>(0);
+  const swipeDetectionRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
+
+  // Panel state — tap to toggle, swipe does NOT open panel
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  // Determine if full connection overlay should show (initial connection or persistent error)
+  const [showFullOverlay, setShowFullOverlay] = useState(false);
+
+  useEffect(() => {
+    if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+      setShowFullOverlay(true);
+      connectionStartTimeRef.current = Date.now();
+    }
+    if (connectionState === 'connected') {
+      setShowFullOverlay(false);
+    }
+    if (connectionState === 'error') {
+      // Keep overlay for errors
+      setShowFullOverlay(true);
+    }
+    if (connectionState === 'idle') {
+      setShowFullOverlay(false);
+    }
+  }, [connectionState]);
+
+  // Auto-dismiss full connecting overlay after 5 seconds if still connecting
+  useEffect(() => {
+    if ((connectionState === 'connecting' || connectionState === 'reconnecting') && showFullOverlay) {
+      const timer = setTimeout(() => {
+        setShowFullOverlay(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [connectionState, showFullOverlay]);
+
+  // Tap-to-toggle panel (not swipe)
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    swipeDetectionRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    };
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!swipeDetectionRef.current) return;
+    const dx = Math.abs(e.clientX - swipeDetectionRef.current.startX);
+    const dy = Math.abs(e.clientY - swipeDetectionRef.current.startY);
+    if (dx > 10 || dy > 10) {
+      swipeDetectionRef.current.moved = true;
+    }
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (swipeDetectionRef.current && !swipeDetectionRef.current.moved) {
+      setPanelOpen(prev => !prev);
+    }
+    swipeDetectionRef.current = null;
+  }, []);
 
   // Fetch stream metrics from API
   useEffect(() => {
@@ -259,14 +320,17 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         </div>
       ) : (
         <>
-          {/* z-0: Video feed (background) */}
+          {/* z-0: Video feed (background) — tap toggles panel, swipe does NOT */}
           <img
             ref={imgRef}
             alt={`${camera.name} stream`}
             className={cn(
-              "h-full w-full object-contain z-0",
+              "h-full w-full object-contain z-0 select-none touch-pan-y",
               !isStreaming && connectionState !== 'connecting' && connectionState !== 'reconnecting' && 'hidden'
             )}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
           />
 
           {/* z-0: Thumbnail placeholder while stream connects */}
@@ -304,8 +368,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             </div>
           )}
 
-          {/* z-30: Connection state overlay (modal — connecting/error) */}
-          {(connectionState === 'connecting' || connectionState === 'error' || connectionState === 'reconnecting') && (
+          {/* z-30: Full connection overlay — only for initial connection or persistent errors */}
+          {showFullOverlay && (
             <ConnectionStateOverlay
               state={connectionState}
               cameraName={camera.name}
@@ -318,10 +382,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10">
               <div className={cn(
                 "w-2 h-2 rounded-full",
-                connectionState === 'connected' && isStreaming ? "bg-green-500 animate-pulse" :
+                connectionState === 'connected' && isStreaming ? "bg-green-500" :
                 connectionState === 'connecting' || connectionState === 'reconnecting' ? "bg-yellow-500 animate-pulse" :
                 "bg-red-500"
-              )} />
+              )}
+                role="status"
+                aria-label={
+                  connectionState === 'connected' ? 'Connected' :
+                  connectionState === 'connecting' ? 'Connecting' :
+                  connectionState === 'reconnecting' ? 'Reconnecting' :
+                  'Connection error'
+                }
+              />
               <span className="text-xs font-medium text-white/90">
                 {camera.name}
               </span>
@@ -333,12 +405,28 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             </div>
           </div>
 
-          {/* z-10: Error message (HUD) */}
-          {error && connectionState === 'error' && (
-            <div className="absolute bottom-4 left-4 right-4 z-10 text-center text-red-400 text-sm bg-black/50 p-2 rounded">
+          {/* z-10: Brief error text under pill (only when full overlay is hidden) */}
+          {error && connectionState === 'error' && !showFullOverlay && (
+            <div className="absolute top-12 left-3 z-10 text-red-400 text-xs bg-black/50 px-2 py-1 rounded">
               {error}
             </div>
           )}
+
+          {/* z-30: Stream panel (tap-to-toggle drawer) */}
+          <StreamPanel
+            open={panelOpen}
+            onOpenChange={setPanelOpen}
+            camera={camera}
+            connectionState={connectionState}
+            displayFps={metrics.fps}
+            bandwidth={metrics.bandwidth}
+            latency={metrics.latency}
+            motionDetected={motion.detected}
+            motionConfidence={motion.confidence}
+            objectCount={motion.objectCount}
+            onFullscreen={undefined}
+            imgRef={imgRef}
+          />
         </>
       )}
     </div>

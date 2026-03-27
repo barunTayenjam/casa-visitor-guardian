@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   Calendar as CalendarIcon,
   Play,
@@ -344,18 +345,13 @@ export default function BatchDetectionPage() {
   const sortedObjects = Object.entries(objectStats).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Batch Detection</h1>
-          <p className="text-muted-foreground mt-1">
-            Run AI detection on all images from a specific date
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/app/streams')}>
-          Back to Streams
-        </Button>
-      </div>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Batch Detection"
+        subtitle="Run AI detection on all images from a specific date"
+        backTo="/app/streams"
+        size="large"
+      />
 
       {/* Historical Jobs Section */}
       {historicalJobs.length > 0 && (

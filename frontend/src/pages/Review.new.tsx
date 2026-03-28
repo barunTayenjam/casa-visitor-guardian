@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Video, Clock, Check, AlertTriangle, RefreshCw } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
@@ -82,15 +81,14 @@ export function ReviewPage({ camera: initialCamera }: ReviewPageProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="px-4 md:px-6 pt-4">
-        <PageHeader
-          title="Review"
-          subtitle="Review and confirm detection events"
-          icon={Video}
-          backTo="/app/streams"
-          actions={headerActions}
-        />
+      <div className="px-4 md:px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Review</h1>
+            <p className="text-sm text-muted-foreground">Review and confirm detection events</p>
+          </div>
+          {headerActions}
+        </div>
       </div>
 
       <div className="px-4 md:px-6 pb-6 space-y-6">
@@ -315,7 +313,7 @@ function TimelineView({ camera }: TimelineViewProps) {
                 key={obj.id}
                 className="absolute h-8 rounded text-xs text-white px-2 py-1 whitespace-nowrap shadow-sm"
                 style={{
-                  left: `${Math.random() * 80 + 10}%`,
+                  left: `${10 + (hashCode(obj.id || obj.label) % 70)}%`,
                   backgroundColor: getLabelColor(obj.label),
                 }}
               >
@@ -342,6 +340,16 @@ function getLabelColor(label: string): string {
     package: '#8b5cf6',
   };
   return colors[label] || '#6b7280';
+}
+
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
 }
 
 export default ReviewPage;

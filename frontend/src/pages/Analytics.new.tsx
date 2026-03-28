@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  TrendingUp,
   BarChart3,
   Activity,
   HardDrive,
@@ -30,7 +29,6 @@ import {
 import { useCameras } from '@/contexts/CameraContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageLoading } from '@/components/ui/PageLoading';
 
@@ -48,13 +46,10 @@ const AnalyticsPage = () => {
     hourlyActivity: [] as any[],
     storageStats: {
       used: 0,
-      total: 500,
       events: 0,
-      retentionDays: 30,
     },
     totalEvents: 0,
     detectionsToday: 0,
-    systemUptime: '99.2%',
   });
 
   // Fetch analytics data from backend
@@ -140,7 +135,6 @@ const AnalyticsPage = () => {
         // Camera uptime
         const cameraUptime = cameras.map(cam => ({
           camera: cam.name,
-          uptime: cam.status === 'online' ? 99.2 : 0,
           events: events.filter((e: any) => e.camera_id === cam.id).length,
           status: cam.status,
         }));
@@ -168,13 +162,10 @@ const AnalyticsPage = () => {
           hourlyActivity,
           storageStats: {
             used: usedGB,
-            total: 500,
             events: totalEvents,
-            retentionDays: 30,
           },
           totalEvents,
           detectionsToday,
-          systemUptime: '99.2%',
         });
       } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -191,11 +182,6 @@ const AnalyticsPage = () => {
     fetchAnalytics();
   }, [timeRange, cameras, toast]);
 
-  const parseChange = (change: string): { value: number; label?: string } => {
-    const num = parseFloat(change);
-    return { value: isNaN(num) ? 0 : num };
-  };
-
   if (loading) {
     return (
       <div className="w-full min-h-screen bg-background">
@@ -206,14 +192,13 @@ const AnalyticsPage = () => {
 
   return (
     <div className="w-full min-h-screen bg-background">
-      <div className="px-4 md:px-6 py-4 border-b border-border">
-        <PageHeader
-          title="Analytics"
-          subtitle="System insights and statistics"
-          icon={BarChart3}
-          backTo="/app/streams"
-          actions={
-            <div className="flex items-center gap-2 bg-muted rounded-xl p-1 border border-border" role="group" aria-label="Time range selection">
+      <div className="px-4 md:px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+            <p className="text-sm text-muted-foreground">System insights and statistics</p>
+          </div>
+          <div className="flex items-center gap-2 bg-muted rounded-xl p-1 border border-border" role="group" aria-label="Time range selection">
               {(['7d', '30d', '90d'] as const).map((range) => (
                 <button
                   key={range}
@@ -228,9 +213,8 @@ const AnalyticsPage = () => {
                   {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
                 </button>
               ))}
-            </div>
-          }
-        />
+          </div>
+        </div>
       </div>
 
       <div className="p-4 md:p-6 space-y-6">
@@ -238,29 +222,25 @@ const AnalyticsPage = () => {
           <StatCard
             label="Total Events"
             value={analyticsData.totalEvents}
-            change={parseChange('+12%')}
             icon={Activity}
             iconColor="text-blue-500"
           />
           <StatCard
             label="Detections Today"
             value={analyticsData.detectionsToday}
-            change={parseChange('+8%')}
             icon={AlertTriangle}
             iconColor="text-amber-500"
           />
           <StatCard
-            label="Storage Used"
-            value={`${analyticsData.storageStats.used} GB`}
-            change={parseChange(`${((analyticsData.storageStats.used / analyticsData.storageStats.total) * 100).toFixed(1)}%`)}
-            icon={HardDrive}
+            label="Cameras Online"
+            value={cameras.filter(c => c.status === 'online').length}
+            icon={BarChart3}
             iconColor="text-green-500"
           />
           <StatCard
-            label="System Uptime"
-            value={analyticsData.systemUptime}
-            change={parseChange('+0.3%')}
-            icon={TrendingUp}
+            label="Storage Used"
+            value={`${analyticsData.storageStats.used} GB`}
+            icon={HardDrive}
             iconColor="text-blue-500"
           />
         </div>
@@ -376,7 +356,7 @@ const AnalyticsPage = () => {
               <h3 className="text-base font-semibold text-foreground">Camera Status</h3>
               <div className="flex items-center gap-1 text-xs text-green-400">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                Online
+                {cameras.filter(c => c.status === 'online').length} online
               </div>
             </div>
             <div className="space-y-4">
@@ -387,24 +367,14 @@ const AnalyticsPage = () => {
                       <div className={`w-2 h-2 rounded-full ${camera.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`} />
                       <span className="text-sm font-medium text-foreground">{camera.camera}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">{camera.uptime}% uptime</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${camera.uptime}%`,
-                        backgroundColor: colors.status.success,
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{camera.events} events recorded</span>
                     <span
-                      className={cn('font-medium', camera.status === 'online' ? 'text-green-400' : 'text-red-400')}
+                      className={cn('text-xs font-medium', camera.status === 'online' ? 'text-green-400' : 'text-red-400')}
                     >
                       {camera.status}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{camera.events} events recorded</span>
                   </div>
                 </div>
               ))}
@@ -416,14 +386,13 @@ const AnalyticsPage = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-foreground">Storage Overview</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="text-center p-6 bg-muted/50 rounded-xl">
               <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
                 <HardDrive className="h-6 w-6" style={{ color: colors.status.info }} />
               </div>
               <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.used} GB</p>
               <p className="text-sm text-muted-foreground mt-1">Used Space</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">of {analyticsData.storageStats.total} GB total</p>
             </div>
             <div className="text-center p-6 bg-muted/50 rounded-xl">
               <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.warning}15` }}>
@@ -432,14 +401,6 @@ const AnalyticsPage = () => {
               <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.events.toLocaleString()}</p>
               <p className="text-sm text-muted-foreground mt-1">Total Events</p>
               <p className="text-xs text-muted-foreground/70 mt-1">stored in database</p>
-            </div>
-            <div className="text-center p-6 bg-muted/50 rounded-xl">
-              <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.detection.person}15` }}>
-                <Calendar className="h-6 w-6" style={{ color: colors.detection.person }} />
-              </div>
-              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.retentionDays}</p>
-              <p className="text-sm text-muted-foreground mt-1">Retention Days</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">auto-delete older events</p>
             </div>
           </div>
         </div>

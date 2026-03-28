@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Filter, Download, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { Search, Filter, Download, ChevronLeft, ChevronRight, ZoomIn, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import ApiService from '@/services/ApiService';
 
-interface ProcessedImage {
+  interface ProcessedImage {
   id: string;
   jobId: string;
   filename: string;
@@ -26,11 +26,13 @@ interface ProcessedImage {
     persons: Array<{
       class: string;
       confidence: number;
-      bbox: { x: number; y: number; width: number; height: number };
+      bbox?: { x: number; y: number; width: number; height: number };
+      boundingBox?: { x: number; y: number; width: number; height: number };
     }>;
     faces: Array<{
       confidence: number;
-      bbox: { x: number; y: number; width: number; height: number };
+      bbox?: { x: number; y: number; width: number; height: number };
+      boundingBox?: { x: number; y: number; width: number; height: number };
       personName?: string;
       isKnown: boolean;
     }>;
@@ -56,6 +58,7 @@ export default function BatchResultsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<ProcessedImage | null>(null);
+  const [showAnnotated, setShowAnnotated] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterObject, setFilterObject] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(0);
@@ -329,21 +332,36 @@ export default function BatchResultsPage() {
       </Card>
 
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setSelectedImage(null)}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => { setSelectedImage(null); setShowAnnotated(false); }}>
           <div className="bg-background rounded-lg max-w-6xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">{selectedImage.filename}</h2>
-              <Button variant="outline" size="sm" onClick={() => setSelectedImage(null)}>
-                Close
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={showAnnotated ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowAnnotated(!showAnnotated)}
+                >
+                  {showAnnotated ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                  {showAnnotated ? 'Original' : 'Detections'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setSelectedImage(null); setShowAnnotated(false); }}>
+                  Close
+                </Button>
+              </div>
             </div>
             <div className="p-6">
               <div className="relative mb-4">
                 <img
-                  src={selectedImage.imageUrl}
+                  src={showAnnotated ? `/api/batch/annotated/${selectedImage.filename}` : selectedImage.imageUrl}
                   alt={selectedImage.filename}
                   className="w-full rounded-lg"
                 />
+                {showAnnotated && (
+                  <Badge className="absolute top-2 right-2 bg-blue-500">
+                    Detections Overlay
+                  </Badge>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -370,22 +388,28 @@ export default function BatchResultsPage() {
                 <div className="mb-6">
                   <h3 className="font-semibold mb-3">Detected Objects ({selectedImage.detections.persons.length})</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {selectedImage.detections.persons.map((obj, idx) => (
-                      <Card key={idx}>
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge className={getClassColor(obj.class)}>
-                              {obj.class}
-                            </Badge>
-                            <span className="text-sm font-medium">{(obj.confidence * 100).toFixed(1)}%</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            <p>Position: ({obj.bbox.x.toFixed(0)}, {obj.bbox.y.toFixed(0)})</p>
-                            <p>Size: {obj.bbox.width.toFixed(0)} × {obj.bbox.height.toFixed(0)}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {selectedImage.detections.persons.map((obj, idx) => {
+                      const box = obj.bbox || obj.boundingBox;
+                      const conf = obj.confidence >= 1 ? obj.confidence : obj.confidence * 100;
+                      return (
+                        <Card key={idx}>
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge className={getClassColor(obj.class)}>
+                                {obj.class}
+                              </Badge>
+                              <span className="text-sm font-medium">{conf.toFixed(1)}%</span>
+                            </div>
+                            {box && (
+                              <div className="text-xs text-muted-foreground">
+                                <p>Position: ({box.x.toFixed(0)}, {box.y.toFixed(0)})</p>
+                                <p>Size: {box.width.toFixed(0)} × {box.height.toFixed(0)}</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -394,23 +418,28 @@ export default function BatchResultsPage() {
                 <div>
                   <h3 className="font-semibold mb-3">Detected Faces ({selectedImage.detections.faces.length})</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {selectedImage.detections.faces.map((face, idx) => (
-                      <Card key={idx}>
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge variant={face.isKnown ? "default" : "secondary"}>
-                              {face.isKnown ? face.personName || "Known" : "Unknown"}
-                            </Badge>
-                            <span className="text-sm font-medium">{(face.confidence * 100).toFixed(1)}%</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            <p>Position: ({face.bbox.x.toFixed(0)}, {face.bbox.y.toFixed(0)})</p>
-                            <p>Size: {face.bbox.width.toFixed(0)} × {face.bbox.height.toFixed(0)}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                    {selectedImage.detections.faces.map((face, idx) => {
+                      const box = face.bbox || face.boundingBox;
+                      const conf = face.confidence >= 1 ? face.confidence : face.confidence * 100;
+                      return (
+                        <Card key={idx}>
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge variant={face.isKnown ? "default" : "secondary"}>
+                                {face.isKnown ? face.personName || "Known" : "Unknown"}
+                              </Badge>
+                              <span className="text-sm font-medium">{conf.toFixed(1)}%</span>
+                            </div>
+                            {box && (
+                              <div className="text-xs text-muted-foreground">
+                                <p>Position: ({box.x.toFixed(0)}, {box.y.toFixed(0)})</p>
+                                <p>Size: {box.width.toFixed(0)} × {box.height.toFixed(0)}</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                 </div>
               )}
             </div>

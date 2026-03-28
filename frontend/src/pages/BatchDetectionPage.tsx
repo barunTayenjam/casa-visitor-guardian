@@ -11,6 +11,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { PageHeader } from '@/components/ui/PageHeader';
+import DetectionBoxOverlay from '@/components/detection/DetectionBoxOverlay';
 import {
   Calendar as CalendarIcon,
   Play,
@@ -734,12 +735,21 @@ function DetectionCard({ result }: { result: BatchResult }) {
       <CardContent className="p-4 space-y-3">
         <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
           {!imageError ? (
-            <img
-              src={imageUrl}
-              alt={`Detection result: ${result.filename} from ${result.cameraId || 'camera'}`}
-              className="w-full h-full object-cover"
-              onError={() => setImageError(true)}
-            />
+            <>
+              <img
+                src={imageUrl}
+                alt={`Detection result: ${result.filename} from ${result.cameraId || 'camera'}`}
+                className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
+              />
+              <DetectionBoxOverlay
+                imageUrl={imageUrl}
+                detections={[
+                  ...result.persons.map(p => ({ class: p.class, confidence: p.confidence, bbox: p.boundingBox })),
+                  ...result.faces.map(f => ({ class: 'face', confidence: f.confidence, bbox: f.boundingBox })),
+                ]}
+              />
+            </>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
               <ImageIcon className="w-8 h-8 mb-2" />

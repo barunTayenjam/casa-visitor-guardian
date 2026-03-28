@@ -127,9 +127,6 @@ class SocketService {
         });
 
         // Detection event listeners
-        this.socket.on('personDetected', (data) => {
-          // Person detected event
-        });
 
         this.socket.on('faceDetected', (data) => {
           // Face detected event

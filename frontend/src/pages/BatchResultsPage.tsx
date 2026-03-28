@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Filter, Download, ChevronLeft, ChevronRight, ZoomIn, Eye, EyeOff } from 'lucide-react';
+import { Search, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import ApiService from '@/services/ApiService';
+import DetectionBoxOverlay from '@/components/detection/DetectionBoxOverlay';
 
   interface ProcessedImage {
   id: string;
@@ -58,7 +59,6 @@ export default function BatchResultsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<ProcessedImage | null>(null);
-  const [showAnnotated, setShowAnnotated] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterObject, setFilterObject] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(0);
@@ -149,6 +149,27 @@ export default function BatchResultsPage() {
     }
   };
 
+  const loadAllImagesFiltered = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/batch/processed-images?limit=1000&offset=0');
+      const data = await response.json();
+      if (data.success) {
+        const filtered = data.images.filter((img: ProcessedImage) => {
+          if (filterObject === 'all') return true;
+          if (filterObject === 'face') return img.faceCount > 0;
+          return img.detections?.persons?.some((p: any) => p.class === filterObject);
+        });
+        setImages(filtered);
+        setPagination({ total: filtered.length, limit: 1000, offset: 0, hasMore: false });
+      }
+    } catch (error) {
+      console.error('Error loading filtered images:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredImages = images.filter(img => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -159,15 +180,6 @@ export default function BatchResultsPage() {
       img.detections?.faces?.some((f: any) => f.personName?.toLowerCase().includes(search))
     );
   });
-
-  const getImageWithBoxes = (image: ProcessedImage) => {
-    if (!image.detections) return image.imageUrl;
-    
-    const hasObjects = image.detections.persons?.length > 0 || image.detections.faces?.length > 0;
-    if (!hasObjects) return image.imageUrl;
-    
-    return image.imageUrl; 
-  };
 
   const getClassColor = (className: string) => {
     const colors: Record<string, string> = {
@@ -249,6 +261,8 @@ export default function BatchResultsPage() {
                   <SelectItem value="dog">Dogs</SelectItem>
                   <SelectItem value="cat">Cats</SelectItem>
                   <SelectItem value="face">Faces</SelectItem>
+                  <SelectItem value="bicycle">Bicycles</SelectItem>
+                  <SelectItem value="motorcycle">Motorcycles</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -269,10 +283,17 @@ export default function BatchResultsPage() {
                 >
                   <div className="relative aspect-video bg-muted">
                     <img
-                      src={getImageWithBoxes(image)}
+                      src={image.imageUrl}
                       alt={image.filename}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                    />
+                    <DetectionBoxOverlay
+                      imageUrl={image.imageUrl}
+                      detections={[
+                        ...(image.detections?.persons || []).map(p => ({ class: p.class, confidence: p.confidence, bbox: p.bbox || p.boundingBox })),
+                        ...(image.detections?.faces || []).map(f => ({ class: 'face', confidence: f.confidence, bbox: f.bbox || f.boundingBox })),
+                      ]}
                     />
                     {image.personCount > 0 && (
                       <Badge className="absolute top-2 left-2 bg-blue-500">
@@ -332,20 +353,12 @@ export default function BatchResultsPage() {
       </Card>
 
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => { setSelectedImage(null); setShowAnnotated(false); }}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setSelectedImage(null)}>
           <div className="bg-background rounded-lg max-w-6xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">{selectedImage.filename}</h2>
               <div className="flex items-center gap-2">
-                <Button
-                  variant={showAnnotated ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setShowAnnotated(!showAnnotated)}
-                >
-                  {showAnnotated ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-                  {showAnnotated ? 'Original' : 'Detections'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setSelectedImage(null); setShowAnnotated(false); }}>
+                <Button variant="outline" size="sm" onClick={() => setSelectedImage(null)}>
                   Close
                 </Button>
               </div>
@@ -353,15 +366,17 @@ export default function BatchResultsPage() {
             <div className="p-6">
               <div className="relative mb-4">
                 <img
-                  src={showAnnotated ? `/api/batch/annotated/${selectedImage.filename}` : selectedImage.imageUrl}
+                  src={selectedImage.imageUrl}
                   alt={selectedImage.filename}
                   className="w-full rounded-lg"
                 />
-                {showAnnotated && (
-                  <Badge className="absolute top-2 right-2 bg-blue-500">
-                    Detections Overlay
-                  </Badge>
-                )}
+                <DetectionBoxOverlay
+                  imageUrl={selectedImage.imageUrl}
+                  detections={[
+                    ...(selectedImage.detections?.persons || []).map(p => ({ class: p.class, confidence: p.confidence, bbox: p.bbox || p.boundingBox })),
+                    ...(selectedImage.detections?.faces || []).map(f => ({ class: 'face', confidence: f.confidence, bbox: f.bbox || f.boundingBox })),
+                  ]}
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -440,8 +455,10 @@ export default function BatchResultsPage() {
                         </Card>
                       );
                     })}
+                  </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>

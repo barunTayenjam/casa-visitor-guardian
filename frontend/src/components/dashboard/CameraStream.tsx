@@ -65,7 +65,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const streamActionRef = useRef<"start" | "stop" | null>(null);
   const connectionStartTimeRef = useRef<number>(0);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeDetectionRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
+  const frameErrorRef = useRef(false);
 
   // Panel state — tap to toggle, swipe does NOT open panel
   const [panelOpen, setPanelOpen] = useState(false);
@@ -165,33 +167,45 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     frameCountRef.current = 0;
     lastFrameTimeRef.current = performance.now();
 
-    const connectionTimeout = setTimeout(() => {
-      if (connectionState === 'connecting') {
-        setConnectionState('error');
-        setError('Connection timeout. Please try again.');
-        setIsStreaming(false);
-      }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+    }
+    connectionTimeoutRef.current = setTimeout(() => {
+      streamActionRef.current = null;
+      setConnectionState('error');
+      setError('Connection timeout. Please try again.');
+      setIsStreaming(false);
     }, 10000);
 
     try {
       const startTime = Date.now();
       await startCameraStream(camera.id);
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
       setMetrics(prev => ({ ...prev, latency: Date.now() - startTime }));
-      clearTimeout(connectionTimeout);
       setConnectionState('connected');
     } catch (err) {
-      clearTimeout(connectionTimeout);
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to start stream';
       setError(errorMessage);
       setConnectionState('error');
       setIsStreaming(false);
       streamActionRef.current = null;
     }
-  }, [camera.id, startCameraStream, socketConnected, connectionState]);
+  }, [camera.id, startCameraStream, socketConnected]);
 
   const handleStreamStop = useCallback(() => {
     if (streamActionRef.current === "stop") return;
 
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
     streamActionRef.current = "stop";
     setIsStreaming(false);
     setConnectionState('idle');
@@ -207,11 +221,16 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
 
     return () => {
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      streamActionRef.current = null;
       if (isStreaming) {
-        handleStreamStop();
+        stopCameraStream(camera.id).catch(() => {});
       }
     };
-  }, [camera.id, autoStart, socketConnected, isStreaming, handleStreamStart, handleStreamStop]);
+  }, [camera.id, autoStart, socketConnected, isStreaming, handleStreamStart, handleStreamStop, stopCameraStream]);
 
   // Handle socket connection changes
   useEffect(() => {
@@ -242,6 +261,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
         if (imgRef.current) {
           const frameDataUrl = `data:image/jpeg;base64,${data.data}`;
+          frameErrorRef.current = false;
           imgRef.current.src = frameDataUrl;
           setLastFrame(frameDataUrl);
 
@@ -326,11 +346,17 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             alt={`${camera.name} stream`}
             className={cn(
               "h-full w-full object-contain z-0 select-none touch-pan-y",
-              !isStreaming && connectionState !== 'connecting' && connectionState !== 'reconnecting' && 'hidden'
+              ((!isStreaming && connectionState !== 'connecting' && connectionState !== 'reconnecting') || frameErrorRef.current) && 'hidden'
             )}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onError={() => {
+              frameErrorRef.current = true;
+              if (imgRef.current) {
+                imgRef.current.src = '';
+              }
+            }}
           />
 
           {/* z-0: Thumbnail placeholder while stream connects */}

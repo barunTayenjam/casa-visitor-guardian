@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Camera, MotionEvent as SecurityMotionEvent } from '@/types/security';
 import apiService from '@/services/ApiService';
 import socketService from '@/services/SocketService';
@@ -45,6 +45,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [streamingCameras, setStreamingCameras] = useState<Set<string>>(new Set());
+  const streamingCamerasRef = useRef(streamingCameras);
+  streamingCamerasRef.current = streamingCameras;
 
   // Update a camera's last seen timestamp
   const updateCameraLastSeen = (id: string) => {
@@ -213,14 +215,13 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Start streaming from a camera
   const startCameraStream = useCallback(async (id: string) => {
     try {
-      if (streamingCameras.has(id)) {
+      if (streamingCamerasRef.current.has(id)) {
         console.log(`⚠️ CameraContext: Camera ${id} already streaming, skipping`);
         return;
       }
 
       console.log(`🎬 CameraContext: Requesting stream for camera ${id}`);
 
-      // Ensure socket is connected before requesting stream
       if (!socketService.isConnected()) {
         console.log(`Socket not connected, attempting to connect...`);
         await socketService.connect();
@@ -234,13 +235,13 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to start stream for camera ${id}:`, err);
       throw err;
     }
-  }, [socketService, updateCamera, streamingCameras]);
+  }, [socketService, updateCamera]);
 
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
     try {
       console.log(`🛑 CameraContext: Stopping stream for camera ${id}`);
-      socketService.socket?.emit('stopStream', { cameraId: id });
+      socketService.stopStream(id);
       setStreamingCameras(prev => {
         const next = new Set(prev);
         next.delete(id);

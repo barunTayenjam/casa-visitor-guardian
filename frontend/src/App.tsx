@@ -8,6 +8,7 @@ import { SocketProvider } from "./contexts/SocketContext";
 import { CameraProvider } from "./contexts/CameraContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { AppLayout } from "./components/layout/AppLayout";
 
 const Login = lazy(() => import("./pages/Login"));
 const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
@@ -103,83 +104,104 @@ const App = () => {
                     }
                   />
 
+                  {/* App routes with shared navigation layout */}
                   <Route path="/app" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <StreamDashboard />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <StreamDashboard />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/streams" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <StreamDashboard />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <StreamDashboard />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/events" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <EventsPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <EventsPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/settings" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <SettingsPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <SettingsPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/analytics" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <AnalyticsPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <AnalyticsPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/visitors" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <VisitorTimeline />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <VisitorTimeline />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/review" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <ReviewPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <ReviewPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/batch-detection" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <BatchDetectionPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <BatchDetectionPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/batch-results/:jobId?" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <BatchResultsPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <BatchResultsPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 
                   <Route path="/app/highlights/:date" element={
                       <ProtectedRoute>
-                        <ErrorBoundary fallback={ErrorFallback}>
-                          <DayHighlightsPage />
-                        </ErrorBoundary>
+                        <AppLayout>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <DayHighlightsPage />
+                          </ErrorBoundary>
+                        </AppLayout>
                       </ProtectedRoute>
                     } />
 

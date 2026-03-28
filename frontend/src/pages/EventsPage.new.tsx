@@ -11,7 +11,6 @@ import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import apiService from '@/services/ApiService';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +24,7 @@ const EventsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { cameras } = useCameras();
-  
+
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +41,7 @@ const EventsPage = () => {
     dateRange: { start: undefined, end: undefined },
     confidence: 'all',
   });
-  
+
   // Bulk selection state
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -282,19 +281,17 @@ const EventsPage = () => {
       today.setHours(0, 0, 0, 0);
       return e.timestamp >= today;
     }).length,
-    highConfidence: events.filter(e => e.confidence > 0.8).length,
   };
 
   return (
     <div className="w-full min-h-screen flex flex-col bg-background">
-      <div className="px-4 md:px-6 py-4 border-b border-border">
-        <PageHeader
-          title="Events"
-          subtitle="Browse and manage security events"
-          icon={Calendar}
-          backTo="/app/streams"
-          actions={
-            <div className="flex items-center gap-3">
+      <div className="px-4 md:px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Events</h1>
+            <p className="text-sm text-muted-foreground">Browse and manage security events</p>
+          </div>
+          <div className="flex items-center gap-3">
               {/* Inline stats */}
               <div className="hidden md:flex items-center gap-3 mr-2">
                 <div className="flex items-center gap-2">
@@ -392,9 +389,8 @@ const EventsPage = () => {
                   <List className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          }
-        />
+          </div>
+        </div>
       </div>
 
       <SmartFilters cameras={cameraNames} onFiltersChange={setFilters} />

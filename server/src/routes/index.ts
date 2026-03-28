@@ -4743,6 +4743,41 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Get annotated image with detection bounding boxes
+  app.get('/api/batch/annotated/:filename', async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const opencvUrl = process.env.OPENCV_SERVICE_URL || 'http://opencv:8084';
+
+      const result = await AppDataSource.query(
+        `SELECT file_path FROM events WHERE file_path LIKE '%${filename}' LIMIT 1`
+      );
+
+      if (result.length === 0) {
+        return res.status(404).json({ success: false, error: 'Image not found in database' });
+      }
+
+      const filePath = result[0].file_path;
+
+      const response = await fetch(`${opencvUrl}/annotate-by-path`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath }),
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ success: false, error: 'OpenCV service error' });
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      res.set('Content-Type', 'image/jpeg');
+      res.send(Buffer.from(arrayBuffer));
+    } catch (error: any) {
+      console.error('Error getting annotated image:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Get processed images with detections for viewing
   app.get('/api/batch/processed-images', async (req: Request, res: Response) => {
     try {

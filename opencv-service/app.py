@@ -240,23 +240,23 @@ class YOLOObjectDetector:
         # Per-class confidence thresholds based on camera configuration
         # Increased all thresholds for better accuracy (reduces false positives)
         self.class_thresholds = {
-            'person': 0.70,
-            'car': 0.70,
-            'truck': 0.70,
-            'bus': 0.70,
-            'motorcycle': 0.65,
-            'bicycle': 0.65,
-            'dog': 0.60,
-            'cat': 0.60,
-            'bird': 0.55,
-            'horse': 0.60,
-            'sheep': 0.55,
-            'cow': 0.55,
-            'elephant': 0.55,
-            'bear': 0.55,
-            'zebra': 0.55,
-            'giraffe': 0.55,
-            'backpack': 0.50,
+            'person': 0.45,
+            'car': 0.45,
+            'truck': 0.45,
+            'bus': 0.45,
+            'motorcycle': 0.40,
+            'bicycle': 0.40,
+            'dog': 0.35,
+            'cat': 0.35,
+            'bird': 0.30,
+            'horse': 0.40,
+            'sheep': 0.30,
+            'cow': 0.30,
+            'elephant': 0.30,
+            'bear': 0.30,
+            'zebra': 0.30,
+            'giraffe': 0.30,
+            'backpack': 0.30,
             'umbrella': 0.50,
             'handbag': 0.50,
             'tie': 0.50,
@@ -579,8 +579,10 @@ class YOLOObjectDetector:
                         class_id = int(np.argmax(class_scores))
                         class_conf = float(class_scores[class_id])
                         
-                        # Final confidence = object_conf * class_conf
-                        confidence = obj_conf * class_conf
+                        # Use class_conf directly for ONNX models
+                        # ONNX-exported YOLOv5 objectness scores are unreliable (often ~0),
+                        # but class scores remain well-calibrated
+                        confidence = class_conf
                         
                         # Get class name and its specific threshold
                         class_name = class_names[class_id] if class_id < len(class_names) else f"object_{class_id}"
@@ -1487,6 +1489,41 @@ def detect_and_draw_route():
 
     except Exception as e:
         print(f"OpenCV Service: Detect and draw error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/annotate-by-path', methods=['POST'])
+def annotate_by_path_route():
+    """Annotate image by file path - accepts JSON with 'path' field"""
+    try:
+        data = request.get_json(force=True)
+        if not data or 'path' not in data:
+            return jsonify({'success': False, 'error': 'No path provided'}), 400
+
+        filepath = data['path']
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'error': f'File not found: {filepath}'}), 404
+
+        image = cv2.imread(filepath)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to read image'}), 400
+
+        detections = detector._perform_yolo_detection(image)
+        annotated_image = draw_detections(image, detections)
+
+        _, buffer = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        return Response(
+            buffer.tobytes(),
+            mimetype='image/jpeg',
+            headers={'X-Detection-Count': str(len(detections))}
+        )
+
+    except Exception as e:
+        print(f"OpenCV Service: Annotate by path error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

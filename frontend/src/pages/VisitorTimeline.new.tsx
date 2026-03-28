@@ -23,7 +23,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageLoading } from '@/components/ui/PageLoading';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -226,15 +225,14 @@ const VisitorTimeline = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="px-4 md:px-6 pt-4">
-        <PageHeader
-          title="Visitor Timeline"
-          subtitle="Track visitor activity over time"
-          icon={Users}
-          backTo="/app/streams"
-          actions={exportAction}
-        />
+      <div className="px-4 md:px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Visitor Timeline</h1>
+            <p className="text-sm text-muted-foreground">Track visitor activity over time</p>
+          </div>
+          {exportAction}
+        </div>
       </div>
 
       <div className="px-4 md:px-6 pb-6 max-w-7xl mx-auto space-y-6">

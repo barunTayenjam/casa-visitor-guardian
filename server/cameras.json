@@ -9,7 +9,7 @@
                 "roles": ["live", "detect", "record"],
                 "width": 1920,
                 "height": 1080,
-                "fps": 4
+                "fps": 2
             }
         ],
         "detect": {
@@ -18,7 +18,7 @@
             "fps": 5
         },
         "live": {
-            "fps": 4
+            "fps": 2
         },
         "record": {
             "enabled": true,
@@ -123,7 +123,7 @@
                 "roles": ["live", "detect", "record"],
                 "width": 1920,
                 "height": 1080,
-                "fps": 4
+                "fps": 2
             }
         ],
         "detect": {
@@ -132,7 +132,7 @@
             "fps": 5
         },
         "live": {
-            "fps": 4
+            "fps": 2
         },
         "record": {
             "enabled": true,

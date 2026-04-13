@@ -467,7 +467,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             motionDetected={motion.detected}
             motionConfidence={motion.confidence}
             objectCount={motion.objectCount}
-            onFullscreen={undefined}
             imgRef={imgRef}
           />
         </>

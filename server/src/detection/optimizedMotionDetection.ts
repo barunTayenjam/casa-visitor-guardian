@@ -28,11 +28,6 @@ interface OptimizedMotionSettings {
   nightModeSensitivity: number; // Different sensitivity for night
   quietHours: { start: string; end: string }; // Reduce detection during quiet hours
   
-  // NEW: Automatic detection settings
-  autoDetectObjects: boolean;      // Automatically run object detection
-  autoDetectFaces: boolean;        // Automatically run face detection
-  detectionPriority: 'immediate' | 'deferred'; // When to run detection
-  
   // PHASE 1.1: Multi-frame validation settings
   requiredConsecutiveFrames: number; // Frames of motion required before triggering (default: 3)
   maxConsecutiveResetTime: number; // ms to reset consecutive count if no motion (default: 3000)
@@ -145,9 +140,6 @@ export class OptimizedMotionDetector extends EventEmitter {
         adaptiveMode: config.adaptiveMode,
         nightModeSensitivity: config.nightModeSensitivity,
         quietHours: config.quietHours,
-        autoDetectObjects: config.autoDetectObjects,
-        autoDetectFaces: config.autoDetectFaces,
-        detectionPriority: config.detectionPriority,
         requiredConsecutiveFrames: config.requiredConsecutiveFrames,
         maxConsecutiveResetTime: config.maxConsecutiveResetTime,
         minContourArea: config.minContourArea,

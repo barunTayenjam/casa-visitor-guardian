@@ -242,6 +242,23 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
   }, [socketConnected, connectionStatus, autoStart, isStreaming, connectionState, handleStreamStart, camera.id]);
 
+  // Handle page visibility changes - reconnect stream when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
+        handleStreamStart();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart]);
+
   // WebSocket event handlers
   useEffect(() => {
     let lastFrameUpdate = 0;

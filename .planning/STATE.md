@@ -125,6 +125,7 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 | 260413-nuy | Fix stream not reconnecting on device wake | 2026-04-13 | f61f441 | [260413-nuy-fix-stream-not-reconnecting-on-device-wa](./quick/260413-nuy-fix-stream-not-reconnecting-on-device-wa/) |
 | 260413-ogr | Verify detection pipeline is working correctly | 2026-04-13 | - | [260413-ogr-verify-detection-pipeline-is-working-cor](./quick/260413-ogr-verify-detection-pipeline-is-working-cor/) |
 | 260413-ppr | Enable always-on detection regardless of viewers | 2026-04-13 | 0387df7 | [260413-ppr-enable-always-on-detection-regardless-of](./quick/260413-ppr-enable-always-on-detection-regardless-of/) |
+| 260413-pwo | Regression check after always-on detection | 2026-04-13 | - | [260413-pwo-regression-check-after-always-on-detecti](./quick/260413-pwo-regression-check-after-always-on-detecti/) |
 
 ---
 
@@ -148,6 +149,6 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
-Last activity: 2026-04-13 - Completed quick task 260413-ppr: Enable always-on detection regardless of viewers
+Last activity: 2026-04-13 - Completed quick task 260413-pwo: Regression check after always-on detection
 
-*State updated: 2026-04-13 - Completed quick task 260413-ppr: Enable always-on detection regardless of viewers*
+*State updated: 2026-04-13 - Completed quick task 260413-pwo: Regression check after always-on detection*

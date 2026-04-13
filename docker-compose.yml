@@ -70,7 +70,7 @@ services:
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
       # Resource optimization settings (for 1 core, 2GB RAM systems)
-      - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-false}
+      - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-true}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
       - DEFAULT_FPS=${DEFAULT_FPS:-2}
       - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
@@ -104,11 +104,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${BACKEND_CPU_LIMIT:-1.0}
-          memory: ${BACKEND_MEM_LIMIT:-1024M}
+          cpus: ${BACKEND_CPU_LIMIT:-0.5}
+          memory: ${BACKEND_MEM_LIMIT:-512M}
         reservations:
-          cpus: ${BACKEND_CPU_RESERVE:-0.5}
-          memory: ${BACKEND_MEM_RESERVE:-512M}
+          cpus: ${BACKEND_CPU_RESERVE:-0.25}
+          memory: ${BACKEND_MEM_RESERVE:-256M}
 
   # Frontend Development Server
   frontend:
@@ -211,11 +211,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${OPENCV_CPU_LIMIT:-0.5}
-          memory: ${OPENCV_MEM_LIMIT:-512M}
+          cpus: ${OPENCV_CPU_LIMIT:-0.25}
+          memory: ${OPENCV_MEM_LIMIT:-256M}
         reservations:
-          cpus: ${OPENCV_CPU_RESERVE:-0.25}
-          memory: ${OPENCV_MEM_RESERVE:-256M}
+          cpus: ${OPENCV_CPU_RESERVE:-0.1}
+          memory: ${OPENCV_MEM_RESERVE:-128M}
 
 networks:
   sentryvision_network:

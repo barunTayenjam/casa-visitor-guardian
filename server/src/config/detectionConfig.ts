@@ -8,9 +8,6 @@ export interface DetectionConfig {
   adaptiveMode: boolean;
   nightModeSensitivity: number;
   quietHours: { start: string; end: string };
-  autoDetectObjects: boolean;
-  autoDetectFaces: boolean;
-  detectionPriority: 'immediate' | 'deferred';
   requiredConsecutiveFrames: number;
   maxConsecutiveResetTime: number;
   minContourArea: number;
@@ -32,9 +29,6 @@ export const defaultDetectionConfig: DetectionConfig = {
   adaptiveMode: true,
   nightModeSensitivity: 90,
   quietHours: { start: '22:00', end: '06:00' },
-  autoDetectObjects: false,
-  autoDetectFaces: false,
-  detectionPriority: 'deferred',
   requiredConsecutiveFrames: 3,
   maxConsecutiveResetTime: 3000,
   minContourArea: 500,

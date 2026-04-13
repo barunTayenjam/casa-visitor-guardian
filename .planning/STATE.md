@@ -122,6 +122,7 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 | 260413-lfy | Optimize home security system for minimal resource usage on server | 2026-04-13 | d2bb449 | [260413-lfy-optimize-home-security-system-for-minima](./quick/260413-lfy-optimize-home-security-system-for-minima/) |
 | 260413-m82 | Analyze and remove dead code | 2026-04-13 | bb261f5 | [260413-m82-analyze-and-remove-dead-code](./quick/260413-m82-analyze-and-remove-dead-code/) |
 | 260413-mrs | Full codebase dead code audit | 2026-04-13 | - | [260413-mrs-full-codebase-dead-code-audit](./quick/260413-mrs-full-codebase-dead-code-audit/) |
+| 260413-nuy | Fix stream not reconnecting on device wake | 2026-04-13 | f61f441 | [260413-nuy-fix-stream-not-reconnecting-on-device-wa](./quick/260413-nuy-fix-stream-not-reconnecting-on-device-wa/) |
 
 ---
 
@@ -145,6 +146,6 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
-Last activity: 2026-04-13 - Completed quick task 260413-mrs: Full codebase dead code audit
+Last activity: 2026-04-13 - Completed quick task 260413-nuy: Fix stream not reconnecting on device wake
 
-*State updated: 2026-04-13 - Completed quick task 260413-mrs: Full codebase dead code audit (8 files removed)*
+*State updated: 2026-04-13 - Completed quick task 260413-nuy: Fix stream not reconnecting on device wake*

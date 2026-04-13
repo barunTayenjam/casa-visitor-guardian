@@ -88,6 +88,11 @@ export class StreamManager {
       this.addCamera(cameraConfig);
     });
 
+    // Auto-start detect role for all cameras (always-on detection)
+    configuredCameras.forEach((cameraConfig) => {
+      this.startStream(cameraConfig.id, 'detect');
+    });
+
     // Setup event listeners for motion detection
     this.setupDetectionEventListeners();
 
@@ -180,6 +185,12 @@ export class StreamManager {
             this.stopStream(cameraId, 'live');
           }
 
+          // CRITICAL: Never stop detect role regardless of viewer count
+          if (viewerCount === 0 && camera.activeRoles.has('detect')) {
+            console.log(`[StreamManager] Keeping detect stream active for camera ${cameraId} (always-on detection)`);
+            // Ensure detect stays active
+          }
+
           socket.emit('streamStopped', { cameraId, viewerCount });
         }
       });
@@ -198,6 +209,11 @@ export class StreamManager {
             // Stop stream if no more viewers
             if (viewerCount === 0 && camera.activeRoles.has('live')) {
               this.stopStream(cameraId, 'live');
+            }
+
+            // CRITICAL: Never stop detect role regardless of viewer count
+            if (viewerCount === 0 && camera.activeRoles.has('detect')) {
+              console.log(`[StreamManager] Keeping detect stream active for camera ${cameraId} (always-on detection)`);
             }
           }
         });

@@ -259,6 +259,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     };
   }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart]);
 
+  // Handle socket reconnect - stream should restart when socket reconnects
+  useEffect(() => {
+    const handleSocketReconnect = () => {
+      if (socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
+        handleStreamStart();
+      }
+    };
+
+    const unsubscribe = socketService.on('connect', handleSocketReconnect);
+    return () => unsubscribe();
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart]);
+
   // WebSocket event handlers
   useEffect(() => {
     let lastFrameUpdate = 0;

@@ -10,6 +10,7 @@ import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
 import NotificationService from '../services/notificationService.js';
+import { loadDetectionConfig } from '../config/detectionConfig.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -132,29 +133,27 @@ export class OptimizedMotionDetector extends EventEmitter {
 
   // Initialize optimized default settings
   private initializeDefaultSettings(): void {
+    const config = loadDetectionConfig();
     this.streamManager.getAllCameras().forEach(camera => {
       this.cameraSettings.set(camera.id, {
         enabled: true,
-        sensitivity: 90,
-        cooldownPeriod: 10000,
-        detectionInterval: 3000,
-        minConfidence: 5,
-        maxEventsPerHour: 100,
-        adaptiveMode: true,
-        nightModeSensitivity: 90,
-        quietHours: { start: '22:00', end: '06:00' },
-        autoDetectObjects: false,
-        autoDetectFaces: false,
-        detectionPriority: 'deferred',
-        requiredConsecutiveFrames: 3,
-        maxConsecutiveResetTime: 3000,
-        minContourArea: 500,
-        useGaussianBlur: true,
-        blurKernelSize: 5,
-        timeZones: {
-          day: { start: '06:00', end: '22:00', sensitivityMultiplier: 1.0 },
-          night: { start: '22:00', end: '06:00', sensitivityMultiplier: 1.2 }
-        }
+        sensitivity: config.sensitivity,
+        cooldownPeriod: config.cooldownPeriod,
+        detectionInterval: config.detectionInterval,
+        minConfidence: config.minConfidence,
+        maxEventsPerHour: config.maxEventsPerHour,
+        adaptiveMode: config.adaptiveMode,
+        nightModeSensitivity: config.nightModeSensitivity,
+        quietHours: config.quietHours,
+        autoDetectObjects: config.autoDetectObjects,
+        autoDetectFaces: config.autoDetectFaces,
+        detectionPriority: config.detectionPriority,
+        requiredConsecutiveFrames: config.requiredConsecutiveFrames,
+        maxConsecutiveResetTime: config.maxConsecutiveResetTime,
+        minContourArea: config.minContourArea,
+        useGaussianBlur: config.useGaussianBlur,
+        blurKernelSize: config.blurKernelSize,
+        timeZones: config.timeZones
       });
     });
   }

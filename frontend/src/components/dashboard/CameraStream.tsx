@@ -69,6 +69,79 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const swipeDetectionRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
   const frameErrorRef = useRef(false);
 
+  // === Anti-flicker: Cooldown and throttling ===
+  const lastRestartTimeRef = useRef<number>(0);
+  const restartCooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibilityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const failureCountRef = useRef<number>(0);
+  const connectionAttemptsRef = useRef<number>(0);
+  const lastConnectionAttemptRef = useRef<number>(0);
+
+  // Refs to store function references (to avoid circular dependency issues)
+  const handleStreamStartRef = useRef<() => Promise<void>>(() => {});
+  const handleStreamStopRef = useRef<() => void>(() => {});
+
+  // Anti-flicker constants
+  const RESTART_COOLDOWN_MS = 5000; // 5 seconds minimum between restarts
+  const VISIBILITY_DEBOUNCE_MS = 2000; // 2 second debounce for visibility changes
+  const MAX_FAILURE_COUNT = 3; // After this many failures, use exponential backoff
+  const CONNECTION_RATE_LIMIT_MS = 3000; // 3 seconds between connection attempts
+  const MAX_CONNECTION_ATTEMPTS_PER_MINUTE = 10; // Rate limit to prevent server overload
+
+  // === Anti-flicker helper functions ===
+  const canRestartStream = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastRestart = now - lastRestartTimeRef.current;
+
+    // Check cooldown
+    if (timeSinceLastRestart < RESTART_COOLDOWN_MS) {
+      console.log(`🚫 Restart blocked - cooldown active (${Math.round((RESTART_COOLDOWN_MS - timeSinceLastRestart) / 1000)}s remaining)`);
+      return false;
+    }
+
+    // Check connection rate limit
+    if (now - lastConnectionAttemptRef.current < CONNECTION_RATE_LIMIT_MS) {
+      console.log('🚫 Restart blocked - connection rate limit active');
+      return false;
+    }
+
+    // Check max connection attempts per minute
+    connectionAttemptsRef.current++;
+    if (connectionAttemptsRef.current > MAX_CONNECTION_ATTEMPTS_PER_MINUTE) {
+      console.log('🚫 Restart blocked - max connection attempts exceeded');
+      // Reset counter after 1 minute
+      setTimeout(() => {
+        connectionAttemptsRef.current = 0;
+      }, 60000);
+      return false;
+    }
+
+    lastRestartTimeRef.current = now;
+    lastConnectionAttemptRef.current = now;
+    return true;
+  }, []);
+
+  const handleStreamRestart = useCallback(() => {
+    if (!canRestartStream()) return;
+
+    // Handle exponential backoff for repeated failures
+    if (failureCountRef.current >= MAX_FAILURE_COUNT) {
+      const backoffMs = Math.min(30000, 1000 * Math.pow(2, failureCountRef.current - MAX_FAILURE_COUNT));
+      console.log(`⚠️ Exponential backoff: waiting ${backoffMs}ms before retry`);
+      if (restartCooldownRef.current) clearTimeout(restartCooldownRef.current);
+      restartCooldownRef.current = setTimeout(() => {
+        failureCountRef.current = 0;
+        handleStreamStopRef.current();
+        setTimeout(() => handleStreamStartRef.current(), 500);
+      }, backoffMs);
+      return;
+    }
+
+    console.log('🔄 Stream restart initiated...');
+    handleStreamStopRef.current();
+    setTimeout(() => handleStreamStartRef.current(), 500);
+  }, [canRestartStream]);
+
   // Panel state — tap to toggle, swipe does NOT open panel
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -185,6 +258,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         connectionTimeoutRef.current = null;
       }
       setMetrics(prev => ({ ...prev, latency: Date.now() - startTime }));
+      // Reset failure count on successful connection
+      failureCountRef.current = 0;
+      connectionAttemptsRef.current = 0;
       setConnectionState('connected');
     } catch (err) {
       if (connectionTimeoutRef.current) {
@@ -211,6 +287,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     setConnectionState('idle');
     stopCameraStream(camera.id).catch(() => {});
   }, [camera.id, stopCameraStream]);
+
+  // Store function references in refs for use by handleStreamRestart (avoids circular dependency)
+  handleStreamStartRef.current = handleStreamStart;
+  handleStreamStopRef.current = handleStreamStop;
 
   // Auto-start/stop based on props
   useEffect(() => {
@@ -242,12 +322,59 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
   }, [socketConnected, connectionStatus, autoStart, isStreaming, connectionState, handleStreamStart, camera.id]);
 
-  // Handle page visibility changes - reconnect stream when page becomes visible
+  // Stream freeze detection - monitors if frames stop arriving (reduced check frequency)
+  const streamFreezeTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Clean up previous interval
+    if (streamFreezeTimeoutRef.current) {
+      clearInterval(streamFreezeTimeoutRef.current);
+    }
+
+    // Set up stream freeze detection with REDUCED frequency
+    if (isStreaming && socketConnected) {
+      streamFreezeTimeoutRef.current = setInterval(() => {
+        const timeSinceLastFrame = Date.now() - lastFrameTimeRef.current;
+        const STREAM_FREEZE_TIMEOUT = 8000; // Increased to 8 seconds (less aggressive)
+        const MIN_TIME_BEFORE_CHECK = 10000; // Don't check until at least 10 seconds have passed since start
+
+        // Only check for freeze after initial connection is stable
+        if (timeSinceLastFrame > MIN_TIME_BEFORE_CHECK && timeSinceLastFrame > STREAM_FREEZE_TIMEOUT && autoStart) {
+          console.log('🔄 Stream freeze detected, initiating restart...');
+          failureCountRef.current++;
+          handleStreamRestart();
+        }
+      }, 3000); // Check every 3 seconds (reduced from 1s)
+    }
+
+    return () => {
+      if (streamFreezeTimeoutRef.current) {
+        clearInterval(streamFreezeTimeoutRef.current);
+        streamFreezeTimeoutRef.current = null;
+      }
+    };
+  }, [isStreaming, socketConnected, autoStart, handleStreamRestart]);
+
+  // Handle page visibility changes - debounced to prevent flicker on brief tab switches
+  // Only restarts if stream has been stable OR if truly needed
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
-        handleStreamStart();
+      // Clear any pending debounce
+      if (visibilityDebounceRef.current) {
+        clearTimeout(visibilityDebounceRef.current);
       }
+
+      // Debounce the visibility change handler
+      visibilityDebounceRef.current = setTimeout(() => {
+        if (!document.hidden && socketConnected && autoStart) {
+          // Only restart if stream is idle (not actively streaming) AND has been stable
+          // DO NOT restart on every visibility change - only when genuinely needed
+          if (!isStreaming && (connectionState === 'idle' || connectionState === 'error')) {
+            console.log('👁️ Visibility change - attempting restart after debounce...');
+            handleStreamRestart();
+          }
+        }
+      }, VISIBILITY_DEBOUNCE_MS);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -256,8 +383,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+      if (visibilityDebounceRef.current) {
+        clearTimeout(visibilityDebounceRef.current);
+      }
     };
-  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart]);
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamRestart]);
 
   // Handle socket reconnect - stream should restart when socket reconnects
   useEffect(() => {

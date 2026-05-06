@@ -10,6 +10,9 @@ import {
   Sun,
   Moon,
   Monitor,
+  HardDrive,
+  Trash2,
+  Clock,
 } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
@@ -38,6 +41,12 @@ const SettingsPage = () => {
     systemName: 'SentryVision',
     timezone: 'Asia/Kolkata',
     language: 'en',
+  });
+
+  const [retentionSettings, setRetentionSettings] = useState({
+    imageRetentionDays: 7,
+    eventRetentionDays: 30,
+    cleanupEnabled: true,
   });
 
   const [originalSettings] = useState(settings);
@@ -219,6 +228,86 @@ const SettingsPage = () => {
                     <option value="de">German</option>
                     <option value="hi">Hindi</option>
                   </select>
+                </div>
+              </div>
+            </SettingCard>
+
+            <div className="mb-6 mt-8">
+              <h2 className="text-xl font-semibold text-foreground">Data & Storage</h2>
+              <p className="text-sm text-muted-foreground mt-1">Configure data retention and cleanup</p>
+            </div>
+
+            <SettingCard>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <Clock className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-foreground">Image Retention</Label>
+                      <p className="text-xs text-muted-foreground">Days to keep images before cleanup</p>
+                    </div>
+                  </div>
+                  <Select 
+                    value={retentionSettings.imageRetentionDays.toString()} 
+                    onValueChange={(v) => setRetentionSettings(s => ({ ...s, imageRetentionDays: parseInt(v) }))}
+                  >
+                    <SelectTrigger className="w-24 bg-muted border-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 days</SelectItem>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="14">14 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-green-500/10">
+                      <HardDrive className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-foreground">Event Records</Label>
+                      <p className="text-xs text-muted-foreground">Days to keep event records in database</p>
+                    </div>
+                  </div>
+                  <Select 
+                    value={retentionSettings.eventRetentionDays.toString()} 
+                    onValueChange={(v) => setRetentionSettings(s => ({ ...s, eventRetentionDays: parseInt(v) }))}
+                  >
+                    <SelectTrigger className="w-24 bg-muted border-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 days</SelectItem>
+                      <SelectItem value="60">60 days</SelectItem>
+                      <SelectItem value="90">90 days</SelectItem>
+                      <SelectItem value="365">1 year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-500/10">
+                      <Trash2 className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-foreground">Auto Cleanup</Label>
+                      <p className="text-xs text-muted-foreground">Automatically clean old images (runs daily at 2 AM)</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant={retentionSettings.cleanupEnabled ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRetentionSettings(s => ({ ...s, cleanupEnabled: !s.cleanupEnabled }))}
+                  >
+                    {retentionSettings.cleanupEnabled ? "Enabled" : "Disabled"}
+                  </Button>
                 </div>
               </div>
             </SettingCard>

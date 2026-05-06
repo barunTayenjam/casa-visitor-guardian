@@ -4,6 +4,10 @@ import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { EventEmitter } from 'events';
 import cron from 'node-cron';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+const DETECTIONS_DIR = process.env.DETECTIONS_DIR || '/app/data/detections';
 
 interface CleanupResult {
   camera?: string;
@@ -41,6 +45,75 @@ export class AutomatedCleanupService extends EventEmitter {
       AutomatedCleanupService.instance = new AutomatedCleanupService();
     }
     return AutomatedCleanupService.instance;
+  }
+
+  async cleanupOldImages(retentionDays: number = 7): Promise<{ deleted: number; preserved: number; freedBytes: number }> {
+    console.log(`Starting image cleanup - keeping images analyzed by AI for ${retentionDays} days...`);
+    
+    let deleted = 0;
+    let preserved = 0;
+    let freedBytes = 0;
+
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+      // Get all analyzed event IDs (these should be preserved)
+      const analyzedResults = await AppDataSource.query(
+        `SELECT DISTINCT event_filename FROM ai_analysis_results WHERE analyzed_at IS NOT NULL`
+      );
+      const analyzedFilenames = new Set(analyzedResults.map((r: any) => r.event_filename));
+      console.log(`Found ${analyzedFilenames.size} AI-analyzed images to preserve`);
+
+      // Get events older than retention days
+      const oldEvents = await AppDataSource.getRepository(Event)
+        .createQueryBuilder('event')
+        .select(['event.id', 'event.filename', 'event.camera_id'])
+        .where('event.timestamp < :cutoffDate', { cutoffDate })
+        .andWhere('event.filename IS NOT NULL')
+        .getMany();
+
+      console.log(`Found ${oldEvents.length} events older than ${retentionDays} days`);
+
+      for (const event of oldEvents) {
+        if (!event.filename) continue;
+
+        // Skip if this file was analyzed by AI
+        if (analyzedFilenames.has(event.filename)) {
+          preserved++;
+          continue;
+        }
+
+        // Try to delete the image file
+        const possiblePaths = [
+          path.join(DETECTIONS_DIR, 'events', event.camera_id || '', event.filename),
+          path.join(DETECTIONS_DIR, event.filename),
+          path.join(DETECTIONS_DIR, 'detections', event.camera_id || '', event.filename),
+        ];
+
+        for (const filePath of possiblePaths) {
+          try {
+            const stats = await fs.stat(filePath);
+            await fs.unlink(filePath);
+            deleted++;
+            freedBytes += stats.size;
+            console.log(`Deleted: ${filePath}`);
+            break;
+          } catch (err: any) {
+            if (err.code !== 'ENOENT') {
+              console.error(`Error deleting ${filePath}:`, err.message);
+            }
+          }
+        }
+      }
+
+      console.log(`Image cleanup complete: ${deleted} deleted, ${preserved} preserved, ${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`);
+      
+      return { deleted, preserved, freedBytes };
+    } catch (error) {
+      console.error('Error during image cleanup:', error);
+      throw error;
+    }
   }
 
   async initialize(): Promise<void> {
@@ -83,7 +156,10 @@ export class AutomatedCleanupService extends EventEmitter {
       console.log('Starting automatic cleanup process...');
 
       await this.cleanupExpiredFiles();
-      await this.cleanupExpiredEvents();
+      // NOTE: We intentionally DO NOT delete event records from database
+      // Database records are kept for statistics (events per day, etc.)
+      // Only the physical image files are deleted by cleanupOldImages()
+      await this.cleanupOldImages(7); // Default 7-day retention for images
       await this.cleanupByStorageThreshold();
       await storageStatsService.calculateAllStats();
 
@@ -164,40 +240,36 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async cleanupExpiredEvents(): Promise<void> {
     try {
-      console.log('Cleaning up expired events from database...');
-
+      // NOTE: We intentionally DO NOT delete event records from database
+      // Event records are valuable for statistics and history
+      // Only the physical image files are cleaned up by cleanupOldImages()
+      // This preserves: event counts per day, camera activity, motion patterns, etc.
+      
+      console.log('Preserving event records for statistics (database records not deleted)...');
+      
       const policies = await retentionPolicyService.getAllPolicies();
-      let totalDeleted = 0;
 
       for (const policy of policies) {
-        const camera = policy.camera;
-        const retentionDays = policy.events_days;
-
         if (policy.retain_indefinitely) {
           continue;
         }
 
+        const retentionDays = policy.events_days;
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-        const deleteResult = await AppDataSource.getRepository(Event)
+        // Just log the count - don't delete
+        const oldEventsCount = await AppDataSource.getRepository(Event)
           .createQueryBuilder('event')
-          .delete()
           .where('event.timestamp < :cutoffDate', { cutoffDate })
-          .andWhere(camera ? 'event.camera_id = :camera' : '1=1', { camera: camera || '' })
-          .execute();
+          .getCount();
 
-        const deletedCount = deleteResult.affected || 0;
-        totalDeleted += deletedCount;
-
-        if (deletedCount > 0) {
-          console.log(`Deleted ${deletedCount} expired events for ${camera || 'all cameras'}`);
+        if (oldEventsCount > 0) {
+          console.log(`Would delete ${oldEventsCount} events older than ${retentionDays} days - preserving for statistics`);
         }
       }
 
-      if (totalDeleted > 0) {
-        console.log(`Total expired events deleted: ${totalDeleted}`);
-      }
+      console.log('Event records preserved for historical statistics');
     } catch (error) {
       console.error('Error cleaning up expired events:', error);
       throw error;

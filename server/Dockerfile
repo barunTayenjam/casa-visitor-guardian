@@ -28,3 +28,4 @@ EXPOSE 9753 9754
 # Start development server with watch mode
 # tsx watch automatically restarts on file changes
 CMD ["npx", "tsx", "watch", "--clear-screen=false", "src/index.ts"]
+ENV NODE_OPTIONS="--max-old-space-size=2048"

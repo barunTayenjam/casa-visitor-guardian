@@ -17,8 +17,6 @@ const SettingsPage = lazy(() => import("./pages/Settings.new"));
 const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
 const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline.new"));
 const ReviewPage = lazy(() => import("./pages/Review.new"));
-const BatchDetectionPage = lazy(() => import("./pages/BatchDetectionPage"));
-const BatchResultsPage = lazy(() => import("./pages/BatchResultsPage"));
 const DayHighlightsPage = lazy(() => import("./pages/DayHighlights.new"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -175,26 +173,9 @@ const App = () => {
                       </ProtectedRoute>
                     } />
 
-                  <Route path="/app/batch-detection" element={
-                      <ProtectedRoute>
-                        <AppLayout>
-                          <ErrorBoundary fallback={ErrorFallback}>
-                            <BatchDetectionPage />
-                          </ErrorBoundary>
-                        </AppLayout>
-                      </ProtectedRoute>
+                  <Route path="/app/highlights" element={
+                      <Navigate to={`/app/highlights/${new Date().toISOString().split('T')[0]}`} replace />
                     } />
-
-                  <Route path="/app/batch-results/:jobId?" element={
-                      <ProtectedRoute>
-                        <AppLayout>
-                          <ErrorBoundary fallback={ErrorFallback}>
-                            <BatchResultsPage />
-                          </ErrorBoundary>
-                        </AppLayout>
-                      </ProtectedRoute>
-                    } />
-
                   <Route path="/app/highlights/:date" element={
                       <ProtectedRoute>
                         <AppLayout>

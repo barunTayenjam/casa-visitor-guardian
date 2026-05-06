@@ -9,6 +9,21 @@ class SocketService {
 
   constructor() {
     // Socket service initialized
+    
+    // Handle page visibility changes to recover socket transport after device wake
+    const handleVisibilityChange = () => {
+      if (!document.hidden && this.socket?.connected) {
+        // When page becomes visible, check if transport might be stale
+        // Force transport to reconnect to handle tablet screen freeze
+        console.log('🔄 SocketService: Page visible, checking transport health...');
+        // The socket.io library handles reconnection automatically,
+        // but we can force a transport check by triggering activity
+        this.socket.emit('ping');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
   }
 
   // Connect to the websocket server

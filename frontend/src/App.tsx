@@ -15,8 +15,6 @@ const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
 const EventsPage = lazy(() => import("./pages/EventsPage.new"));
 const SettingsPage = lazy(() => import("./pages/Settings.new"));
 const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
-const VisitorTimeline = lazy(() => import("./pages/VisitorTimeline.new"));
-const ReviewPage = lazy(() => import("./pages/Review.new"));
 const DayHighlightsPage = lazy(() => import("./pages/DayHighlights.new"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -148,26 +146,6 @@ const App = () => {
                         <AppLayout>
                           <ErrorBoundary fallback={ErrorFallback}>
                             <AnalyticsPage />
-                          </ErrorBoundary>
-                        </AppLayout>
-                      </ProtectedRoute>
-                    } />
-
-                  <Route path="/app/visitors" element={
-                      <ProtectedRoute>
-                        <AppLayout>
-                          <ErrorBoundary fallback={ErrorFallback}>
-                            <VisitorTimeline />
-                          </ErrorBoundary>
-                        </AppLayout>
-                      </ProtectedRoute>
-                    } />
-
-                  <Route path="/app/review" element={
-                      <ProtectedRoute>
-                        <AppLayout>
-                          <ErrorBoundary fallback={ErrorFallback}>
-                            <ReviewPage />
                           </ErrorBoundary>
                         </AppLayout>
                       </ProtectedRoute>

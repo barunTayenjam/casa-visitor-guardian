@@ -1,591 +1,326 @@
-# SentryVision Codebase Structure
+# Codebase Structure
+
+**Analysis Date:** 2026-05-05
 
 ## Directory Layout
 
 ```
-home-security-non-docker/
-├── frontend/                 # React frontend application
+/home/barun/Documents/home-security-non-docker/
+├── frontend/                    # React TypeScript frontend
 │   ├── src/
-│   │   ├── components/       # React components
-│   │   │   ├── ui/          # shadcn/ui primitives
-│   │   │   ├── dashboard/   # Dashboard-specific components
-│   │   │   ├── live/        # Live streaming components
-│   │   │   ├── events/      # Event display components
-│   │   │   └── analytics/   # Analytics charts
-│   │   ├── contexts/        # React Context providers
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── pages/           # Route-level page components
-│   │   ├── services/        # API client layer
-│   │   ├── lib/             # Utility functions
-│   │   ├── types/           # TypeScript type definitions
-│   │   └── styles/          # Global styles
-│   ├── public/              # Static assets
-│   ├── package.json         # Frontend dependencies
-│   ├── vite.config.ts       # Vite build configuration
-│   └── tsconfig.json        # TypeScript configuration
-│
-├── server/                  # Node.js backend application
+│   │   ├── components/         # React components
+│   │   ├── pages/              # Route-level pages
+│   │   ├── services/           # API clients
+│   │   ├── contexts/           # React contexts
+│   │   ├── hooks/              # Custom hooks
+│   │   ├── types/              # TypeScript types
+│   │   ├── lib/                # Utilities
+│   │   └── styles/             # CSS/styling
+│   └── package.json
+├── server/                     # Node.js/Express backend
 │   ├── src/
-│   │   ├── routes/          # API endpoint handlers
-│   │   ├── services/        # Business logic layer
-│   │   ├── models/          # TypeORM entity models
-│   │   ├── middleware/      # Express middleware
-│   │   ├── detection/       # Motion detection logic
-│   │   ├── streams/         # RTSP stream management
-│   │   ├── config/          # Configuration files
-│   │   ├── utils/           # Utility functions
-│   │   ├── types/           # TypeScript types
-│   │   └── index.ts         # Application entry point
-│   ├── tests/               # Backend tests
-│   ├── cameras.json         # Camera configuration
-│   ├── package.json         # Backend dependencies
-│   └── tsconfig.json        # TypeScript configuration
-│
-├── opencv-service/          # Python Flask computer vision service
-│   ├── app.py              # Main Flask application
-│   ├── improved_face_recognition.py  # Face recognition engine
-│   ├── models/             # ML model files
-│   ├── known_faces/        # Known face embeddings
-│   ├── requirements.txt    # Python dependencies
-│   └── Dockerfile          # Python service container
-│
-├── database/               # Database migrations
-│   ├── migrations/         # SQL migration files (001-014)
-│   ├── run-migrations.ts   # Migration runner script
-│   └── package.json        # Migration dependencies
-│
-├── data/                   # Runtime data (not in git)
-│   ├── detections/         # Event images
-│   ├── events/             # Event metadata
-│   ├── snapshots/          # Manual snapshots
-│   ├── postgres/           # PostgreSQL data (Docker volume)
-│   └── redis/              # Redis data (Docker volume)
-│
-├── .planning/              # Project planning documents
-│   └── codebase/           # Codebase analysis (this directory)
-│
-├── docker-compose.yml      # Multi-service orchestration
-├── package.json            # Root package.json (scripts only)
-└── AGENTS.md               # Agent documentation
+│   │   ├── routes/             # Express routes
+│   │   ├── services/           # Business logic
+│   │   ├── models/             # TypeORM entities
+│   │   ├── detection/          # Motion detection
+│   │   ├── streams/            # RTSP stream management
+│   │   ├── middleware/        # Express middleware
+│   │   ├── config/             # Configuration
+│   │   ├── migrations/         # Database migrations
+│   │   ├── utils/              # Utilities
+│   │   └── index.ts            # Entry point
+│   ├── cameras.json            # Camera configuration
+│   └── package.json
+├── opencv-service/             # Python Flask service
+│   ├── app.py                  # Main Flask app
+│   ├── improved_face_recognition.py
+│   ├── models/                 # ML model files
+│   └── requirements.txt
+├── database/                   # PostgreSQL setup
+│   ├── migrations/             # SQL migrations
+│   ├── run-migrations.ts       # Migration runner
+│   └── Dockerfile
+├── data/                       # Runtime data (images, events)
+├── docker-compose.yml          # Container orchestration
+└── package.json                # Root scripts
 ```
 
-## Frontend Structure (`/frontend/src`)
+## Directory Purposes
 
-### Components (`/components`)
+### Frontend Structure (`frontend/src/`)
 
-**UI Components (`/components/ui`)**
-- shadcn/ui primitives (Radix UI)
-- 35+ component files (button, dialog, dropdown, etc.)
-- Styled with TailwindCSS
-- Fully accessible
+**`frontend/src/components/`**
+- Purpose: Reusable React components
+- Contains:
+  - `ui/` - shadcn/ui base components (Radix UI)
+  - `dashboard/` - Dashboard-specific components
+  - `live/` - Live streaming components (StreamPanel, CameraStream)
+  - `events/` - Event-related components (EventDetailPanel, EventTimeline)
+  - `layout/` - Layout components (AppLayout, MinimalHeader)
+  - `detection/` - Detection overlay components
+  - `ProtectedRoute.tsx` - Auth guard component
+  - `ErrorBoundary.tsx` - Error handling
 
-**Feature Components:**
-```
-components/
-├── dashboard/              # Dashboard-specific
-│   ├── CameraGrid.tsx     # Camera layout grid
-│   ├── RecentDetectionsCarousel.tsx
-│   └── SystemOverview.tsx
-├── live/                  # Live streaming
-│   ├── CameraView.tsx     # Single camera view
-│   └── StreamControls.tsx # Stream control buttons
-├── events/                # Event display
-│   ├── EventCard.tsx      # Event list item
-│   ├── EventDetails.tsx   # Event detail view
-│   └── EventFilters.tsx   # Filter controls
-└── analytics/             # Analytics
-    ├── EventChart.tsx     # Recharts visualization
-    └── StatsCard.tsx      # Statistic display
-```
+**`frontend/src/pages/`**
+- Purpose: Route-level components (lazy-loaded)
+- Key files:
+  - `StreamDashboard.new.tsx` - Live camera view
+  - `EventsPage.new.tsx` - Event list and management
+  - `Settings.new.tsx` - System configuration
+  - `Analytics.new.tsx` - Charts and analytics
+  - `VisitorTimeline.new.tsx` - Visitor tracking
+  - `Review.new.tsx` - Event review workflow
+  - `BatchDetectionPage.tsx` - Batch processing UI
+  - `DayHighlights.new.tsx` - Daily highlights
+  - `Login.tsx` - Authentication
 
-### Pages (`/pages`)
-- Route-level components (lazy-loaded)
-- `Login.tsx` - Authentication page
-- `StreamDashboard.new.tsx` - Main dashboard
-- `EventsPage.new.tsx` - Events list with filters
-- `Analytics.new.tsx` - Analytics and charts
-- `VisitorTimeline.new.tsx` - Visitor timeline
-- `Review.new.tsx` - Review segments
-- `Settings.new.tsx` - Settings page
-- `BatchDetectionPage.tsx` - Batch detection
-- `DayHighlights.new.tsx` - Daily highlights
+**`frontend/src/services/`**
+- Purpose: API client layer
+- Key files:
+  - `ApiService.ts` - REST API client (3120+ lines)
+  - `SocketService.ts` - Socket.io real-time client
+  - `ReviewApi.ts` - Review-specific API
 
-### Contexts (`/contexts`)
-- `AuthContext.tsx` - Authentication state (user, tokens, MFA)
-- `SocketContext.tsx` - Socket.io connection
-- `CameraContext.tsx` - Camera state and controls
-- `EventsContext.tsx` - Real-time event updates
+**`frontend/src/contexts/`**
+- Purpose: React context providers for global state
+- Key files:
+  - `AuthContext.tsx` - Authentication state and methods
+  - `CameraContext.tsx` - Camera state management
+  - `SocketContext.tsx` - Socket connection management
+  - `EventsContext.tsx` - Events state management
 
-### Services (`/services`)
-- `ApiService.ts` - API client (axios wrapper)
-- Endpoints for all backend routes
-- Token management
-- Error handling
+**`frontend/src/hooks/`**
+- Purpose: Custom React hooks
+- Key files:
+  - `useReview.ts` - Review-related logic
+  - `use-toast.ts` - Toast notification hook
 
-### Hooks (`/hooks`)
-- Custom React hooks
-- `useAuth.ts` - Authentication helper
-- `useCamera.ts` - Camera stream management
-- `useEvents.ts` - Event data fetching
-- `useSocket.ts` - Socket.io helper
+**`frontend/src/types/`**
+- Purpose: TypeScript type definitions
+- Key files:
+  - `security.ts` - Main type definitions (Camera, Event, Visitor, etc.)
 
-### Types (`/types`)
-- `security.ts` - Security-related types
-- API response types
-- Event, Visitor, Camera types
+**`frontend/src/lib/`**
+- Purpose: Utility functions and helpers
+- Key files:
+  - `utils.ts` - Common utilities
+  - `theme.ts` - Theme configuration
+  - `logger.ts` - Frontend logging
+  - `severity.ts` - Severity level definitions
 
-### Utilities (`/lib`)
-- `utils.ts` - General utilities
-- Tailwind merge functions
-- Date formatting helpers
+### Backend Structure (`server/src/`)
 
-## Backend Structure (`/server/src`)
+**`server/src/routes/`**
+- Purpose: Express route handlers
+- Key files:
+  - `index.ts` - Main routes (16K+ lines, 100+ endpoints)
+  - `auth.ts` - Authentication endpoints
+  - `visitorRoutes.ts` - Visitor management
+  - `detectionRoutes.ts` - Detection endpoints
+  - `reviewRoutes.ts` - Review segments
+  - `timelineRoutes.ts` - Timeline queries
+  - `storageRoutes.ts` - Storage management
 
-### Routes (`/routes`)
-**Main Routes:**
-- `index.ts` - Primary routes (16,000+ lines)
-- `auth.ts` - Authentication (login, MFA, logout)
-- `visitorRoutes.ts` - Visitor management
-- `timelineRoutes.ts` - Timeline queries
-- `reviewRoutes.ts` - Review segments
-- `detectionRoutes.ts` - Object/face detection
-- `detectionRedoRoutes.ts` - Re-run detection
-- `batchDetection.ts` - Batch processing
-- `storageRoutes.ts` - Storage management
-- `notificationRoutes.ts` - Notifications
-- `faceEmbeddingRoutes.ts` - Face embeddings
-- `faceConfigRoutes.ts` - Face recognition config
+**`server/src/services/`**
+- Purpose: Business logic layer
+- Key files:
+  - `detection/detectionService.ts` - Unified detection interface
+  - `review/reviewService.ts` - Review segment logic
+  - `timeline/timelineService.ts` - Timeline aggregation
+  - `visitorAnalyticsService.ts` - Visitor analytics
+  - `batchProcessingService.ts` - Batch job processing
+  - `opencvMicroserviceClient.ts` - OpenCV HTTP client
+  - `redisCache.ts` - Redis caching
+  - `sessionManager.ts` - Session management
+  - `totpService.ts` - TOTP MFA
 
-**Route Pattern:**
-```typescript
-router.get('/path', middleware, handler);
-router.post('/path', middleware, validation, handler);
-router.put('/path', middleware, validation, handler);
-router.delete('/path', middleware, handler);
-```
+**`server/src/models/`**
+- Purpose: TypeORM entities
+- Key files:
+  - `Event.ts` - Motion/event records
+  - `User.ts` - User accounts
+  - `Visitor.ts` - Visitor tracking
+  - `BatchJob.ts` - Batch processing jobs
+  - `ReviewSegment.ts` - Review segments
+  - `FaceEmbedding.ts` - Face recognition embeddings
+  - `UserSession.ts` - Session tracking
+  - `index.ts` - Entity exports
 
-### Services (`/services`)
-**Detection Services:**
-```
-services/detection/
-├── detectionService.ts       # Main detection logic
-└── enhancedDetectionService.ts  # Enhanced detection
-```
+**`server/src/detection/`**
+- Purpose: Motion detection implementations
+- Key files:
+  - `optimizedMotionDetection.ts` - Main detection (988 lines)
+  - `simpleMotionDetection.ts` - Lightweight detection (138 lines)
+  - `motionTriggeredDetection.ts` - Triggered detection (664 lines)
+  - `objectDetection.ts` - YOLO object detection
+  - `consolidatedDetectionService.ts` - Unified detection service
 
-**Other Services:**
-- `authenticationService.ts` - Auth business logic
-- `review/reviewService.ts` - Review segments
-- `timeline/timelineService.ts` - Timeline queries
-- `notificationService.ts` - Email and push notifications
-- `batchProcessingService.ts` - Batch detection jobs
-- `opencvMicroserviceClient.ts` - OpenCV service client
-- `redisCache.ts` - Redis caching layer
-- `circuitBreaker.ts` - Fault tolerance
-- `storageStatsService.ts` - Storage statistics
-- `retentionPolicyService.ts` - Data retention
-- `automatedCleanupService.ts` - Scheduled cleanup
-- `totpService.ts` - TOTP MFA
-- `sessionManager.ts` - Session management
-- `fileIndexingService.ts` - File indexing
-- `eventQueueService.ts` - Event queue management
+**`server/src/streams/`**
+- Purpose: RTSP stream management
+- Key files:
+  - `rtspManager.ts` - FFmpeg stream orchestration (919 lines)
+  - `streamHealthMonitor.ts` - Stream health tracking
 
-### Models (`/models`)
-**TypeORM Entities:**
-- `User.ts` - User accounts
-- `Role.ts` - User roles
-- `UserSession.ts` - JWT sessions
-- `PasswordHistory.ts` - Password history
-- `AuditLog.ts` - Security audit trail
-- `Event.ts` - Motion events (1,050+ records)
-- `Visitor.ts` - Visitor records
-- `Timeline.ts` - Timeline events
-- `DetectionConfig.ts` - Detection configuration
-- `ProcessedImage.ts` - Processed images
-- `AdaptiveRegion.ts` - Detection zones
-- `ReviewSegment.ts` - Review segments
-- `UserReviewStatus.ts` - Review tracking
-- `BatchJob.ts` - Batch processing jobs
-- `NotificationPreferences.ts` - Notification settings
-- `NotificationLog.ts` - Notification history
-- `NotificationSubscription.ts` - Web push subscriptions
-- `FaceEmbedding.ts` - Face embeddings
-- `StorageStats.ts` - Storage usage
-- `RetentionPolicy.ts` - Retention rules
-- `SystemSettings.ts` - System configuration
+**`server/src/middleware/`**
+- Purpose: Express middleware
+- Key files:
+  - `auth.ts` - JWT verification
+  - `rateLimit.ts` - Rate limiting
+  - `validation.ts` - Request validation
 
-**Entity Pattern:**
-```typescript
-@Entity('table_name')
-export class Entity {
-  @PrimaryColumn()
-  id: string;
+**`server/src/config/`**
+- Purpose: Configuration management
+- Key files:
+  - `index.ts` - Main configuration (394 lines)
+  - `detectionConfig.ts` - Detection settings
+  - `rateLimits.ts` - Rate limit configs
 
-  @Column()
-  field: type;
+**`server/src/utils/`**
+- Purpose: Utility functions
+- Key files:
+  - `logger.ts` - Structured logging
+  - `jwtService.ts` - JWT handling
+  - `encryption.ts` - Credential encryption
+  - `cronJobs.ts` - Scheduled tasks
 
-  @Relation(...)
-  relation: RelatedEntity;
-}
-```
+**`server/src/migrations/`**
+- Purpose: TypeORM migrations
+- Key files:
+  - `1702340575345-CreateEventsTable.ts`
+  - `AddDetectionIndexes1706582400000.ts`
 
-### Detection (`/detection`)
-- `optimizedMotionDetection.ts` - Main motion detection (988 lines)
-- `simpleMotionDetection.ts` - Basic detection (138 lines)
-- `motionTriggeredDetection.ts` - Motion-triggered object/face detection (664 lines)
-- `consolidatedDetectionService.ts` - Unified detection interface
-- `objectDetection.ts` - YOLO object detection
+### OpenCV Service Structure (`opencv-service/`)
 
-**Detection Flow:**
-```
-RTSP Frame
-  ↓
-Background Subtraction (MOG2)
-  ↓
-Contour Detection
-  ↓
-Threshold Check
-  ↓
-Motion Event Trigger
-  ↓
-Object/Face Detection (async)
-```
+**`opencv-service/`**
+- Purpose: Python computer vision service
+- Key files:
+  - `app.py` - Flask application (1903 lines)
+  - `improved_face_recognition.py` - Face embedding generation
+  - `enhanced_face_recognition.py` - Enhanced face recognition
+  - `cosine_similarity.py` - Similarity matching
+  - `embedding_quality_analyzer.py` - Quality assessment
+- Models directory:
+  - `yolov5n.onnx` - YOLO object detection
+  - `res10_300x300_ssd_iter_140000_fp16.caffemodel` - Face detector
+  - `yolo_classes.txt` - COCO class names
+- Known faces directory:
+  - `known_faces/` - Known face embeddings
 
-### Streams (`/streams`)
-- `rtspManager.ts` - RTSP stream orchestrator (900 lines)
-- `streamManager.ts` - Stream abstraction
-- `streamHealthMonitor.ts` - Health monitoring
+### Database Structure (`database/`)
 
-**Stream Architecture:**
-```
-StreamManager
-  ↓
-Camera (per camera)
-  ↓
-FFmpeg Process (shared across roles)
-  ↓
-Frame Extraction
-  ↓
-Socket.io Broadcast
-```
+**`database/migrations/`**
+- Purpose: SQL migration files
+- Key files (001-017):
+  - `001_create_user_management.sql` - Users, roles, sessions
+  - `003_create_events_table.sql` - Events table
+  - `005_create_visitor_tables.sql` - Visitor tracking
+  - `007_create_review_timeline_tables.sql` - Review segments
+  - `009_add_face_embeddings_table.sql` - Face storage
+  - `011_add_visitors_table.sql` - Visitor management
+  - `017_ai_analysis_results.sql` - AI analysis
 
-### Middleware (`/middleware`)
-- `auth.ts` - JWT verification
-- `rateLimit.ts` - Rate limiting
-- `validation.ts` - Request validation (Zod)
-- `errorHandler.ts` - Global error handling
+**`database/`**
+- Key files:
+  - `run-migrations.ts` - Migration runner script
+  - `migrate.ts` - TypeScript migration utility
 
-### Config (`/config`)
-- `index.ts` - Main configuration exports
-- `detectionConfig.ts` - Detection settings
-
-**Configuration Sources:**
-- Environment variables (.env)
-- cameras.json (camera config)
-- Database (system_settings table)
-
-### Utils (`/utils`)
-- `logger.ts` - Debug logging
-- `testImageGenerator.ts` - Test frame generation
-- File path utilities
-
-### Tests (`/tests`)
-- `auth.test.ts` - Authentication endpoint tests
-- `batchDetection.test.ts` - Batch processing tests
-- `reviewRoutes.test.ts` - Review endpoint tests
-- `visitorRoutes.test.ts` - Visitor endpoint tests
-
-## OpenCV Service Structure (`/opencv-service`)
-
-### Main Application
-- `app.py` - Flask application (1,200+ lines)
-  - Routes: /detect, /detect-objects, /recognize-faces, /compare-face
-  - MOG2 motion detection
-  - Face recognition pipeline
-  - Error handling and logging
-
-### Face Recognition
-- `improved_face_recognition.py` - Face recognition engine
-  - Face detection (HOG/CNN)
-  - Face embedding generation
-  - Face comparison (euclidean distance)
-  - Known face management
-
-### Data Directories
-- `models/` - ML model files (dlib, face recognition)
-- `known_faces/` - Known face embeddings
-- `data/` - Temporary detection data
-
-## Database Structure (`/database`)
-
-### Migrations (`/migrations`)
-**Migration Files (14 total):**
-1. `001_create_user_management.sql` - Users, roles, sessions
-2. `002_create_detection_cache_postgres.sql` - Detection cache
-3. `003_create_events_table.sql` - Events table
-4. `004_create_batch_processing.sql` - Batch jobs
-5. `005_create_visitor_tables.sql` - Visitor tables
-6. `006_enhance_events_table.sql` - Event enhancements
-7. `007_create_review_timeline_tables.sql` - Review/timeline
-8. `008_fix_missing_tables_and_mismatches.sql` - Fixes
-9. `009_add_face_embeddings_table.sql` - Face embeddings
-10. `010_add_face_recognition_config.sql` - Face config
-11. `011_event_search_indexes.sql` - Performance indexes
-12. `012_add_unknown_faces_tracking.sql` - Unknown faces
-13. `013_create_storage_stats.sql` - Storage stats
-14. `014_recreate_storage_stats.sql` - Stats fixes
-
-**Migration Runner:**
-- `run-migrations.ts` - Executes pending migrations
-- Uses `pg` client directly
-- Tracks applied migrations
-
-## Configuration Files
-
-### Root Level
-- `docker-compose.yml` - Service orchestration
-- `package.json` - Root scripts (dev, build, docker commands)
-- `.env.example` - Environment variable template
-
-### Frontend
-- `vite.config.ts` - Vite build config, proxy setup
-- `tailwind.config.js` - TailwindCSS customization
-- `components.json` - shadcn/ui configuration
-- `tsconfig.json` - TypeScript config (strict: false)
-
-### Backend
-- `tsconfig.json` - TypeScript config (ES2022, strict: false)
-- `cameras.json` - Camera RTSP URLs, zones, objects
-- `.env` - Environment variables (not in git)
-
-### OpenCV Service
-- `requirements.txt` - Python dependencies
-- `Dockerfile` - Python container
-
-## Key Files and Their Purposes
+## Key File Locations
 
 ### Entry Points
-| File | Purpose |
-|------|---------|
-| `frontend/src/main.tsx` | React app entry |
-| `server/src/index.ts` | Express server entry (635 lines) |
-| `opencv-service/app.py` | Flask service entry (1,200+ lines) |
+- `frontend/src/main.tsx` - React application entry
+- `frontend/src/App.tsx` - App component with routing
+- `server/src/index.ts` - Express server entry (639 lines)
+- `opencv-service/app.py` - Flask application entry
 
 ### Configuration
-| File | Purpose |
-|------|---------|
-| `server/cameras.json` | Camera config (RTSP URLs, zones) |
-| `docker-compose.yml` | Service orchestration |
-| `frontend/vite.config.ts` | Frontend build config |
-| `server/src/config/index.ts` | Backend config loader |
+- `server/cameras.json` - Camera RTSP URLs and settings
+- `server/src/config/index.ts` - Configuration loader
+- `server/src/config/detectionConfig.ts` - Detection parameters
 
 ### Core Logic
-| File | Purpose | Lines |
-|------|---------|-------|
-| `server/src/streams/rtspManager.ts` | RTSP stream management | 900 |
-| `server/src/detection/optimizedMotionDetection.ts` | Motion detection | 988 |
-| `server/src/routes/index.ts` | Main API routes | 16,000+ |
-| `opencv-service/app.py` | OpenCV service | 1,200+ |
+- `server/src/streams/rtspManager.ts` - RTSP stream handling
+- `server/src/detection/optimizedMotionDetection.ts` - Main detection
+- `server/src/routes/index.ts` - Main API routes (16K+ lines)
 
-### Models
-| File | Purpose |
-|------|---------|
-| `server/src/models/Event.ts` | Event entity |
-| `server/src/models/User.ts` | User entity |
-| `server/src/models/Visitor.ts` | Visitor entity |
+### API Client
+- `frontend/src/services/ApiService.ts` - REST client
+- `frontend/src/services/SocketService.ts` - WebSocket client
 
-## File Naming Conventions
+## Naming Conventions
 
-### Frontend
-- **Components:** PascalCase (e.g., `CameraGrid.tsx`, `EventCard.tsx`)
-- **Pages:** PascalCase with suffix (e.g., `StreamDashboard.new.tsx`)
-- **Hooks:** camelCase with 'use' prefix (e.g., `useAuth.ts`, `useCamera.ts`)
-- **Services:** camelCase (e.g., `apiService.ts`)
-- **Types:** camelCase (e.g., `security.ts`)
+**Files:**
+- Components: PascalCase (`CameraGrid.tsx`, `StreamPanel.tsx`)
+- Services: camelCase (`apiService.ts`, `socketService.ts`)
+- Hooks: camelCase with 'use' prefix (`useReview.ts`, `useToast.ts`)
+- Types: PascalCase (`security.ts`, `types.ts`)
+- Utilities: camelCase (`utils.ts`, `logger.ts`)
 
-### Backend
-- **Routes:** camelCase with suffix (e.g., `auth.ts`, `visitorRoutes.ts`)
-- **Services:** camelCase with suffix (e.g., `detectionService.ts`)
-- **Models:** PascalCase (e.g., `User.ts`, `Event.ts`)
-- **Middleware:** camelCase (e.g., `auth.ts`, `rateLimit.ts`)
-- **Utils:** camelCase (e.g., `logger.ts`)
+**Directories:**
+- Components: camelCase or kebab-case (`components/dashboard`, `components/live`)
+- Pages: PascalCase or camelCase with page suffix
+- Services: camelCase
+- Models: PascalCase (TypeORM entities)
 
-### Database
-- **Migrations:** `###_description.sql` (numbered, 001-014)
+**Functions/Methods:**
+- camelCase (`getEvents`, `startStream`, `detectMotion`)
 
-## Code Organization Patterns
+**TypeScript Types:**
+- PascalCase (`Camera`, `Event`, `MotionSettings`)
 
-### Frontend Pattern
-```
-Feature Component
-  ├── Sub-components (local folder)
-  ├── Custom hooks (useFeature.ts)
-  ├── Types (feature.types.ts)
-  └── Tests (feature.test.ts)
-```
+## Where to Add New Code
 
-### Backend Pattern
-```
-Feature
-  ├── Routes (featureRoutes.ts)
-  ├── Services (featureService.ts)
-  ├── Models (Feature.ts)
-  ├── Tests (feature.test.ts)
-  └── Types (feature.types.ts)
-```
+### New Feature (Frontend)
+- Implementation: `frontend/src/components/` (create in appropriate subdirectory)
+- Pages: `frontend/src/pages/`
+- Types: `frontend/src/types/security.ts`
+- API calls: `frontend/src/services/ApiService.ts`
+- Tests: `frontend/src/tests/` (or co-located)
 
-## Import Conventions
+### New Feature (Backend)
+- Routes: `server/src/routes/` (or add to `index.ts`)
+- Services: `server/src/services/` (or `server/src/services/[feature]/`)
+- Models: `server/src/models/`
+- Detection: `server/src/detection/`
+- Tests: `server/src/routes/` (as `.test.ts`)
 
-### Frontend
-```typescript
-// External libraries
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+### New Component/Module
+- Backend service: `server/src/services/`
+- TypeORM model: `server/src/models/`
+- Config: `server/src/config/`
 
-// Internal imports
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import type { User } from '@/types/security';
-```
+### Utilities
+- Shared helpers: `server/src/utils/` or `frontend/src/lib/`
+- Logger: Use existing `logger.ts`
 
-### Backend
-```typescript
-// External libraries
-import express from 'express';
-import { Repository } from 'typeorm';
+### API Endpoint
+- Add to `server/src/routes/index.ts` or create new route file
+- Register in main app: `app.use('/api', newRoutes)`
 
-// Internal imports
-import { User } from '../models/User.js';
-import { authenticationService } from '../services/authenticationService.js';
-```
+### Database Migration
+- Create SQL file: `database/migrations/XXX_description.sql`
+- Add TypeORM migration: `server/src/migrations/`
 
-## Module System
+## Special Directories
 
-### Frontend (ES Modules)
-- Type: "module" in package.json
-- Extension: `.ts`, `.tsx`
-- Import: `import ... from 'module'`
-- Export: `export ...`
+**`server/src/data/detections/`**
+- Purpose: Stored detection images organized by date
+- Generated: Yes (runtime)
+- Committed: No (in .gitignore)
 
-### Backend (ES Modules)
-- Type: "module" in package.json
-- Extension: `.ts` (with `.js` in imports)
-- Import: `import ... from './module.js'`
-- Export: `export ...`
+**`server/src/public/`**
+- Purpose: Static files served by Express
+- Contains: Event classifier HTML/JS
 
-### Python (OpenCV Service)
-- Import: `from module import thing`
-- No explicit exports needed
+**`opencv-service/models/`**
+- Purpose: ML model files (YOLO, face detection)
+- Generated: No (downloaded)
+- Committed: Partial (some weights)
 
-## Testing Structure
+**`database/migrations/`**
+- Purpose: SQL schema migrations
+- Generated: No (manually written)
+- Committed: Yes
 
-### Frontend Tests
-- Location: Alongside components
-- Pattern: `*.test.ts`
-- Framework: Jest + React Testing Library
-- Examples: `setup.test.ts`, `services/ApiService.test.ts`
+---
 
-### Backend Tests
-- Location: `server/tests/` and alongside routes
-- Pattern: `*.test.ts`
-- Framework: Jest + Supertest
-- Examples: `auth.test.ts`, `reviewRoutes.test.ts`
-
-## Static Assets
-
-### Frontend Public
-- Location: `frontend/public/`
-- Served directly by Vite dev server
-- Not processed by build
-
-### Backend Public
-- Location: `server/public/`
-- Served via Express static middleware
-- Includes: event images, snapshots
-
-## Generated Files
-
-### Frontend Build
-- Location: `frontend/dist/`
-- Generated by: `npm run build`
-- Contents: Minified JS/CSS, index.html
-
-### Backend Build
-- Location: `server/dist/`
-- Generated by: `npm run build`
-- Contents: Compiled JavaScript from TypeScript
-
-## Data Directories (Not in Git)
-
-### Runtime Data
-```
-data/
-├── detections/     # Event images (YYYY-MM/events/motion/)
-├── events/         # Event metadata
-├── snapshots/      # Manual snapshots
-├── postgres/       # PostgreSQL data (Docker volume)
-└── redis/          # Redis data (Docker volume)
-```
-
-### Managed Files
-- Detection images: `data/detections/YYYY-MM/events/motion/*.jpg`
-- Snapshots: `data/snapshots/*.jpg`
-- Database: Stored in Docker volumes
-
-## Configuration Management
-
-### Environment Variables
-**Frontend:** `VITE_*` prefix (exposed to client)
-**Backend:** Standard `NODE_*`, `DB_*`, etc. (server-side only)
-
-### Camera Configuration
-- File: `server/cameras.json`
-- Hot-reloaded in development
-- Contains: RTSP URLs, zones, objects, thresholds
-
-### Database Configuration
-- Connection via TypeORM
-- Config: `database/index.ts`
-- Environment: `DB_*` variables
-
-## Service Boundaries
-
-### Frontend → Backend
-- **Protocol:** HTTP/HTTPS
-- **Format:** JSON
-- **Authentication:** JWT in HttpOnly cookie
-- **Real-time:** Socket.io
-
-### Backend → OpenCV Service
-- **Protocol:** HTTP
-- **Format:** Multipart form data (images)
-- **Authentication:** None (internal network)
-- **Error Handling:** Circuit breaker pattern
-
-### Backend → Database
-- **Protocol:** TCP
-- **Driver:** `pg` (node-postgres)
-- **ORM:** TypeORM
-- **Connection Pooling:** Managed by TypeORM
-
-### Backend → Redis
-- **Protocol:** TCP
-- **Driver:** `redis` npm package
-- **Usage:** Caching, sessions, pub/sub
-
-## Key Locations Summary
-
-| What You Want | Where to Look |
-|---------------|---------------|
-| Add API endpoint | `server/src/routes/` |
-| Add business logic | `server/src/services/` |
-| Add database table | `database/migrations/` + `server/src/models/` |
-| Add UI component | `frontend/src/components/` |
-| Add page/route | `frontend/src/pages/` + `App.tsx` routing |
-| Configure cameras | `server/cameras.json` |
-| Detection logic | `server/src/detection/` |
-| Stream processing | `server/src/streams/` |
-| OpenCV operations | `opencv-service/app.py` |
-| Type definitions | `frontend/src/types/`, `server/src/types/` |
-| Tests | `frontend/src/**/*.test.ts`, `server/tests/` |
-| Configuration | `server/src/config/`, `.env` files |
-| Docker setup | `docker-compose.yml`, `Dockerfile`s |
+*Structure analysis: 2026-05-05*

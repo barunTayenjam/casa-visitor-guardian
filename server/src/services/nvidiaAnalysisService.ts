@@ -84,36 +84,31 @@ export interface NvidiaApiError {
   code?: string;
 }
 
-// Home security-focused system prompt
-const SYSTEM_PROMPT = `You are a home security expert AI assistant. Analyze the provided image from a home security camera and provide detailed, actionable insights.
+// Home security-focused system prompt - STRICT FORMAT
+const SYSTEM_PROMPT = `You are a home security AI. Analyze this camera image and respond ONLY with valid JSON.
 
-Your response must be in JSON format with the following structure:
+CRITICAL: Your response must be ONLY valid JSON - no explanations, no markdown, no additional text before or after.
+
+Response format:
 {
-  "scene_description": "Brief description of what you see in the scene",
-  "threat_assessment": {
-    "level": "low|medium|high|critical",
-    "factors": ["factor1", "factor2"],
-    "confidence": 0-100
-  },
+  "scene_description": "2-3 sentence description of what you see",
+  "threat_assessment": {"level": "low|medium|high|critical", "confidence": 0-100},
   "detected_entities": {
-    "people": ["description of each person"],
-    "vehicles": ["vehicle descriptions"],
-    "animals": ["animal descriptions"],
-    "objects": ["notable objects"],
-    "actions": ["what people/vehicles are doing"]
+    "people": ["single line description per person"],
+    "vehicles": ["single line per vehicle"],
+    "animals": ["single line per animal"],
+    "objects": ["single line per notable object"]
   },
-  "recommended_actions": ["action1", "action2"],
-  "additional_observations": ["observation1", "observation2"]
+  "recommended_actions": ["one action per item"],
+  "additional_observations": ["one observation per item"]
 }
 
-Guidelines:
-- Be specific about people (clothing, appearance, behavior)
-- Identify potential intruders vs expected visitors
-- Note delivery personnel, service workers, etc.
-- Assess suspicious behavior patterns
-- Consider time of day and context
-- Provide actionable recommendations
-- Keep responses professional and security-focused`;
+Rules:
+- Use ONLY the JSON format shown above
+- Do NOT include any text outside the JSON
+- Do NOT use markdown code blocks
+- Keep descriptions concise and factual
+- If nothing detected, use empty arrays []`;
 
 // System prompt for bounding box detection
 const BBOX_SYSTEM_PROMPT = `You are a home security expert AI assistant. Analyze the provided image from a home security camera and identify all detectable objects with their positions.
@@ -181,8 +176,8 @@ Guidelines:
 - Estimate count accurately
 - If no people, return count: 0 and empty people array`;
 
-// Default timeout for API calls (30 seconds)
-const DEFAULT_TIMEOUT = 30000;
+// Default timeout for API calls (90 seconds)
+const DEFAULT_TIMEOUT = 90000;
 
 /**
  * Convert image file to base64 encoding
@@ -278,7 +273,7 @@ function parseAIResponse(
 ): NvidianalysisResult {
   try {
     // Try to extract JSON from the response
-    // The response might contain markdown code blocks
+    // The response might contain markdown code blocks or malformed JSON
     let jsonStr = responseContent.trim();
     
     // Remove markdown code block syntax if present
@@ -291,8 +286,39 @@ function parseAIResponse(
     if (jsonStr.endsWith('```')) {
       jsonStr = jsonStr.slice(0, -3);
     }
+
+    // Remove newlines and extra whitespace within the JSON string
+    jsonStr = jsonStr.replace(/\s+/g, ' ').trim();
     
-    const parsed = JSON.parse(jsonStr.trim());
+    // Try to find and extract valid JSON object
+    let parsed = null;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      // Try to extract JSON by finding first { and last }
+      const jsonStart = jsonStr.indexOf('{');
+      const jsonEnd = jsonStr.lastIndexOf('}');
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        let extracted = jsonStr.substring(jsonStart, jsonEnd + 1);
+        // Clean up any trailing text after the JSON
+        extracted = extracted.split('}')[0] + '}';
+        try {
+          parsed = JSON.parse(extracted);
+        } catch {
+          // Try removing any non-JSON trailing content
+          const cleanMatch = extracted.match(/^\s*\{[\s\S]*\}\s*$/);
+          if (cleanMatch) {
+            try {
+              parsed = JSON.parse(cleanMatch[0]);
+            } catch {}
+          }
+        }
+      }
+    }
+    
+    if (!parsed) {
+      throw new Error('Failed to parse JSON from response');
+    }
     
     return {
       sceneDescription: parsed.scene_description || parsed.sceneDescription || 'No description available',
@@ -354,27 +380,34 @@ export async function analyzeImage(
   const startTime = Date.now();
   
   // Default model - can be overridden via options
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Analysis] Starting analysis with model: ${model}`);
   console.log(`[NVIDIA Analysis] Context:`, JSON.stringify(context));
 
   try {
-    // Handle image input - can be base64 string, file path, or Buffer
+    // Handle and resize image - can be base64 string, file path, or Buffer
     let base64Image: string;
     
     if (Buffer.isBuffer(imageInput)) {
-      base64Image = imageInput.toString('base64');
+      // Resize to max 640px for faster LLM processing
+      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else if (imageInput.startsWith('data:')) {
-      // Already base64 data URL
-      base64Image = imageInput.replace(/^data:image\/\w+;base64,/, '');
+      const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else if (imageInput.length > 1000) {
-      // Likely already a base64 string
-      base64Image = imageInput;
+      // Likely already a base64 string - resize it
+      const buffer = Buffer.from(imageInput, 'base64');
+      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else {
-      // Assume it's a file path
-      base64Image = imageToBase64(imageInput);
+      // File path - read and resize
+      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     }
 
     // Set up timeout handling
@@ -444,7 +477,7 @@ export async function checkApiHealth(): Promise<{
   error?: string;
 }> {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+  const model = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
 
   if (!apiKey) {
     return {
@@ -580,7 +613,7 @@ export async function analyzeWithBoundingBoxes(
 ): Promise<BboxAnalysisResult> {
   const startTime = Date.now();
   
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Bbox Analysis] Starting with model: ${model}`);
@@ -773,24 +806,33 @@ export async function analyzePersons(
 ): Promise<PersonDetectionResult> {
   const startTime = Date.now();
   
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Person Detection] Starting with model: ${model}`);
 
   try {
-    // Prepare image
+    // Prepare and resize image for faster LLM processing
     let base64Image: string;
     
     if (Buffer.isBuffer(imageInput)) {
-      base64Image = imageInput.toString('base64');
+      // Resize to max 640px width for faster processing
+      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else if (imageInput.startsWith('data:')) {
-      base64Image = imageInput.replace(/^data:image\/\w+;base64,/, '');
+      const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else if (imageInput.length > 1000) {
-      base64Image = imageInput;
+      // Already base64 - assume it's already small or resize it
+      const buffer = Buffer.from(imageInput, 'base64');
+      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     } else {
-      const buffer = fs.readFileSync(imageInput);
-      base64Image = buffer.toString('base64');
+      // File path - read and resize
+      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      base64Image = resized.toString('base64');
     }
 
     // Context for person detection

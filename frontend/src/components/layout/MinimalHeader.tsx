@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Bell, Settings, Menu } from 'lucide-react';
+import { Shield, Bell, Settings, Menu, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,6 +33,7 @@ export const MinimalHeader: React.FC<MinimalHeaderProps> = ({
 
   const navItems = [
     { href: '/app/events', label: 'Events', icon: Bell },
+    { href: '/app/highlights', label: 'Highlights', icon: PlayCircle },
     { href: '/app/settings', label: 'Settings', icon: Settings },
   ];
 

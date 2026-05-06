@@ -83,6 +83,44 @@ router.post('/analyze', async (req: Request, res: Response) => {
     const result = await analyzeImage(imageInput!, context);
 
     const totalTime = Date.now() - startTime;
+
+    // Save analysis result to database
+    const eventIdentifier = imagePath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
+    const { AppDataSource } = await import('../database.js');
+    try {
+      const entities = result.detectedEntities || {};
+      await AppDataSource.query(
+        `INSERT INTO ai_analysis_results 
+         (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, 
+          detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, 
+          additional_observations, model_used, processing_time_ms, analyzed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+         ON CONFLICT (event_id) DO UPDATE SET 
+          scene_description = EXCLUDED.scene_description,
+          threat_level = EXCLUDED.threat_level,
+          detected_people = EXCLUDED.detected_people,
+          analyzed_at = NOW()`,
+        [
+          eventIdentifier,
+          imagePath?.split('/').pop() || null,
+          cameraName || cameraId || null,
+          result.sceneDescription || null,
+          result.threatAssessment?.level || 'low',
+          result.threatAssessment?.confidence || 0,
+          JSON.stringify(entities.people || []),
+          JSON.stringify(entities.vehicles || []),
+          JSON.stringify(entities.objects || []),
+          '[]',
+          JSON.stringify(result.recommendedActions || []),
+          result.additionalObservations || null,
+          result.modelUsed,
+          totalTime
+        ]
+      );
+      console.log(`[NVIDIA Routes] Analysis saved for event: ${eventIdentifier}`);
+    } catch (saveError) {
+      console.error('[NVIDIA Routes] Failed to save analysis:', saveError);
+    }
     
     res.json({
       success: true,
@@ -177,7 +215,43 @@ router.post('/analyze-event', async (req: Request, res: Response) => {
 
     console.log(`[NVIDIA Routes] Analyzing event ${eventId} (${event.event_type})`);
 
-    const result = await analyzeImage(imagePath, context);
+    let result;
+    try {
+      // Try NVIDIA first
+      result = await analyzeImage(imagePath, context);
+    } catch (nvidiaError: any) {
+      console.log('[NVIDIA Routes] NVIDIA failed, falling back to OpenCV:', nvidiaError.message);
+      // Fallback to OpenCV detection
+      const axios = await import('axios');
+      const { getOpenCVServiceUrl } = await import('../config/index.js');
+      
+      try {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const opencvResponse = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
+          headers: { 'Content-Type': 'image/jpeg' },
+          timeout: 30000
+        });
+        
+        const detections = opencvResponse.data.detections || [];
+        const persons = detections.filter((d: any) => d.class === 'person');
+        
+        result = {
+          summary: `Detected ${detections.length} objects including ${persons.length} person(s)`,
+          persons: persons,
+          vehicles: detections.filter((d: any) => ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class)),
+          activities: detections.map((d: any) => d.class),
+          overall_summary: `Found ${detections.length} objects in the scene. ${persons.length} person(s) detected.`,
+          processing_time_ms: 0,
+          model: 'opencv-fallback'
+        };
+      } catch (opencvError: any) {
+        console.error('[NVIDIA Routes] OpenCV fallback also failed:', opencvError.message);
+        return res.status(500).json({
+          success: false,
+          error: `Analysis failed: ${nvidiaError.message}. OpenCV fallback also failed.`
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -218,6 +292,63 @@ router.get('/health', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: `Health check failed: ${error.message}`
+    });
+  }
+});
+
+/**
+ * GET /api/nvidia/results
+ * Get all stored analysis results from database
+ */
+router.get('/results', async (req: Request, res: Response) => {
+  try {
+    const { AppDataSource } = await import('../database.js');
+    
+    const results = await AppDataSource.query(`
+      SELECT 
+        id, event_id, event_filename, camera_id,
+        scene_description, threat_level, threat_confidence,
+        detected_people, detected_vehicles, detected_objects,
+        bounding_boxes, recommended_actions, additional_observations,
+        model_used, processing_time_ms, analyzed_at
+      FROM ai_analysis_results
+      ORDER BY analyzed_at DESC
+      LIMIT 100
+    `);
+
+    // Safe JSON parse helper
+    const safeJson = (val: any) => {
+      if (!val) return [];
+      try { return typeof val === 'object' ? val : JSON.parse(val); }
+      catch { return []; }
+    };
+
+    res.json({
+      success: true,
+      count: results.length,
+      results: results.map((r: any) => ({
+        id: r.id,
+        eventId: r.event_id,
+        eventFilename: r.event_filename,
+        cameraId: r.camera_id,
+        sceneDescription: r.scene_description || '',
+        threatLevel: r.threat_level || 'low',
+        detectedPeople: safeJson(r.detected_people),
+        detectedVehicles: safeJson(r.detected_vehicles),
+        detectedObjects: safeJson(r.detected_objects),
+        boundingBoxes: safeJson(r.bounding_boxes),
+        recommendedActions: safeJson(r.recommended_actions),
+        additionalObservations: r.additional_observations,
+        modelUsed: r.model_used,
+        processingTimeMs: r.processing_time_ms,
+        analyzedAt: r.analyzed_at
+      }))
+    });
+  } catch (error: any) {
+    console.error('[NVIDIA Routes] Get results error:', error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to get results: ${error.message}`
     });
   }
 });
@@ -415,7 +546,8 @@ router.post('/analyze-persons', async (req: Request, res: Response) => {
       triggerReason,
       eventType,
       onlyOnMotion,
-      timestamp
+      timestamp,
+      eventId
     } = req.body;
 
     if (!image && !imagePath) {
@@ -425,11 +557,38 @@ router.post('/analyze-persons', async (req: Request, res: Response) => {
       });
     }
 
-    // Optional: Check motion detection if onlyOnMotion is true
-    if (onlyOnMotion) {
-      // For now, we'll proceed with analysis
-      // In production, this could integrate with motion detection service
-      console.log(`[NVIDIA Routes] Person detection requested with motion gating`);
+    // Determine event identifier for caching
+    const eventIdentifier = eventId || imagePath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
+    
+    // Check if we already have an analysis for this event
+    const { AppDataSource } = await import('../database.js');
+    
+    try {
+      const cachedResult = await AppDataSource.query(
+        `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`,
+        [eventIdentifier]
+      );
+      
+      if (cachedResult && cachedResult.length > 0) {
+        console.log(`[NVIDIA Routes] Returning cached analysis for event: ${eventIdentifier}`);
+        return res.json({
+          success: true,
+          count: cachedResult[0].detected_people ? JSON.parse(cachedResult[0].detected_people).length : 0,
+          people: cachedResult[0].detected_people ? JSON.parse(cachedResult[0].detected_people) : [],
+          sceneDescription: cachedResult[0].scene_description,
+          threatAssessment: { level: cachedResult[0].threat_level },
+          metadata: {
+            processingTime: cachedResult[0].processing_time_ms,
+            modelUsed: cachedResult[0].model_used,
+            timestamp: cachedResult[0].analyzed_at,
+            cameraId: cachedResult[0].camera_id,
+            cameraName: cachedResult[0].camera_id,
+            cached: true
+          }
+        });
+      }
+    } catch (cacheError) {
+      console.log('[NVIDIA Routes] Cache check failed, proceeding with analysis:', cacheError);
     }
 
     // Prepare the image input
@@ -462,6 +621,41 @@ router.post('/analyze-persons', async (req: Request, res: Response) => {
     const result = await analyzePersons(imageInput!, context);
 
     const totalTime = Date.now() - startTime;
+    
+    // Save the result to database for future lookups
+    try {
+      await AppDataSource.query(
+        `INSERT INTO ai_analysis_results 
+         (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, 
+          detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, 
+          model_used, processing_time_ms, analyzed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+         ON CONFLICT (event_id) DO UPDATE SET 
+          scene_description = EXCLUDED.scene_description,
+          threat_level = EXCLUDED.threat_level,
+          detected_people = EXCLUDED.detected_people,
+          bounding_boxes = EXCLUDED.bounding_boxes,
+          analyzed_at = NOW()`,
+        [
+          eventIdentifier,
+          imagePath?.split('/').pop() || null,
+          cameraId || cameraName || null,
+          result.sceneDescription || null,
+          'low',
+          result.people?.length > 0 ? 70 : 30,
+          JSON.stringify(result.people || []),
+          '[]',
+          '[]',
+          JSON.stringify(result.people?.map((p: any) => p.position) || []),
+          JSON.stringify(['Review if person detected']),
+          result.modelUsed,
+          totalTime
+        ]
+      );
+      console.log(`[NVIDIA Routes] Analysis saved for event: ${eventIdentifier}`);
+    } catch (saveError) {
+      console.error('[NVIDIA Routes] Failed to save analysis:', saveError);
+    }
     
     res.json({
       success: true,

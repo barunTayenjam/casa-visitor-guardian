@@ -45,7 +45,7 @@ interface HighlightEvent {
   unknownFacesCount: number;
   highlightScore: number;
   imageUrl: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 interface DaySummary {
@@ -99,7 +99,7 @@ const DayHighlightsPage = () => {
     setLoading(true);
     try {
       const [highlightsData, summaryData] = await Promise.all([
-        apiService.getDayHighlights(date, { limit: 200, sort: sortBy }),
+        apiService.getDayHighlights(date, { sort: sortBy }),
         apiService.getDaySummary(date)
       ]);
 
@@ -540,6 +540,7 @@ const DayHighlightsPage = () => {
                       <img
                         src={highlight.imageUrl}
                         alt=""
+                        loading="lazy"
                         className="w-16 h-12 object-cover rounded"
                       />
                       <div className="flex-1 min-w-0">

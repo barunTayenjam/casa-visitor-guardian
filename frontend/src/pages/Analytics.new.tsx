@@ -50,6 +50,8 @@ const AnalyticsPage = () => {
     },
     totalEvents: 0,
     detectionsToday: 0,
+    detectionsYesterday: 0,
+    todayChange: 0,
   });
 
   // Fetch analytics data from backend
@@ -155,6 +157,19 @@ const AnalyticsPage = () => {
         today.setHours(0, 0, 0, 0);
         const detectionsToday = events.filter((e: any) => new Date(e.timestamp) >= today).length;
 
+        // Count yesterday's detections for comparison
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const detectionsYesterday = events.filter((e: any) => {
+          const eventDate = new Date(e.timestamp);
+          return eventDate >= yesterday && eventDate < today;
+        }).length;
+
+        // Calculate change percentage
+        const todayChange = detectionsYesterday > 0 
+          ? Math.round(((detectionsToday - detectionsYesterday) / detectionsYesterday) * 100)
+          : (detectionsToday > 0 ? 100 : 0);
+
         setAnalyticsData({
           eventsOverTime,
           detectionTypes,
@@ -166,6 +181,8 @@ const AnalyticsPage = () => {
           },
           totalEvents,
           detectionsToday,
+          detectionsYesterday,
+          todayChange,
         });
       } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -230,6 +247,7 @@ const AnalyticsPage = () => {
             value={analyticsData.detectionsToday}
             icon={AlertTriangle}
             iconColor="text-amber-500"
+            change={{ value: analyticsData.todayChange, label: 'vs yesterday' }}
           />
           <StatCard
             label="Cameras Online"

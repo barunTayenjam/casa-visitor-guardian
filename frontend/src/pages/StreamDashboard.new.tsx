@@ -24,7 +24,7 @@ const StreamDashboard = () => {
   const activeCameras = cameras.filter(c => c.status === 'online' || c.status === 'warning');
 
   return (
-    <div className="relative w-full h-screen overflow-hidden flex flex-col bg-background">
+    <div className="relative w-full h-screen overflow-hidden flex flex-col bg-black">
       {/* Main Content - Full Viewport Camera Grid */}
       <div className="flex-1 relative overflow-hidden">
         <AdaptiveCameraGrid

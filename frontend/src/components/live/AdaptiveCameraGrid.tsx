@@ -96,13 +96,13 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 
   // Responsive grid classes
   const getGridClasses = () => {
-    const base = 'grid gap-1 w-full h-full';
+    const base = 'grid gap-2 w-full h-full';
 
     // Mobile: always 1 column
     // Tablet (md): adjust based on config
     // Desktop (lg): use full config
     if (focusedCameraId) {
-      return cn(base, 'grid-cols-1');
+      return cn(base, 'grid-cols-1 grid-rows-1');
     }
 
     if (gridConfig.columns === 1) {
@@ -376,7 +376,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             {activeCameras.map((camera) => (
               <div
                 key={camera.id}
-                className="relative bg-black overflow-hidden cursor-pointer group aspect-video"
+                className="relative bg-black overflow-hidden cursor-pointer group h-full min-h-0"
                 onClick={() => handleCameraClick(camera.id)}
                 role="button"
                 tabIndex={0}

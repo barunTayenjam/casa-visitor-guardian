@@ -34,6 +34,7 @@ import { PreviewService } from './services/preview/previewService.js';
 import { storageStatsService } from './services/storageStatsService.js';
 import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
+import NotificationService from './services/notificationService.js';
 import storageRoutes from './routes/storageRoutes.js';
 
 dotenv.config({ path: './.env' });
@@ -331,6 +332,10 @@ configureAuthRoutes(app);
 configureRoutes(app, io);
 configureVisitorRoutes(app);
 app.use('/api/storage', storageRoutes);
+
+// NVIDIA AI Vision Analysis Routes
+import nvidiaRoutes from './routes/nvidiaRoutes.js';
+app.use('/api/nvidia', nvidiaRoutes);
 
 // Review & Timeline Routes (no auth required for read, auth for write)
 app.get('/api/review', async (req, res) => {

@@ -41,17 +41,17 @@ export function ReviewPage({ camera: initialCamera }: ReviewPageProps) {
   const detectionCount = data?.segments.filter(s => s.severity === 'detection').length ?? 0;
 
   const headerActions = (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
       <Select value={camera || 'all'} onValueChange={(v) => setCamera(v === 'all' ? undefined : v)}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="All Cameras" />
+        <SelectTrigger className="w-full sm:w-[160px] h-11 min-h-[44px]">
+          <SelectValue placeholder="Camera" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Cameras</SelectItem>
         </SelectContent>
       </Select>
       <Select value={severity} onValueChange={(v) => setSeverity(v as typeof severity)}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px] h-11 min-h-[44px]">
           <SelectValue placeholder="Severity" />
         </SelectTrigger>
         <SelectContent>
@@ -254,9 +254,9 @@ function ReviewSegmentCard({ segment, isSelected, onSelect, onAcknowledge }: Rev
         </div>
         {!segment.reviewed && (
           <Button
-            size="sm"
+            size="default"
             variant="outline"
-            className="w-full gap-1"
+            className="w-full h-11 min-h-[44px] gap-1 text-sm"
             onClick={(e) => {
               e.stopPropagation();
               onAcknowledge();

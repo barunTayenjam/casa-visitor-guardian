@@ -26,6 +26,7 @@ import notificationRoutes from './notificationRoutes.js';
 import faceEmbeddingRoutes from './faceEmbeddingRoutes.js';
 import faceConfigRoutes from './faceConfigRoutes.js';
 import eventSearchService from '../services/eventSearchService.js';
+import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -2339,7 +2340,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
       const {
         limit,
         page = 1,
-        pageSize = 20,
+        pageSize = 100,
         event_type,
         camera_id,
         start_date,
@@ -2365,24 +2366,23 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Date filter - handle single date or date range
       if (start_date && end_date) {
-        conditions.push(`e.timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
-        queryParams.push(new Date(start_date as string), new Date(end_date as string));
+        // Use string date literals for PostgreSQL
+        const startStr = start_date as string;
+        const endStr = end_date as string;
+        conditions.push(`e.timestamp >= $${paramIndex} AND e.timestamp < $${paramIndex + 1}`);
+        queryParams.push(startStr + ' 00:00:00', endStr + ' 23:59:59');
         paramIndex += 2;
       } else if (start_date) {
         // Single date: start of that day to end of that day
-        const startDate = new Date(start_date as string);
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(start_date as string);
-        endDate.setHours(23, 59, 59, 999);
-        conditions.push(`e.timestamp BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
-        queryParams.push(startDate, endDate);
+        const startStr = start_date as string;
+        conditions.push(`e.timestamp >= $${paramIndex} AND e.timestamp < $${paramIndex + 1}`);
+        queryParams.push(startStr + ' 00:00:00', startStr + ' 23:59:59');
         paramIndex += 2;
       } else if (end_date) {
         // End date only
-        const endDate = new Date(end_date as string);
-        endDate.setHours(23, 59, 59, 999);
+        const endStr = end_date as string;
         conditions.push(`e.timestamp <= $${paramIndex}`);
-        queryParams.push(endDate);
+        queryParams.push(endStr + ' 23:59:59');
         paramIndex++;
       }
 
@@ -2432,6 +2432,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           // Query events table to get all event files
           let detectionQuery = `
             SELECT
+              e.id as id,
               e.file_path as filename,
               e.file_path as imagePath,
               e.camera_id as camera_id,
@@ -2486,7 +2487,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         let imageUrl = `/api/events/image/${filename}`;
 
         const eventData = {
-          id: filename, // Use filename as ID since we're not joining with events table
+          id: row.id, // Use actual UUID from database
           event_type: row.file_type === 'event_face' ? 'face' : 'motion',
           filename: filename,
           timestamp: row.timestamp,
@@ -2891,6 +2892,56 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         status: 'ok',
         timestamp: new Date().toISOString(),
         activeCameras: 0
+      });
+    }
+  });
+
+  // Image cleanup endpoint - cleans old images but preserves AI-analyzed ones
+  app.post('/api/maintenance/cleanup-images', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const retentionDays = parseInt(req.body.retentionDays) || 7;
+      
+      if (retentionDays < 1 || retentionDays > 365) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Retention days must be between 1 and 365' 
+        });
+      }
+
+      console.log(`Admin triggered image cleanup with ${retentionDays} days retention`);
+      
+      const cleanupService = AutomatedCleanupService.getInstance();
+      const result = await cleanupService.cleanupOldImages(retentionDays);
+      
+      res.json({
+        success: true,
+        message: `Cleanup complete`,
+        retentionDays,
+        deleted: result.deleted,
+        preserved: result.preserved,
+        freedBytes: result.freedBytes,
+        freedMB: (result.freedBytes / 1024 / 1024).toFixed(2)
+      });
+    } catch (error: any) {
+      console.error('Image cleanup error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Cleanup failed' 
+      });
+    }
+  });
+
+  // Get cleanup status
+  app.get('/api/maintenance/cleanup-status', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        message: 'Use POST /api/maintenance/cleanup-images to run cleanup'
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
       });
     }
   });
@@ -4915,14 +4966,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const { date } = req.params;
       const { 
-        limit = '50',
         sort = 'recent' 
       } = req.query;
+      
+      // No limit - show all events for the day
 
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
+      // Treat date as Asia/Kolkata timezone (server TZ)
+      const startDate = new Date(`${date}T00:00:00+05:30`);
+      const endDate = new Date(`${date}T23:59:59.999+05:30`);
 
       let orderBy = 'ORDER BY e.timestamp DESC';
       let whereConditions = '';
@@ -4958,10 +5009,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')
           ${whereConditions}
         ${orderBy}
-        LIMIT $3
       `;
 
-      const results = await AppDataSource.query(query, [startDate, endDate, parseInt(limit as string)]);
+      const results = await AppDataSource.query(query, [startDate, endDate]);
 
       const highlights = results.map((row: any) => {
         let metadata = row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {};
@@ -5010,10 +5060,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const { date } = req.params;
 
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
+      const startDate = new Date(`${date}T00:00:00+05:30`);
+      const endDate = new Date(`${date}T23:59:59.999+05:30`);
 
       const hourlyQuery = `
         SELECT 

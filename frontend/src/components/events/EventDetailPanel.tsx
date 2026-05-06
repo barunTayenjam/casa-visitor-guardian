@@ -1,12 +1,30 @@
 import React, { useState } from 'react';
 import { MotionEvent } from '@/types/security';
-import { X, Download, Trash2, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, Trash2, Share2, ChevronLeft, ChevronRight, Brain, AlertTriangle, Car, User, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { colors } from '@/styles/design-tokens';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+
+interface AIAnalysis {
+  sceneDescription?: string;
+  threatAssessment?: {
+    level: string;
+    factors: string[];
+    confidence: number;
+  };
+  detectedEntities?: {
+    people: string[];
+    vehicles: string[];
+    animals: string[];
+    objects: string[];
+  };
+  recommendedActions?: string[];
+  processingTime?: number;
+  modelUsed?: string;
+}
 
 interface EventDetailPanelProps {
   event: MotionEvent | null;
@@ -16,6 +34,7 @@ interface EventDetailPanelProps {
   onPrevious?: () => void;
   onDelete?: (eventId: string) => void;
   onDownload?: (event: MotionEvent) => void;
+  analysis?: AIAnalysis | null;
 }
 
 export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
@@ -26,6 +45,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   onPrevious,
   onDelete,
   onDownload,
+  analysis,
 }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -66,7 +86,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-50 w-full md:w-[600px] lg:w-[700px] shadow-2xl transform transition-transform duration-300"
+      className="fixed inset-y-0 right-0 z-50 w-full md:w-[600px] lg:w-[700px] shadow-2xl transform transition-transform duration-300 flex flex-col"
       style={{
         backgroundColor: colors.background.secondary,
         borderLeft: `1px solid ${colors.border.subtle}`,
@@ -97,22 +117,22 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+              className="h-10 w-10 min-h-[40px] text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
               onClick={onPrevious}
               disabled={!hasPrevious}
               aria-label="Previous event"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-5 w-5" />
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+              className="h-10 w-10 min-h-[40px] text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
               onClick={onNext}
               disabled={!hasNext}
               aria-label="Next event"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
 
@@ -123,11 +143,11 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/5"
+            className="h-10 w-10 min-h-[40px] text-white/60 hover:text-white hover:bg-white/5"
             onClick={onClose}
             aria-label="Close event details"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
       </div>
@@ -150,7 +170,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           )}
 
           {/* Detection Overlays */}
-          {event.detections && event.detections.length > 0 && (
+          {(event.detections && event.detections.length > 0) && (
             <div className="absolute inset-0 pointer-events-none">
               {event.detections.map((detection, index) => (
                 <div
@@ -173,6 +193,37 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* AI Detection Labels Overlay */}
+          {analysis && analysis.detectedEntities && (
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none">
+              {analysis.detectedEntities.people?.map((person, i) => (
+                <div key={`person-${i}`} className="px-2 py-1 rounded text-xs font-medium bg-green-500/80 text-white shadow-lg">
+                  👤 {person}
+                </div>
+              ))}
+              {analysis.detectedEntities.vehicles?.map((vehicle, i) => (
+                <div key={`vehicle-${i}`} className="px-2 py-1 rounded text-xs font-medium bg-blue-500/80 text-white shadow-lg">
+                  🚗 {vehicle}
+                </div>
+              ))}
+              {analysis.detectedEntities.animals?.map((animal, i) => (
+                <div key={`animal-${i}`} className="px-2 py-1 rounded text-xs font-medium bg-amber-500/80 text-white shadow-lg">
+                  🐾 {animal}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Analyzed Badge */}
+          {analysis && (
+            <div className="absolute top-3 right-3">
+              <Badge className="bg-green-500/80 text-white shadow-lg">
+                <Brain className="h-3 w-3 mr-1" />
+                Analyzed
+              </Badge>
             </div>
           )}
         </div>
@@ -290,6 +341,119 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             </div>
           ) : null}
         </div>
+
+        {/* AI Analysis Results */}
+        {analysis && (
+          <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+            <div className="flex items-center gap-2 mb-4">
+              <Brain className="h-5 w-5 text-blue-400" />
+              <h4 className="text-sm font-semibold text-white">AI Analysis</h4>
+              {analysis.modelUsed && (
+                <Badge variant="outline" className="text-xs text-white/50 border-white/20">
+                  {analysis.modelUsed.split('/').pop()}
+                </Badge>
+              )}
+            </div>
+
+            {/* Scene Description */}
+            {analysis.sceneDescription && (
+              <div className="mb-4">
+                <p className="text-sm text-white/80">{analysis.sceneDescription}</p>
+              </div>
+            )}
+
+            {/* Threat Assessment */}
+            {analysis.threatAssessment && (
+              <div className="mb-4 flex items-center gap-2">
+                <AlertTriangle className={cn(
+                  "h-4 w-4",
+                  analysis.threatAssessment.level === 'high' ? 'text-red-400' :
+                  analysis.threatAssessment.level === 'medium' ? 'text-amber-400' : 'text-green-400'
+                )} />
+                <span className="text-sm font-medium text-white">
+                  Threat Level: 
+                </span>
+                <Badge className={cn(
+                  "text-xs",
+                  analysis.threatAssessment.level === 'high' ? 'bg-red-500/20 text-red-400' :
+                  analysis.threatAssessment.level === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'
+                )}>
+                  {analysis.threatAssessment.level}
+                </Badge>
+                <span className="text-xs text-white/50">
+                  ({analysis.threatAssessment.confidence}% confidence)
+                </span>
+              </div>
+            )}
+
+            {/* Detected Entities */}
+            {analysis.detectedEntities && (
+              <div className="space-y-3">
+                {analysis.detectedEntities.people?.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-white/70">People:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.detectedEntities.people.map((person, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-green-500/20 text-green-300">
+                          {person}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.detectedEntities.vehicles?.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Car className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm text-white/70">Vehicles:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.detectedEntities.vehicles.map((vehicle, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-blue-500/20 text-blue-300">
+                          {vehicle}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.detectedEntities.animals?.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-amber-400" />
+                    <span className="text-sm text-white/70">Animals:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.detectedEntities.animals.map((animal, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-amber-500/20 text-amber-300">
+                          {animal}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Recommended Actions */}
+            {analysis.recommendedActions?.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-white/10">
+                <p className="text-xs text-white/50 mb-2">Recommended Actions:</p>
+                <ul className="space-y-1">
+                  {analysis.recommendedActions.map((action, i) => (
+                    <li key={i} className="text-sm text-white/70 flex items-start gap-2">
+                      <span className="text-blue-400">•</span>
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Processing Time */}
+            {analysis.processingTime && (
+              <div className="mt-3 text-xs text-white/30">
+                Processed in {Math.round(analysis.processingTime / 1000)}s
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer Actions */}

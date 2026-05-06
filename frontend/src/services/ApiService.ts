@@ -467,7 +467,7 @@ class ApiService {
   // Fetch API with timeout and retry
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeout = setTimeout(() => controller.abort(), 120000); // 120 second timeout for AI analysis
 
     try {
       const response = await fetch(url, {
@@ -2376,6 +2376,48 @@ class ApiService {
         `Failed to analyze motion for camera ${cameraId}`,
         500,
         'ANALYZE_MOTION_ERROR',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  }
+
+  // Analyze individual event using NVIDIA AI
+  async analyzeEvent(eventId: string): Promise<{
+    success: boolean;
+    message?: string;
+    analysis?: {
+      summary: string;
+      persons: any[];
+      vehicles: any[];
+      activities: string[];
+      overall_summary: string;
+    };
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${API_URL}/nvidia/analyze-event`, {
+        method: 'POST',
+        body: JSON.stringify({ eventId })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new ApiError(
+          data.error || 'Failed to analyze event',
+          response.status,
+          'ANALYZE_EVENT_ERROR',
+          data
+        );
+      }
+      return data;
+    } catch (error) {
+      console.error(`Error analyzing event ${eventId}:`, error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        'Failed to analyze event',
+        500,
+        'ANALYZE_EVENT_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) }
       );
     }

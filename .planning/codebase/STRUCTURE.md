@@ -1,326 +1,250 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-05-05
+**Analysis Date:** 2026-05-06
 
 ## Directory Layout
 
 ```
-/home/barun/Documents/home-security-non-docker/
-├── frontend/                    # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   ├── pages/              # Route-level pages
-│   │   ├── services/           # API clients
-│   │   ├── contexts/           # React contexts
-│   │   ├── hooks/              # Custom hooks
-│   │   ├── types/              # TypeScript types
-│   │   ├── lib/                # Utilities
-│   │   └── styles/             # CSS/styling
-│   └── package.json
-├── server/                     # Node.js/Express backend
-│   ├── src/
-│   │   ├── routes/             # Express routes
-│   │   ├── services/           # Business logic
-│   │   ├── models/             # TypeORM entities
-│   │   ├── detection/          # Motion detection
-│   │   ├── streams/            # RTSP stream management
-│   │   ├── middleware/        # Express middleware
-│   │   ├── config/             # Configuration
-│   │   ├── migrations/         # Database migrations
-│   │   ├── utils/              # Utilities
-│   │   └── index.ts            # Entry point
-│   ├── cameras.json            # Camera configuration
-│   └── package.json
-├── opencv-service/             # Python Flask service
-│   ├── app.py                  # Main Flask app
+home-security-non-docker/
+├── frontend/                    # React + TypeScript SPA
+│   └── src/
+│       ├── components/          # UI components by feature
+│       │   ├── analytics/       # Analytics charts and widgets
+│       │   ├── dashboard/       # Dashboard-specific components
+│       │   ├── detection/       # Detection box overlays
+│       │   ├── events/          # Event display components
+│       │   ├── layout/          # AppLayout, MacDock, MinimalHeader
+│       │   ├── live/            # Live streaming components
+│       │   └── ui/              # shadcn/ui primitives (40+ components)
+│       ├── contexts/            # React context providers
+│       ├── hooks/               # Custom React hooks
+│       ├── lib/                 # Utilities (utils, theme, logger, severity)
+│       ├── pages/               # Route-level page components
+│       ├── services/            # API and Socket service clients
+│       ├── styles/              # Design tokens
+│       ├── tests/               # Test setup
+│       └── types/               # TypeScript type definitions
+├── server/                      # Node.js + Express + TypeScript backend
+│   └── src/
+│       ├── auth/                # JWT authentication, user management
+│       ├── config/              # App config, camera config, env loading
+│       ├── detection/           # Motion/object/face detection pipeline
+│       ├── events/              # Internal EventBus (pub/sub)
+│       ├── middleware/          # Express middleware (auth, rate limit, validation)
+│       ├── migrations/          # TypeORM migration files
+│       ├── models/              # TypeORM entity definitions (20 entities)
+│       ├── routes/              # API endpoint handlers (12 files)
+│       ├── schemas/             # Zod validation schemas
+│       ├── scripts/             # Utility scripts (credential migration)
+│       ├── services/            # Business logic (36 service files)
+│       │   ├── detection/       # Detection-related services
+│       │   ├── preview/         # Camera preview generation
+│       │   ├── review/          # Review segment management
+│       │   └── timeline/        # Timeline event management
+│       ├── streams/             # RTSP stream management
+│       └── utils/               # Shared utilities (logger, encryption, etc.)
+├── opencv-service/              # Python Flask + OpenCV detection service
+│   ├── app.py                   # Main Flask application (1,903 lines)
 │   ├── improved_face_recognition.py
-│   ├── models/                 # ML model files
-│   └── requirements.txt
-├── database/                   # PostgreSQL setup
-│   ├── migrations/             # SQL migrations
-│   ├── run-migrations.ts       # Migration runner
-│   └── Dockerfile
-├── data/                       # Runtime data (images, events)
-├── docker-compose.yml          # Container orchestration
-└── package.json                # Root scripts
+│   ├── enhanced_face_recognition.py
+│   ├── known_faces/             # Stored face embeddings
+│   ├── models/                  # YOLO model files
+│   └── data/                    # Detection cache data
+├── database/                    # PostgreSQL migration management
+│   ├── migrations/              # SQL migration files (17 files, 001-017)
+│   └── run-migrations.ts        # Migration runner
+├── scripts/                     # DevOps and utility shell scripts
+├── data/                        # Runtime data (detection images, organized by year-month)
+├── docker/                      # Docker-related configuration
+├── docs/                        # Documentation
+├── public/                      # Static assets served by backend
+└── dist/                        # Built frontend (production output)
 ```
 
 ## Directory Purposes
 
-### Frontend Structure (`frontend/src/`)
+**`frontend/src/components/ui/`:**
+- Purpose: shadcn/ui primitive components (Radix UI + TailwindCSS wrappers)
+- Contains: 40+ reusable UI components (Button, Card, Dialog, Tabs, Toast, etc.)
+- Key files: `button.tsx`, `card.tsx`, `dialog.tsx`, `tabs.tsx`
+- Note: Auto-generated by shadcn CLI. Do not manually edit — use `npx shadcn-ui add <component>`
 
-**`frontend/src/components/`**
-- Purpose: Reusable React components
-- Contains:
-  - `ui/` - shadcn/ui base components (Radix UI)
-  - `dashboard/` - Dashboard-specific components
-  - `live/` - Live streaming components (StreamPanel, CameraStream)
-  - `events/` - Event-related components (EventDetailPanel, EventTimeline)
-  - `layout/` - Layout components (AppLayout, MinimalHeader)
-  - `detection/` - Detection overlay components
-  - `ProtectedRoute.tsx` - Auth guard component
-  - `ErrorBoundary.tsx` - Error handling
+**`frontend/src/components/live/`:**
+- Purpose: Real-time camera streaming UI components
+- Contains: StreamPanel, AdaptiveCameraGrid, RecentDetectionsCarousel, StreamHealthIndicator, MotionAlertOverlay, etc.
+- Key files: `StreamPanel.tsx`, `AdaptiveCameraGrid.tsx`, `RecentDetectionsCarousel.tsx`
 
-**`frontend/src/pages/`**
-- Purpose: Route-level components (lazy-loaded)
-- Key files:
-  - `StreamDashboard.new.tsx` - Live camera view
-  - `EventsPage.new.tsx` - Event list and management
-  - `Settings.new.tsx` - System configuration
-  - `Analytics.new.tsx` - Charts and analytics
-  - `VisitorTimeline.new.tsx` - Visitor tracking
-  - `Review.new.tsx` - Event review workflow
-  - `BatchDetectionPage.tsx` - Batch processing UI
-  - `DayHighlights.new.tsx` - Daily highlights
-  - `Login.tsx` - Authentication
+**`frontend/src/components/events/`:**
+- Purpose: Event display, filtering, and detail views
+- Contains: SmartFilters, EventDetailPanel, EventTimeline, RelatedEvents
+- Key files: `SmartFilters.tsx`, `EventDetailPanel.tsx`
 
-**`frontend/src/services/`**
-- Purpose: API client layer
-- Key files:
-  - `ApiService.ts` - REST API client (3120+ lines)
-  - `SocketService.ts` - Socket.io real-time client
-  - `ReviewApi.ts` - Review-specific API
+**`frontend/src/components/layout/`:**
+- Purpose: App shell and navigation components
+- Contains: AppLayout (page wrapper), MacDock (bottom navigation bar), MinimalHeader
+- Key files: `AppLayout.tsx`, `MacDock.tsx`
 
-**`frontend/src/contexts/`**
-- Purpose: React context providers for global state
-- Key files:
-  - `AuthContext.tsx` - Authentication state and methods
-  - `CameraContext.tsx` - Camera state management
-  - `SocketContext.tsx` - Socket connection management
-  - `EventsContext.tsx` - Events state management
+**`server/src/routes/`:**
+- Purpose: Express API endpoint definitions
+- Contains: 12 route files, with `index.ts` being the main monolith (5,134 lines)
+- Key files: `index.ts` (main), `auth.ts`, `visitorRoutes.ts`, `detectionRoutes.ts`, `reviewRoutes.ts`, `timelineRoutes.ts`
 
-**`frontend/src/hooks/`**
-- Purpose: Custom React hooks
-- Key files:
-  - `useReview.ts` - Review-related logic
-  - `use-toast.ts` - Toast notification hook
+**`server/src/services/`:**
+- Purpose: Business logic and orchestration
+- Contains: 36 service files organized in flat structure with subdirectories for detection, preview, review, timeline
+- Key files: `baseService.ts` (abstract base), `notificationService.ts`, `batchProcessingService.ts`, `redisCache.ts`, `circuitBreaker.ts`
 
-**`frontend/src/types/`**
-- Purpose: TypeScript type definitions
-- Key files:
-  - `security.ts` - Main type definitions (Camera, Event, Visitor, etc.)
+**`server/src/detection/`:**
+- Purpose: Computer vision detection pipeline implementations
+- Contains: 4 detection implementations + supporting metrics/alerting
+- Key files: `optimizedMotionDetection.ts` (1,069 lines, primary), `motionTriggeredDetection.ts` (664 lines), `consolidatedDetectionService.ts` (430 lines), `simpleMotionDetection.ts` (138 lines)
 
-**`frontend/src/lib/`**
-- Purpose: Utility functions and helpers
-- Key files:
-  - `utils.ts` - Common utilities
-  - `theme.ts` - Theme configuration
-  - `logger.ts` - Frontend logging
-  - `severity.ts` - Severity level definitions
+**`server/src/models/`:**
+- Purpose: TypeORM entity definitions mapping to PostgreSQL tables
+- Contains: 20+ entity files exported via barrel `index.ts`
+- Key files: `Event.ts`, `User.ts`, `Visitor.ts`, `BatchJob.ts`, `ReviewSegment.ts`
 
-### Backend Structure (`server/src/`)
+**`server/src/middleware/`:**
+- Purpose: Express request processing pipeline
+- Contains: Auth, rate limiting, validation, security middleware
+- Key files: `auth.ts` (JWT verification), `rateLimit.ts`, `validation.ts`, `security.ts`
 
-**`server/src/routes/`**
-- Purpose: Express route handlers
-- Key files:
-  - `index.ts` - Main routes (16K+ lines, 100+ endpoints)
-  - `auth.ts` - Authentication endpoints
-  - `visitorRoutes.ts` - Visitor management
-  - `detectionRoutes.ts` - Detection endpoints
-  - `reviewRoutes.ts` - Review segments
-  - `timelineRoutes.ts` - Timeline queries
-  - `storageRoutes.ts` - Storage management
+**`server/src/streams/`:**
+- Purpose: RTSP camera stream management and frame distribution
+- Contains: StreamManager (main orchestrator) and StreamHealthMonitor
+- Key files: `rtspManager.ts` (919 lines), `streamHealthMonitor.ts`
 
-**`server/src/services/`**
-- Purpose: Business logic layer
-- Key files:
-  - `detection/detectionService.ts` - Unified detection interface
-  - `review/reviewService.ts` - Review segment logic
-  - `timeline/timelineService.ts` - Timeline aggregation
-  - `visitorAnalyticsService.ts` - Visitor analytics
-  - `batchProcessingService.ts` - Batch job processing
-  - `opencvMicroserviceClient.ts` - OpenCV HTTP client
-  - `redisCache.ts` - Redis caching
-  - `sessionManager.ts` - Session management
-  - `totpService.ts` - TOTP MFA
+**`opencv-service/`:**
+- Purpose: Python-based computer vision processing service
+- Contains: Flask app, face recognition engines, YOLO models, detection cache
+- Key files: `app.py` (1,903 lines, Flask server + all detection endpoints)
 
-**`server/src/models/`**
-- Purpose: TypeORM entities
-- Key files:
-  - `Event.ts` - Motion/event records
-  - `User.ts` - User accounts
-  - `Visitor.ts` - Visitor tracking
-  - `BatchJob.ts` - Batch processing jobs
-  - `ReviewSegment.ts` - Review segments
-  - `FaceEmbedding.ts` - Face recognition embeddings
-  - `UserSession.ts` - Session tracking
-  - `index.ts` - Entity exports
-
-**`server/src/detection/`**
-- Purpose: Motion detection implementations
-- Key files:
-  - `optimizedMotionDetection.ts` - Main detection (988 lines)
-  - `simpleMotionDetection.ts` - Lightweight detection (138 lines)
-  - `motionTriggeredDetection.ts` - Triggered detection (664 lines)
-  - `objectDetection.ts` - YOLO object detection
-  - `consolidatedDetectionService.ts` - Unified detection service
-
-**`server/src/streams/`**
-- Purpose: RTSP stream management
-- Key files:
-  - `rtspManager.ts` - FFmpeg stream orchestration (919 lines)
-  - `streamHealthMonitor.ts` - Stream health tracking
-
-**`server/src/middleware/`**
-- Purpose: Express middleware
-- Key files:
-  - `auth.ts` - JWT verification
-  - `rateLimit.ts` - Rate limiting
-  - `validation.ts` - Request validation
-
-**`server/src/config/`**
-- Purpose: Configuration management
-- Key files:
-  - `index.ts` - Main configuration (394 lines)
-  - `detectionConfig.ts` - Detection settings
-  - `rateLimits.ts` - Rate limit configs
-
-**`server/src/utils/`**
-- Purpose: Utility functions
-- Key files:
-  - `logger.ts` - Structured logging
-  - `jwtService.ts` - JWT handling
-  - `encryption.ts` - Credential encryption
-  - `cronJobs.ts` - Scheduled tasks
-
-**`server/src/migrations/`**
-- Purpose: TypeORM migrations
-- Key files:
-  - `1702340575345-CreateEventsTable.ts`
-  - `AddDetectionIndexes1706582400000.ts`
-
-### OpenCV Service Structure (`opencv-service/`)
-
-**`opencv-service/`**
-- Purpose: Python computer vision service
-- Key files:
-  - `app.py` - Flask application (1903 lines)
-  - `improved_face_recognition.py` - Face embedding generation
-  - `enhanced_face_recognition.py` - Enhanced face recognition
-  - `cosine_similarity.py` - Similarity matching
-  - `embedding_quality_analyzer.py` - Quality assessment
-- Models directory:
-  - `yolov5n.onnx` - YOLO object detection
-  - `res10_300x300_ssd_iter_140000_fp16.caffemodel` - Face detector
-  - `yolo_classes.txt` - COCO class names
-- Known faces directory:
-  - `known_faces/` - Known face embeddings
-
-### Database Structure (`database/`)
-
-**`database/migrations/`**
-- Purpose: SQL migration files
-- Key files (001-017):
-  - `001_create_user_management.sql` - Users, roles, sessions
-  - `003_create_events_table.sql` - Events table
-  - `005_create_visitor_tables.sql` - Visitor tracking
-  - `007_create_review_timeline_tables.sql` - Review segments
-  - `009_add_face_embeddings_table.sql` - Face storage
-  - `011_add_visitors_table.sql` - Visitor management
-  - `017_ai_analysis_results.sql` - AI analysis
-
-**`database/`**
-- Key files:
-  - `run-migrations.ts` - Migration runner script
-  - `migrate.ts` - TypeScript migration utility
+**`database/migrations/`:**
+- Purpose: PostgreSQL schema evolution
+- Contains: 17 SQL migration files numbered 001-017
+- Key files: `001_create_user_management.sql`, `003_create_events_table.sql`, `007_create_review_timeline_tables.sql`
 
 ## Key File Locations
 
-### Entry Points
-- `frontend/src/main.tsx` - React application entry
-- `frontend/src/App.tsx` - App component with routing
-- `server/src/index.ts` - Express server entry (639 lines)
-- `opencv-service/app.py` - Flask application entry
+**Entry Points:**
+- `frontend/src/main.tsx`: React app bootstrap, theme init, error handlers
+- `server/src/index.ts`: Express + Socket.io server, service initialization
+- `opencv-service/app.py`: Flask detection service on port 8084
 
-### Configuration
-- `server/cameras.json` - Camera RTSP URLs and settings
-- `server/src/config/index.ts` - Configuration loader
-- `server/src/config/detectionConfig.ts` - Detection parameters
+**Configuration:**
+- `server/src/config/index.ts`: Central config loader (env, cameras, paths)
+- `frontend/vite.config.ts`: Vite dev server + proxy config
+- `docker-compose.yml`: Multi-service orchestration
+- `nginx.conf`: Production reverse proxy
 
-### Core Logic
-- `server/src/streams/rtspManager.ts` - RTSP stream handling
-- `server/src/detection/optimizedMotionDetection.ts` - Main detection
-- `server/src/routes/index.ts` - Main API routes (16K+ lines)
+**Core Logic:**
+- `server/src/routes/index.ts`: Main API routes (events, cameras, settings, etc.)
+- `server/src/streams/rtspManager.ts`: Camera stream lifecycle
+- `server/src/detection/optimizedMotionDetection.ts`: Primary motion detection
+- `server/src/detection/consolidatedDetectionService.ts`: Detection service facade
+- `server/src/services/ApiService.ts` (frontend): HTTP client (3,162 lines)
+- `server/src/auth/index.ts`: JWT + MFA authentication system
 
-### API Client
-- `frontend/src/services/ApiService.ts` - REST client
-- `frontend/src/services/SocketService.ts` - WebSocket client
+**Type Definitions:**
+- `frontend/src/types/security.ts`: Shared TypeScript interfaces (Camera, MotionEvent, etc.)
+- `server/src/models/index.ts`: TypeORM entity barrel exports
+
+**Testing:**
+- `frontend/src/tests/setup.ts`: Frontend Jest setup
+- `server/src/routes/auth.test.ts`: Auth endpoint tests
+- `server/src/routes/batchDetection.test.ts`: Batch detection tests
+- `server/src/routes/reviewRoutes.test.ts`: Review route tests
+- `server/src/routes/visitorRoutes.test.ts`: Visitor route tests
+- `server/src/services/detection/detectionService.test.ts`: Detection service tests
 
 ## Naming Conventions
 
 **Files:**
-- Components: PascalCase (`CameraGrid.tsx`, `StreamPanel.tsx`)
-- Services: camelCase (`apiService.ts`, `socketService.ts`)
-- Hooks: camelCase with 'use' prefix (`useReview.ts`, `useToast.ts`)
-- Types: PascalCase (`security.ts`, `types.ts`)
-- Utilities: camelCase (`utils.ts`, `logger.ts`)
+- React components: PascalCase — `CameraGrid.tsx`, `StreamPanel.tsx`
+- React pages: PascalCase with `.new` suffix — `StreamDashboard.new.tsx`, `EventsPage.new.tsx`
+- Services/Utilities: camelCase — `apiService.ts`, `logger.ts`
+- Hooks: camelCase with `use` prefix — `useReview.ts`, `use-toast.ts`
+- TypeORM models: PascalCase — `Event.ts`, `User.ts`, `BatchJob.ts`
+- Route files: camelCase with `Routes` suffix — `visitorRoutes.ts`, `reviewRoutes.ts`
+- Test files: `.test.ts` or `.test.tsx` suffix — `auth.test.ts`, `detectionService.test.ts`
+- Migrations: Numbered prefix + description — `001_create_user_management.sql`
 
 **Directories:**
-- Components: camelCase or kebab-case (`components/dashboard`, `components/live`)
-- Pages: PascalCase or camelCase with page suffix
-- Services: camelCase
-- Models: PascalCase (TypeORM entities)
+- Feature directories: lowercase — `detection/`, `streams/`, `analytics/`
+- UI primitives: lowercase — `ui/`
+- Context providers: lowercase — `contexts/`
 
-**Functions/Methods:**
-- camelCase (`getEvents`, `startStream`, `detectMotion`)
-
-**TypeScript Types:**
-- PascalCase (`Camera`, `Event`, `MotionSettings`)
+**Important naming quirk:** Active page files have `.new.tsx` suffix (e.g., `StreamDashboard.new.tsx`). These are the current production pages, not drafts.
 
 ## Where to Add New Code
 
-### New Feature (Frontend)
-- Implementation: `frontend/src/components/` (create in appropriate subdirectory)
-- Pages: `frontend/src/pages/`
-- Types: `frontend/src/types/security.ts`
-- API calls: `frontend/src/services/ApiService.ts`
-- Tests: `frontend/src/tests/` (or co-located)
+**New Page:**
+- Component: `frontend/src/pages/PageName.new.tsx`
+- Route: Add lazy import + `<Route>` in `frontend/src/App.tsx`
+- Navigation: Add dock item in `frontend/src/components/layout/MacDock.tsx`
 
-### New Feature (Backend)
-- Routes: `server/src/routes/` (or add to `index.ts`)
-- Services: `server/src/services/` (or `server/src/services/[feature]/`)
-- Models: `server/src/models/`
-- Detection: `server/src/detection/`
-- Tests: `server/src/routes/` (as `.test.ts`)
+**New API Endpoint:**
+- Route handler: `server/src/routes/routeNameRoutes.ts` (create new file, do NOT add to `index.ts` monolith)
+- Register route: Import and mount in `server/src/index.ts` (e.g., `app.use('/api/route', routeHandler)`)
+- Validation schema: `server/src/schemas/validationSchemas.ts`
 
-### New Component/Module
-- Backend service: `server/src/services/`
-- TypeORM model: `server/src/models/`
-- Config: `server/src/config/`
+**New Database Table:**
+- Migration: `database/migrations/018_description.sql`
+- TypeORM entity: `server/src/models/EntityName.ts`
+- Barrel export: Add to `server/src/models/index.ts`
+- Service: `server/src/services/entityService.ts`
 
-### Utilities
-- Shared helpers: `server/src/utils/` or `frontend/src/lib/`
-- Logger: Use existing `logger.ts`
+**New Service (Backend):**
+- Implementation: `server/src/services/serviceName.ts`
+- If EventBus integration needed: Extend `BaseService` from `server/src/services/baseService.ts`
+- Initialization: Add to `initializeServices()` in `server/src/index.ts`
+- Global registration: Attach to `(global as any).serviceName` (current pattern)
 
-### API Endpoint
-- Add to `server/src/routes/index.ts` or create new route file
-- Register in main app: `app.use('/api', newRoutes)`
+**New Context (Frontend):**
+- Provider: `frontend/src/contexts/ContextName.tsx`
+- Mount: Wrap in provider hierarchy in `frontend/src/App.tsx` (within existing provider tree)
 
-### Database Migration
-- Create SQL file: `database/migrations/XXX_description.sql`
-- Add TypeORM migration: `server/src/migrations/`
+**New UI Component:**
+- Primitive: Use `npx shadcn-ui add <component>` → auto-generates in `frontend/src/components/ui/`
+- Feature component: `frontend/src/components/featureDir/ComponentName.tsx`
+
+**New Detection Feature:**
+- Detection logic: `server/src/detection/newDetection.ts`
+- Integration: Import and use from `motionTriggeredDetection.ts` or `consolidatedDetectionService.ts`
+- OpenCV endpoint: Add route in `opencv-service/app.py`
 
 ## Special Directories
 
-**`server/src/data/detections/`**
-- Purpose: Stored detection images organized by date
-- Generated: Yes (runtime)
-- Committed: No (in .gitignore)
+**`data/`:**
+- Purpose: Runtime detection images organized by `YYYY-MM/events/motion/` and `YYYY-MM/snapshots/`
+- Generated: Yes (by detection pipeline)
+- Committed: No (in `.gitignore`)
+- Note: Can grow large — retention policies managed by `retentionPolicyService`
 
-**`server/src/public/`**
-- Purpose: Static files served by Express
-- Contains: Event classifier HTML/JS
+**`dist/`:**
+- Purpose: Built frontend static files served by Express in production
+- Generated: Yes (by `npm run build`)
+- Committed: No (build artifact)
 
-**`opencv-service/models/`**
-- Purpose: ML model files (YOLO, face detection)
-- Generated: No (downloaded)
-- Committed: Partial (some weights)
+**`opencv-service/models/`:**
+- Purpose: YOLO model files (`.weights`, `.cfg`, `.names`)
+- Generated: Partially (downloaded by download scripts)
+- Committed: No (large binary files)
 
-**`database/migrations/`**
-- Purpose: SQL schema migrations
-- Generated: No (manually written)
-- Committed: Yes
+**`opencv-service/known_faces/`:**
+- Purpose: Stored face embeddings for recognized individuals
+- Generated: Yes (by face recognition enrollment)
+- Committed: Depends on deployment
+
+**`server/src/components/ui/`:**
+- Purpose: shadcn/ui auto-generated primitives
+- Note: Managed by shadcn CLI, not manual editing
+
+**`.planning/`:**
+- Purpose: GSD planning documents
+- Generated: Yes (by GSD commands)
+- Committed: Yes (tracks planning state)
 
 ---
 
-*Structure analysis: 2026-05-05*
+*Structure analysis: 2026-05-06*

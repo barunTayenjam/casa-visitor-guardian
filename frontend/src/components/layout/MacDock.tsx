@@ -3,13 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield,
   Bell,
-  Users,
-  Eye,
   BarChart3,
   Settings,
   LogOut,
-  Layers,
-  Brain,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -25,7 +21,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-
 import { PlayCircle } from 'lucide-react';
 
 const navItems = [

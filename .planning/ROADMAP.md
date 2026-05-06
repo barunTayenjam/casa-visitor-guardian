@@ -1,7 +1,7 @@
 # Roadmap: SentryVision Home Security System
 
 **Created:** 2026-03-18
-**Updated:** 2026-03-23
+**Updated:** 2026-04-18
 **Granularity:** Coarse
 
 ## Milestones
@@ -19,6 +19,11 @@
 | 3 | Face Recognition | Improve face matching accuracy and management | FACE-01 to FACE-05 | 5 |
 | 4 | Storage Management | Implement retention policies and cleanup | STOR-01 to STOR-05 | 5 |
 | 5 | Frontend Enhancement | Review and fix all frontend pages | FE-01 to FE-06 | 6 |
+| 6 | Resource Optimization | Optimize system resource usage | RO-01 to RO-05 | 5 |
+| 7 | Security Improvements | Fix critical vulnerabilities | SEC-01 to SEC-03 | 3 |
+| 8 | UI/UX Improvements | User experience enhancement | UX-01 to UX-06 | 6 |
+| 9 | Streaming UI Simplification | Reduce overlay clutter | SUI-01 to SUI-03 | 3 |
+| 10 | Navigation & UI/UX Consistency | Unified app-wide experience | NAV-01 to NAV-04 | 4 |
 
 ---
 

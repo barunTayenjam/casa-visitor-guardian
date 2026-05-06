@@ -69,6 +69,7 @@ services:
       - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       # Resource optimization settings (for 1 core, 2GB RAM systems)
       - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-true}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
@@ -76,7 +77,7 @@ services:
       - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
       - STREAM_INACTIVITY_TIMEOUT=${STREAM_INACTIVITY_TIMEOUT:-300000}
       # Node.js memory optimization
-      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-384}
+      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-1024}
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
@@ -104,11 +105,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${BACKEND_CPU_LIMIT:-0.75}
-          memory: ${BACKEND_MEM_LIMIT:-768M}
+          cpus: ${BACKEND_CPU_LIMIT:-1.5}
+          memory: ${BACKEND_MEM_LIMIT:-1536M}
         reservations:
-          cpus: ${BACKEND_CPU_RESERVE:-0.25}
-          memory: ${BACKEND_MEM_RESERVE:-256M}
+          cpus: ${BACKEND_CPU_RESERVE:-0.5}
+          memory: ${BACKEND_MEM_RESERVE:-512M}
 
   # Frontend Development Server
   frontend:
@@ -211,11 +212,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${OPENCV_CPU_LIMIT:-0.25}
-          memory: ${OPENCV_MEM_LIMIT:-384M}
+          cpus: ${OPENCV_CPU_LIMIT:-0.5}
+          memory: ${OPENCV_MEM_LIMIT:-768M}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.1}
-          memory: ${OPENCV_MEM_RESERVE:-128M}
+          memory: ${OPENCV_MEM_RESERVE:-256M}
 
 networks:
   sentryvision_network:

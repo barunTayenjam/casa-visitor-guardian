@@ -79,19 +79,53 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
     onFiltersChange?.(clearedFilters);
   };
 
+  const [showFilters, setShowFilters] = useState(false);
+
   return (
     <div
-      className="w-full p-4 border-b"
+      className="w-full p-3 md:p-4 border-b"
       style={{
         backgroundColor: colors.background.secondary,
         borderColor: colors.border.subtle,
       }}
     >
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Left: Search and Filters */}
+      {/* Mobile: Search + filter toggle row */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+          <Input
+            placeholder="Search..."
+            value={filters.searchQuery}
+            onChange={(e) => updateFilter('searchQuery', e.target.value)}
+            className="pl-10 h-11 min-h-[44px] bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:bg-white/10 text-sm"
+          />
+        </div>
+        
+        {/* Mobile filter toggle */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setShowFilters(!showFilters)}
+          className="h-11 w-11 flex-shrink-0 bg-white/5 border-white/10 text-white md:hidden"
+        >
+          <Filter className="h-4 w-4" />
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {/* Filter row - expandable on mobile */}
+      <div className={cn(
+        "mt-3 flex flex-col gap-3 md:flex-row md:items-center md:gap-3",
+        showFilters ? "flex" : "hidden md:flex"
+      )}>
+        {/* Search and Filters */}
         <div className="flex items-center gap-3 flex-1">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
+          {/* Search Input - hidden on mobile since in separate row */}
+          <div className="relative flex-1 max-w-md hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
             <Input
               placeholder="Search events..."
@@ -106,7 +140,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
             value={filters.cameraId}
             onValueChange={(value) => updateFilter('cameraId', value)}
           >
-            <SelectTrigger className="w-40 h-10 bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="w-full md:w-40 h-11 min-h-[44px] bg-white/5 border-white/10 text-white text-sm">
               <Camera className="h-4 w-4 mr-2 text-white/60" />
               <SelectValue placeholder="All Cameras" />
             </SelectTrigger>
@@ -123,9 +157,9 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
           {/* Detection Type Filter */}
           <Select
             value={filters.detectionType}
-            onValueChange={(value: any) => updateFilter('detectionType', value)}
+            onValueChange={(value: string) => updateFilter('detectionType', value as FilterState['detectionType'])}
           >
-            <SelectTrigger className="w-36 h-10 bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="w-full md:w-36 h-11 min-h-[44px] bg-white/5 border-white/10 text-white text-sm">
               <Filter className="h-4 w-4 mr-2 text-white/60" />
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
@@ -144,7 +178,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               <Button
                 variant="outline"
                 className={cn(
-                  'w-40 h-10 justify-start text-left font-normal',
+                  'w-full md:w-40 h-11 min-h-[44px] justify-start text-left font-normal text-sm',
                   'bg-white/5 border-white/10 text-white hover:bg-white/10',
                   !filters.dateRange.start && 'text-white/60'
                 )}
@@ -172,9 +206,9 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
           {/* Confidence Filter */}
           <Select
             value={filters.confidence}
-            onValueChange={(value: any) => updateFilter('confidence', value)}
+            onValueChange={(value: string) => updateFilter('confidence', value as FilterState['confidence'])}
           >
-            <SelectTrigger className="w-32 h-10 bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="w-full md:w-32 h-11 min-h-[44px] bg-white/5 border-white/10 text-white text-sm">
               <SelectValue placeholder="All Confidence" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-white/10">

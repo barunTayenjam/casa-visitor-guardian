@@ -6,22 +6,39 @@ import { EventTimeline } from '@/components/events/EventTimeline';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
-import { Calendar, Clock, User, Grid, List, Archive, Download } from 'lucide-react';
+import { Calendar, Clock, User, Grid, List, Archive, Download, Brain } from 'lucide-react';
 import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import apiService from '@/services/ApiService';
-import { useNavigate } from 'react-router-dom';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'confidence';
 
+interface ApiEvent {
+  id: string;
+  cameraId: string;
+  cameraName?: string;
+  timestamp: string;
+  imageUrl?: string;
+  filename?: string;
+  confidence: number;
+  event_type: string;
+  metadata: Record<string, unknown>;
+  labels?: string[];
+  persons_detected: number;
+  faces_detected: number;
+  known_faces_count: number;
+  unknown_faces_count: number;
+  object_detections: unknown[];
+  face_detections: unknown[];
+}
+
 const EventsPage = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { cameras } = useCameras();
 
@@ -46,13 +63,54 @@ const EventsPage = () => {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
 
+  // Analysis state - store analysis per event ID
+  const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
+  const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, {
+    sceneDescription?: string;
+    threatAssessment?: { level: string; factors: string[]; confidence: number };
+    detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
+    recommendedActions?: string[];
+    processingTime?: number;
+    modelUsed?: string;
+  }>>({});
+
+  const handleAnalyzeEvent = async (eventId: string) => {
+    setAnalyzingEventId(eventId);
+    try {
+      const result = await apiService.analyzeEvent(eventId);
+      if (result.success && result.analysis) {
+        setAnalysisByEvent(prev => ({ ...prev, [eventId]: result.analysis }));
+        toast({
+          title: 'AI Analysis Complete',
+          description: result.analysis.sceneDescription || result.analysis.summary || 'Analysis complete',
+          variant: 'default',
+        });
+        loadEvents();
+      } else {
+        toast({
+          title: 'Analysis Failed',
+          description: result.error || 'Unknown error',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Analysis Failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setAnalyzingEventId(null);
+    }
+  };
+
   const selectedEvent = events.find(e => e.id === selectedEventId) || null;
   const cameraNames = cameras.map(c => c.name);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const pageSize = viewMode === 'grid' ? 24 : 50;
+      const pageSize = viewMode === 'grid' ? 100 : 100;
       const response = await apiService.getEnhancedEventsList({
         page: currentPage,
         pageSize: pageSize,
@@ -64,7 +122,7 @@ const EventsPage = () => {
         sortBy: sortBy,
       });
 
-      const transformedEvents = response.events.map((event: any): MotionEvent => ({
+      const transformedEvents = response.events.map((event: ApiEvent): MotionEvent => ({
         id: event.id,
         cameraId: event.cameraId,
         cameraName: event.cameraName || `Camera ${event.cameraId}`,
@@ -310,36 +368,36 @@ const EventsPage = () => {
                     {selectedEventIds.size} selected
                   </span>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="ghost"
                     onClick={selectAllEvents}
-                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                    className="text-muted-foreground hover:text-foreground h-10 min-h-[40px] px-3 text-sm"
                   >
                     {selectedEventIds.size === events.length ? 'Deselect All' : 'Select All'}
                   </Button>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="ghost"
                     onClick={bulkExport}
-                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                    className="text-muted-foreground hover:text-foreground h-10 min-h-[40px] px-3 text-sm"
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="h-4 w-4 mr-1" />
                     Export
                   </Button>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="ghost"
                     onClick={bulkDelete}
-                    className="text-red-400 hover:text-red-300 h-7 px-2"
+                    className="text-red-400 hover:text-red-300 h-10 min-h-[40px] px-3 text-sm"
                   >
-                    <Archive className="h-3 w-3 mr-1" />
+                    <Archive className="h-4 w-4 mr-1" />
                     Delete
                   </Button>
                   <Button
-                    size="sm"
+                    size="default"
                     variant="ghost"
                     onClick={clearSelection}
-                    className="text-muted-foreground hover:text-foreground h-7 px-2"
+                    className="text-muted-foreground hover:text-foreground h-10 min-h-[40px] w-10 p-0"
                     aria-label="Clear selection"
                   >
                     ✕
@@ -347,47 +405,43 @@ const EventsPage = () => {
                 </div>
               ) : (
                 <Button
-                  size="sm"
+                  size="default"
                   variant="outline"
                   onClick={() => setShowBulkActions(true)}
-                  className="text-muted-foreground hover:text-foreground h-8"
+                  className="text-muted-foreground hover:text-foreground h-10 min-h-[40px] text-sm"
                 >
                   Select
                 </Button>
               )}
               <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-                <SelectTrigger className="w-[140px] h-8">
+                <SelectTrigger className="w-full sm:w-[140px] h-9 min-h-[44px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="confidence">By Confidence</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="confidence">Confidence</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1 bg-muted rounded-lg p-1 border border-border">
-                <button
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-9 w-9"
                   onClick={() => setViewMode('grid')}
-                  className={cn(
-                    'p-2 rounded transition-all',
-                    viewMode === 'grid' ? 'bg-background text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  )}
                   aria-label="Grid view"
-                  aria-pressed={viewMode === 'grid'}
                 >
                   <Grid className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-9 w-9"
                   onClick={() => setViewMode('list')}
-                  className={cn(
-                    'p-2 rounded transition-all',
-                    viewMode === 'list' ? 'bg-background text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  )}
                   aria-label="List view"
-                  aria-pressed={viewMode === 'list'}
                 >
                   <List className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
           </div>
         </div>
@@ -486,6 +540,39 @@ const EventsPage = () => {
                         )}
                       </div>
                     )}
+                    <div className="absolute bottom-2 right-2 z-10">
+                      {analysisByEvent[event.id] ? (
+                        <div className="px-2 py-1 rounded text-xs font-medium bg-green-600/80 text-white shadow-lg flex items-center gap-1">
+                          <Brain className="h-3 w-3" />
+                          Done
+                        </div>
+                      ) : (
+                        <Button
+size="sm"
+                    variant="ghost"
+                    className={cn(
+                      "h-9 w-9 p-0 flex-shrink-0",
+                      analysisByEvent[event.id] ? "text-green-400" : ""
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!analysisByEvent[event.id]) {
+                        handleAnalyzeEvent(event.id);
+                      }
+                    }}
+                    disabled={analyzingEventId === event.id || !!analysisByEvent[event.id]}
+                    title={analysisByEvent[event.id] ? "Already analyzed" : "AI Analyze"}
+                  >
+                    {analyzingEventId === event.id ? (
+                      <span className="h-3 w-3 animate-spin">↻</span>
+                    ) : analysisByEvent[event.id] ? (
+                      <Brain className="h-4 w-4" />
+                    ) : (
+                      <Brain className="h-4 w-4" />
+                    )}
+                  </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -562,6 +649,30 @@ const EventsPage = () => {
                       )}
                     </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      "h-9 w-9 p-0 flex-shrink-0",
+                      analysisByEvent[event.id] && "text-green-400"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!analysisByEvent[event.id]) {
+                        handleAnalyzeEvent(event.id);
+                      }
+                    }}
+                    disabled={analyzingEventId === event.id || !!analysisByEvent[event.id]}
+                    title={analysisByEvent[event.id] ? "Already analyzed" : "AI Analyze"}
+                  >
+                    {analyzingEventId === event.id ? (
+                      <span className="h-3 w-3 animate-spin">↻</span>
+                    ) : analysisByEvent[event.id] ? (
+                      <span className="text-xs font-bold">✓</span>
+                    ) : (
+                      <Brain className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               ))}
             </div>
@@ -570,11 +681,14 @@ const EventsPage = () => {
           {totalPages > 1 && (
             <div className="mt-6 flex justify-center">
               <Pagination>
-                <PaginationContent>
+                <PaginationContent className="gap-1">
                   <PaginationItem>
                     <PaginationPrevious 
                       onClick={currentPage === 1 ? undefined : () => handlePageChange(currentPage - 1)}
-                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      className={cn(
+                        "h-11 min-h-[44px] w-11 cursor-pointer",
+                        currentPage === 1 ? 'pointer-events-none opacity-50' : ''
+                      )}
                     />
                   </PaginationItem>
                   
@@ -620,7 +734,7 @@ const EventsPage = () => {
                           <PaginationLink 
                             onClick={() => handlePageChange(pageNum as number)}
                             isActive={pageNum === currentPage}
-                            className="cursor-pointer"
+                            className="h-11 min-h-[44px] w-11 cursor-pointer"
                           >
                             {pageNum}
                           </PaginationLink>
@@ -632,7 +746,10 @@ const EventsPage = () => {
                   <PaginationItem>
                     <PaginationNext 
                       onClick={currentPage === totalPages ? undefined : () => handlePageChange(currentPage + 1)}
-                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      className={cn(
+                        "h-11 min-h-[44px] w-11 cursor-pointer",
+                        currentPage === totalPages ? 'pointer-events-none opacity-50' : ''
+                      )}
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -651,6 +768,7 @@ const EventsPage = () => {
               onPrevious={goToPreviousEvent}
               onDelete={handleEventDelete}
               onDownload={handleEventDownload}
+              analysis={selectedEvent ? analysisByEvent[selectedEvent.id] : null}
             />
             <div className="w-full md:w-[500px] lg:w-[600px] border-t border-border overflow-y-auto">
               <RelatedEvents

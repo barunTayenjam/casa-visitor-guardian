@@ -17,6 +17,8 @@ interface RetentionConfig {
 export class RetentionPolicyService extends EventEmitter {
   private static instance: RetentionPolicyService;
   private initialized = false;
+  private policyCache: Map<string, { policy: RetentionPolicy; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 60000; // 1 minute cache
   private readonly DEFAULT_RETENTION_DAYS = {
     alerts: 30,
     detections: 7,
@@ -79,6 +81,12 @@ export class RetentionPolicyService extends EventEmitter {
 
   async getPolicy(camera?: string): Promise<RetentionPolicy> {
     try {
+      const cacheKey = camera || 'global';
+      const cached = this.policyCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+        return cached.policy;
+      }
+
       let policy = await AppDataSource.getRepository(RetentionPolicy)
         .createQueryBuilder('rp')
         .where('rp.camera = :camera', { camera: camera || null })
@@ -88,6 +96,7 @@ export class RetentionPolicyService extends EventEmitter {
         policy = await this.createCameraPolicy(camera);
       }
 
+      this.policyCache.set(cacheKey, { policy, timestamp: Date.now() });
       return policy;
     } catch (error) {
       console.error(`Error retrieving retention policy for ${camera || 'global'}:`, error);

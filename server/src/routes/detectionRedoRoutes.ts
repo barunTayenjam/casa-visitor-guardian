@@ -150,6 +150,124 @@ router.post('/rerun-detection', authenticate, async (req: AuthenticatedRequest, 
   }
 });
 
+// Endpoint to re-run detection on a specific event by ID
+router.post('/rerun-event-detection', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { eventId } = req.body;
+
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        error: 'eventId is required'
+      });
+    }
+
+    // Get event from database
+    const event = await AppDataSource.query(
+      'SELECT id, image_path, camera_id, timestamp FROM events WHERE id = $1',
+      [eventId]
+    );
+
+    if (!event || event.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Event not found'
+      });
+    }
+
+    const dbEvent = event[0];
+    let imagePath = dbEvent.image_path;
+
+    // Convert relative path to absolute if needed
+    if (imagePath && !imagePath.startsWith('/')) {
+      // Relative path from data/detections
+      const match = imagePath.match(/(\d{4}-\d{2})\/events\/(motion|faces)\/(.+)$/);
+      if (match) {
+        const yearMonth = match[1];
+        const type = match[2];
+        const filename = match[3];
+        imagePath = path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', type, filename);
+      }
+    }
+
+    // Verify file exists
+    if (!imagePath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image path not found in event'
+      });
+    }
+
+    try {
+      await fs.access(imagePath);
+    } catch {
+      return res.status(404).json({
+        success: false,
+        error: 'Image file not found'
+      });
+    }
+
+    // Read and process image
+    const imageBuffer = await fs.readFile(imagePath);
+    const axios = await import('axios');
+    const { getOpenCVServiceUrl } = await import('../config/index.js');
+
+    const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
+      headers: { 'Content-Type': 'image/jpeg' },
+      timeout: 30000
+    });
+
+    const detections = response.data.detections || [];
+
+    // Validate detections
+    const { MotionTriggeredDetection } = await import('../detection/motionTriggeredDetection.js');
+    const validator = new MotionTriggeredDetection();
+    const validDetections = validator['validateDetections'](detections);
+
+    const personCount = validDetections.filter(d => d.class === 'person').length;
+    const faceCount = validDetections.filter(d => d.class === 'face').length;
+    const vehicleCount = validDetections.filter(d => ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class)).length;
+    const uniqueClasses = Array.from(new Set(validDetections.map(d => d.class)));
+
+    // Update event in database
+    await AppDataSource.query(
+      `UPDATE events SET 
+        persons_detected = $1,
+        faces_detected = $2,
+        object_detections = $3,
+        detection_confidence = $4,
+        last_analyzed_at = NOW()
+      WHERE id = $5`,
+      [personCount, faceCount, JSON.stringify(validDetections), Math.round((validDetections.reduce((acc, d) => acc + (d.confidence || 0), 0) / (validDetections.length || 1))), eventId]
+    );
+
+    res.json({
+      success: true,
+      message: `Detection re-run completed for event ${eventId}`,
+      results: {
+        totalDetections: validDetections.length,
+        personCount,
+        faceCount,
+        vehicleCount,
+        uniqueClasses,
+        detections: validDetections
+      }
+    });
+  } catch (error) {
+    console.error('Error re-running event detection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to re-run detection',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export function configureDetectionRedoRoutes(app: any): void {
   app.use('/api/detection-redo', router);
 }

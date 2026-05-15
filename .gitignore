@@ -72,3 +72,9 @@ data/
 # ML Model weights (too large for GitHub, download separately)
 *.weights
 
+# Python virtual environments
+server/node-env/
+**/node-env/
+**/.venv/
+**/venv/
+

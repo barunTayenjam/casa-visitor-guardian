@@ -24,7 +24,7 @@
 | 8 | UI/UX Improvements | User experience enhancement | UX-01 to UX-06 | 6 |
 | 9 | Streaming UI Simplification | Reduce overlay clutter | SUI-01 to SUI-03 | 3 |
 | 10 | Navigation & UI/UX Consistency | Unified app-wide experience | NAV-01 to NAV-04 | 4 |
-| 11 | Tech Debt Reduction | Codebase hardening and maintainability | TD-01 to TD-05 | 5 |
+| 11 | Tech Debt Reduction | 3/7 | In Progress|  |
 
 ---
 
@@ -263,7 +263,7 @@ Plans:
 
 **Depends on:** Phase 10
 **Requirements:** TD-01, TD-02, TD-03, TD-04, TD-05
-**Plans:** 7 plans
+**Plans:** 3/7 plans executed
 
 Plans:
 - [x] 11-01 — Quick Wins & Cleanup — Rename .new.tsx files, remove .disabled models, remove node-env/, remove debug endpoints, re-enable DB logging

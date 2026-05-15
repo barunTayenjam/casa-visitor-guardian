@@ -210,7 +210,7 @@ function checkCameraHealth(io: SocketIOServer) {
         // Camera active log disabled - console.log(`Camera ${camera.id} (${camera.name}) is active`);
       } else {
         // Camera inactive log disabled - console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start test stream`);
-        streamManager.startStream(camera.id);
+        streamManager.startStream(camera.id, 'detect');
       }
     });
     

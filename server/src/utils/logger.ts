@@ -39,7 +39,7 @@ const LOGGING_CONFIG = {
   enableStreamLogs: false,   // Disable stream logs to reduce overhead
   enableSocketLogs: false,   // Disable socket logs to reduce overhead
   enableFileLogging: false,  // Disable file logging temporarily to fix HTTP hanging
-  enableDatabaseLogging: false, // Disable database logging temporarily to fix HTTP hanging
+  enableDatabaseLogging: true, // Re-enabled after HTTP hanging fix
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size
   maxLogFiles: 5, // Keep 5 log files max
 };

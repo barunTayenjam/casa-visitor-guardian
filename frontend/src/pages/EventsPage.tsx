@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { EmptyState } from '@/components/ui/EmptyState';
-import apiService from '@/services/ApiService';
+import { eventService } from '@/services/api/eventService';
+import { detectionService } from '@/services/api/detectionService';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -82,19 +83,24 @@ const EventsPage = () => {
   const handleAnalyzeEvent = async (eventId: string) => {
     setAnalyzingEventId(eventId);
     try {
-      const result = await apiService.analyzeEvent(eventId);
+      const result = await detectionService.analyzeEvent(eventId);
       if (result.success && result.analysis) {
-        setAnalysisByEvent(prev => ({ ...prev, [eventId]: result.analysis }));
+        setAnalysisByEvent(prev => ({ ...prev, [eventId]: {
+          sceneDescription: result.analysis?.overall_summary || result.analysis?.summary || '',
+          summary: result.analysis?.summary,
+          persons: (result.analysis?.persons || []) as Record<string, unknown>[],
+          vehicles: (result.analysis?.vehicles || []) as Record<string, unknown>[],
+        } }));
         toast({
           title: 'AI Analysis Complete',
-          description: result.analysis.sceneDescription || result.analysis.summary || 'Analysis complete',
+          description: result.analysis?.overall_summary || result.analysis?.summary || 'Analysis complete',
           variant: 'default',
         });
         loadEvents();
       } else {
         toast({
           title: 'Analysis Failed',
-          description: result.error || 'Unknown error',
+          description: result.message || 'Unknown error',
           variant: 'destructive',
         });
       }
@@ -116,7 +122,7 @@ const EventsPage = () => {
     setLoading(true);
     try {
       const pageSize = viewMode === 'grid' ? 100 : 100;
-      const response = await apiService.getEnhancedEventsList({
+      const response = await eventService.getEnhancedEventsList({
         page: currentPage,
         pageSize: pageSize,
         camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
@@ -174,7 +180,7 @@ const EventsPage = () => {
 
   const handleEventDelete = async (eventId: string) => {
     try {
-      await apiService.archiveEvent(eventId);
+      await eventService.archiveEvent(eventId);
       toast({
         title: 'Event Deleted',
         description: 'The event has been deleted.',
@@ -240,7 +246,7 @@ const EventsPage = () => {
     if (!confirmed) return;
 
     try {
-      const deletePromises = Array.from(selectedEventIds).map(id => apiService.archiveEvent(id));
+      const deletePromises = Array.from(selectedEventIds).map(id => eventService.archiveEvent(id));
       await Promise.all(deletePromises);
       toast({
         title: 'Events Deleted',

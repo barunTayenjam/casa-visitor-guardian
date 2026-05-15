@@ -335,32 +335,7 @@ app.get('/api/streams/health', (req, res) => {
   }
 });
 
-// Configure routes
-configureAuthRoutes(app);
-configureRoutes(app, io);
-configureVisitorRoutes(app);
-app.use('/api/storage', storageRoutes);
-
-// NVIDIA AI Vision Analysis Routes
-import nvidiaRoutes from './routes/nvidiaRoutes.js';
-app.use('/api/nvidia', nvidiaRoutes);
-
-// Extracted domain-specific route modules
-configureCameraRoutes(app);
-configureAnalyticsRoutes(app);
-configureSettingsRoutes(app);
-configureStreamRoutes(app);
-configureSystemRoutes(app);
-configureReviewTimelineRoutes(app);
-
-console.log('Routes configured successfully');
-
-// For any other route, serve the index.html - temporarily disabled
-// app.get('*', (req, res) => {
-//     res.sendFile(path.join(distPath, 'index.html'));
-// });
-
-// Initialize stream manager
+// Initialize services BEFORE registering routes that depend on them
 async function initializeServices() {
   try {
     await initializeDatabase();
@@ -423,6 +398,29 @@ async function initializeServices() {
     console.error('Failed to initialize services:', error);
   }
 }
+
+// Initialize all services before registering routes
+await initializeServices();
+
+// Configure routes (now that services are registered)
+configureAuthRoutes(app);
+configureRoutes(app, io);
+configureVisitorRoutes(app);
+app.use('/api/storage', storageRoutes);
+
+// NVIDIA AI Vision Analysis Routes
+import nvidiaRoutes from './routes/nvidiaRoutes.js';
+app.use('/api/nvidia', nvidiaRoutes);
+
+// Extracted domain-specific route modules
+configureCameraRoutes(app);
+configureAnalyticsRoutes(app);
+configureSettingsRoutes(app);
+configureStreamRoutes(app);
+configureSystemRoutes(app);
+configureReviewTimelineRoutes(app);
+
+console.log('Routes configured successfully');
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -551,8 +549,6 @@ const PORT = process.env.PORT || 8082;
 
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);
-
-  await initializeServices();
 });
 
 server.on('error', (error: any) => {

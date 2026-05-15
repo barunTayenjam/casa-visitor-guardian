@@ -3142,13 +3142,28 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Look up the image file in the database
       const AppDataSource = (global as any).AppDataSource;
-      
+
       if (!AppDataSource) {
         return res.status(503).json({
           success: false,
           error: 'Database not available'
         });
       }
+
+      // Validate imageId is UUID format to prevent path traversal (T-11-05)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(imageId);
+      if (!isUuid && !imageId.includes('.')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid image ID format'
+        });
+      }
+
+      // Include detection data when overlays requested
+      const detectionFields = overlays === 'true'
+        ? `COALESCE(e.object_detections, '[]') as object_detections,
+           COALESCE(e.face_detections, '[]') as face_detections,`
+        : '';
 
       // Query for detection file by UUID or filename
       const query = `
@@ -3157,7 +3172,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           COALESCE(df.storage_path, e.file_path) as file_path,
           COALESCE(df.storage_path, e.file_path) as imagePath,
           COALESCE(df.metadata, e.metadata) as metadata,
-          COALESCE(df.camera_id, e.camera_id) as camera_id
+          COALESCE(df.camera_id, e.camera_id) as camera_id,
+          ${detectionFields}
+          COALESCE(df.original_filename, e.file_path) as original_filename
         FROM events e
         LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
         WHERE df.file_uuid = $1
@@ -3193,8 +3210,44 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         });
       }
 
-      // For now, serve the image without overlays
-      // TODO: Implement overlay rendering using canvas or OpenCV if overlays=true
+      // Render overlays if requested
+      if (overlays === 'true') {
+        const sharp = (await import('sharp')).default;
+        const objectDetections: Array<Record<string, unknown>> =
+          typeof detection.object_detections === 'string' ? JSON.parse(detection.object_detections) : (detection.object_detections || []);
+        const faceDetections: Array<Record<string, unknown>> =
+          typeof detection.face_detections === 'string' ? JSON.parse(detection.face_detections) : (detection.face_detections || []);
+
+        const allDetections = [...objectDetections, ...faceDetections];
+
+        if (allDetections.length > 0) {
+          // Build SVG overlay with colored rectangles and labels
+          const svgOverlays = allDetections.map((d, i) => {
+            const box = (d.box || d.bounding_box || d.box) as Record<string, number> | undefined;
+            if (!box) return '';
+            const x = box.x ?? box.xmin ?? 0;
+            const y = box.y ?? box.ymin ?? 0;
+            const w = box.w ?? box.width ?? (box.xmax ? box.xmax - x : 0);
+            const h = box.h ?? box.height ?? (box.ymax ? box.ymax - y : 0);
+            const label = (d.label || d.class || 'unknown') as string;
+            const confidence = d.confidence ? `${Math.round((d.confidence as number) * 100)}%` : '';
+            const color = i % 2 === 0 ? '#00ff00' : '#ff4444';
+            return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${color}" stroke-width="3"/>
+<text x="${x}" y="${y - 5}" fill="${color}" font-size="16" font-family="monospace">${label} ${confidence}</text>`;
+          }).filter(Boolean).join('\n');
+
+          const svgOverlay = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">${svgOverlays}</svg>`);
+
+          const overlaidImage = await sharp(imagePath)
+            .composite([{ input: svgOverlay, top: 0, left: 0 }])
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+          res.set('Content-Type', 'image/jpeg');
+          return res.send(overlaidImage);
+        }
+      }
+
       const imageUrl = `/events/${detection.original_filename}`;
 
       res.json({
@@ -3202,8 +3255,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         imageUrl,
         imagePath: detection.storage_path,
         metadata: detection.metadata ? JSON.parse(detection.metadata) : null,
-        overlaysEnabled: overlays === 'true',
-        note: overlays === 'true' ? 'Overlay rendering not yet implemented' : undefined
+        overlaysEnabled: overlays === 'true'
       });
 
     } catch (error) {

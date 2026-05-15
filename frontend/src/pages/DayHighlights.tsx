@@ -43,7 +43,8 @@ interface HighlightEvent {
   facesDetected: number;
   knownFacesCount: number;
   unknownFacesCount: number;
-  highlightScore: number;
+  objectDetections: Record<string, unknown>[];
+  faceDetections: Record<string, unknown>[];
   imageUrl: string;
   metadata: Record<string, unknown>;
 }
@@ -74,7 +75,7 @@ const DayHighlightsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentHighlight = highlights[currentIndex];
   const filteredHighlights = highlights.filter(h => {
     if (categoryFilter === 'all') return true;
@@ -415,7 +416,7 @@ const DayHighlightsPage = () => {
                 {currentHighlight?.imageUrl ? (
                   <img
                     src={currentHighlight.imageUrl}
-                    alt={`Day highlight: ${currentHighlight.event_type || 'event'} from ${currentHighlight.cameraId}`}
+                    alt={`Day highlight: ${currentHighlight.eventType || 'event'} from ${currentHighlight.cameraId}`}
                     className="w-full h-full object-contain"
                   />
                 ) : (

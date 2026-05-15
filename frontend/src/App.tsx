@@ -11,11 +11,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AppLayout } from "./components/layout/AppLayout";
 
 const Login = lazy(() => import("./pages/Login"));
-const StreamDashboard = lazy(() => import("./pages/StreamDashboard.new"));
-const EventsPage = lazy(() => import("./pages/EventsPage.new"));
-const SettingsPage = lazy(() => import("./pages/Settings.new"));
-const AnalyticsPage = lazy(() => import("./pages/Analytics.new"));
-const DayHighlightsPage = lazy(() => import("./pages/DayHighlights.new"));
+const StreamDashboard = lazy(() => import("./pages/StreamDashboard"));
+const EventsPage = lazy(() => import("./pages/EventsPage"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
+const AnalyticsPage = lazy(() => import("./pages/Analytics"));
+const DayHighlightsPage = lazy(() => import("./pages/DayHighlights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {

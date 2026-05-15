@@ -242,10 +242,14 @@ export interface AppConfig {
 export const config: AppConfig = {
   port: parseInt(process.env.PORT || '9753', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+  jwtSecret: (() => {
+    const jwtSecret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+    if (!jwtSecret) throw new Error('JWT_ACCESS_SECRET or JWT_SECRET must be configured');
+    return jwtSecret;
+  })(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   database: {
-    host: process.env.DB_HOST || '172.26.0.3',
+    host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'sentryvision',
     username: process.env.DB_USER || process.env.DB_USERNAME,
@@ -311,7 +315,7 @@ export const config: AppConfig = {
     snapshotsDir: process.env.SNAPSHOTS_DIR || path.join(process.cwd(), '../public/snapshots'),
     eventsDir: process.env.EVENTS_DIR || path.join(process.cwd(), '../public/events'),
     detectionsDir: process.env.DETECTIONS_DIR || path.join(process.cwd(), '../data/detections'),
-    retentionDays: parseInt(process.env.DETECTIONS_RETENTION_DAYS || '30', 10),
+    retentionDays: parseInt(process.env.DETECTIONS_RETENTION_DAYS || '7', 10),
     archivePath: process.env.DETECTIONS_ARCHIVE_PATH || path.join(process.cwd(), '../data/detections/archive'),
     enableFileIndexing: process.env.ENABLE_FILE_INDEXING === 'true',
     fileIndexOnSave: process.env.FILE_INDEX_ON_SAVE === 'true'
@@ -384,11 +388,6 @@ export const getStoragePathFromFile = (fileType: 'event_face' | 'event_motion' |
 };
 
 export const validateConfig = (): void => {
-  if (!config.jwtSecret || config.jwtSecret === 'fallback-secret-change-in-production') {
-    if (config.nodeEnv === 'production') {
-      throw new Error('JWT_SECRET must be set in production');
-    } else {
-      console.warn('Using fallback JWT secret. Set JWT_SECRET in production.');
-    }
-  }
+  // JWT secret is now enforced at config load time (fail-fast).
+  // This function is kept for future validation needs.
 };

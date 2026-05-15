@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -28,13 +29,8 @@ async function generateDailyReport(io: SocketIOServer) {
   // Daily report log disabled - console.log('Generating daily report...');
   
   try {
-    // Get the stream manager from global scope
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const streamManager = (global as any).streamManager;
-    if (!streamManager) {
-      console.error('Stream manager not found');
-      return { success: false, error: 'Stream manager not found' };
-    }
+    // Get the stream manager from the service registry
+    const streamManager = serviceRegistry.getStreamManager();
     
     // Get all motion events from in-memory storage
     // In a real implementation, these would be stored in a database
@@ -202,12 +198,7 @@ async function cleanupOldFiles() {
 // Check camera health and restart if needed
 function checkCameraHealth(io: SocketIOServer) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const streamManager = (global as any).streamManager;
-    if (!streamManager) {
-      console.error('Stream manager not found');
-      return;
-    }
+    const streamManager = serviceRegistry.getStreamManager();
     
     const cameras = streamManager.getAllCameras();
     // Camera health check log disabled - console.log(`Checking health of ${cameras.length} cameras`);

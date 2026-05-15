@@ -32,6 +32,45 @@ import { cn } from '@/lib/utils';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageLoading } from '@/components/ui/PageLoading';
 
+interface AnalyticsEvent {
+  id: string;
+  timestamp: string;
+  camera_id: string;
+  persons_detected: number;
+  object_detections?: { class: string }[];
+}
+
+interface HourlyDataPoint {
+  hour: number;
+  count: number;
+}
+
+interface ChartDataPoint {
+  date: string;
+  events: number;
+  persons: number;
+  vehicles: number;
+  packages: number;
+}
+
+interface DetectionTypeData {
+  name: string;
+  value: number;
+  color: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface CameraUptimeData {
+  camera: string;
+  events: number;
+  status: string;
+}
+
+interface HourlyActivityData {
+  hour: string;
+  events: number;
+}
+
 const AnalyticsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,10 +79,10 @@ const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true);
 
   const [analyticsData, setAnalyticsData] = useState({
-    eventsOverTime: [] as any[],
-    detectionTypes: [] as any[],
-    cameraUptime: [] as any[],
-    hourlyActivity: [] as any[],
+    eventsOverTime: [] as ChartDataPoint[],
+    detectionTypes: [] as DetectionTypeData[],
+    cameraUptime: [] as CameraUptimeData[],
+    hourlyActivity: [] as HourlyActivityData[],
     storageStats: {
       used: 0,
       events: 0,
@@ -87,7 +126,7 @@ const AnalyticsPage = () => {
         }
 
         // Count events by type and day
-        events.forEach((event: any) => {
+        events.forEach((event: AnalyticsEvent) => {
           const eventDate = new Date(event.timestamp);
           const dateKey = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
           const current = eventsByDay.get(dateKey) || { events: 0, persons: 0, vehicles: 0, packages: 0 };
@@ -96,8 +135,7 @@ const AnalyticsPage = () => {
           if (event.persons_detected > 0) current.persons += event.persons_detected;
           if (event.object_detections) {
             const objects = Array.isArray(event.object_detections) ? event.object_detections : [];
-            objects.forEach((obj: any) => {
-              if (obj.class === 'car' || obj.class === 'vehicle') current.vehicles++;
+            objects.forEach((obj) => {
               if (obj.class === 'package') current.packages++;
             });
           }
@@ -115,11 +153,11 @@ const AnalyticsPage = () => {
 
         // Count detection types
         const detectionCounts = { person: 0, vehicle: 0, package: 0, motion: 0 };
-        events.forEach((event: any) => {
+        events.forEach((event: AnalyticsEvent) => {
           if (event.persons_detected > 0) detectionCounts.person += event.persons_detected;
           if (event.object_detections) {
             const objects = Array.isArray(event.object_detections) ? event.object_detections : [];
-            objects.forEach((obj: any) => {
+            objects.forEach((obj) => {
               if (obj.class === 'car' || obj.class === 'vehicle') detectionCounts.vehicle++;
               if (obj.class === 'package') detectionCounts.package++;
             });
@@ -137,12 +175,12 @@ const AnalyticsPage = () => {
         // Camera uptime
         const cameraUptime = cameras.map(cam => ({
           camera: cam.name,
-          events: events.filter((e: any) => e.camera_id === cam.id).length,
+          events: events.filter((e: AnalyticsEvent) => e.camera_id === cam.id).length,
           status: cam.status,
         }));
 
         // Hourly activity from backend
-        const hourlyActivity = (hourlyData.hourlyData || []).map((h: any) => ({
+        const hourlyActivity = (hourlyData.hourlyData || []).map((h: HourlyDataPoint) => ({
           hour: `${h.hour}:00`,
           events: h.count,
         }));
@@ -155,12 +193,12 @@ const AnalyticsPage = () => {
         // Count today's detections
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const detectionsToday = events.filter((e: any) => new Date(e.timestamp) >= today).length;
+        const detectionsToday = events.filter((e: AnalyticsEvent) => new Date(e.timestamp) >= today).length;
 
         // Count yesterday's detections for comparison
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        const detectionsYesterday = events.filter((e: any) => {
+        const detectionsYesterday = events.filter((e: AnalyticsEvent) => {
           const eventDate = new Date(e.timestamp);
           return eventDate >= yesterday && eventDate < today;
         }).length;

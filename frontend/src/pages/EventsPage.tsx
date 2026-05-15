@@ -67,11 +67,16 @@ const EventsPage = () => {
   const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
   const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, {
     sceneDescription?: string;
+    summary?: string;
     threatAssessment?: { level: string; factors: string[]; confidence: number };
     detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
     recommendedActions?: string[];
     processingTime?: number;
     modelUsed?: string;
+    overall_summary?: string;
+    activities?: string[];
+    persons?: Record<string, unknown>[];
+    vehicles?: Record<string, unknown>[];
   }>>({});
 
   const handleAnalyzeEvent = async (eventId: string) => {

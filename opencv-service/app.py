@@ -70,7 +70,9 @@ class DetectionCache:
         self.db_port = os.getenv('POSTGRES_PORT', '5432')
         self.db_name = os.getenv('POSTGRES_DB', 'sentryvision')
         self.db_user = os.getenv('POSTGRES_USER', 'sentryvision')
-        self.db_password = os.getenv('POSTGRES_PASSWORD', 'sentryvision123')
+        self.db_password = os.environ.get('POSTGRES_PASSWORD')
+        if not self.db_password:
+            raise ValueError('POSTGRES_PASSWORD environment variable is required')
         self.cache_ttl = 300  # 5 minutes
         
         # Initialize connection pool

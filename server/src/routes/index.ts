@@ -27,6 +27,7 @@ import faceEmbeddingRoutes from './faceEmbeddingRoutes.js';
 import faceConfigRoutes from './faceConfigRoutes.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
+import { storageStatsService } from '../services/storageStatsService.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -139,7 +140,7 @@ const defaultSystemSettings: SystemSettings = {
     backupFrequency: 'daily',
   },
   storage: {
-    retentionDays: 30,
+    retentionDays: 7,
     maxStorageGB: 100,
     autoCleanup: true,
     compressionEnabled: true,
@@ -1937,7 +1938,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         page: parseInt(req.query.page as string) || 1,
         pageSize: Math.min(parseInt(req.query.pageSize as string) || 20, 100),
         sortBy: req.query.sortBy as string,
-        sortOrder: (req.query.sortOrder as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+        sortOrder: (req.query.sortOrder as string)?.toUpperCase() === 'ASC' ? 'ASC' as const : 'DESC' as const,
       };
 
       const result = await eventSearchService.searchEvents(filters);
@@ -2947,9 +2948,22 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // System overview endpoint
-  app.get('/api/system/overview', (req: Request, res: Response) => {
+  app.get('/api/system/overview', async (req: Request, res: Response) => {
     try {
       const cameras = getStreamManager().getAllCameras();
+
+      // Fetch real storage data from storageStatsService
+      let storageUsed = 0;
+      let storageTotal = 1000000000; // 1GB fallback
+      try {
+        const globalStats = await storageStatsService.getGlobalStorageStats();
+        storageUsed = globalStats.totalBytes;
+        const maxStorageGB = await (storageStatsService as any).getMaxStorageGB();
+        storageTotal = maxStorageGB * 1024 * 1024 * 1024;
+      } catch (err) {
+        console.warn('Failed to fetch storage stats for overview:', err);
+      }
+
       const overview = {
         status: 'healthy',
         uptime: process.uptime(),
@@ -2963,83 +2977,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
                      eventDate.getMonth() === today.getMonth() &&
                      eventDate.getFullYear() === today.getFullYear();
         }).length,
-        storageUsed: 0, // TODO: Calculate actual storage usage
-        storageTotal: 1000000000 // 1GB default
+        storageUsed,
+        storageTotal
       };
       
       res.json({ success: true, data: overview });
     } catch (error) {
       console.error('Error getting system overview:', error);
       res.status(500).json({ success: false, error: 'Failed to get system overview' });
-    }
-  });
-
-  // System storage endpoint
-  app.get('/api/system/storage', (req: Request, res: Response) => {
-    console.log('Storage endpoint called');
-    try {
-      console.log('Config object:', JSON.stringify(config, null, 2));
-      console.log('Config.storage:', config.storage);
-      // Calculate storage usage for events and snapshots
-      const eventsDir = config.storage?.eventsDir;
-      const snapshotsDir = config.storage?.snapshotsDir;
-      console.log('Events dir:', eventsDir);
-      console.log('Snapshots dir:', snapshotsDir);
-
-      if (!eventsDir || !snapshotsDir) {
-        throw new Error('Storage directories not configured properly');
-      }
-      
-      let eventsSize = 0;
-      let snapshotsSize = 0;
-      
-      try {
-        if (fs.existsSync(eventsDir)) {
-          const eventFiles = fs.readdirSync(eventsDir);
-          eventsSize = eventFiles.reduce((total: number, file: string) => {
-            const filePath = path.join(eventsDir, file);
-            const stats = fs.statSync(filePath);
-            return total + stats.size;
-          }, 0);
-        }
-        
-        if (fs.existsSync(snapshotsDir)) {
-          const snapshotFiles = fs.readdirSync(snapshotsDir);
-          snapshotsSize = snapshotFiles.reduce((total: number, file: string) => {
-            const filePath = path.join(snapshotsDir, file);
-            const stats = fs.statSync(filePath);
-            return total + stats.size;
-          }, 0);
-        }
-      } catch (err) {
-        console.warn('Error calculating storage:', err);
-      }
-      
-      const totalUsed = (eventsSize + snapshotsSize) / (1024 * 1024 * 1024); // Convert to GB
-      const totalAvailable = 500; // Default 500GB - could be made configurable
-      
-      res.json({
-        success: true,
-        storage: {
-          used: Math.round(totalUsed * 100) / 100, // Round to 2 decimal places
-          total: totalAvailable,
-          eventsSize: Math.round((eventsSize / (1024 * 1024)) * 100) / 100, // MB
-          snapshotsSize: Math.round((snapshotsSize / (1024 * 1024)) * 100) / 100, // MB
-          percentage: Math.round((totalUsed / totalAvailable) * 10000) / 100 // Percentage with 2 decimals
-        }
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
-      console.error('Error getting storage info:', error);
-      console.error('Error details:', errorMessage);
-      console.error('Stack trace:', errorStack);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get storage info',
-        details: errorMessage,
-        stack: errorStack
-      });
     }
   });
 

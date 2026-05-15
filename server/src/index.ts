@@ -18,6 +18,12 @@ import { config } from './config/index.js';
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
 import { configureVisitorRoutes } from './routes/visitorRoutes.js';
+import { configureCameraRoutes } from './routes/cameraRoutes.js';
+import { configureAnalyticsRoutes } from './routes/analyticsRoutes.js';
+import { configureSettingsRoutes } from './routes/settingsRoutes.js';
+import { configureStreamRoutes } from './routes/streamRoutes.js';
+import { configureSystemRoutes } from './routes/systemRoutes.js';
+import { configureReviewTimelineRoutes } from './routes/reviewTimelineRoutes.js';
 import { requireUser, requireAdmin, optionalAuth } from './middleware/auth.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase, AppDataSource } from './database.js';
@@ -329,7 +335,7 @@ app.get('/api/streams/health', (req, res) => {
   }
 });
 
-// Configure routes first
+// Configure routes
 configureAuthRoutes(app);
 configureRoutes(app, io);
 configureVisitorRoutes(app);
@@ -339,154 +345,13 @@ app.use('/api/storage', storageRoutes);
 import nvidiaRoutes from './routes/nvidiaRoutes.js';
 app.use('/api/nvidia', nvidiaRoutes);
 
-// Review & Timeline Routes (no auth required for read, auth for write)
-app.get('/api/review', optionalAuth, async (req, res) => {
-  try {
-    const reviewService = serviceRegistry.getReviewService();
-
-    const { camera, after, before, severity, labels, limit, offset } = req.query;
-
-    const result = await reviewService.getReviewSegments({
-      camera: camera as string,
-      after: after ? new Date(after as string) : undefined,
-      before: before ? new Date(before as string) : undefined,
-      severity: severity as 'alert' | 'detection',
-      labels: labels ? (labels as string).split(',') : undefined,
-      limit: limit ? parseInt(limit as string) : 100,
-      offset: offset ? parseInt(offset as string) : 0,
-    });
-
-    res.json({ success: true, data: result });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
-    }
-    console.error('Error fetching review segments:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch review segments' });
-  }
-});
-
-app.get('/api/review/:id', optionalAuth, async (req, res) => {
-  try {
-    const reviewService = serviceRegistry.getReviewService();
-
-    const segment = await reviewService.getReviewSegment(req.params.id);
-    if (!segment) {
-      return res.status(404).json({ success: false, error: 'Segment not found' });
-    }
-
-    res.json({ success: true, data: segment });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.status(503).json({ success: false, error: 'Review service not available' });
-    }
-    console.error('Error fetching review segment:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch review segment' });
-  }
-});
-
-app.post('/api/review/:id/acknowledge', requireUser, async (req, res) => {
-  try {
-    const reviewService = serviceRegistry.getReviewService();
-
-    const { userId = 'anonymous' } = req.body;
-    await reviewService.acknowledgeSegment(req.params.id, userId);
-    res.json({ success: true });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.status(503).json({ success: false, error: 'Review service not available' });
-    }
-    console.error('Error acknowledging segment:', error);
-    res.status(500).json({ success: false, error: 'Failed to acknowledge segment' });
-  }
-});
-
-app.get('/api/timeline', optionalAuth, async (req, res) => {
-  try {
-    const timelineService = serviceRegistry.getTimelineService();
-
-    const { camera, after, before, sources, limit } = req.query;
-
-    const result = await timelineService.getTimeline({
-      camera: camera as string,
-      after: after ? new Date(after as string) : undefined,
-      before: before ? new Date(before as string) : undefined,
-      sources: sources ? (sources as string).split(',') : undefined,
-      limit: limit ? parseInt(limit as string) : 1000,
-    });
-
-    res.json({ success: true, data: result });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.json({ success: true, data: { events: [], summary: {} } });
-    }
-    console.error('Error fetching timeline:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch timeline' });
-  }
-});
-
-app.get('/api/timeline/active/:camera', optionalAuth, async (req, res) => {
-  try {
-    const timelineService = serviceRegistry.getTimelineService();
-
-    const activeObjects = await timelineService.getActiveObjects(req.params.camera);
-    const result: Record<string, { label: string; lastSeen: string; score: number }> = {};
-    for (const [id, obj] of activeObjects.entries()) {
-      result[id] = { ...obj, lastSeen: obj.lastSeen.toISOString() };
-    }
-
-    res.json({ success: true, data: result });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.json({ success: true, data: {} });
-    }
-    console.error('Error fetching active objects:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch active objects' });
-  }
-});
-
-app.get('/api/detection/config', optionalAuth, async (req, res) => {
-  try {
-    const detectionConfigService = serviceRegistry.getDetectionConfigService();
-
-    const config = await detectionConfigService.getConfig(req.query.camera as string);
-    res.json({ success: true, data: config });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.json({
-        success: true,
-        data: {
-          thresholds: {
-            person: { min_score: 0.3, threshold: 0.5 },
-            car: { min_score: 0.4, threshold: 0.6 },
-            dog: { min_score: 0.3, threshold: 0.4 },
-            package: { min_score: 0.25, threshold: 0.35 },
-          },
-          labelmap: { truck: 'car', bus: 'car', motorcycle: 'car' },
-          score_history_length: 7,
-        }
-      });
-    }
-    console.error('Error fetching detection config:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch detection config' });
-  }
-});
-
-app.put('/api/detection/config', requireUser, async (req, res) => {
-  try {
-    const detectionConfigService = serviceRegistry.getDetectionConfigService();
-
-    const { camera, thresholds, labelmap, score_history_length } = req.body;
-    await detectionConfigService.updateConfig(camera, { thresholds, labelmap, score_history_length });
-    res.json({ success: true });
-  } catch (error) {
-    if ((error as Error).message.includes('not been initialized')) {
-      return res.status(503).json({ success: false, error: 'Detection config service not available' });
-    }
-    console.error('Error updating detection config:', error);
-    res.status(500).json({ success: false, error: 'Failed to update detection config' });
-  }
-});
+// Extracted domain-specific route modules
+configureCameraRoutes(app);
+configureAnalyticsRoutes(app);
+configureSettingsRoutes(app);
+configureStreamRoutes(app);
+configureSystemRoutes(app);
+configureReviewTimelineRoutes(app);
 
 console.log('Routes configured successfully');
 

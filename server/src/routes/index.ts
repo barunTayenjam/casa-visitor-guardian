@@ -28,6 +28,7 @@ import faceConfigRoutes from './faceConfigRoutes.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
 import { storageStatsService } from '../services/storageStatsService.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -346,20 +347,21 @@ const parseTimestampFromFilename = (filename: string): number => {
 
 // Helper function to get current stream manager
 function getStreamManager() {
-  return (global as any).streamManager;
+  return serviceRegistry.getStreamManager();
 }
 
 function getMotionDetector() {
-  // Return the optimized motion detector set up in main server file
-  return (global as any).motionDetector;
+  return serviceRegistry.getMotionDetector();
 }
 
 function getObjectDetectionService() {
-  return (global as any).objectDetectionService;
+  // Legacy — no longer used; returns undefined for backward compatibility
+  return undefined;
 }
 
 function getFacialRecognitionService() {
-  return (global as any).facialRecognitionService;
+  // Legacy — no longer used; returns undefined for backward compatibility
+  return undefined;
 }
 
 // Routes configuration
@@ -605,7 +607,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get list of all cameras
-  app.get('/api/cameras', (req: Request, res: Response) => {
+  app.get('/api/cameras', optionalAuth, (req: Request, res: Response) => {
     try {
       logger.apiRequest('GET', '/api/cameras', req.ip || 'unknown', req.get('User-Agent'));
       
@@ -687,7 +689,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get details for a specific camera
-  app.get('/api/cameras/:id', (req: Request, res: Response) => {
+  app.get('/api/cameras/:id', optionalAuth, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       if (!camera) {
@@ -701,7 +703,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Add a new camera
-  app.post('/api/cameras', validate(commonSchemas.createCamera), (req: Request, res: Response) => {
+  app.post('/api/cameras', requireUser, validate(commonSchemas.createCamera), (req: Request, res: Response) => {
     try {
       const { name, rtspUrl, username, password, frameRate, resolution, nightMode } = req.body;
       
@@ -737,7 +739,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update camera settings
-  app.put('/api/cameras/:id', (req: Request, res: Response) => {
+  app.put('/api/cameras/:id', requireUser, (req: Request, res: Response) => {
     try {
       if (!streamManager) {
         return res.status(503).json({ 
@@ -795,7 +797,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Delete a camera
-  app.delete('/api/cameras/:id', (req: Request, res: Response) => {
+  app.delete('/api/cameras/:id', requireUser, (req: Request, res: Response) => {
     try {
       const removed = streamManager.removeCamera(req.params.id);
       if (!removed) {
@@ -809,7 +811,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Start test streaming for a camera
-  app.post('/api/cameras/:id/stream/start-test', (req: Request, res: Response) => {
+  app.post('/api/cameras/:id/stream/start-test', requireUser, (req: Request, res: Response) => {
     try {
       if (!streamManager) {
         return res.status(503).json({ 
@@ -856,7 +858,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Start streaming from a camera
-  app.post('/api/cameras/:id/stream/start', (req: Request, res: Response) => {
+  app.post('/api/cameras/:id/stream/start', requireUser, (req: Request, res: Response) => {
     try {
       if (!streamManager) {
         return res.status(503).json({ 
@@ -907,7 +909,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Stop streaming from a camera
-  app.post('/api/cameras/:id/stream/stop', (req: Request, res: Response) => {
+  app.post('/api/cameras/:id/stream/stop', requireUser, (req: Request, res: Response) => {
     try {
       const stopped = streamManager.stopStream(req.params.id);
       if (!stopped) {
@@ -921,7 +923,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Take a snapshot from a camera
-  app.post('/api/cameras/:id/snapshot', async (req: Request, res: Response) => {
+  app.post('/api/cameras/:id/snapshot', requireUser, async (req: Request, res: Response) => {
     try {
       const { resolution } = req.body || {};
       const snapshotPath = await streamManager.takeSnapshot(req.params.id, resolution);
@@ -936,7 +938,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Toggle night mode for a camera
-  app.post('/api/cameras/:id/night-mode', (req: Request, res: Response) => {
+  app.post('/api/cameras/:id/night-mode', requireUser, (req: Request, res: Response) => {
     try {
       const { enabled } = req.body;
       if (typeof enabled !== 'boolean') {
@@ -957,7 +959,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   // Streaming endpoints for camera video feeds
   // MJPEG stream endpoint for live camera feeds
-  app.get('/stream/:cameraId', (req: Request, res: Response) => {
+  app.get('/stream/:cameraId', optionalAuth, (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -1168,7 +1170,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Low-resolution detect stream for OpenCV detection service
-  app.get('/api/streams/:cameraId/detect', (req: Request, res: Response) => {
+  app.get('/api/streams/:cameraId/detect', requireUser, (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -1253,7 +1255,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // High-resolution live stream for browser viewing
-  app.get('/api/streams/:cameraId/live', (req: Request, res: Response) => {
+  app.get('/api/streams/:cameraId/live', optionalAuth, (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -1344,7 +1346,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Single frame endpoint for OpenCV detection (non-streaming)
-  app.get('/api/streams/:cameraId/frame', (req: Request, res: Response) => {
+  app.get('/api/streams/:cameraId/frame', requireUser, (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -1379,7 +1381,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get stream status for a camera
-  app.get('/api/streams/:cameraId/status', (req: Request, res: Response) => {
+  app.get('/api/streams/:cameraId/status', optionalAuth, (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -1422,7 +1424,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Zone configuration endpoints
 
   // Get zones for a camera
-  app.get('/api/cameras/:cameraId/zones', (req: Request, res: Response) => {
+  app.get('/api/cameras/:cameraId/zones', optionalAuth, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1441,7 +1443,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Add a zone to a camera
-  app.post('/api/cameras/:cameraId/zones', (req: Request, res: Response) => {
+  app.post('/api/cameras/:cameraId/zones', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1504,7 +1506,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update a zone
-  app.put('/api/cameras/:cameraId/zones/:zoneId', (req: Request, res: Response) => {
+  app.put('/api/cameras/:cameraId/zones/:zoneId', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1540,7 +1542,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Delete a zone
-  app.delete('/api/cameras/:cameraId/zones/:zoneId', (req: Request, res: Response) => {
+  app.delete('/api/cameras/:cameraId/zones/:zoneId', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1571,7 +1573,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Object filters endpoints
 
   // Get object filters for a camera
-  app.get('/api/cameras/:cameraId/filters', (req: Request, res: Response) => {
+  app.get('/api/cameras/:cameraId/filters', optionalAuth, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1591,7 +1593,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update object track list
-  app.put('/api/cameras/:cameraId/filters/track', (req: Request, res: Response) => {
+  app.put('/api/cameras/:cameraId/filters/track', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1620,7 +1622,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update object filter for a specific label
-  app.put('/api/cameras/:cameraId/filters/:label', (req: Request, res: Response) => {
+  app.put('/api/cameras/:cameraId/filters/:label', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1658,7 +1660,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Delete object filter
-  app.delete('/api/cameras/:cameraId/filters/:label', (req: Request, res: Response) => {
+  app.delete('/api/cameras/:cameraId/filters/:label', requireUser, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) {
@@ -1682,7 +1684,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Simplified motion detection endpoints
   
   // Get motion detection settings for a camera
-  app.get('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
+  app.get('/api/motion/:cameraId/settings', optionalAuth, (req: Request, res: Response) => {
     try {
       const motionDetector = getMotionDetector();
       const settings = motionDetector.getSettings(req.params.cameraId);
@@ -1697,7 +1699,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update motion detection settings for a camera
-  app.put('/api/motion/:cameraId/settings', (req: Request, res: Response) => {
+  app.put('/api/motion/:cameraId/settings', requireUser, (req: Request, res: Response) => {
     try {
       const { enabled, sensitivity, cooldownPeriod } = req.body;
       const motionDetector = getMotionDetector();
@@ -1719,7 +1721,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get historical motion events with pagination and filtering (database-based implementation)
-  app.get('/api/events/history', async (req: Request, res: Response) => {
+  app.get('/api/events/history', optionalAuth, async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100); // Max 100 per page
@@ -1881,7 +1883,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get motion events for a specific camera (still using recentEvents for real-time updates)
-  app.get('/api/motion/:cameraId/events', (req: Request, res: Response) => {
+  app.get('/api/motion/:cameraId/events', optionalAuth, (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const events = recentEvents
@@ -1895,7 +1897,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Search events (database-based implementation)
-  app.get('/api/events/search', async (req: Request, res: Response) => {
+  app.get('/api/events/search', optionalAuth, async (req: Request, res: Response) => {
     try {
       const filters = {
         startDate: req.query.startDate as string,
@@ -1925,7 +1927,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.get('/api/events/search/legacy', async (req: Request, res: Response) => {
+  app.get('/api/events/search/legacy', optionalAuth, async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100); // Max 100 per page
@@ -2067,7 +2069,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get all motion events (what the frontend expects) - database-based implementation
-  app.get('/api/motion/events', async (req: Request, res: Response) => {
+  app.get('/api/motion/events', optionalAuth, async (req: Request, res: Response) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000); // Max 1000 per request
 
@@ -2150,7 +2152,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get motion events for a specific camera - database-based implementation
-  app.get('/api/motion/:cameraId/events', async (req: Request, res: Response) => {
+  app.get('/api/motion/:cameraId/events', optionalAuth, async (req: Request, res: Response) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 1000); // Max 1000 per request
       const cameraId = req.params.cameraId;
@@ -2236,7 +2238,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Archive an event
-  app.post('/api/events/:id/archive', (req: Request, res: Response) => {
+  app.post('/api/events/:id/archive', requireUser, (req: Request, res: Response) => {
     try {
       const eventId = req.params.id;
       // In a real application, you would move the event data to an archive storage
@@ -2258,7 +2260,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Trigger a simulated motion event (for testing)
-  app.post('/api/motion/:cameraId/simulate', (req: Request, res: Response) => {
+  app.post('/api/motion/:cameraId/simulate', requireAdmin, (req: Request, res: Response) => {
     try {
       const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.cameraId);
       if (!camera) {
@@ -2275,7 +2277,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // List event images
-  app.get('/api/events/list', async (req: Request, res: Response) => {
+  app.get('/api/events/list', optionalAuth, async (req: Request, res: Response) => {
     try {
       // Query event files from database
       const query = `
@@ -2305,7 +2307,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // NEW: Enhanced events list with detection data from events table
-  app.get('/api/events/list-enhanced', async (req: Request, res: Response) => {
+  app.get('/api/events/list-enhanced', optionalAuth, async (req: Request, res: Response) => {
     try {
       const {
         limit,
@@ -2499,7 +2501,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // NEW: Get event details with detection data
-  app.get('/api/events/:id/details', async (req: Request, res: Response) => {
+  app.get('/api/events/:id/details', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -2598,7 +2600,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
 // Serve event images via API
-  app.get('/api/events/image/:filename', async (req: Request, res: Response) => {
+  app.get('/api/events/image/:filename', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
 
@@ -2709,7 +2711,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // TEST ENDPOINT: Add mock detection data to events
-  app.post('/api/test/add-detection-data', async (req: Request, res: Response) => {
+  app.post('/api/test/add-detection-data', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { filename } = req.body;
 
@@ -2822,7 +2824,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // List snapshots
-  app.get('/api/snapshots/list', async (req: Request, res: Response) => {
+  app.get('/api/snapshots/list', optionalAuth, async (req: Request, res: Response) => {
     try {
       // Query snapshot files from database
       const query = `
@@ -2917,7 +2919,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // System overview endpoint
-  app.get('/api/system/overview', async (req: Request, res: Response) => {
+  app.get('/api/system/overview', requireUser, async (req: Request, res: Response) => {
     try {
       const cameras = getStreamManager().getAllCameras();
 
@@ -2958,7 +2960,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // System health endpoint
-  app.get('/api/system/health', (req: Request, res: Response) => {
+  app.get('/api/system/health', optionalAuth, (req: Request, res: Response) => {
     try {
       const cameras = getStreamManager().getAllCameras();
       const onlineCameras = cameras.filter((c: any) => c.isActive);
@@ -3018,7 +3020,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
  
   // Get system logs
-  app.get('/api/system/logs', async (req: Request, res: Response) => {
+  app.get('/api/system/logs', requireUser, async (req: Request, res: Response) => {
     try {
       const { level, limit } = req.query;
       const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
@@ -3103,7 +3105,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Clear system logs
-  app.delete('/api/system/logs', async (req: Request, res: Response) => {
+  app.delete('/api/system/logs', requireAdmin, async (req: Request, res: Response) => {
     try {
       const logsDir = path.join(__dirname, '../../logs');
       const errorLogFile = path.join(logsDir, 'error.log');
@@ -3135,20 +3137,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Detection image with overlays endpoint
-  app.get('/detections/image/:imageId', async (req: Request, res: Response) => {
+  app.get('/detections/image/:imageId', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { imageId } = req.params;
       const { overlays } = req.query;
 
       // Look up the image file in the database
-      const AppDataSource = (global as any).AppDataSource;
-
-      if (!AppDataSource) {
-        return res.status(503).json({
-          success: false,
-          error: 'Database not available'
-        });
-      }
+      const dataSource = serviceRegistry.getAppDataSource();
 
       // Validate imageId is UUID format to prevent path traversal (T-11-05)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(imageId);
@@ -3185,7 +3180,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         LIMIT 1
       `;
 
-      const results = await AppDataSource.query(query, [imageId]);
+      const results = await dataSource.query(query, [imageId]);
 
       if (results.length === 0) {
         return res.status(404).json({
@@ -3270,7 +3265,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Analytics endpoints
   
   // Get hourly analytics data
-  app.get('/api/analytics/hourly', (req: Request, res: Response) => {
+  app.get('/api/analytics/hourly', optionalAuth, (req: Request, res: Response) => {
     try {
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -3295,7 +3290,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get weekly analytics data
-  app.get('/api/analytics/weekly', (req: Request, res: Response) => {
+  app.get('/api/analytics/weekly', optionalAuth, (req: Request, res: Response) => {
     try {
       const today = new Date();
       const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -3333,7 +3328,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get monthly analytics data
-  app.get('/api/analytics/monthly', (req: Request, res: Response) => {
+  app.get('/api/analytics/monthly', optionalAuth, (req: Request, res: Response) => {
     try {
       const today = new Date();
       const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
@@ -3370,7 +3365,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get response time analytics
-  app.get('/api/analytics/response-time', (req: Request, res: Response) => {
+  app.get('/api/analytics/response-time', optionalAuth, (req: Request, res: Response) => {
     try {
       // Calculate average response time based on recent events
       // For now, we'll simulate this based on system performance
@@ -3409,7 +3404,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // =====================================
   
   // Manual person detection trigger
-  app.post('/api/detection/person/:cameraId/trigger', async (req: Request, res: Response) => {
+  app.post('/api/detection/person/:cameraId/trigger', requireUser, async (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
 
@@ -3475,7 +3470,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Manual facial detection trigger
-  app.post('/api/detection/face/:cameraId/trigger', async (req: Request, res: Response) => {
+  app.post('/api/detection/face/:cameraId/trigger', requireUser, async (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
@@ -3541,7 +3536,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Get person detection settings
-  app.get('/api/detection/person/settings', (req: Request, res: Response) => {
+  app.get('/api/detection/person/settings', optionalAuth, (req: Request, res: Response) => {
     try {
       const objectDetectionService = consolidatedDetectionService;
       const settings = objectDetectionService.getObjectDetectionSettings('default');
@@ -3553,7 +3548,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // OpenCV service status endpoint
-  app.get('/api/opencv/status', async (req: Request, res: Response) => {
+  app.get('/api/opencv/status', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
       const client = getOpenCVClient();
@@ -3578,7 +3573,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Update person detection settings
-  app.put('/api/detection/person/settings', (req: Request, res: Response) => {
+  app.put('/api/detection/person/settings', requireUser, (req: Request, res: Response) => {
     try {
       const { minConfidence, maxDetections, targetClasses } = req.body;
       const objectDetectionService = consolidatedDetectionService;
@@ -3596,7 +3591,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Get facial recognition settings
-  app.get('/api/detection/face/settings', (req: Request, res: Response) => {
+  app.get('/api/detection/face/settings', optionalAuth, (req: Request, res: Response) => {
     try {
       const facialRecognitionService = consolidatedDetectionService;
       const settings = facialRecognitionService.getFacialRecognitionSettings();
@@ -3608,7 +3603,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Update facial recognition settings
-  app.put('/api/detection/face/settings', (req: Request, res: Response) => {
+  app.put('/api/detection/face/settings', requireUser, (req: Request, res: Response) => {
     try {
       const { recognitionThreshold, minFaceSize, livenessDetection } = req.body;
       const facialRecognitionService = consolidatedDetectionService;
@@ -3626,12 +3621,9 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Get motion detection settings
-  app.get('/api/detection/motion/settings', (req: Request, res: Response) => {
+  app.get('/api/detection/motion/settings', optionalAuth, (req: Request, res: Response) => {
     try {
-      const optimizedMotionDetector = (global as any).optimizedMotionDetector;
-      if (!optimizedMotionDetector) {
-        return res.status(404).json({ success: false, error: 'Motion detector not initialized' });
-      }
+      const optimizedMotionDetector = serviceRegistry.getMotionDetector();
 
       const { cameraId } = req.query;
       if (cameraId && typeof cameraId === 'string') {
@@ -3656,14 +3648,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Update motion detection settings
-  app.put('/api/detection/motion/settings', (req: Request, res: Response) => {
+  app.put('/api/detection/motion/settings', requireUser, (req: Request, res: Response) => {
     try {
       const { cameraId, sensitivity, requiredConsecutiveFrames, minContourArea, useGaussianBlur, blurKernelSize, timeZones } = req.body;
-      const optimizedMotionDetector = (global as any).optimizedMotionDetector;
-
-      if (!optimizedMotionDetector) {
-        return res.status(404).json({ success: false, error: 'Motion detector not initialized' });
-      }
+      const optimizedMotionDetector = serviceRegistry.getMotionDetector();
 
       if (!cameraId) {
         return res.status(400).json({ success: false, error: 'cameraId is required' });
@@ -3690,8 +3678,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Get known persons
-   app.get('/api/detection/face/persons', async (req: Request, res: Response) => {
+   // Get known persons
+   app.get('/api/detection/face/persons', optionalAuth, async (req: Request, res: Response) => {
      try {
        const facialRecognitionService = consolidatedDetectionService;
        // Note: getKnownPersons method not available in ConsolidatedDetectionService
@@ -3705,7 +3693,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
    });
   
   // Add a known person
-  app.post('/api/detection/face/persons', upload.single('image'), async (req: Request, res: Response) => {
+  app.post('/api/detection/face/persons', requireUser, upload.single('image'), async (req: Request, res: Response) => {
     try {
       const { name } = req.body;
       const file = req.file;
@@ -3731,7 +3719,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Get detection events
-  app.get('/api/detection/events', async (req: Request, res: Response) => {
+  app.get('/api/detection/events', optionalAuth, async (req: Request, res: Response) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 100); // Max 100 per request
       const type = req.query.type as string; // 'person', 'face', 'motion', etc.
@@ -3876,7 +3864,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   });
   
   // Enhanced motion detection with person/face analysis
-  app.post('/api/motion/:cameraId/analyze', async (req: Request, res: Response) => {
+  app.post('/api/motion/:cameraId/analyze', requireUser, async (req: Request, res: Response) => {
     try {
       const cameraId = req.params.cameraId;
       const { enablePersonDetection, enableFaceDetection } = req.body;
@@ -3936,7 +3924,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
   
-  app.get('/api/highlights/:date', async (req: Request, res: Response) => {
+  app.get('/api/highlights/:date', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { date } = req.params;
       const { 
@@ -4030,7 +4018,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.get('/api/highlights/:date/summary', async (req: Request, res: Response) => {
+  app.get('/api/highlights/:date/summary', optionalAuth, async (req: Request, res: Response) => {
     try {
       const { date } = req.params;
 

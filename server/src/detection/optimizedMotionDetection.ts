@@ -11,10 +11,19 @@ import { Event } from '../models/Event.js';
 import { getDetectionsPath, getEventPath } from '../config/index.js';
 import NotificationService from '../services/notificationService.js';
 import { loadDetectionConfig } from '../config/detectionConfig.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 
-// Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const DEFAULT_TRACKED_OBJECTS = new Set([
+  'person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle',
+  'dog', 'cat', 'bird', 'horse',
+  'backpack', 'handbag', 'suitcase', 'umbrella',
+  'bottle', 'cup', 'chair', 'couch', 'bed',
+  'dining table', 'tv', 'laptop', 'cell phone',
+  'package', 'box',
+]);
 
 // Optimized motion detection settings
 interface OptimizedMotionSettings {
@@ -92,10 +101,16 @@ interface FaceDetectedEvent {
   imagePath: string;
 }
 
+/** Interface for the detection service used by the motion detector. */
+interface DetectionServiceInterface {
+  detectObjects(cameraId: string, imageBuffer: Buffer): Promise<{ detections: DetectionResult[] }>;
+  detectFaces(cameraId: string, imageBuffer: Buffer): Promise<{ faces: FaceDetection[]; knownFaces: FaceDetection[]; unknownFaces: FaceDetection[] }>;
+}
+
 export class OptimizedMotionDetector extends EventEmitter {
   private streamManager: StreamManager;
   private io: SocketIOServer;
-  private detectionService: any;
+  private detectionService: DetectionServiceInterface | undefined;
   private detectionInterval: NodeJS.Timeout | null = null;
   private cameraSettings = new Map<string, OptimizedMotionSettings>();
   private lastEventTimes = new Map<string, number>();
@@ -107,7 +122,7 @@ export class OptimizedMotionDetector extends EventEmitter {
   private isOptimized = false;
   private initialized = false;
 
-  constructor(streamManager: StreamManager, io: SocketIOServer, detectionService?: any) {
+  constructor(streamManager: StreamManager, io: SocketIOServer, detectionService?: DetectionServiceInterface) {
     super();
     this.streamManager = streamManager;
     this.io = io;
@@ -614,21 +629,22 @@ export class OptimizedMotionDetector extends EventEmitter {
       allDetections: [] as DetectionResult[]
     };
 
+    const trackedObjects = this.getTrackedObjects(cameraId);
+
     try {
-      // Use the detection service if available
       if (this.detectionService) {
-        // Run object detection
         try {
           const objectResult = await this.detectionService.detectObjects(cameraId, frame);
           
           if (objectResult && objectResult.detections) {
-            const persons = objectResult.detections.filter((d: DetectionResult) => d.class === 'person');
-            if (persons.length > 0) {
-              result.hasPersons = true;
-              result.personCount = persons.length;
-              result.persons = objectResult.detections;
-              result.allDetections = objectResult.detections;
-            }
+            const filteredDetections = objectResult.detections.filter(
+              (d: DetectionResult) => trackedObjects.has(d.class)
+            );
+            const persons = filteredDetections.filter((d: DetectionResult) => d.class === 'person');
+            result.personCount = persons.length;
+            result.hasPersons = persons.length > 0;
+            result.allDetections = filteredDetections;
+            result.persons = filteredDetections;
           }
         } catch (error) {
           console.warn(`Object detection failed for ${cameraId}:`, error);
@@ -663,13 +679,14 @@ export class OptimizedMotionDetector extends EventEmitter {
             const objectResult = await objectDetectionService.detectObjects(cameraId, frame);
             
             if (objectResult && objectResult.detections) {
-              const persons = objectResult.detections.filter((d: DetectionResult) => d.class === 'person');
-              if (persons.length > 0) {
-                result.hasPersons = true;
-                result.personCount = persons.length;
-                result.persons = objectResult.detections;
-                result.allDetections = objectResult.detections;
-              }
+              const filteredDetections = objectResult.detections.filter(
+                (d: DetectionResult) => trackedObjects.has(d.class)
+              );
+              const persons = filteredDetections.filter((d: DetectionResult) => d.class === 'person');
+              result.personCount = persons.length;
+              result.hasPersons = persons.length > 0;
+              result.allDetections = filteredDetections;
+              result.persons = filteredDetections;
             }
           } catch (error) {
             console.warn(`Object detection failed for ${cameraId}:`, error);
@@ -702,6 +719,15 @@ export class OptimizedMotionDetector extends EventEmitter {
     return result;
   }
 
+  // Filter: Only save events for person, dog, cat detections
+  private shouldSaveEvent(analysisResult?: Awaited<ReturnType<typeof this.performEnhancedAnalysis>>): boolean {
+    if (!analysisResult?.allDetections || analysisResult.allDetections.length === 0) {
+      return false;
+    }
+    const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'package'];
+    return analysisResult.allDetections.some((d) => relevantClasses.includes(d.class));
+  }
+
   // Asynchronous frame saving with enhanced metadata
   private async saveMotionFrameAsync(
     cameraId: string, 
@@ -710,6 +736,13 @@ export class OptimizedMotionDetector extends EventEmitter {
     analysisResult?: Awaited<ReturnType<typeof this.performEnhancedAnalysis>>
   ): Promise<OptimizedMotionEvent | null> {
     return new Promise((resolve, reject) => {
+      // Filter: Only save events with person, dog, or cat
+      if (!this.shouldSaveEvent(analysisResult)) {
+        console.log(`[${cameraId}] Skipping event save - no person/dog/cat detected`);
+        resolve(null);
+        return;
+      }
+
       // Validate frame
       if (!frame || frame.length === 0 || frame[0] !== 0xFF || frame[1] !== 0xD8) {
         reject(new Error('Invalid frame data'));
@@ -937,6 +970,15 @@ export class OptimizedMotionDetector extends EventEmitter {
     return Math.round((totalBrightness / sampleSize / 255) * 100);
   }
 
+  private getTrackedObjects(cameraId: string): Set<string> {
+    const camera = this.streamManager.getCamera(cameraId);
+    const trackList = camera?.config?.objects?.track;
+    if (trackList && trackList.length > 0) {
+      return new Set(trackList);
+    }
+    return DEFAULT_TRACKED_OBJECTS;
+  }
+
   // Get performance metrics
   getMetrics(): PerformanceMetrics {
     return { ...this.metrics };
@@ -1004,8 +1046,7 @@ export class OptimizedMotionDetector extends EventEmitter {
     source: string,
     timestamp: string
   ): Promise<void> {
-    const timelineService = (global as any).timelineService;
-    if (!timelineService) return;
+    const timelineService = serviceRegistry.getTimelineService();
 
     for (const detection of detections) {
       const objectId = `obj_${cameraId}_${detection.class}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -1029,38 +1070,31 @@ export class OptimizedMotionDetector extends EventEmitter {
     }
 
     // Trigger review segment generation
-    const reviewService = (global as any).reviewService;
-    if (reviewService) {
-      reviewService.generateReviewSegments(cameraId).catch(err => {
-        console.error('Error generating review segments:', err);
-      });
-    }
+    const reviewService = serviceRegistry.getReviewService();
+    reviewService.generateReviewSegments(cameraId).catch(err => {
+      console.error('Error generating review segments:', err);
+    });
   }
 }
 
 // Factory function
 export function setupOptimizedMotionDetection(
-  streamManager: StreamManager, 
+  streamManager: StreamManager,
   io: SocketIOServer,
   detectionService?: any
 ): OptimizedMotionDetector {
   const detector = new OptimizedMotionDetector(streamManager, io);
   detector.start();
-  
+
   // Setup periodic cleanup
   setInterval(() => detector.cleanupMemory(), 300000); // Every 5 minutes
-  
-    // Make available globally
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (global as any).optimizedMotionDetector = detector;
-  
+
   return detector;
 }
 
 // Cleanup function for graceful shutdown
 export async function cleanupOptimizedMotionDetection(): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const detector = (global as any).optimizedMotionDetector as OptimizedMotionDetector;
+  const detector = serviceRegistry.getMotionDetector();
   if (detector) {
     await detector.cleanup();
   }

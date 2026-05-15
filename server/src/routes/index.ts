@@ -473,37 +473,6 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  // Debug endpoint to check camera streaming status
-  app.get('/api/cameras/debug', (req: Request, res: Response) => {
-    try {
-      const cameras = getStreamManager().getAllCameras();
-      const debugInfo = cameras.map(camera => ({
-        id: camera.id,
-        name: camera.name,
-        isActive: camera.isActive,
-        hasProcess: !!camera.process,
-        processType: typeof camera.process,
-        hasFrame: !!camera.lastFrame,
-        frameSize: camera.lastFrame ? camera.lastFrame.length : 0,
-        retryCount: camera.retryCount || 0,
-        lastError: camera.lastError || null,
-        rtspUrl: camera.rtspUrl
-      }));
-      
-      res.json({
-        success: true,
-        cameras: debugInfo,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to get debug info',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
   // Streaming metrics endpoint (new)
   app.get('/api/streaming/metrics', optionalAuth, (req: Request, res: Response) => {
     try {

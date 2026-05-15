@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
-import ApiService, { ApiError } from '@/services/ApiService';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { authService } from '@/services/api/authService';
+import { ApiError, setAuthToken } from '@/services/api/baseClient';
 import { logger } from '@/lib/logger';
 
 // Types
@@ -117,16 +118,54 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 // Context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
+const TOKEN_CHECK_INTERVAL_MS = 60 * 1000; // Check every minute
+
+function getTokenExpiry(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const expiry = getTokenExpiry(token);
+  if (!expiry) return true;
+  return Date.now() >= expiry;
+}
+
+function isTokenExpiringSoon(token: string): boolean {
+  const expiry = getTokenExpiry(token);
+  if (!expiry) return true;
+  return Date.now() >= (expiry - TOKEN_REFRESH_THRESHOLD_MS);
+}
+
 // Provider
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRefreshingRef = useRef(false);
+
+  const clearAuthStorage = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    setAuthToken(null);
+  }, []);
+
+  const storeAuth = useCallback((token: string) => {
+    localStorage.setItem('auth_token', token);
+    setAuthToken(token);
+  }, []);
 
   // Validate token and get user profile
   const validateToken = useCallback(async (token: string) => {
     try {
       logger.info('Validating authentication token', 'AUTH', { hasToken: !!token });
-      ApiService.setAuthToken(token);
-      const response = await ApiService.getProfile();
+      setAuthToken(token);
+      const response = await authService.getProfile();
       
       if (response.success && response.user) {
         logger.info('Authentication successful', 'AUTH', { 
@@ -143,17 +182,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } else {
         logger.warn('Invalid authentication token', 'AUTH', { response });
-        localStorage.removeItem('auth_token');
-        ApiService.setAuthToken(null);
+        clearAuthStorage();
         dispatch({ type: 'LOGOUT' });
       }
     } catch (error) {
       logger.error('Token validation failed', 'AUTH', error);
-      localStorage.removeItem('auth_token');
-      ApiService.setAuthToken(null);
+      clearAuthStorage();
       dispatch({ type: 'LOGOUT' });
     }
-  }, []);
+  }, [clearAuthStorage]);
+
+  // Try to refresh an expired/expiring token
+  const tryRefreshToken = useCallback(async (token: string): Promise<string | null> => {
+    if (isRefreshingRef.current) return null;
+    isRefreshingRef.current = true;
+
+    try {
+      logger.info('Attempting token refresh', 'AUTH', { expired: isTokenExpired(token) });
+      setAuthToken(token);
+      const response = await authService.refreshToken();
+      
+      if (response.success && response.token) {
+        logger.info('Token refreshed successfully', 'AUTH');
+        storeAuth(response.token);
+        dispatch({
+          type: 'REFRESH_TOKEN',
+          payload: response.token,
+        });
+        return response.token;
+      }
+      
+      logger.warn('Token refresh returned no token', 'AUTH');
+      return null;
+    } catch (error) {
+      logger.error('Token refresh failed', 'AUTH', error);
+      return null;
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [storeAuth]);
 
   // Initialize auth state from stored token
   useEffect(() => {
@@ -162,16 +229,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = localStorage.getItem('auth_token');
         
         if (token) {
-          logger.info('Initializing authentication with stored token', 'AUTH');
+          logger.info('Initializing authentication with stored token', 'AUTH', {
+            expired: isTokenExpired(token),
+            expiringSoon: isTokenExpiringSoon(token)
+          });
           dispatch({ type: 'SET_LOADING', payload: true });
           
-          try {
+          if (isTokenExpired(token)) {
+            // Token is expired - try to refresh it before giving up
+            const newToken = await tryRefreshToken(token);
+            if (newToken) {
+              await validateToken(newToken);
+            } else {
+              logger.info('Stored token expired and refresh failed, requiring re-login', 'AUTH');
+              clearAuthStorage();
+              dispatch({ type: 'LOGOUT' });
+            }
+          } else if (isTokenExpiringSoon(token)) {
+            // Token is valid but expiring soon - validate and refresh in background
             await validateToken(token);
-          } catch (error) {
-            // Handle validation timeout or failure
-            logger.error('Token validation failed or timed out', 'AUTH', error);
-            localStorage.removeItem('auth_token');
-            ApiService.setAuthToken(null);
+            tryRefreshToken(token).catch(() => {});
+          } else {
+            await validateToken(token);
           }
         } else {
           logger.info('No stored authentication token found', 'AUTH');
@@ -184,18 +263,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initializeAuth();
-  }, [validateToken]);
+  }, [validateToken, tryRefreshToken, clearAuthStorage]);
+
+  // Proactive token refresh timer
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    if (!state.isAuthenticated || !state.token) return;
+
+    refreshTimerRef.current = setInterval(() => {
+      if (!state.token) return;
+
+      if (isTokenExpiringSoon(state.token)) {
+        logger.info('Token expiring soon, proactively refreshing', 'AUTH');
+        tryRefreshToken(state.token).then((newToken) => {
+          if (newToken) {
+            validateToken(newToken).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    }, TOKEN_CHECK_INTERVAL_MS);
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, [state.isAuthenticated, state.token, tryRefreshToken, validateToken]);
 
   // Login
   const login = useCallback(async (username: string, password: string) => {
     dispatch({ type: 'AUTH_START' });
     
     try {
-      const response = await ApiService.login(username, password);
+      const response = await authService.login(username, password);
 
       if (response.success && response.user && response.token) {
-        localStorage.setItem('auth_token', response.token);
-        ApiService.setAuthToken(response.token);
+        storeAuth(response.token);
         
         dispatch({
           type: 'AUTH_SUCCESS',
@@ -217,18 +325,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         payload: message,
       });
     }
-  }, []);
+  }, [storeAuth]);
 
   // Register
   const register = useCallback(async (userData: RegisterData) => {
     dispatch({ type: 'AUTH_START' });
     
     try {
-      const response = await ApiService.register(userData);
+      const response = await authService.register(userData);
 
       if (response.success && response.user && response.token) {
-        localStorage.setItem('auth_token', response.token);
-        ApiService.setAuthToken(response.token);
+        storeAuth(response.token);
         
         dispatch({
           type: 'AUTH_SUCCESS',
@@ -250,54 +357,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         payload: message,
       });
     }
-  }, []);
+  }, [storeAuth]);
 
   // Logout
   const logout = useCallback(async () => {
     try {
       if (state.token) {
-        await ApiService.logout();
+        await authService.logout();
       }
     } catch (error) {
       // Continue with logout even if API call fails
       console.error('Logout API call failed:', error);
     } finally {
-      localStorage.removeItem('auth_token');
-      ApiService.setAuthToken(null);
+      clearAuthStorage();
       dispatch({ type: 'LOGOUT' });
     }
-  }, [state.token]);
+  }, [state.token, clearAuthStorage]);
 
   // Clear error
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
-  // Refresh token
+  // Refresh token (manual trigger)
   const refreshToken = useCallback(async () => {
     if (!state.token) return;
 
-    try {
-      const response = await ApiService.refreshToken();
-      
-      if (response.success && response.token) {
-        localStorage.setItem('auth_token', response.token);
-        ApiService.setAuthToken(response.token);
-        dispatch({
-          type: 'REFRESH_TOKEN',
-          payload: response.token,
-        });
-      }
-    } catch (error) {
-      // If refresh fails, logout
+    const newToken = await tryRefreshToken(state.token);
+    if (newToken) {
+      await validateToken(newToken);
+    } else {
       logout();
     }
-  }, [state.token, logout]);
+  }, [state.token, tryRefreshToken, validateToken, logout]);
 
   // Change password
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     try {
-      const response = await ApiService.changePassword(currentPassword, newPassword);
+      const response = await authService.changePassword(currentPassword, newPassword);
 
       if (!response.success) {
         throw new Error(response.error || 'Password change failed');

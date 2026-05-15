@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageLoading } from '@/components/ui/PageLoading';
 import { EmptyState } from '@/components/ui/EmptyState';
-import apiService from '@/services/ApiService';
+import { systemService } from '@/services/api/systemService';
 import { cn } from '@/lib/utils';
 
 type CategoryFilter = 'all' | 'persons' | 'known' | 'unknown' | 'night';
@@ -100,8 +100,8 @@ const DayHighlightsPage = () => {
     setLoading(true);
     try {
       const [highlightsData, summaryData] = await Promise.all([
-        apiService.getDayHighlights(date, { sort: sortBy }),
-        apiService.getDaySummary(date)
+        systemService.getDayHighlights(date, { sort: sortBy }),
+        systemService.getDaySummary(date)
       ]);
 
       if (highlightsData.success && highlightsData.highlights.length > 0) {

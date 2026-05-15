@@ -35,6 +35,7 @@ import { storageStatsService } from './services/storageStatsService.js';
 import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
+import { serviceRegistry } from './services/serviceRegistry.js';
 import storageRoutes from './routes/storageRoutes.js';
 
 dotenv.config({ path: './.env' });
@@ -55,11 +56,10 @@ app.get('/events/:filename', async (req, res) => {
 
   try {
     // First, try to query database to get storage path for this filename
-    const AppDataSource = (global as any).AppDataSource;
+    const dataSource = serviceRegistry.getAppDataSource();
     let results = [];
 
-    if (AppDataSource) {
-      try {
+    try {
         const query = `
           SELECT storage_path
           FROM detection_files
@@ -70,11 +70,10 @@ app.get('/events/:filename', async (req, res) => {
           LIMIT 1
         `;
 
-        results = await AppDataSource.query(query, [filename]);
+        results = await dataSource.query(query, [filename]);
       } catch (dbError) {
         console.warn('Database query failed, falling back to file system scan:', dbError.message);
       }
-    }
 
     if (results.length === 0) {
       // If not found in database or DB unavailable, try scanning across year-month directories
@@ -136,11 +135,10 @@ app.get('/snapshots/:filename', async (req, res) => {
 
   try {
     // First, try to query database to get storage path for this filename
-    const AppDataSource = (global as any).AppDataSource;
+    const dataSource = serviceRegistry.getAppDataSource();
     let results = [];
 
-    if (AppDataSource) {
-      try {
+    try {
         const query = `
           SELECT storage_path
           FROM detection_files
@@ -151,11 +149,10 @@ app.get('/snapshots/:filename', async (req, res) => {
           LIMIT 1
         `;
 
-        results = await AppDataSource.query(query, [filename]);
+        results = await dataSource.query(query, [filename]);
       } catch (dbError) {
         console.warn('Database query failed, falling back to file system scan:', dbError.message);
       }
-    }
 
     if (results.length === 0) {
       // If not found in database or DB unavailable, try scanning across year-month directories
@@ -274,8 +271,8 @@ app.get('/health', (req, res) => {
 // Stream health endpoint
 app.get('/api/streams/health', (req, res) => {
   try {
-    const streamManager = (global as any).streamManager;
-    if (!streamManager || !streamManager.healthMonitor) {
+    const streamManager = serviceRegistry.getStreamManager();
+    if (!streamManager.healthMonitor) {
       return res.status(503).json({
         success: false,
         error: 'Stream manager not available'
@@ -328,10 +325,7 @@ app.use('/api/nvidia', nvidiaRoutes);
 // Review & Timeline Routes (no auth required for read, auth for write)
 app.get('/api/review', async (req, res) => {
   try {
-    const reviewService = (global as any).reviewService;
-    if (!reviewService) {
-      return res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
-    }
+    const reviewService = serviceRegistry.getReviewService();
 
     const { camera, after, before, severity, labels, limit, offset } = req.query;
 
@@ -347,6 +341,9 @@ app.get('/api/review', async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
+    }
     console.error('Error fetching review segments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch review segments' });
   }
@@ -354,10 +351,7 @@ app.get('/api/review', async (req, res) => {
 
 app.get('/api/review/:id', async (req, res) => {
   try {
-    const reviewService = (global as any).reviewService;
-    if (!reviewService) {
-      return res.status(404).json({ success: false, error: 'Review service not available' });
-    }
+    const reviewService = serviceRegistry.getReviewService();
 
     const segment = await reviewService.getReviewSegment(req.params.id);
     if (!segment) {
@@ -366,6 +360,9 @@ app.get('/api/review/:id', async (req, res) => {
 
     res.json({ success: true, data: segment });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.status(503).json({ success: false, error: 'Review service not available' });
+    }
     console.error('Error fetching review segment:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch review segment' });
   }
@@ -373,15 +370,15 @@ app.get('/api/review/:id', async (req, res) => {
 
 app.post('/api/review/:id/acknowledge', async (req, res) => {
   try {
-    const reviewService = (global as any).reviewService;
-    if (!reviewService) {
-      return res.status(503).json({ success: false, error: 'Review service not available' });
-    }
+    const reviewService = serviceRegistry.getReviewService();
 
     const { userId = 'anonymous' } = req.body;
     await reviewService.acknowledgeSegment(req.params.id, userId);
     res.json({ success: true });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.status(503).json({ success: false, error: 'Review service not available' });
+    }
     console.error('Error acknowledging segment:', error);
     res.status(500).json({ success: false, error: 'Failed to acknowledge segment' });
   }
@@ -389,10 +386,7 @@ app.post('/api/review/:id/acknowledge', async (req, res) => {
 
 app.get('/api/timeline', async (req, res) => {
   try {
-    const timelineService = (global as any).timelineService;
-    if (!timelineService) {
-      return res.json({ success: true, data: { events: [], summary: {} } });
-    }
+    const timelineService = serviceRegistry.getTimelineService();
 
     const { camera, after, before, sources, limit } = req.query;
 
@@ -406,6 +400,9 @@ app.get('/api/timeline', async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.json({ success: true, data: { events: [], summary: {} } });
+    }
     console.error('Error fetching timeline:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch timeline' });
   }
@@ -413,10 +410,7 @@ app.get('/api/timeline', async (req, res) => {
 
 app.get('/api/timeline/active/:camera', async (req, res) => {
   try {
-    const timelineService = (global as any).timelineService;
-    if (!timelineService) {
-      return res.json({ success: true, data: {} });
-    }
+    const timelineService = serviceRegistry.getTimelineService();
 
     const activeObjects = await timelineService.getActiveObjects(req.params.camera);
     const result: Record<string, { label: string; lastSeen: string; score: number }> = {};
@@ -426,6 +420,9 @@ app.get('/api/timeline/active/:camera', async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.json({ success: true, data: {} });
+    }
     console.error('Error fetching active objects:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch active objects' });
   }
@@ -433,8 +430,12 @@ app.get('/api/timeline/active/:camera', async (req, res) => {
 
 app.get('/api/detection/config', async (req, res) => {
   try {
-    const detectionConfigService = (global as any).detectionConfigService;
-    if (!detectionConfigService) {
+    const detectionConfigService = serviceRegistry.getDetectionConfigService();
+
+    const config = await detectionConfigService.getConfig(req.query.camera as string);
+    res.json({ success: true, data: config });
+  } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
       return res.json({
         success: true,
         data: {
@@ -449,10 +450,6 @@ app.get('/api/detection/config', async (req, res) => {
         }
       });
     }
-
-    const config = await detectionConfigService.getConfig(req.query.camera as string);
-    res.json({ success: true, data: config });
-  } catch (error) {
     console.error('Error fetching detection config:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch detection config' });
   }
@@ -460,15 +457,15 @@ app.get('/api/detection/config', async (req, res) => {
 
 app.put('/api/detection/config', async (req, res) => {
   try {
-    const detectionConfigService = (global as any).detectionConfigService;
-    if (!detectionConfigService) {
-      return res.status(503).json({ success: false, error: 'Detection config service not available' });
-    }
+    const detectionConfigService = serviceRegistry.getDetectionConfigService();
 
     const { camera, thresholds, labelmap, score_history_length } = req.body;
     await detectionConfigService.updateConfig(camera, { thresholds, labelmap, score_history_length });
     res.json({ success: true });
   } catch (error) {
+    if ((error as Error).message.includes('not been initialized')) {
+      return res.status(503).json({ success: false, error: 'Detection config service not available' });
+    }
     console.error('Error updating detection config:', error);
     res.status(500).json({ success: false, error: 'Failed to update detection config' });
   }
@@ -486,25 +483,27 @@ async function initializeServices() {
   try {
     await initializeDatabase();
     console.log('Database initialized successfully');
- 
-    // Set AppDataSource globally for other modules to access
-    (global as any).AppDataSource = AppDataSource;
- 
+
+    // Register AppDataSource in the service registry
+    serviceRegistry.setAppDataSource(AppDataSource);
+
     console.log('Initializing consolidated detection service...');
     const detectionStatus = await consolidatedDetectionService.getServiceStatus();
     if (detectionStatus.available) {
       console.log(`Detection service available at ${detectionStatus.url} (${detectionStatus.responseTime}ms)`);
-      (global as any).detectionService = consolidatedDetectionService;
+      serviceRegistry.setDetectionService(consolidatedDetectionService);
     } else {
       console.warn('Detection service not available, using stub detection');
     }
 
     console.log('Initializing stream manager...');
-    (global as any).streamManager = await setupRTSPStreams(io);
+    const streamManagerInstance = await setupRTSPStreams(io);
+    serviceRegistry.setStreamManager(streamManagerInstance);
     console.log('Stream manager initialized successfully');
 
     console.log('Initializing motion detection...');
-    (global as any).motionDetector = setupOptimizedMotionDetection((global as any).streamManager, io, (global as any).detectionService);
+    const motionDetectorInstance = setupOptimizedMotionDetection(streamManagerInstance, io, consolidatedDetectionService);
+    serviceRegistry.setMotionDetector(motionDetectorInstance);
     console.log('Motion detection initialized successfully');
 
     console.log('Initializing review, timeline and detection services...');
@@ -514,28 +513,28 @@ async function initializeServices() {
     const regionRepo = AppDataSource.getRepository(AdaptiveRegion);
     const detectionConfigRepo = AppDataSource.getRepository(DetectionConfig);
 
-    const previewService = new PreviewService((global as any).streamManager);
-    const timelineService = new TimelineService(timelineRepo, regionRepo);
-    const detectionService = new DetectionService(detectionConfigRepo);
-    const reviewService = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineService, previewService);
+    const previewServiceInstance = new PreviewService(streamManagerInstance);
+    const timelineServiceInstance = new TimelineService(timelineRepo, regionRepo);
+    const detectionServiceInstance = new DetectionService(detectionConfigRepo);
+    const reviewServiceInstance = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineServiceInstance, previewServiceInstance);
 
-    (global as any).timelineService = timelineService;
-    (global as any).detectionConfigService = detectionService;
-    (global as any).reviewService = reviewService;
+    serviceRegistry.setTimelineService(timelineServiceInstance);
+    serviceRegistry.setDetectionConfigService(detectionServiceInstance);
+    serviceRegistry.setReviewService(reviewServiceInstance);
     console.log('Review, timeline and detection services initialized successfully');
 
     console.log('Initializing notification service...');
     NotificationService.initialize();
-    (global as any).notificationService = NotificationService;
+    serviceRegistry.setNotificationService(NotificationService);
     console.log('Notification service initialized successfully');
 
     console.log('Initializing storage services...');
     await storageStatsService.initialize();
     await retentionPolicyService.initialize();
     await automatedCleanupService.initialize();
-    (global as any).storageStatsService = storageStatsService;
-    (global as any).retentionPolicyService = retentionPolicyService;
-    (global as any).automatedCleanupService = automatedCleanupService;
+    serviceRegistry.setStorageStatsService(storageStatsService);
+    serviceRegistry.setRetentionPolicyService(retentionPolicyService);
+    serviceRegistry.setAutomatedCleanupService(automatedCleanupService);
     console.log('Storage services initialized successfully');
 
   } catch (error) {
@@ -551,18 +550,13 @@ io.on('connection', (socket) => {
   socket.on('requestStream', (data: { cameraId: string; role?: 'detect' | 'record' | 'live' }) => {
     const { cameraId, role = 'live' } = data;
     console.log(`Stream requested for camera: ${cameraId} role: ${role} by client: ${socket.id}`);
-    const streamManager = (global as any).streamManager;
-    if (streamManager) {
-      const success = streamManager.startStream(cameraId, role);
-      // CRITICAL FIX: Always join the room, even if stream was already active
-      // This ensures reconnected clients receive frames
-      socket.join(`camera-${cameraId}-${role}`);
-      socket.emit('streamRequested', { cameraId, role, success: true });
-      console.log(`Client ${socket.id} joined room camera-${cameraId}-${role} (stream was ${success ? 'started' : 'already active'})`);
-    } else {
-      socket.emit('streamError', { cameraId, role, error: 'Stream manager not available' });
-      console.error('Stream manager not available');
-    }
+    const streamManager = serviceRegistry.getStreamManager();
+    const success = streamManager.startStream(cameraId, role);
+    // CRITICAL FIX: Always join the room, even if stream was already active
+    // This ensures reconnected clients receive frames
+    socket.join(`camera-${cameraId}-${role}`);
+    socket.emit('streamRequested', { cameraId, role, success: true });
+    console.log(`Client ${socket.id} joined room camera-${cameraId}-${role} (stream was ${success ? 'started' : 'already active'})`);
   });
   
   // Handle stop stream requests
@@ -573,48 +567,44 @@ io.on('connection', (socket) => {
       console.log(`Ignoring stopStream for ${role} role — only live can be stopped by clients`);
       return;
     }
-    const streamManager = (global as any).streamManager;
-    if (streamManager) {
-      // Leave the camera role-specific room
-      socket.leave(`camera-${cameraId}-${role}`);
-      
-      // Check if there are still clients in the room before stopping the stream
-      const room = io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
-      const clientsInRoom = room ? room.size : 0;
-      
-      console.log(`Client ${socket.id} left room camera-${cameraId}-${role}. Clients remaining: ${clientsInRoom}`);
-      
-      // Only stop the stream if no clients are left in the room
-      if (clientsInRoom === 0) {
-        const success = streamManager.stopStream(cameraId, role);
-        if (success) {
-          console.log(`Stream stopped for camera: ${cameraId} ${role} (no more clients)`);
-        } else {
-          console.error(`Failed to stop stream for camera: ${cameraId} ${role}`);
-        }
+    const streamManager = serviceRegistry.getStreamManager();
+    // Leave the camera role-specific room
+    socket.leave(`camera-${cameraId}-${role}`);
+
+    // Check if there are still clients in the room before stopping the stream
+    const room = io.sockets.adapter.rooms.get(`camera-${cameraId}-${role}`);
+    const clientsInRoom = room ? room.size : 0;
+
+    console.log(`Client ${socket.id} left room camera-${cameraId}-${role}. Clients remaining: ${clientsInRoom}`);
+
+    // Only stop the stream if no clients are left in the room
+    if (clientsInRoom === 0) {
+      const success = streamManager.stopStream(cameraId, role);
+      if (success) {
+        console.log(`Stream stopped for camera: ${cameraId} ${role} (no more clients)`);
       } else {
-        console.log(`Stream continues for camera: ${cameraId} ${role} (${clientsInRoom} client(s) still watching)`);
+        console.error(`Failed to stop stream for camera: ${cameraId} ${role}`);
       }
+    } else {
+      console.log(`Stream continues for camera: ${cameraId} ${role} (${clientsInRoom} client(s) still watching)`);
     }
   });
   
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
-    const streamManager = (global as any).streamManager;
-    if (streamManager) {
-      const cameras = streamManager.getAllCameras();
-      cameras.forEach((camera: any) => {
-        const room = io.sockets.adapter.rooms.get(`camera-${camera.id}-live`);
-        const clientsInRoom = room ? room.size : 0;
-        
-        if (clientsInRoom === 0) {
-          if (camera.activeRoles.has('live')) {
-            console.log(`Auto-stopping ${camera.id} live stream (no clients after disconnect)`);
-            streamManager.stopStream(camera.id, 'live');
-          }
+    const streamManager = serviceRegistry.getStreamManager();
+    const cameras = streamManager.getAllCameras();
+    cameras.forEach((camera: any) => {
+      const room = io.sockets.adapter.rooms.get(`camera-${camera.id}-live`);
+      const clientsInRoom = room ? room.size : 0;
+
+      if (clientsInRoom === 0) {
+        if (camera.activeRoles.has('live')) {
+          console.log(`Auto-stopping ${camera.id} live stream (no clients after disconnect)`);
+          streamManager.stopStream(camera.id, 'live');
         }
-      });
-    }
+      }
+    });
   });
 });
 
@@ -632,20 +622,18 @@ async function gracefulShutdown(signal: string): Promise<void> {
   }, 10000);
 
   try {
-    const streamManager = (global as any).streamManager;
-    if (streamManager) {
-      streamManager.shutdown();
-    }
+    const streamManager = serviceRegistry.getStreamManager();
+    streamManager.shutdown();
 
     await cleanupOptimizedMotionDetection();
 
-    const detectionService = (global as any).detectionService;
-    if (detectionService && typeof detectionService.cleanup === 'function') {
+    const detectionService = serviceRegistry.getDetectionService();
+    if (typeof detectionService.cleanup === 'function') {
       await detectionService.cleanup();
     }
 
-    const cleanupService = (global as any).automatedCleanupService;
-    if (cleanupService && typeof cleanupService.shutdown === 'function') {
+    const cleanupService = serviceRegistry.getAutomatedCleanupService();
+    if (typeof cleanupService.shutdown === 'function') {
       await cleanupService.shutdown();
     }
 

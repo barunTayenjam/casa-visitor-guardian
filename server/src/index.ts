@@ -20,7 +20,7 @@ import { configureAuthRoutes } from './routes/auth.js';
 import { configureVisitorRoutes } from './routes/visitorRoutes.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase, AppDataSource } from './database.js';
-import { setupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
+import { setupOptimizedMotionDetection, cleanupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 import { consolidatedDetectionService } from './detection/consolidatedDetectionService.js';
 import { ReviewService } from './services/review/reviewService.js';
 import { TimelineService } from './services/timeline/timelineService.js';
@@ -315,18 +315,6 @@ app.get('/api/streams/health', (req, res) => {
   }
 });
 
-// Test endpoint
-app.get('/test', (req, res) => {
-  console.log('=== TEST ENDPOINT START ===');
-  try {
-    res.json({ message: 'Test successful' });
-  } catch (error) {
-    console.error('Error in test endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-  console.log('=== TEST ENDPOINT END ===');
-});
-
 // Configure routes first
 configureAuthRoutes(app);
 configureRoutes(app, io);
@@ -581,6 +569,10 @@ io.on('connection', (socket) => {
   socket.on('stopStream', (data: { cameraId: string; role?: 'detect' | 'record' | 'live' }) => {
     const { cameraId, role = 'live' } = data;
     console.log(`Stop stream requested for camera: ${cameraId} role: ${role} by client: ${socket.id}`);
+    if (role !== 'live') {
+      console.log(`Ignoring stopStream for ${role} role — only live can be stopped by clients`);
+      return;
+    }
     const streamManager = (global as any).streamManager;
     if (streamManager) {
       // Leave the camera role-specific room
@@ -610,23 +602,78 @@ io.on('connection', (socket) => {
     console.log(`Client disconnected: ${socket.id}`);
     const streamManager = (global as any).streamManager;
     if (streamManager) {
-      // Check all camera rooms and stop streams if no clients remain
       const cameras = streamManager.getAllCameras();
       cameras.forEach((camera: any) => {
-        ['live', 'detect', 'record'].forEach((role) => {
-          const room = io.sockets.adapter.rooms.get(`camera-${camera.id}-${role}`);
-          const clientsInRoom = room ? room.size : 0;
-          
-          if (clientsInRoom === 0) {
-            if (camera.activeRoles.has(role as 'live' | 'detect' | 'record')) {
-              console.log(`Auto-stopping ${camera.id} ${role} stream (no clients after disconnect)`);
-              streamManager.stopStream(camera.id, role as 'live' | 'detect' | 'record');
-            }
+        const room = io.sockets.adapter.rooms.get(`camera-${camera.id}-live`);
+        const clientsInRoom = room ? room.size : 0;
+        
+        if (clientsInRoom === 0) {
+          if (camera.activeRoles.has('live')) {
+            console.log(`Auto-stopping ${camera.id} live stream (no clients after disconnect)`);
+            streamManager.stopStream(camera.id, 'live');
           }
-        });
+        }
       });
     }
   });
+});
+
+// Graceful shutdown
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`\nReceived ${signal}. Shutting down gracefully...`);
+  const shutdownTimeout = setTimeout(() => {
+    console.error('Forced shutdown after 10s timeout');
+    process.exit(1);
+  }, 10000);
+
+  try {
+    const streamManager = (global as any).streamManager;
+    if (streamManager) {
+      streamManager.shutdown();
+    }
+
+    await cleanupOptimizedMotionDetection();
+
+    const detectionService = (global as any).detectionService;
+    if (detectionService && typeof detectionService.cleanup === 'function') {
+      await detectionService.cleanup();
+    }
+
+    const cleanupService = (global as any).automatedCleanupService;
+    if (cleanupService && typeof cleanupService.shutdown === 'function') {
+      await cleanupService.shutdown();
+    }
+
+    io.disconnectSockets(true);
+    io.close();
+
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
+      console.log('Database connection closed');
+    }
+
+    server.close(() => {
+      clearTimeout(shutdownTimeout);
+      console.log('Server closed');
+      process.exit(0);
+    });
+  } catch (error) {
+    clearTimeout(shutdownTimeout);
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Start server
@@ -635,6 +682,14 @@ const PORT = process.env.PORT || 8082;
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);
 
-  // Initialize services after server starts
-  await initializeServices(); // Now enabled with cameras.json mounted
+  await initializeServices();
+});
+
+server.on('error', (error: any) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`ERROR: Port ${PORT} is already in use. Kill the process or change PORT.`);
+    console.error(`  Run: fuser -k ${PORT}/tcp`);
+    process.exit(1);
+  }
+  throw error;
 });

@@ -18,6 +18,7 @@ import { config } from './config/index.js';
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
 import { configureVisitorRoutes } from './routes/visitorRoutes.js';
+import { requireUser, requireAdmin, optionalAuth } from './middleware/auth.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase, AppDataSource } from './database.js';
 import { setupOptimizedMotionDetection, cleanupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
@@ -45,7 +46,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173', 'http://192.168.31.99:5173', 'http://192.168.31.99:8082'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'], // Add production origins via CORS_ORIGIN env var (comma-separated)
   credentials: true
 }));
 app.use(express.json());
@@ -53,6 +54,14 @@ app.use(express.json());
 // Serve events from data directory with scanning fallback
 app.get('/events/:filename', async (req, res) => {
   const filename = req.params.filename;
+
+  // Path traversal validation — reject suspicious filenames before any filesystem access
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
 
   try {
     // First, try to query database to get storage path for this filename
@@ -132,6 +141,14 @@ app.get('/events/:filename', async (req, res) => {
 // Serve snapshots from data directory with scanning fallback
 app.get('/snapshots/:filename', async (req, res) => {
   const filename = req.params.filename;
+
+  // Path traversal validation — reject suspicious filenames before any filesystem access
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
 
   try {
     // First, try to query database to get storage path for this filename
@@ -244,7 +261,7 @@ const server = http.createServer(app);
 // Configure Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173', 'http://192.168.31.99:5173', 'http://192.168.31.99:8082'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'], // Add production origins via CORS_ORIGIN env var (comma-separated)
     credentials: true
   }
 });
@@ -323,7 +340,7 @@ import nvidiaRoutes from './routes/nvidiaRoutes.js';
 app.use('/api/nvidia', nvidiaRoutes);
 
 // Review & Timeline Routes (no auth required for read, auth for write)
-app.get('/api/review', async (req, res) => {
+app.get('/api/review', optionalAuth, async (req, res) => {
   try {
     const reviewService = serviceRegistry.getReviewService();
 
@@ -349,7 +366,7 @@ app.get('/api/review', async (req, res) => {
   }
 });
 
-app.get('/api/review/:id', async (req, res) => {
+app.get('/api/review/:id', optionalAuth, async (req, res) => {
   try {
     const reviewService = serviceRegistry.getReviewService();
 
@@ -368,7 +385,7 @@ app.get('/api/review/:id', async (req, res) => {
   }
 });
 
-app.post('/api/review/:id/acknowledge', async (req, res) => {
+app.post('/api/review/:id/acknowledge', requireUser, async (req, res) => {
   try {
     const reviewService = serviceRegistry.getReviewService();
 
@@ -384,7 +401,7 @@ app.post('/api/review/:id/acknowledge', async (req, res) => {
   }
 });
 
-app.get('/api/timeline', async (req, res) => {
+app.get('/api/timeline', optionalAuth, async (req, res) => {
   try {
     const timelineService = serviceRegistry.getTimelineService();
 
@@ -408,7 +425,7 @@ app.get('/api/timeline', async (req, res) => {
   }
 });
 
-app.get('/api/timeline/active/:camera', async (req, res) => {
+app.get('/api/timeline/active/:camera', optionalAuth, async (req, res) => {
   try {
     const timelineService = serviceRegistry.getTimelineService();
 
@@ -428,7 +445,7 @@ app.get('/api/timeline/active/:camera', async (req, res) => {
   }
 });
 
-app.get('/api/detection/config', async (req, res) => {
+app.get('/api/detection/config', optionalAuth, async (req, res) => {
   try {
     const detectionConfigService = serviceRegistry.getDetectionConfigService();
 
@@ -455,7 +472,7 @@ app.get('/api/detection/config', async (req, res) => {
   }
 });
 
-app.put('/api/detection/config', async (req, res) => {
+app.put('/api/detection/config', requireUser, async (req, res) => {
   try {
     const detectionConfigService = serviceRegistry.getDetectionConfigService();
 
@@ -513,8 +530,8 @@ async function initializeServices() {
     const regionRepo = AppDataSource.getRepository(AdaptiveRegion);
     const detectionConfigRepo = AppDataSource.getRepository(DetectionConfig);
 
-    const previewServiceInstance = new PreviewService(streamManagerInstance);
     const timelineServiceInstance = new TimelineService(timelineRepo, regionRepo);
+    const previewServiceInstance = new PreviewService(timelineServiceInstance);
     const detectionServiceInstance = new DetectionService(detectionConfigRepo);
     const reviewServiceInstance = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineServiceInstance, previewServiceInstance);
 

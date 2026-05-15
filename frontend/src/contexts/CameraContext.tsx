@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Camera, MotionEvent as SecurityMotionEvent } from '@/types/security';
-import apiService from '@/services/ApiService';
+import { cameraService } from '@/services/api/cameraService';
 import socketService from '@/services/SocketService';
 import { logger } from '@/lib/logger';
 
@@ -69,7 +69,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setError(null);
       
       logger.info('Fetching cameras from backend', 'CAMERA');
-      const fetchedCameras = await apiService.getCameras();
+      const fetchedCameras = await cameraService.getCameras();
       logger.info('Successfully fetched cameras', 'CAMERA', { 
         cameraCount: fetchedCameras.length 
       });
@@ -87,7 +87,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             id: 'cam1',
             name: 'Front Door',
             status: 'online',
-            streamUrl: 'rtsp://192.168.31.62:554/stream1',
+            streamUrl: '', // RTSP URL loaded from backend API — not hardcoded
             thumbnail: '/placeholder-camera.svg',
             location: 'Front Entrance',
             detectionEnabled: true,
@@ -100,7 +100,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             id: 'cam2',
             name: 'Back Door',
             status: 'online',
-            streamUrl: 'rtsp://192.168.31.61:554/stream1',
+            streamUrl: '', // RTSP URL loaded from backend API — not hardcoded
             thumbnail: '/placeholder-camera.svg',
             location: 'Back Entrance',
             detectionEnabled: true,
@@ -154,7 +154,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Add a new camera
   const addCamera = async (cameraData: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => {
     try {
-      const cameraId = await apiService.addCamera(cameraData);
+      const cameraId = await cameraService.addCamera(cameraData);
       
       // Add to local state
       const newCamera: Camera = {
@@ -180,7 +180,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (Object.keys(updates).some(key => [
         'name', 'streamUrl', 'fps', 'resolution'
       ].includes(key))) {
-        await apiService.updateCamera(id, updates);
+        await cameraService.updateCamera(id, updates);
       }
       
       // Update in local state
@@ -191,13 +191,13 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to update camera ${id}:`, err);
       throw err;
     }
-  }, [apiService, setCameras]);
+  }, [cameraService, setCameras]);
 
   // Delete a camera
   const deleteCamera = async (id: string) => {
     try {
       // Delete from backend
-      await apiService.deleteCamera(id);
+      await cameraService.deleteCamera(id);
       
       // Remove from local state
       setCameras(prev => prev.filter(camera => camera.id !== id));
@@ -257,7 +257,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Take a snapshot from a camera
   const takeSnapshot = async (id: string, resolution?: string) => {
     try {
-      return await apiService.takeSnapshot(id, resolution);
+      return await cameraService.takeSnapshot(id, resolution);
     } catch (err) {
       console.error(`Failed to take snapshot for camera ${id}:`, err);
       throw err;
@@ -267,7 +267,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Toggle night mode for a camera
   const toggleNightMode = async (id: string, enabled: boolean) => {
     try {
-      await apiService.toggleNightMode(id, enabled);
+      await cameraService.toggleNightMode(id, enabled);
     } catch (err) {
       console.error(`Failed to toggle night mode for camera ${id}:`, err);
       throw err;
@@ -277,7 +277,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Toggle motion detection for a camera
   const toggleMotionDetection = async (id: string, enabled: boolean) => {
     try {
-      await apiService.updateMotionSettings(id, { enabled });
+      await cameraService.updateMotionSettings(id, { enabled });
       updateCamera(id, { detectionEnabled: enabled });
     } catch (err) {
       console.error(`Failed to toggle motion detection for camera ${id}:`, err);

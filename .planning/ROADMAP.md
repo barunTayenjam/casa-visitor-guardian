@@ -24,6 +24,7 @@
 | 8 | UI/UX Improvements | User experience enhancement | UX-01 to UX-06 | 6 |
 | 9 | Streaming UI Simplification | Reduce overlay clutter | SUI-01 to SUI-03 | 3 |
 | 10 | Navigation & UI/UX Consistency | Unified app-wide experience | NAV-01 to NAV-04 | 4 |
+| 11 | Tech Debt Reduction | Codebase hardening and maintainability | TD-01 to TD-05 | 5 |
 
 ---
 
@@ -249,6 +250,30 @@
 Plans:
 - [x] TBD (run /gsd:plan-phase 10 to break down) (completed 2026-03-27)
 
+### Phase 11: Tech Debt Reduction — Codebase hardening and maintainability
+
+**Goal:** Reduce technical debt by breaking up god files, fixing known bugs, improving security posture, and establishing test coverage for critical paths.
+
+**Success Criteria:**
+1. God files split into domain-specific modules
+2. All known bugs resolved (storage usage, cache cleanup, SQL syntax)
+3. Authentication added to all sensitive API routes
+4. Core detection pipeline has unit test coverage
+5. Codebase cleanup complete (renamed files, removed artifacts)
+
+**Depends on:** Phase 10
+**Requirements:** TD-01, TD-02, TD-03, TD-04, TD-05
+**Plans:** 7 plans
+
+Plans:
+- [x] 11-01 — Quick Wins & Cleanup — Rename .new.tsx files, remove .disabled models, remove node-env/, remove debug endpoints, re-enable DB logging
+- [x] 11-02 — Known Bug Fixes — Fix storage usage calculation, SQL cache syntax, re-enable cache cleanup, implement detection overlays
+- [x] 11-03 — Security Hardening — Add auth to unauthenticated routes, fix path traversal, remove hardcoded secrets and IPs
+- [x] 11-04 — Service Registry — Replace (global as any) with typed ServiceRegistry class
+- [x] 11-05 — Backend God File Split — Extract routes from index.ts into domain-specific modules, move inline routes
+- [x] 11-06 — Frontend ApiService Split — Split 3,208-line ApiService into domain-specific service modules
+- [x] 11-07 — Test Coverage Foundation — Unit tests for detection utilities, config loading, state service, logger
+
 ---
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-03-27 - Phase 8 complete, Phase 9 added*
+*Last updated: 2026-05-15 - Phase 11 added (tech debt reduction)*

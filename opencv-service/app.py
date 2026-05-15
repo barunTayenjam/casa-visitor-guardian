@@ -76,8 +76,7 @@ class DetectionCache:
         # Initialize connection pool
         self.connection_pool = None
         self._initialize_pool()
-        # Temporarily disabled cleanup - SQL syntax issue to fix
-        # self._cleanup_old_cache()
+        self._cleanup_old_cache()
 
     def _initialize_pool(self):
         """Initialize PostgreSQL connection pool"""
@@ -114,11 +113,11 @@ class DetectionCache:
             conn = self._get_connection()
             try:
                 with conn.cursor() as cur:
-                    # Use proper INTERVAL syntax with placeholder
+                    # Use parameterized INTERVAL: pass full interval string as parameter
                     cur.execute("""
                         DELETE FROM detection_cache
-                        WHERE updated_at < NOW() - INTERVAL %s seconds
-                    """, (self.cache_ttl,))
+                        WHERE updated_at < NOW() - INTERVAL %s
+                    """, (f'{self.cache_ttl} seconds',))
                     deleted = cur.rowcount
                     conn.commit()
                     if deleted > 0:
@@ -134,11 +133,12 @@ class DetectionCache:
             conn = self._get_connection()
             try:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    # Use parameterized INTERVAL: pass full interval string as parameter
                     cur.execute("""
                         SELECT file_hash, object_detections, face_detections, processing_time
                         FROM detection_cache
-                        WHERE file_hash = %s AND updated_at > NOW() - INTERVAL '%s seconds'
-                    """, (file_hash, self.cache_ttl))
+                        WHERE file_hash = %s AND updated_at > NOW() - INTERVAL %s
+                    """, (file_hash, f'{self.cache_ttl} seconds'))
                     row = cur.fetchone()
                     if row:
                         return {
@@ -222,8 +222,8 @@ redis_cache = RedisDetectionCache()
 db_cache = DetectionCache()
 
 # Enable automatic cleanup (SQL syntax fixed)
-# cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
-# cleanup_thread.start()
+cleanup_thread = threading.Thread(target=db_cache.cleanup, daemon=True)
+cleanup_thread.start()
 
 class YOLOObjectDetector:
     """Object detection using YOLO model - Optimized for real-time detection"""
@@ -236,6 +236,17 @@ class YOLOObjectDetector:
         self.confidence_threshold = 0.55  # Increased from 0.5 for better accuracy
         self.nms_threshold = 0.30  # Lowered from 0.40 for more aggressive duplicate suppression
         self.model_type = None  # 'yolov8', 'yolov5' or 'yolov4'
+        
+        # DNN face detector for face recognition - init immediately
+        try:
+            prototxt_path = os.path.join(MODELS_DIR, 'deploy.prototxt')
+            model_path = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
+            if os.path.exists(prototxt_path) and os.path.exists(model_path):
+                self.dnn_face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+                print("OpenCV Service: DNN face detector loaded in __init__")
+        except Exception as e:
+            print(f"OpenCV Service: Failed to load DNN face detector in __init__: {e}")
+            self.dnn_face_detector = None
         
         # Per-class confidence thresholds based on camera configuration
         # Increased all thresholds for better accuracy (reduces false positives)
@@ -391,6 +402,16 @@ class YOLOObjectDetector:
 
             self.initialized = True
             print("OpenCV Service: YOLO detection initialized successfully")
+            
+            # Initialize DNN face detector
+            prototxt_path = os.path.join(MODELS_DIR, 'deploy.prototxt')
+            model_path = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
+            print(f"OpenCV Service: Checking DNN face detector: prototxt={os.path.exists(prototxt_path)}, model={os.path.exists(model_path)}")
+            if os.path.exists(prototxt_path) and os.path.exists(model_path):
+                self.dnn_face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+                print(f"OpenCV Service: DNN face detector loaded: {self.dnn_face_detector}")
+            else:
+                print("OpenCV Service: DNN face detector files not found")
             
         except Exception as e:
             print(f"OpenCV Service: Failed to initialize YOLO: {e}")
@@ -787,46 +808,46 @@ class YOLOObjectDetector:
             }
 
     def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect and recognize faces using Haar Cascade classifier and face recognition"""
+        """Detect and recognize faces using face_recognition library (CNN model)"""
         face_detections = []
 
         try:
-            # Convert to grayscale
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # Use CNN model for detection (matches training)
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            import face_recognition as fr_lib
+            face_locs = fr_lib.face_locations(rgb_image, model='hog')
 
-            # Load Haar cascade classifier
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            import face_recognition as fr_lib
 
-            # Detect faces
-            faces = face_cascade.detectMultiScale(
-                gray,
-                scaleFactor=1.1,
-                minNeighbors=5,
-                minSize=(30, 30),
-                flags=cv2.CASCADE_SCALE_IMAGE
-            )
-
-            for i, (x, y, w, h) in enumerate(faces):
-                # Extract face region
-                face_roi = image[y:y+h, x:x+w]
-
-                # Recognize the face
-                person_name, recognition_confidence = face_recognition.recognize_face(face_roi)
-
-                # Use recognition confidence if available, otherwise default confidence
-                confidence = recognition_confidence if recognition_confidence > 0 else 80.0
+            for i, (top, right, bottom, left) in enumerate(face_locs):
+                face_roi = image[top:bottom, left:right]
+                face_roi_rgb = rgb_image[top:bottom, left:right]
+                
+                encodings = fr_lib.face_encodings(face_roi_rgb)
+                
+                if encodings:
+                    import face_recognition
+                    matches = fr_lib.compare_faces(face_recognition.known_encodings, encodings[0], tolerance=0.6)
+                    distances = fr_lib.face_distance(face_recognition.known_encodings, encodings[0])
+                    
+                    if True in matches:
+                        idx = np.argmin(distances)
+                        person_name = face_recognition.known_names[idx]
+                        conf = max(0, min(100, (1 - distances[idx]) * 100))
+                    else:
+                        person_name = "unknown"
+                        conf = 80.0
+                else:
+                    person_name = "unknown"
+                    conf = 80.0
 
                 face_detections.append({
                     'id': f'face_{i}',
                     'name': person_name,
-                    'confidence': float(confidence),
+                    'confidence': float(conf),
                     'isKnown': person_name != 'unknown',
-                    'bbox': {
-                        'x': int(x),
-                        'y': int(y),
-                        'width': int(w),
-                        'height': int(h)
-                    }
+                    'bbox': {'x': int(left), 'y': int(top), 'width': int(right - left), 'height': int(bottom - top)}
                 })
 
             return face_detections
@@ -1086,8 +1107,8 @@ class FaceRecognition:
         self.known_faces_dir = os.path.join(os.path.dirname(__file__), 'known_faces')
         self.models_dir = os.path.join(os.path.dirname(__file__), 'models')
         self.model_path = os.path.join(self.models_dir, 'enhanced_face_recognizer.pkl')
-        self.embeddings_path = os.path.join(self.models_dir, 'face_embeddings.pkl')
-        self.labels_path = os.path.join(self.models_dir, 'face_labels.pkl')
+        self.embeddings_path = os.path.join(self.models_dir, 'face_embeddings_improved.pkl')
+        self.labels_path = os.path.join(self.models_dir, 'face_labels_improved.pkl')
         self.labels = {}
         self.is_trained = False
 
@@ -1153,19 +1174,16 @@ class FaceRecognition:
             print(f"Failed to load trained model: {e}")
 
     def extract_face_features(self, face_img):
-        """Extract features from face image using deep learning approach"""
+        """Extract features from face image using face_recognition library"""
         try:
+            import face_recognition
             # Convert to RGB (OpenCV uses BGR)
             rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-
-            # Resize to standard size for consistency
-            resized_face = cv2.resize(rgb_face, (224, 224))
-
-            # Normalize pixel values
-            normalized_face = resized_face.astype(np.float32) / 255.0
-
-            # Simple feature extraction (in a real implementation, this would be a neural network)
-            return np.mean(normalized_face, axis=(0, 1))  # Average across spatial dimensions
+            # Use face_recognition library for feature extraction
+            encodings = face_recognition.face_encodings(rgb_face)
+            if encodings:
+                return encodings[0]
+            return None
         except Exception as e:
             print(f"Error extracting face features: {e}")
             return None
@@ -1874,12 +1892,13 @@ def retrain_model():
 def get_known_faces():
     """Endpoint to list known faces"""
     try:
-        # Inverse the labels map to get name -> id
         faces = []
         if face_recognition.is_trained:
-            for label_id, name in face_recognition.labels.items():
+            # Use known_names list (may have duplicates for multiple embeddings per person)
+            unique_names = set(face_recognition.known_names)
+            for idx, name in enumerate(unique_names):
                 faces.append({
-                    'id': label_id,
+                    'id': str(idx),
                     'name': name
                 })
         

@@ -767,15 +767,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // List event images
   app.get('/api/events/list', optionalAuth, async (req: Request, res: Response) => {
     try {
-      // Query event files from database
+      // Query event files directly from events table
+      // Avoid expensive JOIN with detection_files (LIKE condition can't use indexes)
       const query = `
-        SELECT
-          COALESCE(df.storage_path, e.file_path) as file_path,
-          COALESCE(df.capture_timestamp, e.timestamp) as timestamp
+        SELECT e.file_path, e.timestamp
         FROM events e
-        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
-        WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
-        ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC
+        WHERE e.event_type IN ('motion', 'face', 'event_motion', 'event_face')
+        ORDER BY e.timestamp DESC
         LIMIT 1000
       `;
 

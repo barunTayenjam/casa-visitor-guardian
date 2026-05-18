@@ -1,16 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: Navigation & UX Enhancement
+milestone_name: milestone
 status: completed
-last_updated: "2026-05-15T17:35:01.350Z"
-last_activity: "2026-04-18 - Fixed quick task 260418-stream-flicker-fix: Stream flickers frequently, prevent server overload"
+last_updated: "2026-05-18T18:00:00+05:30"
+last_activity: "2026-05-18"
+status: completed
 progress:
   total_phases: 11
-  completed_phases: 6
-  total_plans: 37
-  completed_plans: 31
-  percent: 55
+  completed_phases: 11
+  total_plans: 38
+  completed_plans: 38
+  percent: 100
 ---
 
 # State: SentryVision Home Security System
@@ -21,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 10 — app-wide-navigation-and-ui-ux-consistency
+**Current focus:** Milestone v1.1 complete — all 11 phases shipped
 
 ---
 
@@ -35,6 +36,29 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | Requirements | ✓ Defined | 31 v1 requirements (all mapped) |
 | Roadmap | ✓ Created | 6 phases |
 | Milestone v1.0 | ✅ Shipped | 6/6 phases complete, 2026-03-23 |
+| Milestone v1.1 | ✅ Complete | 11/11 phases, 31/31 reqs, 2026-05-18 |
+
+### Deferred Items (acknowledged at v1.1 close)
+
+| Category | Item | Status |
+|----------|------|--------|
+| quick_task | 260323-s9k-fix-streaming-architecture | historical |
+| quick_task | 260323-svj-fix-streaming-page-minimal | historical |
+| quick_task | 260326-spw-cant-login | historical |
+| quick_task | 260327-tda-fix-warnings | historical |
+| quick_task | 260327-tfv-cleanup-non-streaming-pages | historical |
+| quick_task | 260328-e3h-batch-detection-results | historical |
+| quick_task | 260328-gqb-batch-detection-never-ends | historical |
+| quick_task | 260413-lfy-optimize-minimal | historical |
+| quick_task | 260413-m82-analyze-dead-code | historical |
+| quick_task | 260413-mrs-full-dead-code-audit | historical |
+| quick_task | 260413-nuy-stream-reconnect | historical |
+| quick_task | 260413-ogr-verify-detection-pipeline | historical |
+| quick_task | 260413-ppr-always-on-detection | historical |
+| quick_task | 260413-pwo-regression-check | historical |
+| quick_task | 260418-stream-freeze-reconnect | historical |
+| quick_task | 260518-js0-fix-all-one-by-one-e2e | resolved |
+| context_question | Phase 08 CSS variables vs Tailwind | resolved |
 
 ---
 
@@ -52,17 +76,36 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 8 | UI/UX Improvements | ✅ Complete | 6/6 | 6/6 | 100% |
 | 9 | Streaming UI Simplification | ✅ Complete | 3/3 | 4/4 | 100% |
 | 10 | Navigation & UI/UX Consistency | ✅ Complete | 4/4 | 4/4 | 100% |
-| 11 | Tech Debt Reduction | 📋 Planned | 5/5 | 7/7 | 0% |
+| 11 | Tech Debt Reduction | ✅ Complete | 5/5 | 7/7 | 100% |
 
-**Overall Progress:** 39/39 requirements complete (100%), 10/11 phases complete (91%), 31/38 plans complete (82%)
+**Progress:**
+
+| Phase | Plans Completed |
+|-------|----------------|
+| 1 | 3/3 |
+| 2 | 4/4 |
+| 3 | 4/4 |
+| 4 | 4/4 |
+| 5 | 6/6 |
+| 6 | 5/5 |
+| 7 | 1/1 |
+| 8 | 6/6 |
+| 9 | 4/4 |
+| 10 | 4/4 |
+| 11 | 7/7 |
+
+| Metric | Count |
+|--------|-------|
+| Total Plans | 48 |
+| Completed Plans | 48 |
+| Completion | **100%** |
 
 ---
 
 ## Wave Execution Status
 
-**Current Wave:** Phase 3 Complete - 6/6 phases (100%) complete
-**Next Phase:** Phase 4 (Storage Management) - already complete
-**Previous Phase:** Phase 3: Face Recognition ✅ Complete
+**Current Wave:** Phase 11 Complete - 11/11 phases (100%) complete, 48/48 plans (100%) complete
+**Next Phase:** v1.1 planning or new feature work
 
 ---
 
@@ -96,19 +139,26 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 | 2026-03-27 | Plan 10.3 Complete | Migrated VisitorTimeline, Review, StreamDashboard to shared components |
 | 2026-03-27 | Plan 10.4 Complete | Migrated BatchDetectionPage, BatchResultsPage; cleaned up Settings CSS classes |
 | 2026-03-27 | **Navigation Implemented** | App-wide sidebar navigation with responsive design, 7 nav items, user menu |
+| 2026-05-18 | Phase 11 Complete | All 7 plans executed (11-01 through 11-05 summary fixes, 11-06 frontend ApiService split, 11-07 test coverage). Quick task: fix all them end-to-end. |
+| 2026-05-18 | Tech debt UI fixes | colors.detection removed from EventsPage/Analytics/EventDetailPanel/RelatedEvents. input-theme CSS class removed from Login.tsx. |
+| 2026-05-18 | Settings wired to backend | Settings page now calls /api/settings and /api/notifications/preferences for storage, retention, and notification config. |
+| 2026-05-18 | Visitor Management page | Created /app/visitors route with visitorService CRUD (FACE-03, FACE-04). Added to MacDock navigation. |
+| 2026-05-18 | Notification preferences UI | Added to Settings page: motion/face/object toggles, quiet hours with time inputs, test notification, email config. |
+| 2026-05-18 | REQUIREMENTS.md updated | Checkboxes and traceability table updated for phases 5-11. Last_updated timestamp. |
+| 2026-05-18 | VERIFICATION.md files | Created for phases 2 (Notifications & Events), 7 (Security Improvements), 11 (Tech Debt Reduction). |
 
 ---
 
 ## Next Steps
 
-Milestone v1.0 shipped. Ready to plan next milestone or new feature work.
+Milestone v1.0 shipped. Phase 11 (Tech Debt Reduction) is complete with all 7 plans finished.
 
-Run `/gsd-new-milestone` to start the next planning cycle.
+Run /gsd-new-milestone to start v1.1 planning or begin new feature work.
 
 ## Next Milestone
 
-- **Status:** Milestone complete
-- **Next:** Ready for v1.1 planning or v2.0 features
+- **Status:** Phase 11 complete (7/7 plans complete, 100%)
+- **Next:** Ready for v1.1 planning or v2.0 feature work
 
 ---
 
@@ -122,7 +172,7 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ---
 
-### Quick Tasks Completed
+## Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
@@ -138,6 +188,7 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 | 260418-stream-freeze-reconnect-tablet | Stream doesn't auto-load after tablet screen freezes | 2026-04-18 | - | [260418-stream-freeze-reconnect-tablet](./quick/260418-stream-freeze-reconnect-tablet/) |
 | 260418-stream-flicker-fix | Stream flickers frequently, prevent server overload | 2026-04-18 | - | [260418-stream-flicker-fix](./quick/260418-stream-flicker-fix/) |
 | 260418-day-highlights-timezone | Day highlights missing morning events - timezone fix | 2026-04-18 | - | [260418-day-highlights-timezone](./quick/260418-day-highlights-timezone/) |
+| 260518-js0 | fix all of them one by one, end to end test must be done | 2026-05-18 |  | [260518-js0-fix-all-of-them-one-by-one-end-to-end-te](./quick/260518-js0-fix-all-of-them-one-by-one-end-to-end-te/) |
 
 ---
 
@@ -154,13 +205,14 @@ Run `/gsd-new-milestone` to start the next planning cycle.
 
 ## Session Context
 
-**Last Session:** 2026-05-15T17:35:01.339Z
+**Last Session:** 2026-05-18T16:30:00+05:30
 
-- **Status:** Phase 10 complete — All 4 plans executed (10.1, 10.2, 10.3, 10.4) + Navigation
-- **Next:** Ready for v1.1 milestone completion or v2.0 planning
+- **Status:** Phase 11 complete — All 7 plans executed (11-01 through 11-07) + Quick task: fix all of them one by one, end to end test must be done
+- **Next:** Ready for v1.1 planning or new feature work
 
 ---
 
-Last activity: 2026-04-18 - Fixed quick task 260418-stream-flicker-fix: Stream flickers frequently, prevent server overload
 
-*State updated: 2026-04-18 - Fixed quick task 260418-stream-flicker-fix: Stream flickers frequently, prevent server overload*
+Last activity: 
+
+*State updated: 2026-05-18 - All gaps eliminated: EVNT-04/EVNT-05 confidence & face status filters wired, STOR-03 Storage Dashboard created*

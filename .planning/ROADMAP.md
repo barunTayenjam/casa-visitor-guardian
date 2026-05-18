@@ -8,10 +8,6 @@
 
 - ✅ **v1.0 Resource Optimization** — Phases 1-6 (shipped 2026-03-23)
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
-  - Detection Quality, Notifications & Events, Face Recognition, Storage Management
-  - Frontend Enhancement, Resource Optimization, Security Improvements
-  - UI/UX Improvements, Streaming UI Simplification, Navigation & UI/UX Consistency
-  - Tech Debt Reduction
 - ⬜ **v1.2** — *(placeholder for next milestone)*
 
 ---
@@ -24,6 +20,7 @@ No active phases. All 11 phases of v1.1 are complete.
 
 ## Archived Phases
 
+For full phase details of v1.0, see `.planning/milestones/v1.0-ROADMAP.md`.
 For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 
 ---

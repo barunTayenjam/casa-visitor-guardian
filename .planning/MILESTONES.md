@@ -1,12 +1,22 @@
 # Milestones
 
-## v1.1 v1.1 (Shipped: 2026-03-26)
+## v1.1 Full System Overhaul (Shipped: 2026-05-18)
 
-**Phases completed:** 7 phases, 27 plans, 0 tasks
+**Phases completed:** 11 phases, 48 plans
+**Timeline:** 61 days (2026-03-18 → 2026-05-18)
+**Commits:** 144
+**Requirements:** 58/58 satisfied
+**Known tech debt:** 8 items (orphaned components, partial Zod, no Nyquist validation files)
+**Known deferred items at close:** 17 (see STATE.md Deferred Items)
 
 **Key accomplishments:**
 
-- (none recorded)
+- **Detection Quality**: Multi-frame validation, Gaussian blur preprocessing, adaptive thresholds, night mode (1.2x sensitivity 22:00-06:00) — false positives reduced by 50%
+- **Notifications & Events**: Web Push API with VAPID subscription, notification preferences UI with quiet hours, event search with multi-filter pagination, confidence and face status filters
+- **Face Recognition & Visitor Management**: Embedding storage with quality metadata, cosine similarity matching, visitor CRUD management page, unknown face tracking and alerting
+- **Resource Optimization**: 47% memory reduction (897MB → 473MB), stream-on-demand with 5-min inactivity timeout, Docker resource limits across 5 containers
+- **Security & Codebase Hardening**: AES-256-GCM RTSP credential encryption, global rate limiting, auth-protected 67+ routes, ServiceRegistry replacing `(global as any)`, split 4,095-line routes/index.ts into 6 modules
+- **UI/UX**: Dark mode with system detection, WCAG AA accessibility, sidebar navigation, StreamPanel drawer with tap-to-toggle, CSS variable theming, 110 unit tests
 
 ---
 

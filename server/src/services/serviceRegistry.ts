@@ -6,7 +6,6 @@ import { ReviewService } from './review/reviewService.js';
 import { TimelineService } from './timeline/timelineService.js';
 import { DetectionService } from './detection/detectionService.js';
 import NotificationService from './notificationService.js';
-import { StorageStatsService } from './storageStatsService.js';
 import { RetentionPolicyService } from './retentionPolicyService.js';
 import { AutomatedCleanupService } from './automatedCleanupService.js';
 import { PreviewService } from './preview/previewService.js';
@@ -99,16 +98,6 @@ class ServiceRegistry {
 
   getNotificationService(): typeof NotificationService {
     return this.getRequired<typeof NotificationService>('notificationService');
-  }
-
-  // ── StorageStatsService ──
-
-  setStorageStatsService(service: StorageStatsService): void {
-    this.services.set('storageStatsService', service);
-  }
-
-  getStorageStatsService(): StorageStatsService {
-    return this.getRequired<StorageStatsService>('storageStatsService');
   }
 
   // ── RetentionPolicyService ──

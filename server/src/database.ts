@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 // Load all entity files from models directory, excluding test files
 const modelsDir = path.join(__dirname, 'models');
 const entityFiles = fs.readdirSync(modelsDir)
-  .filter(file => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+  .filter(file => (file.endsWith('.ts') || file.endsWith('.js')) && !file.includes('.test.'))
   .map(file => path.join(modelsDir, file));
 
 // Note: Entities are registered to allow Repository usage

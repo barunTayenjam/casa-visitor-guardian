@@ -184,15 +184,15 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="username" className="text-foreground/80">Username</Label>
                     <div className="relative">
-                      <Input
-                        id="username"
-                        type="text"
-                        value={loginData.username}
-                        onChange={(e) => handleLoginChange('username', e.target.value)}
-                        className="input-theme"
-                        placeholder="Enter your username"
-                        disabled={isLoading}
-                      />
+                       <Input
+                         id="username"
+                         type="text"
+                         value={loginData.username}
+                         onChange={(e) => handleLoginChange('username', e.target.value)}
+                         className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10"
+                         placeholder="Enter your username"
+                         disabled={isLoading}
+                       />
                     </div>
                     {validationErrors.username && (
                       <p className="text-sm text-destructive">{validationErrors.username}</p>
@@ -202,15 +202,15 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-foreground/80">Password</Label>
                     <div className="relative">
-                      <Input
-                        id="password"
-                        type={showLoginPassword ? 'text' : 'password'}
-                        value={loginData.password}
-                        onChange={(e) => handleLoginChange('password', e.target.value)}
-                        className="input-theme pr-10"
-                        placeholder="Enter your password"
-                        disabled={isLoading}
-                      />
+                       <Input
+                         id="password"
+                         type={showLoginPassword ? 'text' : 'password'}
+                         value={loginData.password}
+                         onChange={(e) => handleLoginChange('password', e.target.value)}
+                         className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10 pr-10"
+                         placeholder="Enter your password"
+                         disabled={isLoading}
+                       />
                       <Button
                         type="button"
                         variant="ghost"
@@ -263,15 +263,15 @@ export default function Login() {
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="reg-username" className="text-foreground/80">Username</Label>
-                    <Input
-                      id="reg-username"
-                      type="text"
-                      value={registerData.username}
-                      onChange={(e) => handleRegisterChange('username', e.target.value)}
-                      className="input-theme"
-                      placeholder="Choose a username"
-                      disabled={isLoading}
-                    />
+                     <Input
+                       id="reg-username"
+                       type="text"
+                       value={registerData.username}
+                       onChange={(e) => handleRegisterChange('username', e.target.value)}
+                       className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10"
+                       placeholder="Choose a username"
+                       disabled={isLoading}
+                     />
                     {validationErrors.username && (
                       <p className="text-sm text-destructive">{validationErrors.username}</p>
                     )}
@@ -279,15 +279,15 @@ export default function Login() {
 
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-foreground/80">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={registerData.email}
-                      onChange={(e) => handleRegisterChange('email', e.target.value)}
-                      className="input-theme"
-                      placeholder="Enter your email"
-                      disabled={isLoading}
-                    />
+                       <Input
+                         id="email"
+                         type="email"
+                         value={registerData.email}
+                         onChange={(e) => handleRegisterChange('email', e.target.value)}
+                         className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10"
+                         placeholder="Enter your email"
+                         disabled={isLoading}
+                       />
                     {validationErrors.email && (
                       <p className="text-sm text-destructive">{validationErrors.email}</p>
                     )}
@@ -314,15 +314,15 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="reg-password" className="text-foreground/80">Password</Label>
                     <div className="relative">
-                      <Input
-                        id="reg-password"
-                        type={showRegisterPassword ? 'text' : 'password'}
-                        value={registerData.password}
-                        onChange={(e) => handleRegisterChange('password', e.target.value)}
-                        className="input-theme pr-10"
-                        placeholder="Create a password"
-                        disabled={isLoading}
-                      />
+                       <Input
+                         id="reg-password"
+                         type={showRegisterPassword ? 'text' : 'password'}
+                         value={registerData.password}
+                         onChange={(e) => handleRegisterChange('password', e.target.value)}
+                         className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10 pr-10"
+                         placeholder="Create a password"
+                         disabled={isLoading}
+                       />
                       <Button
                         type="button"
                         variant="ghost"
@@ -347,15 +347,15 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password" className="text-foreground/80">Confirm Password</Label>
                     <div className="relative">
-                      <Input
-                        id="confirm-password"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={registerData.confirmPassword}
-                        onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
-                        className="input-theme pr-10"
-                        placeholder="Confirm your password"
-                        disabled={isLoading}
-                      />
+                       <Input
+                         id="confirm-password"
+                         type={showConfirmPassword ? 'text' : 'password'}
+                         value={registerData.confirmPassword}
+                         onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
+                         className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:bg-white/10 pr-10"
+                         placeholder="Confirm your password"
+                         disabled={isLoading}
+                       />
                       <Button
                         type="button"
                         variant="ghost"

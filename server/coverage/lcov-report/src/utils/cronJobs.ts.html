@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/70</span>
+                <span class='fraction'>0/64</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/68</span>
+                <span class='fraction'>0/62</span>
             </div>
         
             
@@ -291,16 +291,8 @@
 <a name='L226'></a><a href='#L226'>226</a>
 <a name='L227'></a><a href='#L227'>227</a>
 <a name='L228'></a><a href='#L228'>228</a>
-<a name='L229'></a><a href='#L229'>229</a>
-<a name='L230'></a><a href='#L230'>230</a>
-<a name='L231'></a><a href='#L231'>231</a>
-<a name='L232'></a><a href='#L232'>232</a>
-<a name='L233'></a><a href='#L233'>233</a>
-<a name='L234'></a><a href='#L234'>234</a>
-<a name='L235'></a><a href='#L235'>235</a>
-<a name='L236'></a><a href='#L236'>236</a>
-<a name='L237'></a><a href='#L237'>237</a>
-<a name='L238'></a><a href='#L238'>238</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L229'></a><a href='#L229'>229</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -316,12 +308,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -459,12 +446,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -544,6 +526,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 <span class="cstat-no" title="statement not covered" ></span>
 // Get __dirname e<span class="cstat-no" title="statement not covered" >quivalent in ESM</span>
 const __filename = fileURLToPath(import.meta.url);
@@ -553,27 +536,22 @@ const __filename = fileURLToPath(import.meta.url);
 dotenv.config();
 <span class="cstat-no" title="statement not covered" ></span>
 // Interface for motion events
-interface MotionEvent {
-  id: string;<span class="cstat-no" title="statement not covered" ></span>
-  camera<span class="cstat-no" title="statement not covered" >Id: string;</span>
-  timestamp:<span class="cstat-no" title="statement not covered" > string;</span>
-  imagePath:<span class="cstat-no" title="statement not covered" > string;</span>
-  confidence: number;
+interface MotionEvent {<span class="cstat-no" title="statement not covered" ></span>
+  id: string;
+  cameraId: string;
+  timestamp: string;<span class="cstat-no" title="statement not covered" ></span>
+  imageP<span class="cstat-no" title="statement not covered" >ath: string;<span class="fstat-no" title="function not covered" ></span></span>
+  confidence<span class="cstat-no" title="statement not covered" >: number;</span>
   duration: number;
 }
 <span class="cstat-no" title="statement not covered" ></span>
-// Gener<span class="cstat-no" title="statement not covered" >ate daily report with visitor s<span class="fstat-no" title="function not covered" >ta</span>tistics and snapshots</span>
-async functi<span class="cstat-no" title="statement not covered" >on generateDailyReport(io: Soc</span>ketIOServer) {
+// Gener<span class="cstat-no" title="statement not covered" >ate daily report with visitor statistics and</span> snapshots
+async function generateDailyReport<span class="cstat-no" title="statement not covered" >(io: SocketIOServer)<span class="fstat-no" title="function not covered" > {<span class="cstat-no" title="statement not covered" ></span></span></span>
   // Daily report log disabled - console.log('Generating daily report...');
-  
+  <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
   try {<span class="cstat-no" title="statement not covered" ></span>
-    // G<span class="cstat-no" title="statement not covered" >et the stream manager from global scope</span>
-    // eslint-disable-next-line @t<span class="cstat-no" title="statement not covered" >ypescript-eslint/no-<span class="fstat-no" title="function not covered" >ex</span>plicit-<span class="cstat-no" title="statement not covered" >any</span></span>
-    const streamManager = (global as any).streamManager;
-    if (!streamManager) {<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
-      consol<span class="cstat-no" title="statement not covered" >e.error('Stream manager not found');</span>
-      return { s<span class="cstat-no" title="statement not covered" >uccess: false, error: 'Str</span>eam manager not found' };
-    }
+    // Get the s<span class="cstat-no" title="statement not covered" >tream manager from the ser</span>vice registry
+    const streamManager = serviceRegistry.getStreamManager();
     <span class="cstat-no" title="statement not covered" ></span>
     // Get a<span class="cstat-no" title="statement not covered" >ll motion ev</span>ents from in-memory storage
     // In a real implementation, these would be stored in a database
@@ -696,31 +674,31 @@ async function cleanupOldFiles() {
          AND is_archived = false
 <span class="fstat-no" title="function not covered" >         AND is_deleted = f</span>alse`
 <span class="cstat-no" title="statement not covered" >    );</span>
-&nbsp;
-    // Get archived files for <span class="cstat-no" title="statement not covered" >filesystem cleanup</span>
-    cons<span class="cstat-no" title="statement not covered" >t archivedFiles = await (db as any).dataSource.query(</span>
-      `SELEC<span class="cstat-no" title="statement not covered" >T file_uuid, storage_path, created_at</span>
-       FROM <span class="cstat-no" title="statement not covered" >events</span>
+<span class="cstat-no" title="statement not covered" ></span>
+    // Get archived file<span class="cstat-no" title="statement not covered" >s for filesystem cleanup</span>
+    const archivedFiles = await (db as any).dataSource.query(
+      `SELECT file_uuid, storage_path, created_at
+       F<span class="cstat-no" title="statement not covered" >ROM events<span class="fstat-no" title="function not covered" ></span></span>
        WHERE is_archived = true
-         AND is_deleted <span class="cstat-no" title="statement not covered" >= false</span>
+         AND<span class="cstat-no" title="statement not covered" > is_deleted = false</span>
        LIMIT 10000`
     );
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+&nbsp;
     // Move files to archive
-    for (con<span class="cstat-no" title="statement not covered" >st file of archivedFiles) {</span>
+    for (const f<span class="cstat-no" title="statement not covered" >ile of archivedFiles) {</span>
       try {
         const createdDate = new Date(file.created_at);
         const archivePath = getArchivePath(createdDate);
-&nbsp;
-        // Creat<span class="cstat-no" title="statement not covered" >e archive directory if needed</span>
+<span class="cstat-no" title="statement not covered" ></span>
+        // Create archive directory if needed
         await fs.promises.mkdir(path.dirname(archivePath), { recursive: true });
 &nbsp;
-        // Move file to archive
-<span class="cstat-no" title="statement not covered" >        await fs.promises.rename(file.storage_path, archivePath);</span>
+        // Move file to archive<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+        await fs.promises.rename(file.storage_path, archivePath);
 &nbsp;
         // Update storage_path in database
         await (db as any).dataSource.query(
-          `UPDATE detection_files<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+          `UPDATE detection_files
            SET storage_path = $1
            WHERE file_uuid = $2`,
           [archivePath, file.file_uuid]
@@ -741,12 +719,7 @@ async function cleanupOldFiles() {
 // Check camera health and restart if needed
 function checkCameraHealth(io: SocketIOServer) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const streamManager = (global as any).streamManager;
-    if (!streamManager) {
-      console.error('Stream manager not found');
-      return;
-    }
+    const streamManager = serviceRegistry.getStreamManager();
     
     const cameras = streamManager.getAllCameras();
     // Camera health check log disabled - console.log(`Checking health of ${cameras.length} cameras`);
@@ -758,7 +731,7 @@ function checkCameraHealth(io: SocketIOServer) {
         // Camera active log disabled - console.log(`Camera ${camera.id} (${camera.name}) is active`);
       } else {
         // Camera inactive log disabled - console.log(`Camera ${camera.id} (${camera.name}) is inactive, attempting to start test stream`);
-        streamManager.startStream(camera.id);
+        streamManager.startStream(camera.id, 'detect');
       }
     });
     
@@ -781,7 +754,7 @@ function checkCameraHealth(io: SocketIOServer) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:09.943Z
+                at 2026-05-15T18:35:18.558Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

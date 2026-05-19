@@ -1,152 +1,151 @@
 # Technology Stack
 
-**Analysis Date:** 2026-05-06
+**Analysis Date:** 2026-05-15
 
 ## Languages
 
 **Primary:**
-- TypeScript 5.5–5.9 — Frontend UI, backend API server, database models, and all Node.js services
-- JavaScript (ES2022 modules) — Build configuration, test setup, root-level orchestration scripts
+- TypeScript 5.5+ (strict: false) — Frontend UI, Backend API server, database models, all route/service logic
+- Python 3.11 — OpenCV computer vision service (face recognition, YOLO object detection, motion detection)
 
 **Secondary:**
-- Python 3.11 — OpenCV detection service (Flask app, face recognition, motion detection, YOLO inference)
-- SQL — Database migrations (26 migration files in `database/migrations/`)
+- SQL — PostgreSQL migration files (`database/migrations/*.sql`)
+- Shell (Bash) — Startup scripts (`start-all-services.sh`, `deploy-to-manjaro.sh`), diagnostic scripts
+- YAML — Docker Compose orchestration (`docker-compose.yml`)
 
 ## Runtime
 
 **Environment:**
-- Node.js 20 (Alpine-based Docker images) — Frontend dev server, backend API server
-- Python 3.11-slim (Docker image) — OpenCV service container
-- Host system: Node.js 25.9.0, Python 3.14.4 (development machine)
+- Node.js 20 (Alpine-based Docker images) — Frontend & Backend
+- Python 3.11-slim — OpenCV service
+- PostgreSQL 15 (Alpine) — Database engine
+- Redis 7 (Alpine) — Cache layer
 
 **Package Manager:**
-- npm — All JavaScript/TypeScript packages
+- npm — All Node.js packages (root, `frontend/`, `server/`, `database/`)
+- pip — Python dependencies (`opencv-service/requirements.txt`)
 - Lockfile: `package-lock.json` present at root level
-- pip — Python packages for opencv-service (`opencv-service/requirements.txt`)
 
 ## Frameworks
 
 **Core:**
-- Express 5.2.1 — Backend REST API server and HTTP framework (`server/src/index.ts`)
-- React 18.3.1 — Frontend UI library (`frontend/src/`)
-- Flask 3.0.0 — Python OpenCV detection service (`opencv-service/app.py`)
-
-**Real-time Communication:**
-- Socket.IO 4.7–4.8 — Bidirectional streaming and live event notifications between backend and frontend
-
-**Database ORM:**
-- TypeORM 0.3.28 — PostgreSQL entity definitions, repositories, and data access (`server/src/models/`, `server/src/database.ts`)
-- pg 8.16.3 — Direct PostgreSQL driver (used alongside TypeORM for raw SQL queries)
+- React 18.3 — Frontend SPA (`frontend/`)
+- Express 5.2 — Backend API server (`server/`)
+- Flask 3.0 — Python OpenCV microservice (`opencv-service/`)
+- TypeORM 0.3 — Database ORM, entity definitions, repository pattern (`server/src/models/`, `server/src/database.ts`)
 
 **Testing:**
-- Jest 30.2.0 — Test runner for both frontend and backend
-- ts-jest 29.4.5 — TypeScript compilation for Jest
-- Supertest 7.1.4 — HTTP endpoint testing for backend
-- React Testing Library — Frontend component testing (via jest-environment-jsdom)
+- Jest 30 — Test runner for both frontend and backend
+- ts-jest 29 — TypeScript Jest transformer
+- Supertest 7 — HTTP integration tests (backend)
+- React Testing Library — Frontend component tests
 
 **Build/Dev:**
-- Vite 5.4.21 — Frontend dev server, HMR, and production builds (`frontend/vite.config.ts`)
-- @vitejs/plugin-react-swc — SWC-based React transform for fast builds
-- tsx 4.20+ — TypeScript execution for backend development (replaces ts-node)
-- nodemon 3.1.10 — Backend file watcher for hot reload during development
-- TypeScript compiler (tsc) — Backend production builds to `dist/`
+- Vite 5.4 — Frontend dev server, HMR, build toolchain (`frontend/vite.config.ts`)
+- @vitejs/plugin-react-swc — SWC-based React transform for fast HMR
+- tsx — TypeScript execution for dev mode (backend)
+- nodemon — Backend file watcher (wraps tsx)
+- concurrently — Parallel dev server startup
+- wait-on — Service readiness checks
 
 ## Key Dependencies
 
-**Frontend UI:**
-- TailwindCSS 3.4.18 — Utility-first CSS framework (`frontend/tailwind.config.ts`)
-- Radix UI — Headless accessible UI primitives (20+ component packages via shadcn/ui pattern)
-- Recharts 2.15.4 — Chart library for analytics dashboards
-- Framer Motion 12.23.25 — Animation library
-- Lucide React 0.556.0 — Icon library
-- React Router DOM 6.30.2 — Client-side routing
-- @tanstack/react-query 5.90.12 — Server state management and data fetching
-- React Hook Form 7.68.0 + Zod 3.23.8 — Form handling and validation
-- cmdk 1.0.0 — Command palette component
-- date-fns 3.6.0 — Date utility library
+**Critical (Frontend):**
+- `@tanstack/react-query` 5.90 — Server state management, data fetching/caching
+- `socket.io-client` 4.8 — Real-time camera streaming & event notifications
+- `react-router-dom` 6.30 — Client-side routing
+- `recharts` 2.15 — Analytics charts & data visualization
+- `tailwindcss` 3.4 + `tailwindcss-animate` — Utility-first CSS
+- `@radix-ui/*` (20+ packages) — Accessible headless UI primitives (shadcn/ui pattern)
+- `framer-motion` 12.23 — Animation library
+- `zod` 3.23 — Schema validation (used with react-hook-form via `@hookform/resolvers`)
+- `react-hook-form` 7.68 — Form state management
+- `sonner` 1.7 — Toast notifications
+- `cmdk` 1.0 — Command palette component
 
-**Backend Core:**
-- jsonwebtoken 9.0.3 — JWT token generation and verification
-- bcrypt 6.0.0 / bcryptjs — Password hashing (bcrypt for native, bcryptjs as fallback)
-- helmet 8.1.0 — HTTP security headers middleware
-- express-rate-limit 8.2.1 — Rate limiting middleware
-- express-validator 7.3.1 — Request validation
-- multer 2.0.2 — File upload handling
-- cors 2.8.5 — Cross-origin resource sharing
-- dotenv 17.2.3 — Environment variable loading
-- axios 1.13.2 — HTTP client for inter-service communication (OpenCV service)
-- node-cron 4.2.1 — Scheduled task execution
-- sharp 0.34.5 — Image processing and thumbnail generation
-- zod 3.25.76 — Schema validation for API inputs
+**Critical (Backend):**
+- `socket.io` 4.7 — WebSocket server for camera streaming & live events
+- `jsonwebtoken` 9.0 — JWT token generation/verification
+- `bcrypt` 6.0 / `bcryptjs` 3.0 — Password hashing (native + pure JS fallback)
+- `axios` 1.13 — HTTP client for OpenCV service communication
+- `ioredis` 5.10 — Redis client for caching
+- `pg` 8.16 — PostgreSQL driver (used by TypeORM)
+- `sharp` 0.34 — Image processing/resizing
+- `ffmpeg-static` 5.3 — Bundled FFmpeg binary for RTSP stream processing
+- `multer` 2.0 — File upload handling
+- `web-push` 3.6 — Web Push notification delivery
+- `nodemailer` 7.0 — Email sending (configured but not actively imported in routes)
+- `speakeasy` 2.0 — TOTP MFA generation/verification
+- `qrcode` 1.5 — QR code generation for MFA setup
+- `helmet` 8.1 — HTTP security headers
+- `express-rate-limit` 8.2 — API rate limiting
+- `node-cron` 4.2 — Scheduled tasks (retention, cleanup)
+- `zod` 3.25 — Input validation schemas
 
-**Backend Media & Streaming:**
-- ffmpeg-static 5.3.0 — Static FFmpeg binary for RTSP stream processing
-- ws 8.18.3 — WebSocket library (used alongside Socket.IO)
+**Critical (OpenCV Service):**
+- `opencv-contrib-python-headless` 4.8+ — Computer vision (motion detection, YOLO inference, face detection)
+- `numpy` 1.24+ — Numerical operations on image arrays
+- `face-recognition` 1.3+ — Face embedding generation and comparison
+- `flask-cors` 4.0 — CORS for Flask API
+- `flask-limiter` 3.5 — Rate limiting for detection endpoints
+- `psycopg2-binary` 2.9+ — Direct PostgreSQL access (detection cache)
+- `redis` 5.0+ — Caching layer
+- `Pillow` 10.0+ — Image I/O
 
-**Backend Notifications & Messaging:**
-- web-push 3.6.7 — Web Push notification delivery (VAPID protocol)
-- nodemailer 7.0.11 — Email sending (SMTP support, placeholder implementation)
-- speakeasy 2.0.0 — TOTP-based MFA code generation
-
-**Python/OpenCV Service:**
-- opencv-contrib-python-headless >=4.8.0 — Computer vision with extra modules (YOLO, face detection)
-- numpy >=1.24.0 — Numerical computing
-- face-recognition >=1.3.0 — Face recognition with dlib backend
-- Pillow >=10.0.0 — Image processing
-- psycopg2-binary >=2.9.9 — PostgreSQL client for Python
-- flask-cors 4.0.0 — CORS support for Flask
-- flask-limiter 3.5.0 — Rate limiting for Flask endpoints
-- redis >=5.0.0 — Caching client for Python service
+**ML Models (on disk):**
+- YOLOv3 (`yolov3.cfg`, `yolov3.weights`) — Object detection
+- YOLOv4-tiny (`yolov4-tiny.cfg`, `yolov4-tiny.weights`) — Lightweight object detection
+- YOLOv5n (`yolov5n.onnx`) — ONNX format object detection
+- Caffe SSD face detector (`res10_300x300_ssd_iter_140000_fp16.caffemodel`, `deploy.prototxt`)
+- Haar cascade face detector (`haarcascade_frontalface_default.xml` — bundled in models)
 
 ## Configuration
 
 **Environment:**
-- Environment variables via `.env` files (multiple: `.env`, `.env.local`, `.env.production`, `.env.deploy`)
-- `.env.example` templates at root and `server/.env.example`
-- Docker Compose environment sections for container-level configuration
-- `server/cameras.json` — Camera RTSP URLs, resolution, detection zones, motion parameters
-- All config loaded through `server/src/config/index.ts` — single `AppConfig` typed object
+- `.env` files at project root — secrets and config (NEVER commit)
+- `.env.example` — comprehensive template with 200+ variables (many aspirational/unused)
+- `.env.production` — production-specific overrides
+- `server/cameras.json` — camera RTSP URLs, zones, detection parameters
+- Environment variables drive all runtime config (`server/src/config/index.ts`)
 
 **Build:**
-- `frontend/vite.config.ts` — Vite dev server proxy rules, path aliases (`@/` → `frontend/src/`)
-- `frontend/tailwind.config.ts` — Tailwind theme with shadcn/ui CSS variable pattern, custom `security` color palette
-- `frontend/eslint.config.js` — ESLint with TypeScript, React hooks, and React refresh plugins
-- `frontend/postcss.config.js` — PostCSS with Tailwind and Autoprefixer
-- `server/tsconfig.json` — TypeScript targeting ES2022, NodeNext modules, decorators enabled
-- `jest.config.js` (root) — Jest for backend tests with ts-jest ESM preset, 80% coverage threshold
-- `server/jest.config.js` — Server-specific Jest configuration
+- `frontend/vite.config.ts` — Vite dev server proxy, path aliases (`@/` → `./src/`)
+- `frontend/tsconfig.json` — ES2020 target, bundler module resolution
+- `server/tsconfig.json` — ES2022 target, nodenext module resolution
+- `frontend/tailwind.config.ts` — Custom color theme, animations, shadcn/ui CSS variable patterns
+- `frontend/components.json` — shadcn/ui component generator config
+- `frontend/eslint.config.js` — ESLint flat config with TypeScript + React rules
+- `frontend/postcss.config.js` — PostCSS with Tailwind + Autoprefixer
+- `jest.config.js` — Root and per-package Jest configuration
 
-**Docker:**
-- `docker-compose.yml` — 5-service orchestration (postgres, backend, frontend, redis, opencv)
-- `server/Dockerfile` — Node 20 Alpine with Python3, make, g++, postgresql-client
-- `frontend/Dockerfile` — Node 20 Alpine with curl, tzdata
-- `opencv-service/Dockerfile` — Python 3.11-slim with OpenCV system dependencies
-- `database/Dockerfile` — PostgreSQL 15 Alpine
-- `nginx.conf` — Production reverse proxy with gzip, security headers, SPA routing
-
-**Systemd:**
-- `sentryvision.service` — Systemd unit file for Docker Compose auto-start
+**Path Aliases:**
+- Frontend: `@/*` → `frontend/src/*` (configured in `tsconfig.json` + `vite.config.ts`)
+- Backend: Relative imports with `.js` extension (ES modules)
 
 ## Platform Requirements
 
 **Development:**
-- Node.js 20+ (tested on 25.9.0)
-- Python 3.11+ (tested on 3.14.4)
-- npm 11+
-- Docker & Docker Compose (optional, for containerized development)
-- FFmpeg (bundled via ffmpeg-static npm package)
-- PostgreSQL 15+ (via Docker or local installation)
-- Redis 7+ (via Docker, optional — falls back to in-memory cache)
-- RTSP camera streams accessible on local network
+- Docker + Docker Compose (recommended)
+- Node.js 20+ (for non-Docker development)
+- Python 3.11+ with pip (for non-Docker OpenCV service)
+- FFmpeg (system package or ffmpeg-static)
+- PostgreSQL 15+
+- Redis 7+
 
 **Production:**
-- Docker Compose on Linux (target: Manjaro/Arch-based systems)
-- systemd for service management (`sentryvision.service`)
-- Nginx as reverse proxy (`nginx.conf`)
-- Network access to RTSP cameras (192.168.31.x LAN)
-- Timezone: IST (Asia/Kolkata, UTC+5:30) — configured across all containers
-- Resource-optimized: supports 1-core, 2GB RAM systems via `LOW_RESOURCE_MODE`
+- Docker Compose orchestrates 5 services: `postgres`, `backend`, `frontend`, `redis`, `opencv`
+- systemd service file provided (`sentryvision.service`) for auto-start
+- Target: 1-core, 2GB RAM systems (LOW_RESOURCE_MODE=true by default)
+- nginx reverse proxy (`nginx.conf`) for production static serving + API proxy
+- Timezone: IST (Asia/Kolkata, UTC+5:30) — hardcoded in Docker env vars and systemd service
+
+**Resource Limits (Docker defaults):**
+- PostgreSQL: 0.5 CPU, 512MB RAM
+- Backend: 1.5 CPU, 3584MB RAM, Node heap 2560MB
+- Frontend: No explicit limits
+- Redis: 0.1 CPU, 64MB RAM
+- OpenCV: 0.5 CPU, 768MB RAM
 
 ---
 
-*Stack analysis: 2026-05-06*
+*Stack analysis: 2026-05-15*

@@ -16,7 +16,6 @@ import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useSearchParams } from 'react-router-dom';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'confidence';
@@ -55,7 +54,6 @@ interface ApiEvent {
 const EventsPage = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
@@ -67,21 +65,11 @@ const EventsPage = () => {
   const [totalEvents, setTotalEvents] = useState(0);
   const [todayEvents, setTodayEvents] = useState(0);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [filters, setFilters] = useState<FilterState>(() => {
-    return {
-      searchQuery: searchParams.get('q') || '',
-      cameraId: searchParams.get('camera') || 'all',
-      detectionType: (searchParams.get('type') as FilterState['detectionType']) || 'all',
-      dateRange: {
-        start: searchParams.get('start') ? new Date(searchParams.get('start')!) : undefined,
-        end: searchParams.get('end') ? new Date(searchParams.get('end')!) : undefined,
-      },
-      confidence: (searchParams.get('confidence') as FilterState['confidence']) || 'all',
-      faceStatus: (searchParams.get('faces') as FilterState['faceStatus']) || 'all',
-      quickRange: 'all',
-      timeOfDay: (searchParams.get('time') as FilterState['timeOfDay']) || 'all',
-      personCount: (searchParams.get('people') as FilterState['personCount']) || 'all',
-    };
+  const [filters, setFilters] = useState<FilterState>({
+    cameraId: 'all',
+    detectionType: 'all',
+    dateRange: { start: undefined, end: undefined },
+    quickRange: 'all',
   });
 
   // Bulk selection state
@@ -163,10 +151,7 @@ const EventsPage = () => {
           start_date: filters.dateRange.start?.toISOString(),
           end_date: filters.dateRange.end?.toISOString(),
           event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
-          searchQuery: filters.searchQuery || undefined,
           sortBy: sortBy,
-          confidence: filters.confidence === 'all' ? undefined : filters.confidence,
-          faceStatus: filters.faceStatus === 'all' ? undefined : filters.faceStatus,
         }),
         eventService.getDailyStats()
       ]);
@@ -213,20 +198,6 @@ const EventsPage = () => {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
-
-  useEffect(() => {
-    const newParams = new URLSearchParams();
-    if (filters.searchQuery) newParams.set('q', filters.searchQuery);
-    if (filters.cameraId !== 'all') newParams.set('camera', filters.cameraId);
-    if (filters.detectionType !== 'all') newParams.set('type', filters.detectionType);
-    if (filters.dateRange.start) newParams.set('start', filters.dateRange.start.toISOString());
-    if (filters.dateRange.end) newParams.set('end', filters.dateRange.end.toISOString());
-    if (filters.confidence !== 'all') newParams.set('confidence', filters.confidence);
-    if (filters.faceStatus !== 'all') newParams.set('faces', filters.faceStatus);
-    if (filters.timeOfDay !== 'all') newParams.set('time', filters.timeOfDay);
-    if (filters.personCount !== 'all') newParams.set('people', filters.personCount);
-    setSearchParams(newParams, { replace: true });
-  }, [filters, setSearchParams]);
 
   const handleEventSelect = (eventId: string) => {
     setSelectedEventId(eventId);

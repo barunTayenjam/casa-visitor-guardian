@@ -9,10 +9,12 @@ export default defineConfig({
     host: "::",
     port: 5173,
     allowedHosts: [
-      'argus.tayenjam.qzz.io',  // Allow the specific host mentioned in error
+      'argus.tayenjam.qzz.io',
+      '192.168.31.99',
       'localhost',
       '127.0.0.1',
-      '::1'
+      '::1',
+      '.lan',
     ],
     proxy: {
       "/api": {

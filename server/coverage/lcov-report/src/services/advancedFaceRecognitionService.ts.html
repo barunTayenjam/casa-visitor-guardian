@@ -285,7 +285,8 @@
 <a name='L220'></a><a href='#L220'>220</a>
 <a name='L221'></a><a href='#L221'>221</a>
 <a name='L222'></a><a href='#L222'>222</a>
-<a name='L223'></a><a href='#L223'>223</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -507,115 +508,117 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as cv from '@techstark/opencv-js';
-import { FaceDetection } from '../detection/consolidatedDetectionService.js';
-import { getOpenCVC<span class="cstat-no" title="statement not covered" >lient } from './op</span>encvMicroserviceClient.js';
-<span class="cstat-no" title="statement not covered" ></span>
-export interface FaceEmbedding {
-  id: string;<span class="cstat-no" title="statement not covered" ></span>
-  pe<span class="fstat-no" title="function not covered" >rs</span>onName: string;
-  embedd<span class="cstat-no" title="statement not covered" >ing: number[];</span>
-  timestamp: Date;
-  co<span class="fstat-no" title="function not covered" >nf</span>idence: number;
-}<span class="cstat-no" title="statement not covered" ></span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// @ts-expect-error - opencv-js types not available at compile time
+import * as cv from '@techstark/opencv-js';
+import { FaceDetect<span class="cstat-no" title="statement not covered" >ion } from '../det</span>ection/consolidatedDetectionService.js';
+import { getOpenCVCli<span class="cstat-no" title="statement not covered" >ent</span> } from './opencvMicroserviceClient.js';
+&nbsp;
+export interface Fac<span class="cstat-no" title="statement not covered" >eEmbed</span>ding {
+  id<span class="fstat-no" title="function not covered" >: </span>string;
+  person<span class="cstat-no" title="statement not covered" >Name: string;</span>
+  embedding: number[];
+  ti<span class="fstat-no" title="function not covered" >me</span>stamp: Date;
+  confid<span class="cstat-no" title="statement not covered" >ence: number;</span>
+}
 &nbsp;
 export interface FaceRecognitionResult {
-  personName: string;
+  personName<span class="cstat-no" title="statement not covered" >: string;</span>
   confidence<span class="cstat-no" title="statement not covered" >: number;</span>
-  isKnown: b<span class="cstat-no" title="statement not covered" >oolean;</span>
+  isKnown: boolean;
   boundingBox?: {
-    x: number;
+    x: numbe<span class="cstat-no" title="statement not covered" >r;</span>
     y: numbe<span class="cstat-no" title="statement not covered" >r;</span>
-    width: n<span class="cstat-no" title="statement not covered" >umber;</span>
+    width: number;
     height: number;
   };
   embedding?: number[];
 }
+<span class="fstat-no" title="function not covered" ></span>
+export c<span class="cstat-no" title="statement not covered" >lass AdvancedFaceRecognitionService {</span>
+  private op<span class="cstat-no" title="statement not covered" >encvClient = getOpenCVClient();</span>
+  private faceEmbeddings: FaceEmbedding[] = [];
+  privat<span class="cstat-no" title="statement not covered" >e faceMatcher: any; // OpenCV face matcher</span>
+  private isInitialized = false;
 &nbsp;
-expo<span class="fstat-no" title="function not covered" >rt</span> class AdvancedFaceRecognitionService {
-  privat<span class="cstat-no" title="statement not covered" >e opencvClient = getOpenCVClient();</span>
-  private fa<span class="cstat-no" title="statement not covered" >ceEmbeddings: FaceEmbedding[] = [];</span>
-  private faceMatcher: any; // OpenCV face matcher
-  privat<span class="cstat-no" title="statement not covered" >e isInitialized = false;</span>
-&nbsp;
-  constructor() {
-    this.ini<span class="cstat-no" title="statement not covered" >tialize();</span>
+  constructo<span class="cstat-no" title="statement not covered" >r() {</span>
+    this.initialize();
   }
 &nbsp;
   private async initialize(): Promise&lt;void&gt; {
     try {
-      // Initialize the face recognition model
-      // In <span class="cstat-no" title="statement not covered" >a real impl</span>ementation, we would load a pre-trained model
+      // Ini<span class="cstat-no" title="statement not covered" >tialize the</span> face recognition model
+      // In a real implementation, we would load a pre-trained model
       // For now, we'll use the existing OpenCV functionality
-      console.log('Advanced face recognition service initialized');
-      this.i<span class="cstat-no" title="statement not covered" >sInitialized = true;</span>
-    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      consol<span class="cstat-no" title="statement not covered" >e.log('Advanced face recognition service initialized');</span>
+      this.i<span class="cstat-no" title="statement not covered" >sInitialize</span>d = true;
+    } catch (error) {
       console.error('Failed to initialize advanced face recognition service:', error);
       this.isInitialized = false;
     }
   }
-&nbsp;
-  /*<span class="fstat-no" title="function not covered" >*</span>
-   * Ext<span class="cstat-no" title="statement not covered" >ract face embeddings from an image using deep learning</span>
+<span class="fstat-no" title="function not covered" ></span>
+  /**<span class="cstat-no" title="statement not covered" ></span>
+   * Extract<span class="cstat-no" title="statement not covered" > face embeddings from an image using deep learning</span>
    */<span class="cstat-no" title="statement not covered" ></span>
-  async extractF<span class="cstat-no" title="statement not covered" >aceEmbeddings(imagePath: string): Promise&lt;number[][]&gt; {</span>
+  async extractFaceEmbeddings(imagePath: string): Promise&lt;number[][]&gt; {
     if (!this.isInitialized) {
-      throw new Error('Advanced face recognition service not initialized');
+      throw <span class="cstat-no" title="statement not covered" >new Error('Advanced face recognition service not initialized');</span>
     }<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
     try {
       // In a real implementation, this would use a deep learning model like ArcFace or FaceNet
       // For now, we'll return empty embeddings as a placeholder
       console.log(`Extracting face embeddings from ${imagePath}`);
       
-      // This would typically:
-      // 1. Load<span class="cstat-no" title="statement not covered" > the image</span>
+      // This wo<span class="cstat-no" title="statement not covered" >uld typically:</span>
+      // 1. Load the image
       // 2. Detect faces
-      // 3. Extract embeddings using a deep learning model
-      // 4. <span class="cstat-no" title="statement not covered" >Return the embeddings</span>
-      <span class="cstat-no" title="statement not covered" ></span>
+      // 3. <span class="cstat-no" title="statement not covered" >Extract embeddings using a deep learning model</span>
+      // 4. <span class="cstat-no" title="statement not covered" >Return the em</span>beddings
+      
       return []; // Placeholder
-    } catch (error) {
-      consol<span class="cstat-no" title="statement not covered" >e.error('Error extracting face embeddings:', error)</span>;
-      return<span class="cstat-no" title="statement not covered" > [];</span>
+    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      consol<span class="cstat-no" title="statement not covered" >e.error('Error</span> extracting face embeddings:', error);
+      return [];
     }
   }
 &nbsp;
   /**
-   * Register a known person with their face embeddings
-   *<span class="fstat-no" title="function not covered" >/</span>
-  async <span class="cstat-no" title="statement not covered" >registerPerson(personName: string, embeddings: number[][]): Promise&lt;boolean&gt; {</span>
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      if (!this.isInitialized) {
-<span class="cstat-no" title="statement not covered" >        throw new Error('Advanced face recognition service not initialized');</span>
-      }
+   *<span class="fstat-no" title="function not covered" > R</span>egister a known person with their face embeddings
+   */<span class="cstat-no" title="statement not covered" ></span>
+  async regi<span class="cstat-no" title="statement not covered" >sterPerson(personName: string, embeddings: number[][]): Promise&lt;boolea</span>n&gt; {
+    try {
+      if<span class="cstat-no" title="statement not covered" > (!this.isInitialized) {</span>
+        throw new Error('Advanced face recognition service not initialized');
+      }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-      // Sto<span class="cstat-no" title="statement not covered" >re embeddings for the person</span>
-      for (const<span class="cstat-no" title="statement not covered" > embedding of embeddings) {</span>
-        const faceEmbedding: FaceEmbedding = {
-          id: `${personName}<span class="cstat-no" title="statement not covered" >_${</span>Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          personName,
-          em<span class="cstat-no" title="statement not covered" >bedding,</span>
-          timestamp: new Date(),<span class="cstat-no" title="statement not covered" ></span>
-          confid<span class="cstat-no" title="statement not covered" >ence: 1.0 // Initial confidence</span>
-        };
-        <span class="cstat-no" title="statement not covered" ></span>
+      // Store e<span class="cstat-no" title="statement not covered" >mbeddings for the person</span>
+      for (const embedding of embeddings) {
+        const faceEmbedding:<span class="cstat-no" title="statement not covered" > Fa</span>ceEmbedding = {
+          id: `${personName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          pe<span class="cstat-no" title="statement not covered" >rsonName,</span>
+          embedding,<span class="cstat-no" title="statement not covered" ></span>
+          timest<span class="cstat-no" title="statement not covered" >amp: new Date(),</span>
+          confidence: 1.0 // Initial confidence
+        };<span class="cstat-no" title="statement not covered" ></span>
+        
         this.faceEmbeddings.push(faceEmbedding);
-      }
+      }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-      // In <span class="cstat-no" title="statement not covered" >a real impl</span>ementation, we would update the face matcher with new embeddings
+      // In a real implementation, we would update the face matcher with new embeddings
       console.log(`Registered ${embeddings.length} embeddings for ${personName}`);
       return true;
     } catch (error) {
       console.error('Error registering person:', error);
-      return false;
-<span class="fstat-no" title="function not covered" >    }</span>
+<span class="fstat-no" title="function not covered" ></span>      return false;
+    }
   }
 &nbsp;
   /**
    * Recognize faces in an image using stored embeddings
-   */
-  async <span class="cstat-no" title="statement not covered" >recognizeFacesInImage(imagePath: string): Promise&lt;FaceRecognitionResult[]&gt; {</span>
+   */<span class="cstat-no" title="statement not covered" ></span>
+  async recognizeFacesInImage(imagePath: string): Promise&lt;FaceRecognitionResult[]&gt; {
     if (!this.isInitialized) {
       throw new Error('Advanced face recognition service not initialized');
     }
@@ -625,65 +628,65 @@ expo<span class="fstat-no" title="function not covered" >rt</span> class Advance
       const detectionResult = await this.opencvClient.recognizeFaces(imagePath);
       
       if (!detectionResult.success) {
-        throw new Error(`Face detection failed: ${detectionResult.error}`);
-<span class="fstat-no" title="function not covered" ></span>      }
+<span class="fstat-no" title="function not covered" ></span>        throw new Error(`Face detection failed: ${detectionResult.error}`);
+      }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-      const <span class="cstat-no" title="statement not covered" >results: FaceRecognitionResult[] = [];</span>
-      <span class="cstat-no" title="statement not covered" ></span>
+      const resu<span class="cstat-no" title="statement not covered" >lts: FaceRecognitionResult[] = [];</span>
+      
       // For each detected face, try to match against known embeddings
       for (const face of detectionResult.faceDetections) {
-        const recognitionResult = await this.matchFaceEmbedding(face);
-        resu<span class="cstat-no" title="statement not covered" >lts.push(recognitionResult);</span>
-      }
-<span class="cstat-no" title="statement not covered" ></span>
+        cons<span class="cstat-no" title="statement not covered" >t recognitionResult = await this.matchFaceEmbedding(face);</span>
+        results.push(recognitionResult);
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
       return results;
-    } catch (error) {
-      consol<span class="cstat-no" title="statement not covered" >e.error('Error recognizing faces in image:', error);</span>
-      return<span class="cstat-no" title="statement not covered" > [];</span>
+    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      consol<span class="cstat-no" title="statement not covered" >e.error('Error</span> recognizing faces in image:', error);
+      return [];
     }
   }
 &nbsp;
   /**
-   * Match a face against known embeddings
-   *<span class="fstat-no" title="function not covered" >/</span>
-  private async matchFaceEmb<span class="cstat-no" title="statement not covered" >edding(faceDetection: any): Promise&lt;<span class="fstat-no" title="function not covered" >Fa</span>ceRecogniti<span class="cstat-no" title="statement not covered" >onResult&gt; {</span></span>
-    // I<span class="cstat-no" title="statement not covered" >n a real implementat</span>ion, this would:
+   *<span class="fstat-no" title="function not covered" > M</span>atch a face against known embeddings
+   */<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+  privat<span class="cstat-no" title="statement not covered" >e async matchFaceEmb</span>edding(faceDetection: any): Promise&lt;FaceRecognitionResult&gt; {
+    // In a real implementation, this would:
     // 1. Extract embeddings from the detected face
     // 2. Compare with stored embeddings
     // 3. Return the best match
-    
-<span class="fstat-no" title="function not covered" >    //</span> For now, we'll use the existing face detection result as a fallback
-    retu<span class="cstat-no" title="statement not covered" >rn {</span>
-      personName: faceDetection.n<span class="cstat-no" title="statement not covered" >ame || 'unknown',</span>
-      confid<span class="cstat-no" title="statement not covered" >ence: faceDetection.confidence || 0,<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-      isKnown: faceDetection.is<span class="cstat-no" title="statement not covered" >Known || false,</span>
-      boundi<span class="cstat-no" title="statement not covered" >ngBox: faceDetection.bbox,</span>
-      embedd<span class="cstat-no" title="statement not covered" >ing: undefine</span>d // Would be the actual embedding in a real implementation
+    <span class="fstat-no" title="function not covered" ></span>
+    // F<span class="cstat-no" title="statement not covered" >or now, we'll use the existing face detection result as a fallback</span>
+    return {<span class="cstat-no" title="statement not covered" ></span>
+      person<span class="cstat-no" title="statement not covered" >Name: faceDetection.name || 'unknown',<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      confidence: faceDetection<span class="cstat-no" title="statement not covered" >.confidence || 0,</span>
+      isKnow<span class="cstat-no" title="statement not covered" >n: faceDetection.isKnown || false,</span>
+      boundi<span class="cstat-no" title="statement not covered" >ngBox: faceDe</span>tection.bbox,
+      embedding: undefined // Would be the actual embedding in a real implementation
     };
-  }
+  }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-  /**<span class="cstat-no" title="statement not covered" ></span>
+  /**
    * Train the face recognition model with new data
    */
   async trainModel(): Promise&lt;boolean&gt; {
     try {
-      if (!this.isInitialized) {
-<span class="fstat-no" title="function not covered" ></span>        throw new Error('Advanced face recognition service not initialized');
-      }
+<span class="fstat-no" title="function not covered" ></span>      if (!this.isInitialized) {
+        throw new Error('Advanced face recognition service not initialized');
+      }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
       // In a real i<span class="cstat-no" title="statement not covered" >mp</span>lementation, this would retrain the face recognition model
-      // with all th<span class="cstat-no" title="statement not covered" >e </span>stored embeddings
-      co<span class="cstat-no" title="statement not covered" >nsole.log('Tr<span class="cstat-no" title="statement not covered" >ai</span>ning face recognition model with', this.faceEmbeddings.length, 'embeddings');</span>
+      //<span class="cstat-no" title="statement not covered" > with all the<span class="cstat-no" title="statement not covered" > s</span>tored embeddings</span>
+      consol<span class="cstat-no" title="statement not covered" >e.log('Training face recognition model with',</span> this.faceEmbeddings.length, 'embeddings');
       <span class="cstat-no" title="statement not covered" ></span>
       // Pla<span class="cstat-no" title="statement not covered" >ceholder implementation</span>
-      return<span class="cstat-no" title="statement not covered" > true;</span>
-    } catch (error) {
-      console.error('Error <span class="cstat-no" title="statement not covered" >training face recognition model:', error);</span>
-      re<span class="cstat-no" title="statement not covered" >turn false;</span>
+      return true;
+    } catch (error) {<span class="cstat-no" title="statement not covered" ></span>
+      co<span class="cstat-no" title="statement not covered" >nsole.error('Error training face recognition model:', e</span>rror);
+      return false;
     }
   }
-&nbsp;
-  /**<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+  /**
    * Get all known people in the system
    */
   async getKnownPeople(): Promise&lt;string[]&gt; {
@@ -736,7 +739,7 @@ export const advancedFaceRecognitionService = new AdvancedFaceRecognitionService
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-26T16:55:48.029Z
+                at 2026-05-15T18:35:18.558Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

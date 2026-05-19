@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
-import { Timeline } from '../models/Timeline.js';
-import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
-import { cacheService } from './cacheService.js';
+import { Timeline } from '../../models/Timeline.js';
+import { AdaptiveRegion } from '../../models/AdaptiveRegion.js';
+import { cacheService } from '../cacheService.js';
 
 interface TimelineEvent {
   id: string;

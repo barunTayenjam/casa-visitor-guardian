@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/203</span>
+                <span class='fraction'>0/210</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/101</span>
+                <span class='fraction'>0/103</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/40</span>
+                <span class='fraction'>0/42</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/189</span>
+                <span class='fraction'>0/194</span>
             </div>
         
             
@@ -727,7 +727,13 @@
 <a name='L662'></a><a href='#L662'>662</a>
 <a name='L663'></a><a href='#L663'>663</a>
 <a name='L664'></a><a href='#L664'>664</a>
-<a name='L665'></a><a href='#L665'>665</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L665'></a><a href='#L665'>665</a>
+<a name='L666'></a><a href='#L666'>666</a>
+<a name='L667'></a><a href='#L667'>667</a>
+<a name='L668'></a><a href='#L668'>668</a>
+<a name='L669'></a><a href='#L669'>669</a>
+<a name='L670'></a><a href='#L670'>670</a>
+<a name='L671'></a><a href='#L671'>671</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -907,13 +913,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1267,6 +1277,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1571,21 +1583,21 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
       const current = sharp(currentFrame);
       const background = sharp(backgroundFrame);
       <span class="cstat-no" title="statement not covered" ></span>
-      // Get metadata for normalization
-      const currentMeta = await <span class="cstat-no" title="statement not covered" >current.metadata()<span class="fstat-no" title="function not covered" >;<span class="cstat-no" title="statement not covered" ></span></span></span>
-      const { width, height } = cu<span class="cstat-no" title="statement not covered" >rrentMeta;<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-      
-      if (!width || !height) r<span class="cstat-no" title="statement not covered" >eturn 0;</span>
-<span class="cstat-no" title="statement not covered" ></span>
-      // Resize <span class="cstat-no" title="statement not covered" >to small resolution for faster processing</span>
-      const resizeWidth = 160;
-      const <span class="cstat-no" title="statement not covered" >resizeHeight = Math.floor((height / width) * resizeWi</span>dth);
-      
-      // Calculate differe<span class="cstat-no" title="statement not covered" >nce using composite operations</span>
-      const currentResized = await current.resize(resizeWidth, resizeHeight).raw().toBuffer();
-      const backgroundResized = await background.resize(resizeWidth, resizeHeight).raw().toBuffer();
+      // Get metadata for normalizat<span class="cstat-no" title="statement not covered" >ion</span>
+      const currentMeta = await current<span class="cstat-no" title="statement not covered" >.metadata();<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      const <span class="cstat-no" title="statement not covered" >{ width, height } = currentMeta;</span>
+      <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      if (!width<span class="cstat-no" title="statement not covered" > || !hei</span>ght) return 0;
 &nbsp;
-      // Manual differencing for better control
+      // Resize to small resolut<span class="cstat-no" title="statement not covered" >ion for faster processing<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      const resizeWidth = 160;<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      const resizeHeight = Mat<span class="cstat-no" title="statement not covered" >h.floor((height / width) * resizeWidth);</span>
+      <span class="cstat-no" title="statement not covered" ></span>
+      // Calcula<span class="cstat-no" title="statement not covered" >te difference using composite operations</span>
+      const currentResized = await current.resize(resizeWidth, resizeHeight).raw().toBuffer();
+      const <span class="cstat-no" title="statement not covered" >backgroundResized = await background.resize(resizeWid</span>th, resizeHeight).raw().toBuffer();
+&nbsp;
+      // Manual differenci<span class="cstat-no" title="statement not covered" >ng for better control</span>
       const pixels1 = new Uint8ClampedArray(currentResized);
       const pixels2 = new Uint8ClampedArray(backgroundResized);
       let totalDiff = 0;
@@ -1595,34 +1607,34 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
         const diff = Math.abs(pixels1[i] - pixels2[i]) + 
                     Math.abs(pixels1[i+1] - pixels2[i+1]) + 
                     Math.abs(pixels1[i+2] - pixels2[i+2]);
-        totalDiff += diff / 3; // Average R<span class="fstat-no" title="function not covered" >GB</span> diffe<span class="cstat-no" title="statement not covered" >rence</span>
+        totalDiff += diff / 3; // Average RGB difference
       }
       
       const avgDiff = totalDiff / (pixels1.length / 3);
-      return Math.min(avgDiff / 255, 1); // Normalize to 0-1
+      return Math.min(avgDiff / 255, 1); //<span class="fstat-no" title="function not covered" > N</span>ormali<span class="cstat-no" title="statement not covered" >ze to 0-1</span>
       
     } catch (error) {
-      consol<span class="cstat-no" title="statement not covered" >e.error('Motion level calculation error:', error</span>);
+      console.error('Motion level calculation error:', error);
       return 0;
-    }<span class="cstat-no" title="statement not covered" ></span>
+    }
   }
 <span class="cstat-no" title="statement not covered" ></span>
-  /**<span class="cstat-no" title="statement not covered" ></span>
-   * Check if buffer contains valid JPEG data
+  /**
+   * Check i<span class="cstat-no" title="statement not covered" >f buffer contains valid JPEG data</span>
    */
-  private isValidJpeg(buffer: Buffer): boolean {
-    return buffer.length &gt;= 4 &amp;&amp; 
+  private is<span class="cstat-no" title="statement not covered" >ValidJpeg(buffer: Buffer): boolean {</span>
+    return buffe<span class="cstat-no" title="statement not covered" >r.length &gt;= 4 &amp;&amp; </span>
            buffer[0] === 0xFF &amp;&amp; 
            buffer[1] === 0xD8 &amp;&amp; 
-           buffer[buffer.length<span class="cstat-no" title="statement not covered" >-2] === 0xFF &amp;&amp; </span>
-           b<span class="cstat-no" title="statement not covered" >uffer[buffer.length-1] === 0xD9;</span>
-  }<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-  /**
-   * Trigger full object detection on motion-detected frame
-   */
-  private async triggerFullDetection(cameraId: string, frame: Buffer, settings: MotionDetectionSettings): Promise&lt;void&gt; {
-    // Mark <span class="cstat-no" title="statement not covered" >detection as in progress</span>
+           buffer[buffer.length-2] === 0xFF &amp;&amp; 
+           buffer[buffer.length-1] === 0xD9;
+  }
+&nbsp;
+  /**<span class="cstat-no" title="statement not covered" ></span>
+   * Trigger<span class="cstat-no" title="statement not covered" > full object detection on motion-detected frame</span>
+   */<span class="cstat-no" title="statement not covered" ></span>
+  private async <span class="cstat-no" title="statement not covered" >triggerFullDetection(cameraId: str</span>ing, frame: Buffer, settings: MotionDetectionSettings): Promise&lt;void&gt; {
+    // Mark detection as in progress
     this.detectionInProgress.add(cameraId);
 &nbsp;
     try {
@@ -1630,37 +1642,43 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
       
       // Run full detection using OpenCV service
       const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {
-        headers: {
+        head<span class="cstat-no" title="statement not covered" >ers: {</span>
           'Content-Type': 'image/jpeg'
-<span class="fstat-no" title="function not covered" ></span>        },
-        timeout: 30000<span class="cstat-no" title="statement not covered" ></span>
-      })<span class="cstat-no" title="statement not covered" >;</span>
-      <span class="cstat-no" title="statement not covered" ></span>
-      const detections = response.data.detections;
+        },
+        timeout: 30000
+      });
       
-      //<span class="cstat-no" title="statement not covered" > Calculate event metadata</span>
-      const <span class="cstat-no" title="statement not covered" >personCo</span>unt = detections.filter(d =&gt; d.class === 'person').length;
-      const maxConfidence = Math.max(...detections.map(d =&gt; d.confidence), 0);
-      
-      // Add frame to motio<span class="cstat-no" title="statement not covered" >n queue and save to DB with detections</span>
-      co<span class="cstat-no" title="statement not covered" >nst framePath = await this.saveMotionFrame(cameraId, frame, detections);</span>
+<span class="fstat-no" title="function not covered" ></span>      const detections = response.data.detections;
       <span class="cstat-no" title="statement not covered" ></span>
-      if (!this.motionFrameQueue.has(cameraId)) {
+      co<span class="cstat-no" title="statement not covered" >nst relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'package'];</span>
+      const <span class="cstat-no" title="statement not covered" >relevant</span>Detections = detections.filter(d =&gt; relevantClasses.includes(d.class));
+      
+      if (relevantDetections.length === 0) {
+<span class="cstat-no" title="statement not covered" >        console.log(`[${cameraId}] Skipping event save - no relevant objects detected (got: ${detections.map(d =&gt; d.class).join(', ')})`);</span>
+        retu<span class="cstat-no" title="statement not covered" >rn;</span>
+      }
+      
+      const personCount = r<span class="cstat-no" title="statement not covered" >elevantDetections.filter(d =&gt; d.class ==</span>= 'person').length;
+      co<span class="cstat-no" title="statement not covered" >nst maxConfidence = Math.max(...relevantDetections.map(d =&gt; d.confidence), 0);</span>
+      <span class="cstat-no" title="statement not covered" ></span>
+      const framePath = await this.saveMotionFrame(cameraId, frame, relevantDetections);
+      <span class="cstat-no" title="statement not covered" ></span>
+      if (!this.motionFram<span class="cstat-no" title="statement not covered" >eQueue.has(</span>cameraId)) {
 <span class="cstat-no" title="statement not covered" >        this.motionFrameQueue.set(cameraId, []);</span>
       }<span class="cstat-no" title="statement not covered" ></span>
-      th<span class="cstat-no" title="statement not covered" >is.motionFrameQueue.get(cameraId)!.push(framePath);</span>
-      <span class="cstat-no" title="statement not covered" ></span>
+      this.motionFrameQueue.get(cameraId)!.push(framePath);
+      
       // Create motion detection event with full detection data
       const event: MotionDetectionEvent = {
         id: `motion_${cameraId}_${Date.now()}`,
-        cameraId,
+        cameraId,<span class="cstat-no" title="statement not covered" ></span>
         timestamp: new Date().toISOString(),
-        motionLevel: maxConfide<span class="cstat-no" title="statement not covered" >nce,</span>
-        frameCount: this.motionFrameQueue.get(cameraId)!.length,
-        detectionFrames: [...thi<span class="cstat-no" title="statement not covered" >s.motionFrameQueue<span class="fstat-no" title="function not covered" >.g</span>et(ca<span class="cstat-no" title="statement not covered" >meraId)!],</span></span>
-        metadata: {<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+        motionLevel: maxConfiden<span class="cstat-no" title="statement not covered" >ce,<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+        frameCount: this.motionFra<span class="cstat-no" title="statement not covered" >meQueue.get(cameraId)!.leng<span class="fstat-no" title="function not covered" >th</span>,<span class="cstat-no" title="statement not covered" ></span></span>
+        detectionFrames: [...this.motionFrameQueue.get(cameraId)!],
+        metadata: {<span class="cstat-no" title="statement not covered" ></span>
           maxConfidence,
-          totalDetections:<span class="cstat-no" title="statement not covered" > detections.length,</span>
+          totalDetections: detections.length,
           personCount,
           processingTime: Date.now() - startTime
         },
@@ -1671,71 +1689,71 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
           bbox: d.bbox
         }))
       };
-&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
       // Update motion timestamp
-      this.lastMotionTimes.set(cameraId, Da<span class="fstat-no" title="function not covered" >te</span>.now()<span class="cstat-no" title="statement not covered" >);</span>
+      this.lastMotionTimes.set(cameraId, Date.now());
 &nbsp;
       // Emit motion event
       this.emit('motionDetected', event);
-&nbsp;
+<span class="cstat-no" title="statement not covered" ></span>
       // Trigger batch processing if enabled
-      if (se<span class="cstat-no" title="statement not covered" >ttings.enableBatchTrigger &amp;&amp; detections.length &gt;</span> 0) {
+      if (se<span class="cstat-no" title="statement not covered" >ttings.enableBatchTrigger &amp;&amp; detections.length &gt; 0) {</span>
         this.emit('batchTrigger', {
-          ca<span class="cstat-no" title="statement not covered" >meraId,</span>
+          cameraId,
           event,
           frames: this.motionFrameQueue.get(cameraId)!
         });
-      }
+      }<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
-      // Cle<span class="cstat-no" title="statement not covered" >anup old frames (keep only last 10)</span>
-      const frameQueue = this.motionFrameQueue.get(cameraId)!;
+      // Cleanup old frames (keep only last 10)
+      const <span class="cstat-no" title="statement not covered" >frameQueue = this.motionFrameQueue.get(came</span>raId)!;
       if (frameQueue.length &gt; 10) {
-        cons<span class="cstat-no" title="statement not covered" >t oldFrames = frameQueue.splice(0, frameQue</span>ue.length - 10);
+        const oldFrames = frameQueue.splice(0, frameQueue.length - 10);
         this.cleanupOldFrames(oldFrames);
       }
 &nbsp;
       // No OpenCV resources to cleanup - handled by the service
-&nbsp;
-    } catch (error) {
-<span class="fstat-no" title="function not covered" ></span>      console.error(`Full detection failed for ${cameraId}:`, error);
-    } fi<span class="cstat-no" title="statement not covered" >nally {<span class="fstat-no" title="function not covered" ></span></span>
-      // Remove detection in progress flag
-      this.d<span class="cstat-no" title="statement not covered" >etectionInProgress.delete(cameraId);</span>
+<span class="fstat-no" title="function not covered" ></span>
+    } ca<span class="cstat-no" title="statement not covered" >tch (error) {<span class="fstat-no" title="function not covered" ></span></span>
+      console.error(`Full detection failed for ${cameraId}:`, error);
+    } finall<span class="cstat-no" title="statement not covered" >y {</span>
+      // Remove <span class="cstat-no" title="statement not covered" >detection in p</span>rogress flag
+      this.detectionInProgress.delete(cameraId);
     }<span class="cstat-no" title="statement not covered" ></span>
   }
 <span class="cstat-no" title="statement not covered" ></span>
   /**
-   * Run obj<span class="cstat-no" title="statement not covered" >ect detection on a frame (called periodically)</span>
+   * Run object <span class="cstat-no" title="statement not covered" >detection on a</span> frame (called periodically)
    */
-  async runDetec<span class="cstat-no" title="statement not covered" >tion(cameraId:</span> string, frame: Buffer): Promise&lt;void&gt; {
-    const settings = this.getSettings(cameraId);
+  async runDetection(cameraId: string, frame: Buffer): Promise&lt;void&gt; {
+    const se<span class="cstat-no" title="statement not covered" >ttings = this.getSettings(cameraId);</span>
     if (!settings || !settings.enabled) {
-      return<span class="cstat-no" title="statement not covered" >;</span>
-    }
-<span class="cstat-no" title="statement not covered" ></span>
-    // Skip if detection already in progress
-    if (this.detectionInProgress.has(cameraId)) {
       return;<span class="cstat-no" title="statement not covered" ></span>
+    }
+&nbsp;
+    // Skip if detection already<span class="cstat-no" title="statement not covered" > in progress</span>
+    if (this<span class="cstat-no" title="statement not covered" >.detectionInProgress.has(cameraId)) {</span>
+      return;<span class="cstat-no" title="statement not covered" ></span>
+    }
+&nbsp;
+    // Skip <span class="cstat-no" title="statement not covered" >if in cooldown period</span>
+    const lastMo<span class="cstat-no" title="statement not covered" >tion = this.la</span>stMotionTimes.get(cameraId) || 0;
+    if (Date.now() - lastMotion &lt; settings.motionCooldown) {
+      return;
     }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-    // Skip if in cooldown period
-    const lastMotion = this.lastMotionTimes.get(cameraId) || 0;
-    if (Date<span class="cstat-no" title="statement not covered" >.now() - lastMotion &lt; settings.motionCooldown) {</span>
-      return;<span class="cstat-no" title="statement not covered" ></span>
-    }
-&nbsp;
-    this.det<span class="cstat-no" title="statement not covered" >ectionInProgress.add(cameraId);</span>
-    const startT<span class="cstat-no" title="statement not covered" >ime = Date.now</span>();
-&nbsp;
+    this.detectionInProgress.add(cameraId);
+    const startTime = Date.now();
+<span class="cstat-no" title="statement not covered" ></span>
     try {
-      const <span class="cstat-no" title="statement not covered" >response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {</span>
+      const resp<span class="cstat-no" title="statement not covered" >onse = await a</span>xios.post(`${getOpenCVServiceUrl()}/detect-objects`, frame, {
         headers: {
-          'Conte<span class="cstat-no" title="statement not covered" >nt-Type': 'ima</span>ge/jpeg'
-        },
-        time<span class="cstat-no" title="statement not covered" >out: 30000</span>
-      });<span class="fstat-no" title="function not covered" ></span>
+          'C<span class="cstat-no" title="statement not covered" >ontent-Type':</span> 'image/jpeg'
+        },<span class="fstat-no" title="function not covered" ></span>
+        timeout: 30000
+      });<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
-      const <span class="cstat-no" title="statement not covered" >detections = response.data.detections;</span>
+      const detections = response.data.detections;
 &nbsp;
       // Calculate event metadata
       const personCount = detections.filter((d: any) =&gt; d.class === 'person').length;
@@ -1747,40 +1765,40 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
         cameraId,
         timestamp: new Date().toISOString(),
         motionLevel: maxConfidence,
-        frameCount: 1,
+<span class="fstat-no" title="function not covered" ></span>        frameCount: 1,
         detectionFrames: [],
-<span class="fstat-no" title="function not covered" ></span>        metadata: {
+        metadata: {<span class="cstat-no" title="statement not covered" ></span>
           maxConfidence,
-          totalDetections: detec<span class="cstat-no" title="statement not covered" >tions.length,</span>
-          personCount,
-          processingTime: Date.no<span class="cstat-no" title="statement not covered" >w() - startTime</span>
+          totalDetections: detect<span class="cstat-no" title="statement not covered" >ions.length,</span>
+          personCount,<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >          processingTime: Date.now() - startTime</span>
         },<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >        detections: detections.map((d: any) =&gt; ({</span>
-          cl<span class="cstat-no" title="statement not covered" >ass: d.class,</span>
-          confidence: d.confidence,
-          bbox: d.bbox<span class="cstat-no" title="statement not covered" ></span>
-        }))<span class="cstat-no" title="statement not covered" ></span>
+        detections: detections.map((d: any) =&gt; ({
+          class: d.class,<span class="cstat-no" title="statement not covered" ></span>
+          confidence: d.c<span class="cstat-no" title="statement not covered" >onfidence,</span>
+          bbox: d.bbox
+<span class="cstat-no" title="statement not covered" >        }))</span>
       };
-<span class="cstat-no" title="statement not covered" ></span>
-      this.lastMotionTimes.set(cameraId, Date.now());
+<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      this.lastMotionTime<span class="cstat-no" title="statement not covered" >s.set(cameraId, Date.no<span class="fstat-no" title="function not covered" >w(</span>));<span class="cstat-no" title="statement not covered" ></span></span>
 <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
       // Emit detection e<span class="cstat-no" title="statement not covered" >vent<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-      this.emit('motionDe<span class="cstat-no" title="statement not covered" >tected', {<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+      this.emit('motionDetect<span class="cstat-no" title="statement not covered" >ed', {<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
         ...event,<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-        detectionResolution: <span class="cstat-no" title="statement not covered" >{ width: 640, height: 3<span class="fstat-no" title="function not covered" >60</span> }<span class="cstat-no" title="statement not covered" ></span></span>
+        detectionResolution: { width: 640, height: 360 }
       });<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-&nbsp;
-    } catch (error) {<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-      console.error(`Periodic<span class="cstat-no" title="statement not covered" > de</span>tection failed for ${cameraId}:`, error);
-    } fi<span class="cstat-no" title="statement not covered" >nally {<span class="fstat-no" title="function not covered" ></span></span>
-      this.d<span class="cstat-no" title="statement not covered" >etectionInProgress.delete(cameraId);<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-    }
-  }
 <span class="cstat-no" title="statement not covered" ></span>
-  // Object detection is no<span class="cstat-no" title="statement not covered" >w handled via HTTP requests </span>to the opencv service
+    } ca<span class="cstat-no" title="statement not covered" >tch (error) {<span class="fstat-no" title="function not covered" ></span></span>
+      consol<span class="cstat-no" title="statement not covered" >e.error(`Periodic detection failed for ${ca<span class="fstat-no" title="function not covered" >me</span>raI<span class="cstat-no" title="statement not covered" >d}:`, error);</span></span>
+    } finally {
+      this.detectionInProgress.delete(cameraId);
+    }<span class="cstat-no" title="statement not covered" ></span>
+  }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+  // Object detection is now handled via HTTP requests to the opencv service
 <span class="cstat-no" title="statement not covered" ></span>
   /**
-   * Validate and filter detection re<span class="cstat-no" title="statement not covered" >sults to ensure realistic bounding boxes</span>
+   * Validate and filter detection results to ensure realistic bounding boxes
    */
   private validateDetections(detections: any[]): any[] {
     return detections.filter(detection =&gt; {
@@ -1788,10 +1806,10 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
       if (!detection.bbox || typeof detection.bbox !== 'object') {
         return false;
       }
-&nbsp;
-      const { x, y, width, height } = detection.bbox;
 <span class="cstat-no" title="statement not covered" ></span>
-      // Che<span class="cstat-no" title="statement not covered" >ck if coordinates are valid numbers</span>
+      const <span class="cstat-no" title="statement not covered" >{ x, y, width, height } = detection.bbox;</span>
+&nbsp;
+      // Check if coordinates are valid numbers
       if (typeof x !== 'number' || typeof y !== 'number' ||
           typeof width !== 'number' || typeof height !== 'number') {
         return false;
@@ -1807,17 +1825,17 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
       const aspectRatio = width / height;
       if (aspectRatio &gt; 10 || aspectRatio &lt; 0.1) {
         return false;
-      }
+      }<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
 &nbsp;
-      // Check for minimum size (at least 5x5 pixels<span class="fstat-no" title="function not covered" >)<span class="cstat-no" title="statement not covered" ></span></span>
+      // Check for minimum size (at least 5x5 pixels)
       if (width &lt; 5 || height &lt; 5) {
         return false;
       }
 &nbsp;
       // Check for maximum size (not taking up entire frame)
-      if (width &gt; 3000 || height &gt; 2000) {
+      if (width &gt; 3000 || height &gt; 2000) {<span class="cstat-no" title="statement not covered" ></span>
         return false;
-      }<span class="cstat-no" title="statement not covered" ></span>
+      }
 &nbsp;
       // Confidence should be between 0 and 100
       if (typeof detection.confidence === 'number' &amp;&amp;
@@ -1837,12 +1855,12 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
           height: Math.round(detection.bbox.height)
         }
       };
-    });
-  }
+    });<span class="cstat-no" title="statement not covered" ></span>
+  }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
   /**<span class="cstat-no" title="statement not covered" ></span>
-   * Save motion-detected frame<span class="cstat-no" title="statement not covered" ></span>
-   */<span class="cstat-no" title="statement not covered" ></span>
+   * Save motion-detected frame
+   */
   private async saveMotionFrame(cameraId: string, frame: Buffer, detections: any[]): Promise&lt;string&gt; {
     // Validate detections before saving
     const validDetections = this.validateDetections(detections);
@@ -1862,75 +1880,75 @@ export class MotionTriggeredDete<span class="cstat-no" title="statement not cove
     await fs.promises.writeFile(filepath, frame);
 &nbsp;
     // Calculate detection metadata using validated detections
-    const personCount = validDetections.filter(d =&gt; d.class === 'person').length;
+    const personCount = validDetections.filter(d =&gt; <span class="fstat-no" title="function not covered" >d.</span>class <span class="cstat-no" title="statement not covered" >=== 'person').length;</span>
     const carCount = validDetections.filter(d =&gt; d.class === 'car').length;
-    const dogCount = validDetections.filter(d =&gt; d.c<span class="fstat-no" title="function not covered" >la</span>ss ===<span class="cstat-no" title="statement not covered" > 'dog').length;</span>
+    const dogCount = validDetections.filter(d =&gt; d.class === 'dog').length;
     const catCount = validDetections.filter(d =&gt; d.class === 'cat').length;
     const packageCount = validDetections.filter(d =&gt; d.class === 'package').length;
     const maxConfidence = validDetections.length &gt; 0 ? Math.max(...validDetections.map(d =&gt; d.confidence)) : 0;
 &nbsp;
-    // Count unique object classes
+    // Count<span class="cstat-no" title="statement not covered" > unique object classes</span>
     const uniqueClasses = new Set(validDetections.map(d =&gt; d.class));
-    const ob<span class="cstat-no" title="statement not covered" >jectCounts: Record&lt;string, number&gt; = {};</span>
-    uniqueClasses.forEach(cls =&gt; {
+    const objectCounts: Record&lt;string, number&gt; = {};
+    uniqueCl<span class="cstat-no" title="statement not covered" >asses.forEach(cls =&gt; {</span>
       objectCounts[cls] = validDetections.filter(d =&gt; d.class === cls).length;
-    });<span class="cstat-no" title="statement not covered" ></span>
+    });
 &nbsp;
-    // Index the file in the database using both events and detection_files tables
-    try {
-      co<span class="cstat-no" title="statement not covered" >nst crypto = await import('node:crypto');</span>
-      const fileHash = crypto.<span class="cstat-no" title="statement not covered" >createHash('sha256').update(frame).</span>digest('hex');
+    // I<span class="cstat-no" title="statement not covered" >ndex the file in the database using both events and detection_files tables</span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      const crypto = await impo<span class="cstat-no" title="statement not covered" >rt('node:crypto');</span>
+      const fileHash = crypto.create<span class="cstat-no" title="statement not covered" >Hash('sha256').update(frame).digest('hex');</span>
 <span class="cstat-no" title="statement not covered" ></span>
-      // First, save to events table<span class="cstat-no" title="statement not covered" > (existing functionality)</span>
-      const eventInsertQuery = `<span class="cstat-no" title="statement not covered" ></span>
+      // First, save to events table (existing functionality)
+      const <span class="cstat-no" title="statement not covered" >eventInsertQuery = `<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
         INSERT INTO events (
-          ev<span class="cstat-no" title="statement not covered" >ent_type,<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
+          event_type,
           file_path,
           timestamp,
           camera_id,
           metadata
         ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING id
+        RETU<span class="cstat-no" title="statement not covered" >RNING id</span>
       `;
-<span class="cstat-no" title="statement not covered" ></span>
-      const now = new Date();
+&nbsp;
+      co<span class="cstat-no" title="statement not covered" >nst now = new Date();</span>
       await AppDataSource.query(eventInsertQuery, [
-<span class="cstat-no" title="statement not covered" >        'motion', // event_type</span>
+        'motion', // event_type
         filepath, // file_path
         now, // timestamp
-        cameraId, // camera_id
-        JSON.stringify({
-<span class="fstat-no" title="function not covered" ></span>          confidence: maxConfidence,
-<span class="cstat-no" title="statement not covered" >          motionArea: 0, //<span class="fstat-no" title="function not covered" > W</span>ill be calculated by other systems</span>
-          lightLevel: 50, // <span class="cstat-no" title="statement not covered" >Default light level</span>
-          ha<span class="cstat-no" title="statement not covered" >sPersons: personCoun<span class="fstat-no" title="function not covered" >t </span>&gt; 0,</span>
-          hasFac<span class="cstat-no" title="statement not covered" >es: false, // Will be updated by face detection</span>
-          personCoun<span class="cstat-no" title="statement not covered" >t,</span>
+<span class="fstat-no" title="function not covered" ></span>        cameraId, // camera_id
+<span class="cstat-no" title="statement not covered" >        JSON.stringify({<span class="fstat-no" title="function not covered" ></span></span>
+          confidence: maxConf<span class="cstat-no" title="statement not covered" >idence,</span>
+          mo<span class="cstat-no" title="statement not covered" >tionArea: 0, // Will<span class="fstat-no" title="function not covered" > b</span>e calculated by other systems</span>
+          lightL<span class="cstat-no" title="statement not covered" >evel: 50, // Default light level</span>
+          hasPersons<span class="cstat-no" title="statement not covered" >: personCount &gt; 0,</span>
+          hasFaces: false, // Will be updated by face detection
+          personCount,
           faceCount: 0,
           knownFaces: 0,
           unknownFaces: 0,
           totalDetections: validDetections.length, // Use count of valid detections
-          uniqueClasses: Array.from(uniqueClasses),
-          objectCounts,
-<span class="fstat-no" title="function not covered" ></span>          detections: validDetections.map((d: any) =&gt; ({
-<span class="cstat-no" title="statement not covered" >            class: d.class,</span>
+<span class="fstat-no" title="function not covered" ></span>          uniqueClasses: Array.from(uniqueClasses),
+<span class="cstat-no" title="statement not covered" >          objectCounts,</span>
+          detections: validDetections.map((d: any) =&gt; ({
+            class: d.class,<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
             confidence: d.confidence,
-            bbox: d.bbox<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+            bbox: d.bbox
           }))
         }) // metadata
       ]);
 &nbsp;
-      // Also save to detection_files table for unified storage
-      const detectionFileInsertQuery = `
-<span class="fstat-no" title="function not covered" ></span>        INSERT INTO detection_files (
+<span class="fstat-no" title="function not covered" ></span>      // Also save to detection_files table for unified storage
+      co<span class="cstat-no" title="statement not covered" >nst detectionFileInsertQuery = `</span>
+<span class="cstat-no" title="statement not covered" >        INSERT INTO detection_files (</span>
 <span class="cstat-no" title="statement not covered" >          file_uuid,</span>
 <span class="cstat-no" title="statement not covered" >          file_type,</span>
-<span class="cstat-no" title="statement not covered" >          camera_id,</span>
-<span class="cstat-no" title="statement not covered" >          original_filename,</span>
+          camera_id,
+          original_filename,
           storage_path,
-          file_size,
+          file_size,<span class="cstat-no" title="statement not covered" ></span>
           file_hash,
-          capture_timestamp,<span class="cstat-no" title="statement not covered" ></span>
+          capture_timestamp,
           metadata
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (file_uuid)
@@ -2062,7 +2080,7 @@ export default motionTriggeredDetection;</pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:10.102Z
+                at 2026-05-15T18:35:18.769Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

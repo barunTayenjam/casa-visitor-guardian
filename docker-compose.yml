@@ -17,12 +17,15 @@ services:
       - TZ=Asia/Kolkata
     command: >
       postgres
-      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-64MB}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
       -c max_connections=${POSTGRES_MAX_CONNECTIONS:-20}
-      -c work_mem=4MB
-      -c maintenance_work_mem=32MB
-      -c effective_cache_size=128MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c effective_cache_size=256MB
       -c huge_pages=off
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c default_statistics_target=50
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentryvision -d sentryvision"]
@@ -34,11 +37,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${POSTGRES_CPU_LIMIT:-0.25}
-          memory: ${POSTGRES_MEM_LIMIT:-384M}
+          cpus: ${POSTGRES_CPU_LIMIT:-0.5}
+          memory: ${POSTGRES_MEM_LIMIT:-512M}
         reservations:
           cpus: ${POSTGRES_CPU_RESERVE:-0.1}
-          memory: ${POSTGRES_MEM_RESERVE:-192M}
+          memory: ${POSTGRES_MEM_RESERVE:-256M}
 
   # Backend API Server (Development Mode)
   backend:
@@ -76,8 +79,8 @@ services:
       - DEFAULT_FPS=${DEFAULT_FPS:-2}
       - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
       - STREAM_INACTIVITY_TIMEOUT=${STREAM_INACTIVITY_TIMEOUT:-300000}
-      # Node.js memory optimization
-      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-1024}
+      # Node.js memory optimization - increased to prevent OOM
+      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-2560}
     volumes:
       - ./server:/app
       - ./server/node_modules:/app/node_modules
@@ -86,7 +89,7 @@ services:
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
     working_dir: /app
-    command: ["npx", "tsx", "watch", "src/index.ts"]
+    command: ["sh", "-c", "npx tsx watch --clear-screen=false src/index.ts & sh /app/health-monitor.sh"]
     cap_add:
       - NET_RAW
     depends_on:
@@ -102,11 +105,12 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
           cpus: ${BACKEND_CPU_LIMIT:-1.5}
-          memory: ${BACKEND_MEM_LIMIT:-1536M}
+          memory: ${BACKEND_MEM_LIMIT:-3584M}
         reservations:
           cpus: ${BACKEND_CPU_RESERVE:-0.5}
           memory: ${BACKEND_MEM_RESERVE:-512M}
@@ -147,8 +151,11 @@ services:
       - redis_data:/data
     command: >
       redis-server
-      --maxmemory ${REDIS_MAX_MEMORY:-50mb}
+      --maxmemory ${REDIS_MAX_MEMORY:-40mb}
       --maxmemory-policy allkeys-lru
+      --maxmemory-samples 3
+      --save 300 10
+      --save 60 10000
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]

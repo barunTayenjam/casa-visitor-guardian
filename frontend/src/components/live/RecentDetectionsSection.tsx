@@ -70,7 +70,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
         const data = await res.json();
         if (cancelled) return;
 
-        const items: DetectionItem[] = (data.events || []).map((ev: any) => {
+        const items: DetectionItem[] = (data.events || []).map((ev: { id: string; imageUrl?: string; image_path?: string; timestamp: string; event_type?: string; confidence?: number; labels?: string[]; personCount?: number; objectDetections?: Array<{ class: string }> }) => {
           const primary = getPrimaryObject(ev);
           return {
             id: ev.id,

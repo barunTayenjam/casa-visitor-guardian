@@ -89,6 +89,14 @@ Run `/gsd-new-milestone` to start v1.2 planning.
 
 ---
 
+## Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260519-m8h | improve event filters on the events page | 2026-05-19 | - | [260519-m8h-improve-event-filters-on-the-events-page](./quick/260519-m8h-improve-event-filters-on-the-events-page/) |
+
+---
+
 ## Session Context
 
 **Last Session:** 2026-05-18T19:30:00+05:30

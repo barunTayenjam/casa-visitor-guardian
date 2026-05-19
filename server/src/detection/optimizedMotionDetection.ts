@@ -833,7 +833,7 @@ export class OptimizedMotionDetector extends EventEmitter {
             console.error('Failed to send motion notification:', error);
           });
 
-          // If there are unknown faces, send a face notification too
+          // If there are unknown faces, send a face notification and process them
           if (event.unknown_faces_count > 0) {
             NotificationService.notifyUnknownFace(event).catch((error) => {
               console.error('Failed to send face notification:', error);

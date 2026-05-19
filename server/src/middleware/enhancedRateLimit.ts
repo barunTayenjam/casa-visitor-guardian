@@ -94,7 +94,7 @@ export const createApiRateLimit = () => {
 export const createAuthRateLimit = () => {
   const rateLimit = new EnhancedRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 auth attempts per 15 minutes
+    max: 30, // 30 auth attempts per 15 minutes
     message: 'Too many authentication attempts, please try again later',
     keyGenerator: (req) => `auth:${req.ip || 'unknown'}`
   });

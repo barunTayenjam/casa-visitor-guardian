@@ -22,7 +22,7 @@
         },
         "record": {
             "enabled": true,
-            "retainDays": 30,
+            "retainDays": 7,
             "mode": "active_objects",
             "alerts": {
                 "preCapture": 5,
@@ -136,7 +136,7 @@
         },
         "record": {
             "enabled": true,
-            "retainDays": 30,
+            "retainDays": 7,
             "mode": "active_objects",
             "alerts": {
                 "preCapture": 5,

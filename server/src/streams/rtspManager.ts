@@ -359,26 +359,26 @@ export class StreamManager {
         const resolution = config.streaming.defaultResolution;
         const [resWidth, resHeight] = resolution.split('x').map(Number);
 
-        // Build ffmpeg args - optimized for low resource usage
+        // Build ffmpeg args - optimized for correct color output and stability
         const ffmpegArgs = [
           "-loglevel", "error",
           "-rtsp_transport", "tcp",
           "-timeout", "5000000",
           "-err_detect", "ignore_err",
-          "-fflags", "+discardcorrupt+genpts+genpts",
+          "-fflags", "+discardcorrupt+genpts",
           "-max_delay", "1000000",
-          "-probesize", "32768",
-          "-analyzeduration", "500000",
+          "-probesize", "1000000",
+          "-analyzeduration", "2000000",
           "-i", mainStreamUrl,
           "-f", "mjpeg",
-          "-pix_fmt", "yuvj420p",
           "-vcodec", "mjpeg",
-          "-q:v", isLowResource ? "8" : "5",  // Lower quality (higher number) for low-resource mode
-          "-threads", String(threads),  // Reduced threads for low-resource mode
-          "-r", String(fps),  // Reduced FPS for low-resource mode
+          "-q:v", isLowResource ? "8" : "5",
+          "-huffman", "optimal",
+          "-threads", String(threads),
+          "-r", String(fps),
           "-vf", camera.nightMode
-            ? `scale=${resWidth}:${resHeight},eq=gamma=1.5:contrast=1.2:brightness=0.2`
-            : `scale=${resWidth}:${resHeight}`,
+            ? `scale=${resWidth}:${resHeight},format=yuv420p,eq=gamma=1.5:contrast=1.2:brightness=0.2`
+            : `scale=${resWidth}:${resHeight},format=yuv420p`,
           "pipe:1",
         ];
 
@@ -394,7 +394,6 @@ export class StreamManager {
         // Handle process errors
         process.on("error", (err) => {
           console.error(`FFMPEG error for ${cameraId}: ${err.message}`);
-          camera.mainProcess = null;
           camera.activeRoles.forEach((activeRole) => {
             this.io.to(`camera-${cameraId}-${activeRole}`).emit('streamError', {
               cameraId,
@@ -402,8 +401,6 @@ export class StreamManager {
               error: `FFMPEG process error: ${err.message}`
             });
           });
-          camera.activeRoles.clear();
-          camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
         });
 
         // Handle stderr output for debugging
@@ -419,7 +416,6 @@ export class StreamManager {
           console.log(`FFMPEG ${cameraId} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
           camera.mainProcess = null;
           
-          // Notify all active roles that the stream has stopped
           camera.activeRoles.forEach((activeRole) => {
             this.io.to(`camera-${cameraId}-${activeRole}`).emit('streamError', {
               cameraId,
@@ -428,8 +424,18 @@ export class StreamManager {
             });
           });
           
-          camera.activeRoles.clear();
           camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
+          camera.activeRoles.clear();
+
+          if (signal !== 'SIGTERM') {
+            const retryDelay = 5000;
+            console.log(`[StreamManager] FFmpeg exited unexpectedly for ${cameraId}, restarting detect in ${retryDelay}ms...`);
+            setTimeout(() => {
+              if (!camera.activeRoles.has('detect')) {
+                this.startStream(cameraId, 'detect');
+              }
+            }, retryDelay);
+          }
 
           // Auto-restart on unexpected exit
           if (code !== 0 && camera.retryCount < 5) {
@@ -877,6 +883,39 @@ export class StreamManager {
     } catch (error) {
       console.error(`[StreamManager] Failed to save simulation event to database:`, error);
     }
+  }
+
+  shutdown(): void {
+    console.log('[StreamManager] Shutting down all streams...');
+
+    this.healthMonitor.stop();
+
+    for (const camera of this.cameras.values()) {
+      const pendingTimeout = (camera as any).pendingInactivityTimeout;
+      if (pendingTimeout) {
+        clearTimeout(pendingTimeout);
+        (camera as any).pendingInactivityTimeout = null;
+      }
+
+      camera.activeRoles.clear();
+
+      if (camera.mainProcess) {
+        try {
+          camera.mainProcess.kill('SIGTERM');
+        } catch {}
+        camera.mainProcess = null;
+      }
+
+      camera.isActive = false;
+      camera.activeViewers.clear();
+
+      camera.streams.forEach((s) => {
+        s.isActive = false;
+        s.process = null;
+      });
+    }
+
+    console.log('[StreamManager] All streams stopped and FFmpeg processes killed');
   }
 }
 

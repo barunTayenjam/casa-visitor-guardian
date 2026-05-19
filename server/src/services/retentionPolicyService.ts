@@ -20,11 +20,11 @@ export class RetentionPolicyService extends EventEmitter {
   private policyCache: Map<string, { policy: RetentionPolicy; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 60000; // 1 minute cache
   private readonly DEFAULT_RETENTION_DAYS = {
-    alerts: 30,
-    detections: 7,
-    previews: 7,
-    snapshots: 30,
-    events: 30,
+    alerts: 7,
+    snapshots: 7,
+    events: 7,
+    detections: 30,
+    previews: 14,
   };
 
   private constructor() {
@@ -314,6 +314,7 @@ export class RetentionPolicyService extends EventEmitter {
     return files;
   }
 
+  // Only used by cleanup job - not cached, runs at 3AM
   async getRetentionSummary(camera?: string): Promise<{
     policy: RetentionPolicy;
     expiredCounts: { [key: string]: number };

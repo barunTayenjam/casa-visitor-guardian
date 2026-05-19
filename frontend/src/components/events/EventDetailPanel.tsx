@@ -71,18 +71,18 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
     }
   };
 
-  const getDetectionColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'person':
-        return colors.detection.person;
-      case 'face':
-        return colors.detection.face;
-      case 'vehicle':
-        return colors.detection.vehicle;
-      default:
-        return colors.detection.motion;
-    }
-  };
+     const getDetectionColor = (type: string) => {
+     switch (type.toLowerCase()) {
+       case 'person':
+         return '#22c55e';
+       case 'face':
+         return '#8b5cf6';
+       case 'vehicle':
+         return '#3b82f6';
+       default:
+         return '#f59e0b';
+     }
+   };
 
   return (
     <div

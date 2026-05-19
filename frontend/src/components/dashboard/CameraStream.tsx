@@ -78,7 +78,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const lastConnectionAttemptRef = useRef<number>(0);
 
   // Refs to store function references (to avoid circular dependency issues)
-  const handleStreamStartRef = useRef<() => Promise<void>>(() => {});
+  const handleStreamStartRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const handleStreamStopRef = useRef<() => void>(() => {});
 
   // Anti-flicker constants
@@ -209,7 +209,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         const response = await fetch('/api/streaming/metrics');
         if (response.ok) {
           const data = await response.json();
-          const cameraMetrics = data.metrics?.find((m: any) => m.cameraId === camera.id);
+          const cameraMetrics = data.metrics?.find((m: { cameraId: string }) => m.cameraId === camera.id);
           if (cameraMetrics) {
             setMetrics(prev => ({ ...prev, bandwidth: cameraMetrics.bandwidth || 0 }));
           }
@@ -446,9 +446,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     const handleDetection = (data: {
       cameraId: string;
-      detections: any[];
+      detections: { class?: string; confidence?: number }[];
       timestamp: string;
-      metadata?: any;
+      metadata?: { confidence?: number };
     }) => {
       if (data.cameraId !== camera.id) return;
 
@@ -556,7 +556,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           {/* z-30: Full connection overlay — only for initial connection or persistent errors */}
           {showFullOverlay && (
             <ConnectionStateOverlay
-              state={connectionState}
+              state={connectionState as 'connecting' | 'error' | 'reconnecting'}
               cameraName={camera.name}
               errorMessage={error || undefined}
             />

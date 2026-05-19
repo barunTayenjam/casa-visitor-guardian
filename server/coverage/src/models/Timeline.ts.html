@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>0/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>0/15</span>
             </div>
         
             
@@ -108,9 +108,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -125,61 +122,64 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Entity, <span class="cstat-no" title="statement not covered" >PrimaryColumn, Column, Create<span class="fstat-no" title="function not covered" >Da</span>teColumn, Index } from 'typeorm';</span>
 <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span>
 @Ent<span class="cstat-no" title="statement not covered" >ity('timeline')<span class="cstat-no" title="statement not covered" ></span></span>
 @Index(['<span class="cstat-no" title="statement not covered" >camera', 'tim<span class="cstat-no" title="statement not covered" >estamp'])<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span></span></span>
 @Ind<span class="cstat-no" title="statement not covered" >ex(['source', 'source_id'])</span>
 @Index(['class_type'])
-export class Time<span class="cstat-no" title="statement not covered" >line {<span class="fstat-no" title="function not covered" ></span></span>
-  @P<span class="cstat-no" title="statement not covered" >rimaryColumn({ type: 'varchar', length: 30, comment: 'Timeline event ID' })<span class="cstat-no" title="statement not covered" ></span></span>
+export class Timeline {
+  @PrimaryColum<span class="cstat-no" title="statement not covered" >n({ type: 'varchar', length: 30, comment: 'Timeline event ID' })</span>
   id!: string;
 &nbsp;
-  @Column({ typ<span class="cstat-no" title="statement not covered" >e: 'timestamptz', comment: 'Event timestamp' })</span>
+  @Column({ type: 'timestamptz', comment: 'Event timestamp' })
   timestamp!: Date;
 &nbsp;
   @Column({ type: 'varchar', length: 20, comment: 'Camera name' })
   camera!: string;
 &nbsp;
   @Column({ type: 'varchar', length: 20, comment: 'Event source: tracked_object, audio, api, system' })
-  source!: 'tracked_object' | 'audio' | 'api' | 'system';
+<span class="cstat-no" title="statement not covered" >  source!: 'tracked_object' | 'audio' | 'api' | 'system';</span>
 &nbsp;
   @Column({ type: 'varchar', length: 30, comment: 'Source-specific ID' })
 <span class="cstat-no" title="statement not covered" >  source_id!: string;</span>
 &nbsp;
   @Column({ type: 'varchar', length: 50, comment: 'Event classification' })
-  class_type!: string;
-<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  class_type!: string;</span>
+&nbsp;
   @Column({ type: 'jsonb', default: {}, comment: 'Source-specific metadata' })
-  data!: {
+<span class="cstat-no" title="statement not covered" >  data!: {</span>
     object_id?: string;
-<span class="cstat-no" title="statement not covered" >    label?: string;</span>
-    score?: number;
+    label?: string;
+<span class="cstat-no" title="statement not covered" >    score?: number;</span>
     box?: { x: number; y: number; width: number; height: number };
     zone?: string;
 <span class="cstat-no" title="statement not covered" >    region?: { x: number; y: number; width: number; height: number };</span>
     [key: string]: unknown;
   };
-&nbsp;
-<span class="cstat-no" title="statement not covered" >  @CreateDateColumn({ name: 'created_at', comment: 'Record creation time' })</span>
+<span class="cstat-no" title="statement not covered" ></span>
+  @CreateDateColumn({ name: 'created_at', comment: 'Record creation time' })
   created_at!: Date;
-}
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -187,7 +187,7 @@ export class Time<span class="cstat-no" title="statement not covered" >line {<sp
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:10.102Z
+                at 2026-05-15T18:35:18.769Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

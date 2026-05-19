@@ -1,7 +1,9 @@
 import express from 'express';
 import { AppDataSource } from '../database.js';
+import { requireUser } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(requireUser);
 
 // GET /api/face-config - Get all face recognition configuration
 router.get('/', async (req, res) => {

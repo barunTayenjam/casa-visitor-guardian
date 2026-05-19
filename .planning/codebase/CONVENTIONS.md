@@ -1,268 +1,294 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-05-06
+**Analysis Date:** 2026-05-15
 
 ## Naming Patterns
 
 **Files:**
-- React components: PascalCase — e.g., `CameraGrid.tsx`, `ProtectedRoute.tsx`, `ErrorBoundary.tsx`
-- React pages: PascalCase, optionally with `.new` suffix — e.g., `Dashboard.tsx`, `Review.new.tsx`
-- React contexts: PascalCase with `Context` suffix — e.g., `AuthContext.tsx`, `SocketContext.tsx`
-- React hooks: camelCase with `use` prefix — e.g., `use-toast.ts`, `useReview.ts`
-- Server routes: camelCase with `Routes` suffix — e.g., `visitorRoutes.ts`, `storageRoutes.ts`, `reviewRoutes.ts`
-- Server services: camelCase with `Service` suffix — e.g., `reviewService.ts`, `detectionService.ts`, `cacheService.ts`
-- Server models (TypeORM entities): PascalCase — e.g., `Event.ts`, `User.ts`, `AuditLog.ts`
-- Server utils: camelCase — e.g., `logger.ts`, `encryption.ts`, `fileHash.ts`
-- Server middleware: camelCase — e.g., `auth.ts`, `rateLimit.ts`, `zodValidation.ts`
-- Server config: camelCase — e.g., `index.ts`, `detectionConfig.ts`
-- Test files: co-located with source, same name + `.test.ts` — e.g., `Event.ts` → `Event.test.ts`
-- Barrel/index files: `index.ts` — e.g., `server/src/models/index.ts`, `server/src/routes/index.ts`
-- Python: snake_case — e.g., `app.py`, `improved_face_recognition.py`
+- React components: PascalCase (e.g., `CameraStream.tsx`, `ErrorBoundary.tsx`, `ProtectedRoute.tsx`)
+- Pages: PascalCase (e.g., `Login.tsx`, `NotFound.tsx`, `Dashboard.tsx` — note: many pages use `.new.tsx` suffix)
+- Utility/service files: camelCase (e.g., `apiService.ts`, `auditLogger.ts`, `cronJobs.ts`)
+- TypeORM models: PascalCase matching entity name (e.g., `User.ts`, `Event.ts`, `AuditLog.ts`)
+- Test files: co-located with source, same name + `.test.ts` (e.g., `User.test.ts`, `logger.test.ts`)
+- Route files: camelCase with descriptive suffix (e.g., `visitorRoutes.ts`, `reviewRoutes.ts`, `detectionRoutes.ts`)
+- Detection modules: camelCase descriptive (e.g., `optimizedMotionDetection.ts`, `simpleMotionDetection.ts`)
+- Config files: camelCase (e.g., `detectionConfig.ts`, `index.ts`)
 
-**Variables & Functions:**
-- camelCase for all variables and functions: `mockDb`, `adminToken`, `validateCameraId()`, `generateBasicHTML()`
-- Boolean variables use `is/has/should` prefix: `isAuthenticated`, `isLoading`, `hasRequiredRole`
-- Constants: UPPER_SNAKE_CASE for true constants, camelCase for config objects — e.g., `CAMERA_ID_PATTERN`, `LOGGING_CONFIG`
+**Functions:**
+- Route handler functions: camelCase (e.g., `configureAuthRoutes`, `configureRoutes`)
+- Middleware factory functions: camelCase (e.g., `authenticate`, `validate`, `createAuthRateLimit`)
+- Utility functions: camelCase (e.g., `fileHash`, `validateCameraId`, `getOpenCVServiceUrl`)
+- React hooks: `use` prefix + PascalCase (e.g., `useAuth`, `useCameras`, `useSocketContext`)
+- Python functions: snake_case (e.g., `load_class_names`, `detect_objects`)
 
-**Types & Interfaces:**
-- PascalCase for interfaces and types: `MotionEvent`, `CameraConfig`, `AuthState`
-- Interface names never prefixed with `I` — e.g., `User` not `IUser`
-- Type aliases for discriminated unions: `AuthAction`, `ValidationTarget`
-- Generics use single letter: `T`, `K`
+**Variables:**
+- camelCase throughout TypeScript/JavaScript (e.g., `mockDb`, `adminToken`, `connectionStatus`)
+- Constants: UPPER_SNAKE_CASE (e.g., `CAMERA_ID_PATTERN`, `DEFAULT_TRACKED_OBJECTS`, `LOGGING_CONFIG`)
+- Python variables: snake_case (e.g., `connection_pool`, `class_names`, `cache_ttl`)
 
-**Classes:**
-- PascalCase for classes: `Event`, `ReviewService`, `DetectionService`, `CircuitBreaker`, `ApiError`
-- Abstract base class: `BaseService` (`server/src/services/baseService.ts`)
-- Private members use `private` keyword (not `#` prefix)
-
-**Enums:**
-- PascalCase for enum names, UPPER_SNAKE_CASE for values: `CircuitState.CLOSED`, `CircuitState.HALF_OPEN`
-- String literal union types preferred for simple cases: `'active' | 'inactive' | 'suspended' | 'locked'`
+**Types/Interfaces:**
+- PascalCase for interfaces and types (e.g., `AuthState`, `AuthOptions`, `MotionEvent`, `Camera`)
+- Use `interface` for object shapes; `type` for unions/intersections
+- Exported types are defined in dedicated files (e.g., `frontend/src/types/security.ts`)
+- Type-only imports should use `import type` when possible
 
 ## Code Style
 
 **Formatting:**
-- No Prettier config detected — formatting is not enforced via auto-formatter
-- ESLint uses flat config format (`eslint.config.js`) at `frontend/eslint.config.js`
-- Tab width: 2 spaces (observed consistently across files)
-- Trailing commas: inconsistent (some files have, some don't)
-- Semicolons: used consistently
+- No Prettier configuration file detected
+- ESLint configured for frontend via `frontend/eslint.config.js`
+- No Biome configuration detected
+- Indentation: 2 spaces
+- Single quotes for strings (consistent in backend); double quotes in some frontend files
+- Trailing commas in multi-line structures
 
-**Linting:**
-- ESLint v9 with flat config: `frontend/eslint.config.js`
-- Plugins: `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `typescript-eslint`
+**Linting (Frontend):**
+- Tool: ESLint 9 with `@eslint/js` + `typescript-eslint`
+- Config: `frontend/eslint.config.js`
+- Plugins: `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`
 - Key rules:
-  - `@typescript-eslint/no-unused-vars: "off"` — unused vars allowed
-  - `react-refresh/only-export-components: "warn"` — warn on non-component exports
-- No ESLint config detected for backend — backend linting not configured
+  - `@typescript-eslint/no-unused-vars`: `"off"` (intentionally disabled)
+  - `react-refresh/only-export-components`: `"warn"` with `allowConstantExport: true`
+- Ignored: `dist/`, `data/`, `logs/`, `node_modules/`, `.vite/`, `coverage/`
+- Run: `npm run lint` (from `frontend/` or root)
+- Fix: `npm run lint:fix`
 
-**TypeScript:**
-- Frontend: `strict: false` — `noUnusedLocals: false`, `noUnusedParameters: false`, `noImplicitAny: false`
-- Backend: `strict: false` — `experimentalDecorators: true`, `emitDecoratorMetadata: true` (for TypeORM)
-- Both targets: ES2022
-- Backend module: `nodenext`, Frontend module: `ESNext` (bundler resolution)
-- Use `.js` extension in ESM imports even for `.ts` files: `import { Event } from './Event.js'`
+**Linting (Backend):**
+- No dedicated ESLint config detected for server
+- TypeScript strict mode is `false` in both `frontend/tsconfig.json` and `server/tsconfig.json`
+
+**TypeScript Settings:**
+- Frontend target: ES2020, module: ESNext, bundler resolution
+- Backend target: ES2022, module: nodenext, nodenext resolution
+- Both use `strict: false` — not strict mode
+- `noImplicitAny: false`, `noUnusedLocals: false`, `noUnusedParameters: false` (frontend)
+- Experimental decorators enabled in backend (for TypeORM)
 
 ## Import Organization
 
-**Order (backend — `server/src/`):**
-1. External libraries: `import express from 'express'`, `import { z } from 'zod'`
-2. Node built-ins (with `node:` prefix): `import path from 'node:path'`, `import fs from 'node:fs'`
-3. Internal imports with relative paths + `.js` extension: `import { Event } from '../models/Event.js'`
-
-**Order (frontend — `frontend/src/`):**
-1. External libraries: `import React from 'react'`, `import { Toaster } from "@/components/ui/toaster"`
-2. Internal imports using `@/` alias: `import { Camera } from '@/types/security'`
-3. Relative imports: `import { logger } from './lib/logger'`
+**Order:**
+1. External library imports (React, Express, TypeORM, etc.)
+2. Internal imports using path aliases or relative paths
+3. Type imports
 
 **Path Aliases:**
-- Frontend: `@/*` → `./src/*` (configured in `frontend/tsconfig.json` and `frontend/vite.config.ts`)
-- Backend: No path aliases — uses relative paths exclusively
+- Frontend: `@/*` maps to `./src/*` (configured in `frontend/tsconfig.json` and `frontend/vite.config.ts`)
+  ```typescript
+  import { Button } from '@/components/ui/button';
+  import { useAuth } from '@/contexts/AuthContext';
+  import { Camera } from '@/types/security';
+  import { cn } from '@/lib/utils';
+  ```
+- Backend: No path aliases; uses relative paths with `.js` extension for ESM
+  ```typescript
+  import { authService } from '../auth/index.js';
+  import { validate, commonSchemas } from '../middleware/validation.js';
+  import { logger } from '../utils/logger.js';
+  ```
 
-**ESM Convention:**
-- All imports use `.js` extension for TypeScript files in the backend: `import { User } from './User.js'`
-- Backend uses `"type": "module"` in `package.json` — native ES modules
+**ES Module Convention:**
+- Both frontend and backend use `"type": "module"` in `package.json`
+- Backend imports MUST include `.js` extension for ESM resolution:
+  ```typescript
+  import { User } from './User.js';    // Correct
+  import { User } from './User';        // Incorrect — will fail in ESM
+  ```
+- Node.js built-ins use `node:` prefix:
+  ```typescript
+  import path from 'node:path';
+  import fs from 'node:fs';
+  import http from 'node:http';
+  ```
+
+**Python (OpenCV Service):**
+- Standard library imports first, then third-party, then local
+  ```python
+  from flask import Flask, request, jsonify
+  import cv2
+  import numpy as np
+  ```
 
 ## Error Handling
 
-**Backend API Response Pattern:**
-All API responses follow a consistent envelope:
-```typescript
-// Success
-res.json({
-  success: true,
-  data: { ... },
-});
-
-// Error
-res.status(400).json({
-  success: false,
-  error: 'Descriptive error message',
-  details: error instanceof Error ? error.message : 'Unknown error',
-});
-```
-Examples: `server/src/routes/storageRoutes.ts`, `server/src/middleware/auth.ts`
-
-**Backend Error Handling in Route Handlers:**
-```typescript
-router.get('/stats/overview', async (req: Request, res: Response) => {
-  try {
-    const result = await someService.getData();
-    res.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Error retrieving data:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve data',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
+**Backend API Responses:**
+- Consistent response envelope: `{ success: boolean, error?: string, data?: any }`
+- HTTP status codes follow REST conventions:
+  - `200` — success
+  - `201` — created
+  - `400` — validation error
+  - `401` — unauthorized
+  - `403` — forbidden
+  - `404` — not found
+  - `500` — server error
+- All route handlers wrapped in try-catch:
+  ```typescript
+  // Pattern from server/src/routes/auth.ts
+  async (req: Request, res: Response) => {
+    try {
+      const result = await authService.register({ ... });
+      if (result.success) {
+        return res.status(201).json({ success: true, ... });
+      } else {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      logger.error(`Registration error: ${error}`, 'AuthRoutes');
+      return res.status(500).json({ success: false, error: 'Registration failed' });
+    }
   }
-});
-```
-Source: `server/src/routes/storageRoutes.ts`
+  ```
+- Never expose internal error details to client in 500 responses
 
-**Frontend Error Classes:**
-Custom error hierarchy in `frontend/src/services/ApiService.ts`:
-```typescript
-export class ApiError extends Error { ... }
-export class NetworkError extends ApiError { ... }
-export class TimeoutError extends ApiError { ... }
-```
+**Frontend Error Handling:**
+- Custom error classes: `ApiError`, `NetworkError`, `TimeoutError` in `frontend/src/services/ApiService.ts`
+- React Error Boundary component: `frontend/src/components/ErrorBoundary.tsx`
+- Error state in Context API: `AuthContext` uses `error: string | null` in state
+- Toast notifications via `sonner` library for user-facing errors
 
-**Frontend Error Boundaries:**
-React error boundary at `frontend/src/components/ErrorBoundary.tsx`, wrapping the entire app in `frontend/src/App.tsx`.
-
-**Authentication Errors:**
-Structured error responses with specific status codes:
-- 401: Missing/invalid token — `server/src/middleware/auth.ts`
-- 403: Insufficient permissions — `server/src/middleware/auth.ts`
-- 400: Validation failure — `server/src/middleware/zodValidation.ts`
-
-**Validation Errors (Zod):**
-```typescript
-// server/src/middleware/zodValidation.ts
-if (error instanceof ZodError) {
-  const validationErrors = error.errors.map(err => ({
-    field: err.path.join('.'),
-    message: err.message,
-    code: err.code
-  }));
-  res.status(400).json({
-    error: 'Validation failed',
-    message: 'Invalid input data',
-    details: validationErrors,
-  });
-}
-```
+**Validation:**
+- Backend: Custom validation middleware in `server/src/middleware/validation.ts`
+  - Schema-based validation with `ValidationRule` interface
+  - `validate(schema: ValidationSchema)` middleware factory
+  - Returns `400` with field-level error details
+- Frontend: Zod for form validation, `react-hook-form` with `@hookform/resolvers`
 
 ## Logging
 
-**Backend Logger:** Custom logger at `server/src/utils/logger.ts`
-- Exported as `logger` singleton with methods: `info()`, `warn()`, `error()`, `debug()`
-- Source tagging: `logger.info('message', 'SOURCE', metadata)`
-- Common sources: `'SERVER'`, `'API'`, `'SOCKET'`, `'STREAM'`, `'MOTION'`, `'CORS'`, `'PERFORMANCE'`, `'MEMORY'`
-- Helper methods: `logger.apiRequest()`, `logger.apiResponse()`, `logger.apiError()`, `logger.motionDetected()`, `logger.socketConnect()`
-- File logging available but disabled by default (`enableFileLogging: false`)
-- Log rotation: 10MB max, 5 files max
+**Backend Framework:** Custom logger wrapping console methods (`server/src/utils/logger.ts`)
 
-**Frontend Logger:** Custom logger at `frontend/src/lib/logger.ts`
-- Exported as `logger` singleton (class-based)
-- Methods: `info()`, `warn()`, `error()`, `debug()`
-- Helper methods: `apiRequest()`, `apiResponse()`, `apiError()`, `socketEvent()`, `userAction()`, `cameraAction()`, `performance()`
-- Stores logs in localStorage (up to 1000 entries)
-- Optional remote logging via configurable endpoint
+**API:**
+```typescript
+import { logger } from '../utils/logger.js';
 
-**Pattern:** Both loggers use the same source-tagging convention — always pass a source string as the second argument.
+logger.info(`User registered: ${username}`, 'AuthRoutes');
+logger.warn(`Auth rate limit check failed: ${err}`, 'AuthRoutes');
+logger.error(`Registration error: ${error}`, 'AuthRoutes');
+logger.debug('Successfully decrypted RTSP credential', 'Config');
+```
+
+**Source Tags:** Second argument is a source tag string for filtering:
+- `AuthRoutes`, `AuthMiddleware`, `Validation`, `ROUTES`, `SOCKET`, `STREAM`, `SERVER`, `MOTION`, `PERFORMANCE`, `CORS`, `Config`, `API`
+
+**Specialized methods:**
+```typescript
+logger.socketConnect(socketId, address, totalClients);
+logger.motionDetected(cameraId, confidence, timestamp);
+logger.apiRequest(method, url, ip, userAgent);
+logger.serverStart(port);
+```
+
+**Configuration flags:** `LOGGING_CONFIG` in `logger.ts` controls which categories are enabled. Most info/debug logging is disabled by default to reduce overhead.
+
+**Frontend:** Custom Logger class in `frontend/src/lib/logger.ts` with console + localStorage + optional remote logging.
 
 ## Comments
 
 **When to Comment:**
-- File-level comments on some model files: `// File: server/src/models/User.ts`
-- Inline comments for non-obvious logic: regex patterns, numeric thresholds, workarounds
-- TODO comments for deferred work: `// TODO: Migrate to PostgreSQL audit_logs` in `server/src/utils/logger.ts`
+- File-level comments on some files (e.g., `// File: server/src/models/User.ts`)
+- Inline comments for configuration decisions and non-obvious logic
+- `// Note:` prefix for important implementation notes
+- Section separators using `//` comments in large files
 
-**TSDoc/JSDoc:**
-- Not consistently used — most functions lack doc comments
-- Module-level docstrings in Python: `"""OpenCV Detection Service - Python Implementation"""`
-- TypeORM column comments used for schema documentation: `@Column({ comment: 'Type of event...' })`
+**JSDoc/TSDoc:**
+- Not consistently used
+- TypeORM models use `comment` property on column decorators for documentation
+- Some interfaces have inline field descriptions
 
 ## Function Design
 
-**Size:** Route handlers can be long (the main `routes/index.ts` is 5000+ lines). Service functions tend to be more focused.
+**Size:** No strict limit enforced, but large files exist (e.g., `server/src/routes/index.ts` is 4,073 lines, `frontend/src/services/ApiService.ts` is 3,208 lines)
 
 **Parameters:**
-- Route handlers: Express `(req: Request, res: Response)` or `(req: Request, res: Response, next: NextFunction)`
-- Services: Dependency injection via constructor — pass repositories and dependencies
-- Middleware: Factory pattern returning `(req, res, next) => void`
+- Destructured from `req.body` in route handlers:
+  ```typescript
+  const { username, email, password, role } = req.body;
+  ```
+- Options objects for middleware factories:
+  ```typescript
+  export function authenticate(options: AuthOptions = {}) {
+  ```
 
 **Return Values:**
-- Route handlers: Always `res.json()` or `res.status().json()` — never return data directly
-- Services: Return typed objects or `Promise<T>`
-- API responses: Always wrapped in `{ success: boolean, data?: T, error?: string }`
+- Backend services return result objects: `{ success: boolean, user?: User, error?: string, token?: string }`
+- Express handlers return `res.status().json()` with early `return` to prevent fallthrough
 
 ## Module Design
 
 **Exports:**
-- Default exports for React components: `export default ProtectedRoute`
-- Named exports for utilities, services, types: `export const logger`, `export class ReviewService`
-- Named exports for Route configurators: `export function configureRoutes(app: Express)`
-- Barrel file for models: `server/src/models/index.ts` — re-exports all entities
+- Named exports preferred for services and utilities:
+  ```typescript
+  export const logger = { ... };
+  export function authenticate(options: AuthOptions = {}) { ... }
+  export function configureAuthRoutes(app: Express) { ... }
+  ```
+- Default exports for React components:
+  ```typescript
+  export default function Login() { ... }
+  ```
+- Named exports for React components also used:
+  ```typescript
+  export const CameraStream: React.FC<CameraStreamProps> = ({ ... }) => { ... }
+  export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) { ... }
+  ```
+- TypeORM entities use named exports:
+  ```typescript
+  export class User { ... }
+  ```
 
 **Barrel Files:**
-- `server/src/models/index.ts` — exports all TypeORM entities
-- No barrel files for routes or services — imported directly
+- Models barrel: `server/src/models/index.ts`
+- No component barrel files in frontend — imports are direct
 
-**Route Pattern:**
-Routes use an Express Router or a configure function:
-```typescript
-// Pattern 1: Router export (storageRoutes.ts)
-const router = Router();
-router.get('/stats/overview', async (req, res) => { ... });
-export default router;
+**Route Registration:**
+- Routes use a configuration function pattern rather than Express Router:
+  ```typescript
+  export function configureAuthRoutes(app: Express) {
+    app.post('/api/auth/register', authenticate({ roles: ['admin'] }), ...);
+    app.post('/api/auth/login', ...);
+  }
+  ```
+- Some routes use Express Router with default export:
+  ```typescript
+  // server/src/routes/storageRoutes.ts
+  export default storageRoutes; // Express Router
+  ```
 
-// Pattern 2: Configure function (index.ts)
-export function configureRoutes(app: Express, io: SocketIOServer): void {
-  app.get('/api/events/list', async (req, res) => { ... });
-}
-```
+## React Patterns
 
-**Service Pattern:**
-Services use dependency injection via constructor:
-```typescript
-// server/src/services/review/reviewService.ts
-export class ReviewService {
-  constructor(
-    private reviewSegmentRepo: Repository<ReviewSegment>,
-    private reviewStatusRepo: Repository<UserReviewStatus>,
-    private timelineService: TimelineService,
-    private previewService: PreviewService,
-  ) {}
-}
-```
+**Component Types:**
+- Functional components with hooks (standard)
+- One class component: `ErrorBoundary` (required for error boundaries)
 
-**Context Pattern (Frontend):**
-React contexts use `useReducer` for state management:
-```typescript
-// frontend/src/contexts/AuthContext.tsx
-function authReducer(state: AuthState, action: AuthAction): AuthState { ... }
-export function AuthProvider({ children }: { children: ReactNode }) { ... }
-export function useAuth(): AuthContextType { ... }
-```
+**State Management:**
+- `useReducer` for complex state (AuthContext)
+- `useState` for simple component state
+- React Query (`@tanstack/react-query`) for server state
+- Context API for global state (Auth, Socket, Camera)
 
-## Validation
+**Component Props:**
+- Explicit interface for props:
+  ```typescript
+  interface CameraStreamProps {
+    camera: Camera;
+    autoStart?: boolean;
+  }
+  export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = true }) => {
+  ```
 
-**Zod Schemas:** All API input validation uses Zod (`server/src/schemas/validationSchemas.ts`):
-```typescript
-export const paginationSchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).default(20)
-});
-```
+**Styling:**
+- TailwindCSS utility classes throughout
+- `cn()` utility from `@/lib/utils.ts` for conditional classes (uses `clsx` + `tailwind-merge`)
+- shadcn/ui components in `frontend/src/components/ui/`
 
-**Middleware:** Two validation middleware approaches:
-- `server/src/middleware/zodValidation.ts` — Zod-specific with `validateBody()`, `validateQuery()`, `validateParams()`
-- `server/src/middleware/validation.ts` — generic `validate()` with `commonSchemas`
+## Python Conventions (OpenCV Service)
+
+**File:** `opencv-service/app.py`
+- Flask application
+- snake_case for functions and variables
+- PascalCase for classes (e.g., `DetectionCache`)
+- Type hints using `typing` module: `Optional`, `List`, `Dict`, `Any`
+- Environment variables via `os.getenv()` with defaults
 
 ---
 
-*Convention analysis: 2026-05-06*
+*Convention analysis: 2026-05-15*

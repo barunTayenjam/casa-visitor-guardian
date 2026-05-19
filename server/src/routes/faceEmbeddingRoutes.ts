@@ -1,11 +1,12 @@
 import express from 'express';
 import { AppDataSource } from '../database.js';
 import { FaceEmbedding } from '../models/FaceEmbedding.js';
-import { VisitorTimeline } from '../models/Visitor.js';
-
+import { requireUser, optionalAuth } from '../middleware/auth.js';
 const router = express.Router();
+router.use(optionalAuth);
+router.post('/', requireUser);
+router.delete('/:id', requireUser);
 const faceEmbeddingRepository = AppDataSource.getRepository(FaceEmbedding);
-const visitorRepository = AppDataSource.getRepository(VisitorTimeline);
 
 // POST /api/face-embeddings - Store new embedding with quality metadata
 router.post('/', async (req, res) => {
@@ -28,12 +29,6 @@ router.post('/', async (req, res) => {
     // Validate embedding vector dimension
     if (!Array.isArray(embeddingVector) || embeddingVector.length !== 128) {
       return res.status(400).json({ error: 'Embedding vector must be 128-dimensional' });
-    }
-
-    // Verify visitor exists
-    const visitor = await visitorRepository.findOne({ where: { id: visitorId } });
-    if (!visitor) {
-      return res.status(404).json({ error: 'Visitor not found' });
     }
 
     // Create embedding record

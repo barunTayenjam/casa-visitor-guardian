@@ -84,100 +84,149 @@ export interface NvidiaApiError {
   code?: string;
 }
 
-// Home security-focused system prompt - STRICT FORMAT
-const SYSTEM_PROMPT = `You are a home security AI. Analyze this camera image and respond ONLY with valid JSON.
+// Vision analysis system prompt - strict, accurate, structured
+const SYSTEM_PROMPT = `You are a precise visual analysis AI. Your goal is accurate, detailed scene understanding with conservative confidence scoring.
 
-CRITICAL: Your response must be ONLY valid JSON - no explanations, no markdown, no additional text before or after.
+## CRITICAL OUTPUT REQUIREMENT
+You MUST respond with ONLY valid JSON. No markdown, no code blocks, no headers, no bold text, no lists, no explanations, no preamble, no postamble. Your entire response must be a single valid JSON object.
 
-Response format:
-{
-  "scene_description": "2-3 sentence description of what you see",
-  "threat_assessment": {"level": "low|medium|high|critical", "confidence": 0-100},
-  "detected_entities": {
-    "people": ["single line description per person"],
-    "vehicles": ["single line per vehicle"],
-    "animals": ["single line per animal"],
-    "objects": ["single line per notable object"]
-  },
-  "recommended_actions": ["one action per item"],
-  "additional_observations": ["one observation per item"]
-}
+## JSON SCHEMA (exact format required)
+{"scene_description":"string","threat_assessment":{"level":"low|medium|high|critical","confidence":0-100,"reasoning":"string"},"detected_entities":{"people":[],"vehicles":[],"animals":[],"objects":[]},"recommended_actions":[],"additional_observations":[]}
 
-Rules:
-- Use ONLY the JSON format shown above
-- Do NOT include any text outside the JSON
-- Do NOT use markdown code blocks
-- Keep descriptions concise and factual
-- If nothing detected, use empty arrays []`;
+## ACCURACY RULES
+1. Only report what you can clearly see — if uncertain, set confidence below 60
+2. Never guess or hallucinate
+3. Conservative confidence scoring — reduce if poor lighting, distance, or partial visibility
+4. Be specific: "white SUV parked left side" not "vehicle"
+5. Count accurately — if 2 people, report count:2
+6. Position: left/right/center, foreground/midground/background
+7. Describe behavior precisely: "walking toward camera" not "walking"
+8. Note lighting and visibility conditions in additional_observations
 
-// System prompt for bounding box detection
-const BBOX_SYSTEM_PROMPT = `You are a home security expert AI assistant. Analyze the provided image from a home security camera and identify all detectable objects with their positions.
+## RESPONSE FORMAT
+- Your ENTIRE response must be ONLY valid JSON starting with {
+- Do NOT use markdown code blocks (triple backticks)
+- Do NOT use bold text
+- Do NOT use headers
+- Do NOT use list markers
+- Do NOT include any text outside the JSON object
+- If you cannot clearly identify something, use empty arrays and low confidence`;
 
-Your response must be in JSON format with the following structure:
+// System prompt for bounding box detection - strict and accurate
+const BBOX_SYSTEM_PROMPT = `You are a precise object detection AI for security camera analysis.
+
+## TASK
+Analyze this image and produce ONLY valid JSON describing all detectable objects with their positions.
+
+## JSON SCHEMA (exact format)
 {
   "detected_objects": [
     {
-      "label": "person|vehicle|animal|object",
-      "description": "Brief description of the object",
+      "label": "person|car|suv|truck|van|motorcycle|bicycle|dog|cat|bird|package|bag|unknown",
+      "description": "Precise description: color, size relative to scene, distinguishing features",
       "position": {
-        "x": 0-100,  // Percentage from left edge
-        "y": 0-100,  // Percentage from top edge
-        "width": 0-100,  // Percentage of image width
-        "height": 0-100  // Percentage of image height
+        "x": 0-100,
+        "y": 0-100,
+        "width": 0-100,
+        "height": 0-100
       },
       "confidence": 0-100
     }
   ],
-  "scene_description": "Brief description of what you see",
-  "people": ["description of each person"],
-  "vehicles": ["vehicle descriptions"],
-  "objects": ["notable objects"],
-  "animals": ["animal descriptions"]
+  "scene_description": "Brief but specific description of the scene",
+  "people": ["specific description per person including clothing colors if visible"],
+  "vehicles": ["type, color, location in scene per vehicle"],
+  "objects": ["package, bag, or other notable objects with location"],
+  "animals": ["type, color, behavior if visible per animal"]
 }
 
-Guidelines:
-- Use percentage values (0-100) for all coordinates
-- x: horizontal position from left edge
-- y: vertical position from top edge
-- width/height: size relative to full image
-- Include confidence scores (0-100)
-- Be specific about object types (person, car, truck, dog, package, etc.)
-- Note multiple objects of the same type with different positions
-- Only include objects you're confident about`;
+## ACCURACY RULES
+1. Use percentage coordinates (0-100) for position
+2. x: percentage from left edge, y: percentage from top edge
+3. width/height: size relative to full image
+4. Confidence 0-100: only report high confidence (80+) for distant or blurry objects
+5. Be specific about object types: "white sedan" not "vehicle"
+6. Position should be approximate bounding box for the object
+7. Only include objects you can clearly identify
+8. Note if lighting, distance, or angle affects accuracy
 
-// System prompt for optimized person detection
-const PERSON_SYSTEM_PROMPT = `You are a home security expert AI specializing in human detection. Analyze this security camera frame focusing ONLY on detecting people.
+## FORMAT RULES
+- JSON ONLY — no markdown, no explanation text
+- If nothing detected, use empty arrays []
+- All text in English`;
 
-Your response must be in JSON format:
+// System prompt for person detection - strict and accurate
+const PERSON_SYSTEM_PROMPT = `You are a precise human detection AI for security camera analysis.
+
+## TASK
+Analyze this image and produce ONLY valid JSON focusing on human detection.
+
+## JSON SCHEMA (exact format)
 {
   "count": number of people detected,
   "people": [
     {
       "position": {
-        "x": 0-100,  // Percentage from left
-        "y": 0-100,  // Percentage from top
-        "width": 0-100,  // Width percentage
-        "height": 0-100  // Height percentage
+        "x": 0-100,
+        "y": 0-100,
+        "width": 0-100,
+        "height": 0-100
       },
-      "description": "Brief description (age, build, posture)",
-      "clothing": "Clothing description (shirt color, pants, etc.)",
-      "actions": ["what they're doing"]
+      "description": "Estimated age range, build (slim/average/athletic/heavy), height relative to scene, visible features",
+      "clothing": "Top: color and style | Bottom: color | Footwear if visible",
+      "actions": ["specific action: walking-toward-camera, standing-idle, running, sitting, bending, reaching, carrying-object"],
+      "facing": "front|back|side|unknown",
+      "confidence": 0-100
     }
   ],
-  "scene_description": "Brief description of the scene",
-  "potential_threats": ["any concerning observations about the people"]
+  "scene_description": "Brief description of the overall scene context",
+  "potential_threats": ["specific concern if any: loitering, suspicious behavior, unauthorized access attempt, etc. or empty if normal"]
 }
 
-Guidelines:
-- Focus ONLY on detecting humans/people
-- Provide accurate position percentages
-- Note clothing details (colors, types)
-- Describe actions/behavior
-- Estimate count accurately
-- If no people, return count: 0 and empty people array`;
+## ACCURACY RULES
+1. Focus ONLY on humans — ignore other objects
+2. Position as percentage of full image (0-100)
+3. Provide accurate count — if 1 person, count=1 not "a few"
+4. Clothing: be specific about colors ("navy blue shirt", not just "dark shirt")
+5. Actions: be precise ("walking toward camera at moderate pace" not "walking")
+6. If low light or poor visibility, reduce confidence to 40-70 and note uncertainty
+7. Do not count reflections, shadows, or people in mirrors as separate individuals
+8. If no people, return count:0 with empty people array
+
+## FORMAT RULES
+- JSON ONLY — no markdown, no explanation text
+- All text in English`;
 
 // Default timeout for API calls (90 seconds)
 const DEFAULT_TIMEOUT = 90000;
+
+/**
+ * Normalize entity arrays — handles both old format (strings) and new format (objects)
+ */
+function normalizeEntityArray(input: unknown, type: string): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.map(item => {
+      if (typeof item === 'string') return item;
+      if (typeof item === 'object' && item !== null) {
+        const obj = item as Record<string, unknown>;
+        // Build description from object fields
+        const parts: string[] = [];
+        if (obj.description) parts.push(String(obj.description));
+        if (obj.count !== undefined) parts.push(`count:${obj.count}`);
+        if (obj.type) parts.push(String(obj.type));
+        if (obj.color) parts.push(String(obj.color));
+        if (obj.location) parts.push(String(obj.location));
+        if (obj.state || obj.behavior) parts.push(String(obj.state || obj.behavior));
+        if (obj.clothing) parts.push(String(obj.clothing));
+        if (obj.significance) parts.push(String(obj.significance));
+        return parts.length > 0 ? parts.join(' | ') : type;
+      }
+      return String(item);
+    });
+  }
+  return [];
+}
 
 /**
  * Convert image file to base64 encoding
@@ -214,9 +263,9 @@ async function callNvidiaApi(
     context.timestamp ? `Timestamp: ${context.timestamp}` : null,
   ].filter(Boolean).join(' | ');
 
-  const userMessage = contextInfo 
-    ? `Context: ${contextInfo}\n\nPlease analyze this security camera frame and provide your assessment.`
-    : 'Please analyze this security camera frame and provide your assessment.';
+  const userMessage = contextInfo
+    ? `Context: ${contextInfo}\n\nAnalyze this image carefully. Your response MUST be ONLY valid JSON starting with { and ending with }. No markdown, no code blocks, no preamble. Be specific about counts, colors, positions, and behaviors.`
+    : 'Analyze this image carefully. Your response MUST be ONLY valid JSON starting with { and ending with }. No markdown, no code blocks, no preamble. Be specific about counts, colors, positions, and behaviors.';
 
   const requestBody = {
     model: model,
@@ -241,9 +290,10 @@ async function callNvidiaApi(
         ]
       }
     ],
-    temperature: 0.3,
+    temperature: 0.1,
     max_tokens: 2048,
-    stream: false
+    stream: false,
+    top_p: 0.9
   };
 
   const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
@@ -271,99 +321,121 @@ function parseAIResponse(
   processingTime: number,
   model: string
 ): NvidianalysisResult {
-  try {
-    // Try to extract JSON from the response
-    // The response might contain markdown code blocks or malformed JSON
-    let jsonStr = responseContent.trim();
-    
-    // Remove markdown code block syntax if present
-    if (jsonStr.startsWith('```json')) {
-      jsonStr = jsonStr.slice(7);
-    } else if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.slice(3);
-    }
-    
-    if (jsonStr.endsWith('```')) {
-      jsonStr = jsonStr.slice(0, -3);
-    }
+  const tryParse = (str: string): any | null => {
+    try { return JSON.parse(str); } catch { return null; }
+  };
 
-    // Remove newlines and extra whitespace within the JSON string
-    jsonStr = jsonStr.replace(/\s+/g, ' ').trim();
-    
-    // Try to find and extract valid JSON object
-    let parsed = null;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      // Try to extract JSON by finding first { and last }
-      const jsonStart = jsonStr.indexOf('{');
+  try {
+    let jsonStr = responseContent.trim();
+
+    // Strategy 1: Direct JSON (starts with {)
+    if (jsonStr.startsWith('{')) {
       const jsonEnd = jsonStr.lastIndexOf('}');
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        let extracted = jsonStr.substring(jsonStart, jsonEnd + 1);
-        // Clean up any trailing text after the JSON
-        extracted = extracted.split('}')[0] + '}';
-        try {
-          parsed = JSON.parse(extracted);
-        } catch {
-          // Try removing any non-JSON trailing content
-          const cleanMatch = extracted.match(/^\s*\{[\s\S]*\}\s*$/);
-          if (cleanMatch) {
-            try {
-              parsed = JSON.parse(cleanMatch[0]);
-            } catch {}
-          }
-        }
+      if (jsonEnd > 0) {
+        const parsed = tryParse(jsonStr.substring(0, jsonEnd + 1));
+        if (parsed) return buildResult(parsed, processingTime, model);
       }
     }
-    
-    if (!parsed) {
-      throw new Error('Failed to parse JSON from response');
+
+    // Strategy 2: Markdown code block extraction
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      const extracted = codeBlockMatch[1].trim();
+      let parsed = tryParse(extracted);
+      if (parsed) return buildResult(parsed, processingTime, model);
+      const clean = extracted.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+      if (clean.trim().startsWith('{')) {
+        parsed = tryParse(clean);
+        if (parsed) return buildResult(parsed, processingTime, model);
+      }
     }
-    
+
+    // Strategy 3: Find JSON object anywhere in text
+    const jsonStart = jsonStr.indexOf('{');
+    if (jsonStart >= 0) {
+      const jsonEnd = jsonStr.lastIndexOf('}');
+      if (jsonEnd > jsonStart) {
+        const extracted = jsonStr.substring(jsonStart, jsonEnd + 1);
+        let parsed = tryParse(extracted);
+        if (parsed) return buildResult(parsed, processingTime, model);
+      }
+    }
+
+    // Strategy 4: Try removing markdown formatting and re-extract
+    const cleaned = jsonStr
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/#/g, '')
+      .replace(/^[-*+]\s+/gm, '')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+    const s = cleaned.indexOf('{');
+    const e = cleaned.lastIndexOf('}');
+    if (s >= 0 && e > s) {
+      const parsed = tryParse(cleaned.substring(s, e + 1));
+      if (parsed) return buildResult(parsed, processingTime, model);
+    }
+
+    // Strategy 5: Last resort — try wrapping the whole content as a description
+    if (jsonStr.length > 10) {
+      return {
+        sceneDescription: jsonStr.replace(/^["'\s]+|["'\s]+$/g, '').substring(0, 500),
+        threatAssessment: { level: 'low', factors: [], confidence: 30 },
+        detectedEntities: { people: [], vehicles: [], animals: [], objects: [], actions: [] },
+        recommendedActions: [],
+        additionalObservations: ['Raw text used as description (JSON parsing failed)'],
+        processingTime,
+        modelUsed: model
+      };
+    }
+
+    throw new Error('Failed to parse JSON from response');
+  } catch (parseError: any) {
+    console.error('[NVIDIA Parse] All strategies failed:', parseError.message);
+
+    if (responseContent.trim().length > 10) {
+      return {
+        sceneDescription: responseContent.trim().substring(0, 500),
+        threatAssessment: { level: 'low', factors: [], confidence: 30 },
+        detectedEntities: { people: [], vehicles: [], animals: [], objects: [], actions: [] },
+        recommendedActions: [],
+        additionalObservations: ['Raw text used as description (JSON parsing failed)'],
+        processingTime,
+        modelUsed: model
+      };
+    }
+
     return {
-      sceneDescription: parsed.scene_description || parsed.sceneDescription || 'No description available',
-      threatAssessment: {
-        level: parsed.threat_assessment?.level || parsed.threatAssessment?.level || 'low',
-        factors: parsed.threat_assessment?.factors || parsed.threatAssessment?.factors || [],
-        confidence: parsed.threat_assessment?.confidence || parsed.threatAssessment?.confidence || 50
-      },
-      detectedEntities: {
-        people: parsed.detected_entities?.people || parsed.detectedEntities?.people || [],
-        vehicles: parsed.detected_entities?.vehicles || parsed.detectedEntities?.vehicles || [],
-        animals: parsed.detected_entities?.animals || parsed.detectedEntities?.animals || [],
-        objects: parsed.detected_entities?.objects || parsed.detectedEntities?.objects || [],
-        actions: parsed.detected_entities?.actions || parsed.detectedEntities?.actions || []
-      },
-      recommendedActions: parsed.recommended_actions || parsed.recommendedActions || [],
-      additionalObservations: parsed.additional_observations || parsed.additionalObservations || [],
-      processingTime,
-      modelUsed: model
-    };
-  } catch (parseError) {
-    // If JSON parsing fails, return a fallback response
-    console.error('Failed to parse AI response as JSON:', parseError);
-    console.error('Raw response:', responseContent);
-    
-    return {
-      sceneDescription: responseContent.substring(0, 500),
-      threatAssessment: {
-        level: 'low',
-        factors: ['Unable to fully parse AI response'],
-        confidence: 30
-      },
-      detectedEntities: {
-        people: [],
-        vehicles: [],
-        animals: [],
-        objects: [],
-        actions: []
-      },
-      recommendedActions: ['Review raw response for details'],
+      sceneDescription: 'No description available',
+      threatAssessment: { level: 'low', factors: [], confidence: 30 },
+      detectedEntities: { people: [], vehicles: [], animals: [], objects: [], actions: [] },
+      recommendedActions: [],
       additionalObservations: ['Response parsing encountered issues'],
       processingTime,
       modelUsed: model
     };
   }
+}
+
+function buildResult(parsed: any, processingTime: number, model: string): NvidianalysisResult {
+  return {
+    sceneDescription: parsed.scene_description || parsed.sceneDescription || 'No description available',
+    threatAssessment: {
+      level: parsed.threat_assessment?.level || parsed.threatAssessment?.level || 'low',
+      factors: parsed.threat_assessment?.reasoning ? [parsed.threat_assessment.reasoning] : (parsed.threat_assessment?.factors || parsed.threatAssessment?.factors || []),
+      confidence: parsed.threat_assessment?.confidence || parsed.threatAssessment?.confidence || 50
+    },
+    detectedEntities: {
+      people: normalizeEntityArray(parsed.detected_entities?.people || parsed.detectedEntities?.people, 'person'),
+      vehicles: normalizeEntityArray(parsed.detected_entities?.vehicles || parsed.detectedEntities?.vehicles, 'vehicle'),
+      animals: normalizeEntityArray(parsed.detected_entities?.animals || parsed.detectedEntities?.animals, 'animal'),
+      objects: normalizeEntityArray(parsed.detected_entities?.objects || parsed.detectedEntities?.objects, 'object'),
+      actions: []
+    },
+    recommendedActions: parsed.recommended_actions || parsed.recommendedActions || [],
+    additionalObservations: parsed.additional_observations || parsed.additionalObservations || [],
+    processingTime,
+    modelUsed: model
+  };
 }
 
 /**
@@ -380,7 +452,7 @@ export async function analyzeImage(
   const startTime = Date.now();
   
   // Default model - can be overridden via options
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
+  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Analysis] Starting analysis with model: ${model}`);
@@ -391,22 +463,22 @@ export async function analyzeImage(
     let base64Image: string;
     
     if (Buffer.isBuffer(imageInput)) {
-      // Resize to max 640px for faster LLM processing
-      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      // Resize to 800px max for better accuracy
+      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else if (imageInput.startsWith('data:')) {
       const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
-      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else if (imageInput.length > 1000) {
       // Likely already a base64 string - resize it
       const buffer = Buffer.from(imageInput, 'base64');
-      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else {
-      // File path - read and resize
-      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      // File path - read and resize (maintain aspect ratio)
+      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     }
 
@@ -428,7 +500,9 @@ export async function analyzeImage(
         throw new Error('Empty response from NVIDIA API');
       }
 
-      console.log(`[NVIDIA Analysis] Analysis completed in ${processingTime}ms`);
+      console.log(`[NVIDIA Analysis] completed in ${processingTime}ms, content length=${content.length}`);
+      console.log(`[NVIDIA Content] start: "${content.substring(0, 80).replace(/\n/g, '\\n')}"`);
+      console.log(`[NVIDIA Content] end:   "${content.substring(content.length - 80).replace(/\n/g, '\\n')}"`);
 
       return parseAIResponse(content, processingTime, model);
       
@@ -477,7 +551,7 @@ export async function checkApiHealth(): Promise<{
   error?: string;
 }> {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
+  const model = process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
 
   if (!apiKey) {
     return {
@@ -613,7 +687,7 @@ export async function analyzeWithBoundingBoxes(
 ): Promise<BboxAnalysisResult> {
   const startTime = Date.now();
   
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
+  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Bbox Analysis] Starting with model: ${model}`);
@@ -624,28 +698,28 @@ export async function analyzeWithBoundingBoxes(
     let base64Image: string;
     
     if (Buffer.isBuffer(imageInput)) {
-      // Write to temp file for sharp processing
+      // Write to temp file at 800px for accuracy
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(imageInput).jpeg().toFile(tempPath);
+      await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
       imagePath = tempPath;
       base64Image = imageInput.toString('base64');
     } else if (imageInput.startsWith('data:')) {
       const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(base64Data, 'base64')).jpeg().toFile(tempPath);
+      await sharp(Buffer.from(base64Data, 'base64')).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
       imagePath = tempPath;
       base64Image = base64Data;
     } else if (imageInput.length > 1000) {
       // Already base64
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(imageInput, 'base64')).jpeg().toFile(tempPath);
+      await sharp(Buffer.from(imageInput, 'base64')).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
       imagePath = tempPath;
       base64Image = imageInput;
     } else {
-      // File path
+      // File path - resize at 800px for base64
+      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       imagePath = imageInput;
-      const buffer = fs.readFileSync(imagePath);
-      base64Image = buffer.toString('base64');
+      base64Image = resized.toString('base64');
     }
 
     // Build context message
@@ -654,9 +728,9 @@ export async function analyzeWithBoundingBoxes(
       context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
     ].filter(Boolean).join(' | ');
 
-    const userMessage = contextInfo 
-      ? `Context: ${contextInfo}\n\nIdentify all objects in this security camera frame with their positions. Use percentage coordinates (0-100) for position.`
-      : 'Identify all objects in this security camera frame with their positions. Use percentage coordinates (0-100) for position.';
+    const userMessage = contextInfo
+      ? `Context: ${contextInfo}\n\nIdentify all objects in this image carefully. Use percentage coordinates (0-100) for position. Be specific about object types, colors, and positions. Report confidence based on image clarity and visibility.`
+      : 'Identify all objects in this image carefully. Use percentage coordinates (0-100) for position. Be specific about object types, colors, and positions. Report confidence based on image clarity.';
 
     const requestBody = {
       model: model,
@@ -676,9 +750,10 @@ export async function analyzeWithBoundingBoxes(
           ]
         }
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 2048,
-      stream: false
+      stream: false,
+      top_p: 0.9
     };
 
     const controller = new AbortController();
@@ -806,7 +881,7 @@ export async function analyzePersons(
 ): Promise<PersonDetectionResult> {
   const startTime = Date.now();
   
-  const model = options.model || process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1';
+  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   console.log(`[NVIDIA Person Detection] Starting with model: ${model}`);
@@ -815,23 +890,23 @@ export async function analyzePersons(
     // Prepare and resize image for faster LLM processing
     let base64Image: string;
     
-    if (Buffer.isBuffer(imageInput)) {
-      // Resize to max 640px width for faster processing
-      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+if (Buffer.isBuffer(imageInput)) {
+      // Resize to 800px max for better accuracy
+      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else if (imageInput.startsWith('data:')) {
       const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
-      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else if (imageInput.length > 1000) {
-      // Already base64 - assume it's already small or resize it
+      // Already base64 - resize at 800px
       const buffer = Buffer.from(imageInput, 'base64');
-      const resized = await sharp(buffer).jpeg({ quality: 80 }).toBuffer();
+      const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     } else {
-      // File path - read and resize
-      const resized = await sharp(imageInput).jpeg({ quality: 80 }).toBuffer();
+      // File path - read and resize at 800px
+      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
       base64Image = resized.toString('base64');
     }
 
@@ -842,9 +917,9 @@ export async function analyzePersons(
       context.eventType ? `Event Type: ${context.eventType}` : null,
     ].filter(Boolean).join(' | ');
 
-    const userMessage = contextInfo 
-      ? `Context: ${contextInfo}\n\nFocus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100).`
-      : 'Focus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100).';
+    const userMessage = contextInfo
+      ? `Context: ${contextInfo}\n\nFocus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100). Be specific about clothing colors, actions, and facing direction. Note any uncertainty due to lighting or distance.`
+      : 'Focus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100). Be specific about clothing colors, actions, and facing direction. If lighting is poor or person is distant, note your uncertainty and reduce confidence.';
 
     const requestBody = {
       model: model,
@@ -864,9 +939,10 @@ export async function analyzePersons(
           ]
         }
       ],
-      temperature: 0.2,
-      max_tokens: 1024,  // Smaller since focused on people
-      stream: false
+      temperature: 0.1,
+      max_tokens: 1024,
+      stream: false,
+      top_p: 0.9
     };
 
     const controller = new AbortController();

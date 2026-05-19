@@ -162,7 +162,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...cameraData,
         status: 'offline', // Start as offline until connection is verified
         lastSeen: new Date(),
-        thumbnail: '/placeholder-camera.jpg',
+        thumbnail: '/placeholder-camera.svg',
       };
       
       setCameras(prev => [...prev, newCamera]);
@@ -191,7 +191,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to update camera ${id}:`, err);
       throw err;
     }
-  }, [cameraService, setCameras]);
+  }, [setCameras]);
 
   // Delete a camera
   const deleteCamera = async (id: string) => {
@@ -235,7 +235,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to start stream for camera ${id}:`, err);
       throw err;
     }
-  }, [socketService, updateCamera]);
+  }, [updateCamera]);
 
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
@@ -252,7 +252,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(`Failed to stop stream for camera ${id}:`, err);
       throw err;
     }
-  }, [socketService]);
+  }, []);
 
   // Take a snapshot from a camera
   const takeSnapshot = async (id: string, resolution?: string) => {

@@ -173,23 +173,62 @@ router.post('/analyze-event', authenticate(), async (req: Request, res: Response
       });
     }
 
-    // Try to find the image file
     let imagePath: string | null = null;
-    
+
     if (event.file_path) {
-      // Try various possible locations
-      const possiblePaths = [
-        event.file_path,
-        path.join(process.cwd(), 'data', 'detections', event.file_path),
-        path.join(process.cwd(), 'public', 'events', event.file_path),
-        path.join(process.cwd(), 'public', event.file_path),
-      ];
+      const storedPath = event.file_path;
+      const filename = path.basename(storedPath);
+
+      const possiblePaths: string[] = [];
+
+      // If storedPath is an absolute path, try mapping Docker container paths
+      // to the local host paths used in non-Docker mode
+      if (path.isAbsolute(storedPath)) {
+        // Map /app/data/detections/... → <project_root>/data/detections/...
+        if (storedPath.startsWith('/app/data/')) {
+          possiblePaths.push(storedPath.replace('/app/', path.join(process.cwd(), '..') + '/'));
+          possiblePaths.push(storedPath.replace('/app/', process.cwd() + '/'));
+        }
+        // Try the absolute path as-is (may work in Docker mode)
+        possiblePaths.push(storedPath);
+      }
+
+      // Try relative to CWD
+      possiblePaths.push(
+        path.join(process.cwd(), storedPath),
+        path.join(process.cwd(), '..', storedPath),
+      );
+
+      // Try public directories
+      possiblePaths.push(
+        path.join(process.cwd(), 'public', 'events', filename),
+        path.join(process.cwd(), 'public', filename),
+      );
+
+      // Parse year-month from filename (e.g., motion_cam1_2026-05-19T...)
+      // to construct date-based detection paths
+      const dateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (dateMatch) {
+        const yearMonth = `${dateMatch[1]}-${dateMatch[2]}`;
+        const eventTypeDir = storedPath.includes('/faces/') ? 'faces' : 'motion';
+        possiblePaths.push(
+          path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+          path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+          `/app/data/detections/${yearMonth}/events/${eventTypeDir}/${filename}`,
+        );
+      }
 
       for (const p of possiblePaths) {
         if (fs.existsSync(p)) {
           imagePath = p;
           break;
         }
+      }
+
+      if (imagePath) {
+        console.log(`[NVIDIA Routes] Found image at: ${imagePath}`);
+      } else {
+        console.warn(`[NVIDIA Routes] Image not found. Tried: ${possiblePaths.filter(p => !p.startsWith('/app')).join(', ')}`);
       }
     }
 
@@ -736,16 +775,42 @@ router.post('/analyze-event-with-bboxes', authenticate(), async (req: Request, r
       });
     }
 
-    // Find the image file
     let imagePath: string | null = null;
-    
+
     if (event.file_path) {
-      const possiblePaths = [
-        event.file_path,
-        path.join(process.cwd(), 'data', 'detections', event.file_path),
-        path.join(process.cwd(), 'public', 'events', event.file_path),
-        path.join(process.cwd(), 'public', event.file_path),
-      ];
+      const storedPath = event.file_path;
+      const filename = path.basename(storedPath);
+
+      const possiblePaths: string[] = [];
+
+      if (path.isAbsolute(storedPath)) {
+        if (storedPath.startsWith('/app/data/')) {
+          possiblePaths.push(storedPath.replace('/app/', path.join(process.cwd(), '..') + '/'));
+          possiblePaths.push(storedPath.replace('/app/', process.cwd() + '/'));
+        }
+        possiblePaths.push(storedPath);
+      }
+
+      possiblePaths.push(
+        path.join(process.cwd(), storedPath),
+        path.join(process.cwd(), '..', storedPath),
+      );
+
+      possiblePaths.push(
+        path.join(process.cwd(), 'public', 'events', filename),
+        path.join(process.cwd(), 'public', filename),
+      );
+
+      const dateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (dateMatch) {
+        const yearMonth = `${dateMatch[1]}-${dateMatch[2]}`;
+        const eventTypeDir = storedPath.includes('/faces/') ? 'faces' : 'motion';
+        possiblePaths.push(
+          path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+          path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+          `/app/data/detections/${yearMonth}/events/${eventTypeDir}/${filename}`,
+        );
+      }
 
       for (const p of possiblePaths) {
         if (fs.existsSync(p)) {

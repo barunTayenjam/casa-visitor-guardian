@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
@@ -67,17 +67,18 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
     const camera = typeof req.query.camera === 'string' ? req.query.camera : null;
     const parsed = CameraDetectionConfigSchema.parse(req.body);
+    const { camera: _, ...config } = parsed;
 
-    await import('../services/detection/detectionService.js').then(m => m.detectionService?.updateConfig(camera, parsed));
+    await import('../services/detection/detectionService.js').then(m => m.detectionService?.updateConfig(camera, config as any));
 
     res.json({ success: true, message: 'Detection configuration updated' });
   } catch (err) {

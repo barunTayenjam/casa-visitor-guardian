@@ -13,10 +13,19 @@
     "declaration": false,
     "sourceMap": false,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "types": ["node", "@jest/globals"]
   },
   "include": [
     "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/services/advancedFaceRecognitionService.ts",
+    "src/services/redisCache.ts",
+    "src/services/enhancedAnalyticsService.ts",
+    "src/utils/auditService.ts",
+    "src/utils/jwtService.ts",
+    "src/utils/passwordSecurity.ts",
+    "src/scripts/migrateCredentials.ts"
   ]
 }

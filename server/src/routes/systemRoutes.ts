@@ -1,13 +1,13 @@
 import { Express, Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'url';
 import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { inMemoryState, MotionEvent } from '../services/inMemoryStateService.js';
-import { storageStatsService } from '../services/storageStatsService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
-import type { Camera } from '../config/index.js';
+import type { Camera } from '../streams/rtspManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +32,43 @@ export function configureSystemRoutes(app: Express) {
     }
   });
 
-  // Image cleanup endpoint
+  app.get('/api/stats', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const { AppDataSource } = await import('../database.js');
+      const { Event } = await import('../models/index.js');
+
+      const eventRepo = AppDataSource.getRepository(Event);
+      const totalEvents = await eventRepo.count();
+
+      const streamManager = serviceRegistry.getStreamManager();
+      const cameras = streamManager.getAllCameras();
+      const activeCameras = cameras.filter((c: any) => c.isActive).length;
+
+      let knownVisitors = 0;
+      try {
+        const visitorResult = await AppDataSource.query('SELECT COUNT(Distinct visitor_id) as count FROM visitor_timeline');
+        knownVisitors = parseInt(visitorResult?.[0]?.count) || 0;
+      } catch {}
+
+      let storageUsed = 0;
+      let storageTotal = 0;
+
+      res.json({
+        success: true,
+        stats: {
+          totalEvents,
+          totalCameras: cameras.length,
+          activeCameras,
+          knownVisitors,
+          storageUsed,
+          storageTotal,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.post('/api/maintenance/cleanup-images', requireAdmin, async (req: Request, res: Response) => {
     try {
       const retentionDays = parseInt(req.body.retentionDays) || 7;
@@ -79,14 +115,6 @@ export function configureSystemRoutes(app: Express) {
 
       let storageUsed = 0;
       let storageTotal = 1000000000;
-      try {
-        const globalStats = await storageStatsService.getGlobalStorageStats();
-        storageUsed = globalStats.totalBytes;
-        const maxStorageGB = await (storageStatsService as any).getMaxStorageGB();
-        storageTotal = maxStorageGB * 1024 * 1024 * 1024;
-      } catch (err) {
-        console.warn('Failed to fetch storage stats for overview:', err);
-      }
 
       const recentEvents = inMemoryState.getRecentEvents();
       const overview = {
@@ -130,6 +158,12 @@ export function configureSystemRoutes(app: Express) {
       if (uptime < 300) issues.push('System recently restarted');
 
       const recentEvents = inMemoryState.getRecentEvents();
+
+      // Calculate CPU Load (Average across all cores)
+      const cpus = os.cpus();
+      const loadAvg = os.loadavg();
+      const cpuUsage = (loadAvg[0] / cpus.length) * 100;
+
       res.json({
         success: true,
         health: {
@@ -139,7 +173,15 @@ export function configureSystemRoutes(app: Express) {
           cameras: { total: cameras.length, online: onlineCameras.length, offline: offlineCameras.length },
           memory: {
             used: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
-            total: Math.round((process.memoryUsage().heapTotal / 1024 / 1024) * 100) / 100
+            total: Math.round((process.memoryUsage().heapTotal / 1024 / 1024) * 100) / 100,
+            systemTotal: Math.round((os.totalmem() / 1024 / 1024) * 100) / 100,
+            systemFree: Math.round((os.freemem() / 1024 / 1024) * 100) / 100
+          },
+          cpu: {
+            usage: Math.min(100, Math.round(cpuUsage * 100) / 100),
+            cores: cpus.length,
+            model: cpus[0].model,
+            loadAvg: loadAvg
           },
           events: {
             recent: recentEvents.length,

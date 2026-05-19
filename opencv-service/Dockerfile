@@ -6,6 +6,9 @@ WORKDIR /app
 # Install system dependencies (updated for Debian trixie)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    cmake \
+    g++ \
+    make \
     libgl1-mesa-dri \
     libglx-mesa0 \
     libglib2.0-0 \

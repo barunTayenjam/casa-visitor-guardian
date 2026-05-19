@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">73.91% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>17/23</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">45.45% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>10/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>1/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/20</span>
+                <span class='fraction'>15/18</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -98,18 +98,15 @@
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a>
 <a name='L35'></a><a href='#L35'>35</a>
-<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -120,31 +117,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Entity, <span class="cstat-no" title="statement not covered" >PrimaryGeneratedColumn, Colum<span class="fstat-no" title="function not covered" >n,</span> ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';</span>
-import { Use<span class="cstat-no" title="statement not covered" >r } from './User.</span>js';<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span>
-@Entity('<span class="cstat-no" title="statement not covered" >notification_<span class="cstat-no" title="statement not covered" >subscriptions')<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span></span></span>
-@Ind<span class="cstat-no" title="statement not covered" >ex(['user_id'])</span>
-@Index(['is_active'])
-export class Noti<span class="cstat-no" title="statement not covered" >ficationSubscription {<span class="fstat-no" title="function not covered" ></span></span>
-  @P<span class="cstat-no" title="statement not covered" >rimaryGeneratedColumn('uuid')<span class="cstat-no" title="statement not covered" ></span></span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span></td><td class="text"><pre class="prettyprint lang-js">import { Entity, PrimaryGe<span class="branch-1 cbranch-no" title="branch not covered" >neratedColumn, C</span>olumn, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
+import { User } from './User.js';<span class="branch-0 cbranch-no" title="branch not covered" ></span>
+&nbsp;
+@Entity('<span class="cstat-no" title="statement not covered" ><span class="missing-if-branch" title="else path not taken" >E</span>notification_<span class="cstat-no" title="statement not covered" >subscriptions')<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span></span></span>
+@Index(['userId'])<span class="branch-2 cbranch-no" title="branch not covered" ></span>
+@Index(['isActive'])
+export class NotificationSubscription {
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 &nbsp;
-  @Column({ name: 'user_id' })
-  userId!: string;<span class="cstat-no" title="statement not covered" ></span>
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId!: string;
 &nbsp;
   @ManyToOne(() =&gt; User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
@@ -155,27 +155,27 @@ export class Noti<span class="cstat-no" title="statement not covered" >ficationS
 &nbsp;
   @Column({ name: 'keys_p256h', type: 'text' })
   keysP256h!: string;
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
   @Column({ name: 'keys_auth', type: 'text' })
   keysAuth!: string;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  @CreateDateColumn({ name: 'created_at' })</span>
+  @CreateDateC<span class="fstat-no" title="function not covered" >ol</span>umn(<span class="cstat-no" title="statement not covered" >{ nam</span>e: 'created_at' })
   createdAt!: Date;
 &nbsp;
   @Column({ name: 'last_used', type: 'timestamp', default: () =&gt; 'NOW()' })
-<span class="cstat-no" title="statement not covered" >  lastUsed!: Date;</span>
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span>
+  lastUsed!: Date;
+&nbsp;
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 }
-<span class="cstat-no" title="statement not covered" ></span></pre></td></tr></table></pre>
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:09.943Z
+                at 2026-05-15T18:35:18.558Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

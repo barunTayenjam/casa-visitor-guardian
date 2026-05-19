@@ -245,12 +245,18 @@ export class MotionTriggeredDetection extends EventEmitter {
       
       const detections = response.data.detections;
       
-      // Calculate event metadata
-      const personCount = detections.filter(d => d.class === 'person').length;
-      const maxConfidence = Math.max(...detections.map(d => d.confidence), 0);
+      const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'package'];
+      const relevantDetections = detections.filter(d => relevantClasses.includes(d.class));
       
-      // Add frame to motion queue and save to DB with detections
-      const framePath = await this.saveMotionFrame(cameraId, frame, detections);
+      if (relevantDetections.length === 0) {
+        console.log(`[${cameraId}] Skipping event save - no relevant objects detected (got: ${detections.map(d => d.class).join(', ')})`);
+        return;
+      }
+      
+      const personCount = relevantDetections.filter(d => d.class === 'person').length;
+      const maxConfidence = Math.max(...relevantDetections.map(d => d.confidence), 0);
+      
+      const framePath = await this.saveMotionFrame(cameraId, frame, relevantDetections);
       
       if (!this.motionFrameQueue.has(cameraId)) {
         this.motionFrameQueue.set(cameraId, []);

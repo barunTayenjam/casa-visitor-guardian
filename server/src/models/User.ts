@@ -21,7 +21,7 @@ export class User {
   @Column({ type: 'varchar', length: 255, unique: true })
   email!: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   @Exclude()
   passwordHash!: string;
 
@@ -29,7 +29,7 @@ export class User {
   @Exclude()
   salt!: string;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'role_id', type: 'uuid', nullable: true })
   roleId!: string;
 
   @ManyToOne(() => Role, 'users')
@@ -37,6 +37,7 @@ export class User {
   role!: Role;
 
   @Column({ 
+    name: 'status',
     type: 'varchar', 
     length: 20, 
     default: 'active',
@@ -44,52 +45,52 @@ export class User {
   })
   status!: 'active' | 'inactive' | 'suspended' | 'locked';
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'mfa_enabled', type: 'boolean', default: false })
   mfaEnabled!: boolean;
 
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ name: 'mfa_secret', type: 'varchar', length: 32, nullable: true })
   @Exclude()
   mfaSecret!: string | null;
 
-  @Column({ type: 'text', array: true, nullable: true })
+  @Column({ name: 'backup_codes', type: 'text', array: true, nullable: true })
   @Exclude()
   backupCodes!: string[] | null;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
   emailVerified!: boolean;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'email_verification_token', type: 'varchar', length: 255, nullable: true })
   emailVerificationToken!: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'email_verification_expires', type: 'timestamp', nullable: true })
   emailVerificationExpires!: Date | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'password_reset_token', type: 'varchar', length: 255, nullable: true })
   @Exclude()
   passwordResetToken!: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
   passwordResetExpires!: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin!: Date | null;
 
-  @Column({ type: 'integer', default: 0 })
+  @Column({ name: 'failed_login_attempts', type: 'integer', default: 0 })
   failedLoginAttempts!: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'locked_until', type: 'timestamp', nullable: true })
   lockedUntil!: Date | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy!: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy!: string | null;
 
   @OneToMany(() => UserSession, session => session.user)

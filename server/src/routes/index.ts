@@ -27,7 +27,6 @@ import faceEmbeddingRoutes from './faceEmbeddingRoutes.js';
 import faceConfigRoutes from './faceConfigRoutes.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
-import { storageStatsService } from '../services/storageStatsService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import multer from 'multer';
@@ -764,6 +763,159 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
+  // Get daily event statistics
+  app.get('/api/events/stats/today', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayIso = todayStart.toISOString();
+
+      const query = `
+        SELECT COUNT(*) as count
+        FROM events e
+        WHERE e.timestamp >= $1
+        AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')
+      `;
+      const result = await AppDataSource.query(query, [todayIso]);
+      res.json({ success: true, count: parseInt(result[0].count) });
+    } catch (error) {
+      console.error('Error fetching daily stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch daily stats' });
+    }
+  });
+
+  // Get event counts by date for calendar view
+  app.get('/api/events/stats/calendar', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const { year, month, camera_id } = req.query;
+      
+      const currentYear = year ? parseInt(year as string) : new Date().getFullYear();
+      const currentMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
+      
+      const startDate = new Date(currentYear, currentMonth - 1, 1);
+      const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+      
+      let conditions = [
+        "e.timestamp >= $1",
+        "e.timestamp <= $2",
+        "e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"
+      ];
+      const params: any[] = [startDate.toISOString(), endDate.toISOString()];
+      
+      if (camera_id && camera_id !== 'all') {
+        conditions.push(`e.camera_id = $${params.length + 1}`);
+        params.push(camera_id);
+      }
+      
+      const query = `
+        SELECT 
+          DATE(e.timestamp) as date,
+          COUNT(*) as count,
+          COUNT(CASE WHEN e.event_type = 'motion' OR e.event_type = 'event_motion' THEN 1 END) as motion_count,
+          COUNT(CASE WHEN e.event_type = 'face' OR e.event_type = 'event_face' THEN 1 END) as face_count,
+          COUNT(CASE WHEN e.persons_detected > 0 THEN 1 END) as person_count,
+          SUM(e.persons_detected) as total_persons,
+          AVG(e.confidence) as avg_confidence
+        FROM events e
+        WHERE ${conditions.join(' AND ')}
+        GROUP BY DATE(e.timestamp)
+        ORDER BY date
+      `;
+      
+      const results = await AppDataSource.query(query, params);
+      
+      // Convert to calendar format
+      const calendarData: Record<string, { count: number; motion: number; face: number; persons: number; avgConfidence: number }> = {};
+      results.forEach((row: any) => {
+        const dateKey = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+        calendarData[dateKey] = {
+          count: parseInt(row.count),
+          motion: parseInt(row.motion_count) || 0,
+          face: parseInt(row.face_count) || 0,
+          persons: parseInt(row.total_persons) || 0,
+          avgConfidence: parseFloat(row.avg_confidence) || 0
+        };
+      });
+      
+      res.json({ 
+        success: true, 
+        data: calendarData,
+        summary: {
+          totalEvents: results.reduce((acc: number, r: any) => acc + parseInt(r.count), 0),
+          totalPersons: results.reduce((acc: number, r: any) => acc + (parseInt(r.total_persons) || 0), 0),
+          avgConfidence: results.length > 0 
+            ? results.reduce((acc: number, r: any) => acc + parseFloat(r.avg_confidence || 0), 0) / results.length 
+            : 0
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching calendar stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch calendar stats' });
+    }
+  });
+
+  // Get event summary for date range (for quick stats)
+  app.get('/api/events/stats/range', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const { start_date, end_date, camera_id } = req.query;
+      
+      if (!start_date || !end_date) {
+        return res.status(400).json({ success: false, error: 'Start and end dates required' });
+      }
+      
+      const start = new Date(start_date as string);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(end_date as string);
+      end.setHours(23, 59, 59, 999);
+      
+      let conditions = [
+        "e.timestamp >= $1",
+        "e.timestamp <= $2",
+        "e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"
+      ];
+      const params: any[] = [start.toISOString(), end.toISOString()];
+      
+      if (camera_id && camera_id !== 'all') {
+        conditions.push(`e.camera_id = $${params.length + 1}`);
+        params.push(camera_id);
+      }
+      
+      const query = `
+        SELECT 
+          COUNT(*) as total_count,
+          COUNT(CASE WHEN e.event_type = 'motion' OR e.event_type = 'event_motion' THEN 1 END) as motion_count,
+          COUNT(CASE WHEN e.event_type = 'face' OR e.event_type = 'event_face' THEN 1 END) as face_count,
+          SUM(e.persons_detected) as total_persons,
+          SUM(e.faces_detected) as total_faces,
+          SUM(e.known_faces_count) as known_faces,
+          SUM(e.unknown_faces_count) as unknown_faces,
+          AVG(e.confidence) as avg_confidence
+        FROM events e
+        WHERE ${conditions.join(' AND ')}
+      `;
+      
+      const result = await AppDataSource.query(query, params);
+      const row = result[0];
+      
+      res.json({
+        success: true,
+        stats: {
+          totalEvents: parseInt(row.total_count) || 0,
+          motionEvents: parseInt(row.motion_count) || 0,
+          faceEvents: parseInt(row.face_count) || 0,
+          totalPersons: parseInt(row.total_persons) || 0,
+          totalFaces: parseInt(row.total_faces) || 0,
+          knownFaces: parseInt(row.known_faces) || 0,
+          unknownFaces: parseInt(row.unknown_faces) || 0,
+          avgConfidence: parseFloat(row.avg_confidence) || 0
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching range stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch range stats' });
+    }
+  });
+
   // List event images
   app.get('/api/events/list', optionalAuth, async (req: Request, res: Response) => {
     try {
@@ -804,7 +956,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         start_date,
         end_date,
         searchQuery,
-        sortBy = 'newest'
+        sortBy = 'newest',
+        min_confidence,
+        max_confidence,
+        face_status
       } = req.query;
 
       // Use limit if provided (for backward compatibility), otherwise use pagination
@@ -824,23 +979,22 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       // Date filter - handle single date or date range
       if (start_date && end_date) {
-        // Use string date literals for PostgreSQL
-        const startStr = start_date as string;
-        const endStr = end_date as string;
-        conditions.push(`e.timestamp >= $${paramIndex} AND e.timestamp < $${paramIndex + 1}`);
-        queryParams.push(startStr + ' 00:00:00', endStr + ' 23:59:59');
+        // Use provided ISO strings directly
+        const startStr = (start_date as string).replace(' 00:00:00', '');
+        const endStr = (end_date as string).replace(' 23:59:59', '');
+        
+        conditions.push(`e.timestamp >= $${paramIndex} AND e.timestamp <= $${paramIndex + 1}`);
+        queryParams.push(startStr, endStr);
         paramIndex += 2;
       } else if (start_date) {
-        // Single date: start of that day to end of that day
-        const startStr = start_date as string;
-        conditions.push(`e.timestamp >= $${paramIndex} AND e.timestamp < $${paramIndex + 1}`);
-        queryParams.push(startStr + ' 00:00:00', startStr + ' 23:59:59');
-        paramIndex += 2;
+        const startStr = (start_date as string).replace(' 00:00:00', '');
+        conditions.push(`e.timestamp >= $${paramIndex}::timestamp AND e.timestamp < ($${paramIndex}::timestamp + interval '1 day')`);
+        queryParams.push(startStr);
+        paramIndex += 1;
       } else if (end_date) {
-        // End date only
-        const endStr = end_date as string;
-        conditions.push(`e.timestamp <= $${paramIndex}`);
-        queryParams.push(endStr + ' 23:59:59');
+        const endStr = (end_date as string).replace(' 23:59:59', '');
+        conditions.push(`e.timestamp <= $${paramIndex}::timestamp`);
+        queryParams.push(endStr);
         paramIndex++;
       }
 
@@ -858,6 +1012,36 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           conditions.push(`e.event_type IN ('face', 'event_face')`);
         } else if (event_type === 'motion' || event_type === 'person') {
           conditions.push(`e.event_type IN ('motion', 'event_motion')`);
+        }
+      }
+
+      // Confidence filter
+      if (min_confidence && typeof min_confidence === 'string') {
+        conditions.push(`(COALESCE(e.confidence, 0) >= $${paramIndex})`);
+        queryParams.push(parseFloat(min_confidence));
+        paramIndex++;
+      }
+      if (max_confidence && typeof max_confidence === 'string') {
+        conditions.push(`(COALESCE(e.confidence, 0) <= $${paramIndex})`);
+        queryParams.push(parseFloat(max_confidence));
+        paramIndex++;
+      }
+
+      // Face status filter
+      if (face_status && typeof face_status === 'string' && face_status !== 'all') {
+        switch (face_status) {
+          case 'has_faces':
+            conditions.push(`COALESCE(e.faces_detected, 0) > 0`);
+            break;
+          case 'known_faces':
+            conditions.push(`COALESCE(e.known_faces_count, 0) > 0`);
+            break;
+          case 'unknown_faces':
+            conditions.push(`COALESCE(e.unknown_faces_count, 0) > 0`);
+            break;
+          case 'no_faces':
+            conditions.push(`(COALESCE(e.faces_detected, 0) = 0)`);
+            break;
         }
       }
 
@@ -1193,119 +1377,6 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     } catch (error) {
       console.error('Error serving event image:', error);
       res.status(500).json({ success: false, error: 'Failed to serve image' });
-    }
-  });
-
-  // TEST ENDPOINT: Add mock detection data to events
-  app.post('/api/test/add-detection-data', requireAdmin, async (req: Request, res: Response) => {
-    try {
-      const { filename } = req.body;
-
-      if (!filename) {
-        return res.status(400).json({ success: false, error: 'Filename is required' });
-      }
-
-      // Check if file exists
-      const query = `
-        SELECT
-          COALESCE(df.storage_path, e.file_path) as storage_path,
-          COALESCE(df.camera_id, e.camera_id) as camera_id,
-          COALESCE(df.capture_timestamp, e.timestamp) as timestamp
-        FROM events e
-        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
-        WHERE e.file_path LIKE $1
-          AND COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
-        LIMIT 1
-      `;
-
-      const results = await AppDataSource.query(query, [filename]);
-
-      if (results.length === 0) {
-        return res.status(404).json({ success: false, error: 'Event not found' });
-      }
-
-      const event = results[0];
-
-      // Create mock detection data
-      const mockDetections = {
-        persons_detected: Math.floor(Math.random() * 3) + 1, // 1-3 persons
-        faces_detected: Math.floor(Math.random() * 2), // 0-1 faces
-        known_faces_count: Math.floor(Math.random() * 2),
-        unknown_faces_count: 0,
-        object_detections: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => ({
-          class: 'person',
-          confidence: 0.85 + Math.random() * 0.14,
-          bbox: {
-            x: Math.floor(Math.random() * 400),
-            y: Math.floor(Math.random() * 300),
-            width: Math.floor(Math.random() * 100) + 50,
-            height: Math.floor(Math.random() * 200) + 100
-          }
-        })),
-        face_detections: Math.random() > 0.5 ? [{
-          id: 'test-face-' + Date.now(),
-          name: 'Test Person',
-          isKnown: true,
-          confidence: 0.90 + Math.random() * 0.09,
-          bbox: {
-            x: Math.floor(Math.random() * 400),
-            y: Math.floor(Math.random() * 300),
-            width: 80,
-            height: 100
-          }
-        }] : []
-      };
-
-      // Update events table
-      const updateEventQuery = `
-        UPDATE events
-        SET 
-          persons_detected = $1,
-          faces_detected = $2,
-          known_faces_count = $3,
-          unknown_faces_count = $4,
-          object_detections = $5,
-          face_detections = $6,
-          confidence = $7
-        WHERE file_path = $8
-        RETURNING id
-      `;
-
-      const updatedEvents = await AppDataSource.query(updateEventQuery, [
-        mockDetections.persons_detected,
-        mockDetections.faces_detected,
-        mockDetections.known_faces_count,
-        mockDetections.unknown_faces_count,
-        JSON.stringify(mockDetections.object_detections),
-        JSON.stringify(mockDetections.face_detections),
-        0.85,
-        event.storage_path
-      ]);
-
-      // Update events metadata as well
-      const updateEventsQuery = `
-        UPDATE events
-        SET metadata = jsonb_set(
-          COALESCE(metadata::jsonb, '{}'::jsonb),
-          '{detectionAddedAt}',
-          to_jsonb(NOW())
-        )::text
-        WHERE file_path LIKE $1
-      `;
-
-      await AppDataSource.query(updateEventsQuery, [`%${filename}`]);
-
-      console.log(`[TestData] Added detection data to ${filename}:`, mockDetections);
-
-      res.json({
-        success: true,
-        message: 'Detection data added successfully',
-        eventId: updatedEvents[0]?.id,
-        detectionData: mockDetections
-      });
-    } catch (error) {
-      console.error('Error adding test detection data:', error);
-      res.status(500).json({ success: false, error: 'Failed to add detection data' });
     }
   });
 
@@ -1781,6 +1852,116 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     }
   });
   
+  // Get known persons (alias for frontend detectionService compatibility)
+  app.get('/api/detection/persons', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await AppDataSource.query(
+        "SELECT id, name, COALESCE(embedding_count, 0) as image_count, created_at, updated_at FROM visitors WHERE type = 'known' ORDER BY name ASC"
+      );
+      const persons = rows.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        imageCount: r.image_count,
+        embeddingCount: r.embedding_count,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+      res.json({ success: true, persons });
+    } catch (error) {
+      console.error('Error getting known persons:', error);
+      res.status(500).json({ success: false, error: 'Failed to get known persons' });
+    }
+  });
+
+  // Add a known person
+  app.post('/api/detection/persons', requireUser, async (req: Request, res: Response) => {
+    try {
+      const { name, images } = req.body;
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Name is required' });
+      }
+      const id = `person_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await AppDataSource.query(
+        'INSERT INTO visitors (id, name, type, first_seen, last_seen) VALUES ($1, $2, $3, NOW(), NOW())',
+        [id, name, 'known']
+      );
+      res.json({ success: true, personId: id, message: `Person ${name} added successfully` });
+    } catch (error: any) {
+      console.error('Error adding known person:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to add known person' });
+    }
+  });
+
+  // Get known faces
+  app.get('/api/detection/faces', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await AppDataSource.query(`
+        SELECT v.id, v.name, v.embedding_count as image_count, v.updated_at as last_trained
+        FROM visitors v
+        WHERE v.type = 'known' AND v.embedding_count > 0
+        ORDER BY v.name ASC
+      `);
+      const faces = rows.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        imageCount: r.image_count,
+        lastTrained: r.last_trained,
+        personId: r.id,
+      }));
+      res.json({ success: true, faces });
+    } catch (error) {
+      console.error('Error getting known faces:', error);
+      res.status(500).json({ success: false, error: 'Failed to get known faces' });
+    }
+  });
+
+  // Delete known face
+  app.delete('/api/detection/faces/:personId', requireUser, async (req: Request, res: Response) => {
+    try {
+      const result = await AppDataSource.query('DELETE FROM visitors WHERE id = $1', [req.params.personId]);
+      if (result.rowCount === 0) {
+        return res.status(404).json({ success: false, error: 'Face not found' });
+      }
+      res.json({ success: true, message: 'Face deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting known face:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete known face' });
+    }
+  });
+
+  // Retrain face model
+  app.post('/api/detection/faces/retrain', requireUser, async (req: Request, res: Response) => {
+    try {
+      const opencvUrl = process.env.OPENCV_SERVICE_URL || 'http://localhost:8084';
+      const response = await fetch(`${opencvUrl}/retrain`, { method: 'POST' });
+      const result = await response.json();
+      const trainingTime = result.training_time || 0;
+      res.json({ success: true, message: 'Face model retrained successfully', trainingTime });
+    } catch (error) {
+      console.error('Error retraining face model:', error);
+      res.status(500).json({ success: false, error: 'Failed to retrain face model' });
+    }
+  });
+
+  // Register face
+  app.post('/api/detection/faces/register', requireUser, async (req: Request, res: Response) => {
+    try {
+      const { name, imageData } = req.body;
+      if (!name || !imageData) {
+        return res.status(400).json({ success: false, error: 'Name and imageData are required' });
+      }
+      const personId = `person_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await AppDataSource.query(
+        'INSERT INTO visitors (id, name, type, first_seen, last_seen) VALUES ($1, $2, $3, NOW(), NOW())',
+        [personId, name, 'known']
+      );
+      res.json({ success: true, personId, message: `Face registered for ${name}` });
+    } catch (error) {
+      console.error('Error registering face:', error);
+      res.status(500).json({ success: false, error: 'Failed to register face' });
+    }
+  });
+
   // Get detection events
   app.get('/api/detection/events', optionalAuth, async (req: Request, res: Response) => {
     try {
@@ -1991,10 +2172,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
     try {
       const { date } = req.params;
       const { 
-        sort = 'recent' 
+        sort = 'recent',
+        limit
       } = req.query;
       
-      // No limit - show all events for the day
+      const limitNum = limit ? parseInt(limit as string) : 0;
 
       // Treat date as Asia/Kolkata timezone (server TZ)
       const startDate = new Date(`${date}T00:00:00+05:30`);
@@ -2014,7 +2196,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         orderBy = 'ORDER BY e.confidence DESC, e.timestamp DESC';
       }
 
-      const query = `
+      let query = `
         SELECT 
           e.id,
           e.file_path as filename,
@@ -2035,6 +2217,10 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
           ${whereConditions}
         ${orderBy}
       `;
+
+      if (limitNum > 0) {
+        query += ` LIMIT ${limitNum}`;
+      }
 
       const results = await AppDataSource.query(query, [startDate, endDate]);
 
@@ -2145,15 +2331,13 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Configure notification routes
   app.use('/api/notifications', notificationRoutes);
 
-  // Configure detection routes (with enhanced functionality)
   app.use('/api/detection', detectionRoutes);
 
-  // Configure face embedding routes
   app.use('/api/face-embeddings', faceEmbeddingRoutes);
 
-  // Configure face config routes
   app.use('/api/face-config', faceConfigRoutes);
 
-  // Configure detection redo routes
   configureDetectionRedoRoutes(app);
+
+  app.use(rateLimitMiddleware());
 }

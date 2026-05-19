@@ -1,4 +1,5 @@
 // Server startup
+import 'reflect-metadata';
 import express from 'express';
 import http from 'node:http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -17,7 +18,6 @@ import { config } from './config/index.js';
 
 import { configureRoutes } from './routes/index.js';
 import { configureAuthRoutes } from './routes/auth.js';
-import { configureVisitorRoutes } from './routes/visitorRoutes.js';
 import { configureCameraRoutes } from './routes/cameraRoutes.js';
 import { configureAnalyticsRoutes } from './routes/analyticsRoutes.js';
 import { configureSettingsRoutes } from './routes/settingsRoutes.js';
@@ -38,12 +38,10 @@ import { Timeline } from './models/Timeline.js';
 import { AdaptiveRegion } from './models/AdaptiveRegion.js';
 import { DetectionConfig } from './models/DetectionConfig.js';
 import { PreviewService } from './services/preview/previewService.js';
-import { storageStatsService } from './services/storageStatsService.js';
 import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
-import storageRoutes from './routes/storageRoutes.js';
 
 dotenv.config({ path: './.env' });
 
@@ -385,14 +383,12 @@ async function initializeServices() {
     serviceRegistry.setNotificationService(NotificationService);
     console.log('Notification service initialized successfully');
 
-    console.log('Initializing storage services...');
-    await storageStatsService.initialize();
+    console.log('Initializing cleanup services...');
     await retentionPolicyService.initialize();
     await automatedCleanupService.initialize();
-    serviceRegistry.setStorageStatsService(storageStatsService);
     serviceRegistry.setRetentionPolicyService(retentionPolicyService);
     serviceRegistry.setAutomatedCleanupService(automatedCleanupService);
-    console.log('Storage services initialized successfully');
+    console.log('Cleanup services initialized successfully');
 
   } catch (error) {
     console.error('Failed to initialize services:', error);
@@ -405,8 +401,6 @@ await initializeServices();
 // Configure routes (now that services are registered)
 configureAuthRoutes(app);
 configureRoutes(app, io);
-configureVisitorRoutes(app);
-app.use('/api/storage', storageRoutes);
 
 // NVIDIA AI Vision Analysis Routes
 import nvidiaRoutes from './routes/nvidiaRoutes.js';

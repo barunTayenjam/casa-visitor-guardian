@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  PlayCircle,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -21,11 +22,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { PlayCircle } from 'lucide-react';
 
 const navItems = [
   { href: '/app/streams', label: 'Streams', icon: Shield },
-  { href: '/app/events', label: 'Events', icon: Bell },
+  { href: '/app/events', label: 'Timeline', icon: Bell },
   { href: '/app/highlights', label: 'Day View', icon: PlayCircle },
   { href: '/app/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/app/settings', label: 'Settings', icon: Settings },

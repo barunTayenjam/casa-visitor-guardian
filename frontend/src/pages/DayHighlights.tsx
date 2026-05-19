@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useCameras } from '@/contexts/CameraContext';
-import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard } from 'lucide-react';
+import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, User, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -76,7 +76,6 @@ const DayHighlightsPage = () => {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const currentHighlight = highlights[currentIndex];
   const filteredHighlights = highlights.filter(h => {
     if (categoryFilter === 'all') return true;
     if (categoryFilter === 'persons') return h.personsDetected > 0;
@@ -88,6 +87,11 @@ const DayHighlightsPage = () => {
     }
     return true;
   });
+  const currentHighlight = filteredHighlights[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [categoryFilter]);
 
   const getCameraName = (cameraId: string) => {
     const camera = cameras.find(c => c.id === cameraId);
@@ -151,9 +155,9 @@ const DayHighlightsPage = () => {
   }, [loadHighlights]);
 
   useEffect(() => {
-    if (isPlaying && highlights.length > 0) {
+    if (isPlaying && filteredHighlights.length > 0) {
       intervalRef.current = setInterval(() => {
-        setCurrentIndex(prev => (prev + 1) % highlights.length);
+        setCurrentIndex(prev => (prev + 1) % filteredHighlights.length);
       }, speed * 1000);
     } else {
       if (intervalRef.current) {
@@ -167,67 +171,67 @@ const DayHighlightsPage = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isPlaying, highlights.length, speed]);
+  }, [isPlaying, filteredHighlights.length, speed]);
 
   // Keyboard shortcuts handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      
-      switch (e.key) {
-        case KEYBOARD_SHORTCUTS.PLAY_PAUSE:
-          e.preventDefault();
-          setIsPlaying(prev => !prev);
-          break;
-        case KEYBOARD_SHORTCUTS.PREV:
-          e.preventDefault();
-          goToPrevious();
-          break;
-        case KEYBOARD_SHORTCUTS.NEXT:
-          e.preventDefault();
-          goToNext();
-          break;
-        case KEYBOARD_SHORTCUTS.FIRST:
-          e.preventDefault();
-          setCurrentIndex(0);
-          break;
-        case KEYBOARD_SHORTCUTS.LAST:
-          e.preventDefault();
-          setCurrentIndex(filteredHighlights.length - 1);
-          break;
-        case KEYBOARD_SHORTCUTS.FILTER_ALL:
-          e.preventDefault();
-          setCategoryFilter('all');
-          break;
-        case KEYBOARD_SHORTCUTS.FILTER_PERSONS:
-          e.preventDefault();
-          setCategoryFilter('persons');
-          break;
-        case KEYBOARD_SHORTCUTS.FILTER_KNOWN:
-          e.preventDefault();
-          setCategoryFilter('known');
-          break;
-        case KEYBOARD_SHORTCUTS.FILTER_UNKNOWN:
-          e.preventDefault();
-          setCategoryFilter('unknown');
-          break;
-        case '?':
-          e.preventDefault();
-          setShowKeyboardHelp(prev => !prev);
-          break;
-      }
-    };
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    switch (e.key) {
+      case KEYBOARD_SHORTCUTS.PLAY_PAUSE:
+        e.preventDefault();
+        setIsPlaying(prev => !prev);
+        break;
+      case KEYBOARD_SHORTCUTS.PREV:
+        e.preventDefault();
+        setCurrentIndex(prev => (prev - 1 + highlights.length) % highlights.length);
+        break;
+      case KEYBOARD_SHORTCUTS.NEXT:
+        e.preventDefault();
+        setCurrentIndex(prev => (prev + 1) % highlights.length);
+        break;
+      case KEYBOARD_SHORTCUTS.FIRST:
+        e.preventDefault();
+        setCurrentIndex(0);
+        break;
+      case KEYBOARD_SHORTCUTS.LAST:
+        e.preventDefault();
+        setCurrentIndex(filteredHighlights.length - 1);
+        break;
+      case KEYBOARD_SHORTCUTS.FILTER_ALL:
+        e.preventDefault();
+        setCategoryFilter('all');
+        break;
+      case KEYBOARD_SHORTCUTS.FILTER_PERSONS:
+        e.preventDefault();
+        setCategoryFilter('persons');
+        break;
+      case KEYBOARD_SHORTCUTS.FILTER_KNOWN:
+        e.preventDefault();
+        setCategoryFilter('known');
+        break;
+      case KEYBOARD_SHORTCUTS.FILTER_UNKNOWN:
+        e.preventDefault();
+        setCategoryFilter('unknown');
+        break;
+      case '?':
+        e.preventDefault();
+        setShowKeyboardHelp(prev => !prev);
+        break;
+    }
   }, [filteredHighlights.length]);
 
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   const goToPrevious = () => {
-    setCurrentIndex(prev => (prev - 1 + highlights.length) % highlights.length);
+    setCurrentIndex(prev => (prev - 1 + filteredHighlights.length) % filteredHighlights.length);
   };
 
   const goToNext = () => {
-    setCurrentIndex(prev => (prev + 1) % highlights.length);
+    setCurrentIndex(prev => (prev + 1) % filteredHighlights.length);
   };
 
   const changeDate = (days: number) => {
@@ -384,7 +388,8 @@ const DayHighlightsPage = () => {
             variant={categoryFilter === 'unknown' ? 'default' : 'outline'}
             size="sm"
           >
-            ? ({highlights.filter(h => h.unknownFacesCount > 0).length})
+            <User className="w-3 h-3 mr-1" />
+            Unknown ({highlights.filter(h => h.unknownFacesCount > 0).length})
           </Button>
           <Button
             onClick={() => setCategoryFilter('night')}
@@ -525,7 +530,7 @@ const DayHighlightsPage = () => {
             <Card className="bg-card border-border p-4 max-h-96 overflow-y-auto">
               <h3 className="text-lg font-semibold text-foreground mb-4">Timeline</h3>
               <div className="space-y-2">
-                {highlights.map((highlight, index) => {
+                {filteredHighlights.map((highlight, index) => {
                   const info = getCategoryInfo(highlight);
                   return (
                     <div

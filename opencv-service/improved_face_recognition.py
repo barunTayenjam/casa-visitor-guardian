@@ -141,7 +141,7 @@ class ImprovedFaceRecognition:
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Detect faces
-        face_locations = face_recognition.face_locations(rgb_image, model='hog')  # 'cnn' is slower but more accurate
+        face_locations = face_recognition.face_locations(rgb_image, model='hog')  # Lighter than CNN
         
         faces = []
         for (top, right, bottom, left) in face_locations:
@@ -176,8 +176,8 @@ class ImprovedFaceRecognition:
         for i in range(detections.shape[2]):
             confidence = float(detections[0, 0, i, 2])
             
-            # Filter by confidence
-            if confidence > 0.5:
+            # Filter by confidence (lowered for low-res security camera images)
+            if confidence > 0.15:
                 # Get bounding box
                 box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                 x, y, x1, y1 = box.astype(int)
@@ -365,13 +365,18 @@ class ImprovedFaceRecognition:
                         if image is None:
                             continue
                         
-                        # Detect faces in the image
-                        detected_faces = self.detect_faces(image)
+                        # Direct face detection using face_recognition library
+                        import face_recognition as fr_lib
+                        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                        face_locs = fr_lib.face_locations(rgb_image, model='hog')
                         
-                        for face in detected_faces:
-                            # Extract face region
-                            x, y = face['x'], face['y']
-                            w, h = face['width'], face['height']
+                        if not face_locs:
+                            continue
+                            
+                        for face_rect in face_locs:
+                            top, right, bottom, left = face_rect
+                            x, y = left, top
+                            w, h = right - left, bottom - top
                             
                             face_roi = image[y:y+h, x:x+w]
                             

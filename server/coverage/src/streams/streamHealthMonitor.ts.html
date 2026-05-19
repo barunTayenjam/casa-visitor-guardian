@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/77</span>
+                <span class='fraction'>0/79</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/34</span>
+                <span class='fraction'>0/38</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/76</span>
+                <span class='fraction'>0/78</span>
             </div>
         
             
@@ -307,10 +307,7 @@
 <a name='L242'></a><a href='#L242'>242</a>
 <a name='L243'></a><a href='#L243'>243</a>
 <a name='L244'></a><a href='#L244'>244</a>
-<a name='L245'></a><a href='#L245'>245</a>
-<a name='L246'></a><a href='#L246'>246</a>
-<a name='L247'></a><a href='#L247'>247</a>
-<a name='L248'></a><a href='#L248'>248</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L245'></a><a href='#L245'>245</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -385,18 +382,17 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -482,8 +478,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -589,7 +583,7 @@ export c<span class="cstat-no" title="statement not covered" >lass StreamHealthM
     
     this<span class="cstat-no" title="statement not covered" >.config = {<span class="fstat-no" title="function not covered" ></span></span>
       interv<span class="cstat-no" title="statement not covered" >alMs: config?.intervalMs ||</span> 30000, // 30 seconds
-      staleThresholdMs: config?.staleThresholdMs || 120000, // 2 minutes
+      staleThresholdMs: config?.staleThresholdMs || 300000, // 5 minutes (increased from 2 min)
       maxRestarts: config?.maxRestarts || 3
 <span class="fstat-no" title="function not covered" >    };</span>
   }<span class="cstat-no" title="statement not covered" ></span>
@@ -632,105 +626,102 @@ export c<span class="cstat-no" title="statement not covered" >lass StreamHealthM
       ca<span class="cstat-no" title="statement not covered" >meraId,</span>
       ro<span class="cstat-no" title="statement not covered" >le,<span class="fstat-no" title="function not covered" ></span></span>
       lastFr<span class="cstat-no" title="statement not covered" >ameTime: 0,<span class="fstat-no" title="function not covered" ></span></span>
-      restartAttempts: 0,
-      lastRestar<span class="cstat-no" title="statement not covered" >tTime: 0,</span>
-      isActive: fals<span class="cstat-no" title="statement not covered" >e</span>
-    };
-<span class="cstat-no" title="statement not covered" ></span>
+      restartAttempts: 0,<span class="cstat-no" title="statement not covered" ></span>
+      lastRestartTime: 0,<span class="cstat-no" title="statement not covered" ></span>
+      isActive: <span class="cstat-no" title="statement not covered" >false</span>
+    };<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
     status.lastFrameTime = now;<span class="cstat-no" title="statement not covered" ></span>
-    status.isActive = true;
+    status.isActive = true;<span class="cstat-no" title="statement not covered" ></span>
     this.healthS<span class="cstat-no" title="statement not covered" >tatus.set(key, status);</span>
   }<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
-  // Call this when a stream is stopped<span class="cstat-no" title="statement not covered" ></span>
-  recordStreamStopped(cameraId: string, role: 'live' | 'detect' | 'record'): void {
-    const key = <span class="cstat-no" title="statement not covered" >`${cameraId}-${role}`;</span>
-    const status = t<span class="cstat-no" title="statement not covered" >his.healthStatus.get(key);</span>
+  // Call this when a<span class="cstat-no" title="statement not covered" > stream is stopped</span>
+  recordStreamStoppe<span class="cstat-no" title="statement not covered" >d(cameraId: string, role: 'live' | 'detect' | 'record'): void {</span>
+    const key = `${c<span class="cstat-no" title="statement not covered" >ameraId}-${role}`;</span>
+    const status = this.healthStatus.get(key);
     if (status) {
       status.isActive = false;
       this.healthStatus.set(key, status);
+<span class="fstat-no" title="function not covered" >    }</span>
+  }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+  private performHealthCheck(): void <span class="cstat-no" title="statement not covered" >{</span>
+    if (!this.streamMana<span class="cstat-no" title="statement not covered" >ger) {</span>
+      re<span class="cstat-no" title="statement not covered" >turn;</span>
     }
-  }<span class="fstat-no" title="function not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-  private performHealthCheck(): void {
-    if (!this.streamManager) {<span class="cstat-no" title="statement not covered" ></span>
-      return;<span class="cstat-no" title="statement not covered" ></span>
-    }<span class="cstat-no" title="statement not covered" ></span>
-&nbsp;
-    const no<span class="cstat-no" title="statement not covered" >w = Date.now();</span>
-    const cameras = this.streamManager.getAllCameras();
+    const now = Date.now();
+    cons<span class="cstat-no" title="statement not covered" >t cameras = this.streamManager.getAllCameras();</span>
 <span class="cstat-no" title="statement not covered" ></span>
-    logger.d<span class="cstat-no" title="statement not covered" >ebug(`Running health check for ${cameras.length} cameras`, 'HealthMonitor');</span>
-&nbsp;
-    cameras.<span class="cstat-no" title="statement not covered" >forEach((camera: any) =&gt; {</span>
+    logger.debug(`Running health check for ${cameras.length} cameras`, 'HealthMonitor');
+<span class="cstat-no" title="statement not covered" ></span>
+    cameras.forEach((camera: any) =&gt; {
       ['live', 'detect', 'record'].forEach((role) =&gt; {
-        // Only check health for active roles
-        if (!camera.activeRoles.has(role)) {
-          return;
-        }
-&nbsp;
-        cons<span class="cstat-no" title="statement not covered" >t key = </span>`${camera.id}-${role}`;
+        const key = `${camera.id}-${role}`;
         const status = this.healthStatus.get(key);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        // If we have no recorded frame time, skip (stream just started)</span>
         if (!status || status.lastFrameTime === 0) {
-<span class="cstat-no" title="statement not covered" >          return;</span>
+          re<span class="cstat-no" title="statement not covered" >turn;</span>
         }
 &nbsp;
+<span class="cstat-no" title="statement not covered" >        const wasActive = status.isActive;</span>
         const timeSinceLastFrame = now - status.lastFrameTime;
-&nbsp;
-        // Check if stream is stale
+<span class="cstat-no" title="statement not covered" ></span>
         if (timeSinceLastFrame &gt; this.config.staleThresholdMs) {
           this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
-<span class="cstat-no" title="statement not covered" >        }</span>
-      });<span class="cstat-no" title="statement not covered" ></span>
+        } else if (!camera.activeRoles.has(role) &amp;&amp; wasActive &amp;&amp; (role === 'detect' || role === 'record')) {
+          console.log(`[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`);
+          this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
+        }
+      });
     });<span class="cstat-no" title="statement not covered" ></span>
   }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
   private handle<span class="cstat-no" title="statement not covered" >StaleStream(</span>
     cameraId: st<span class="cstat-no" title="statement not covered" >ring,</span>
-    role: 'live' | 'detect' | 'record',
+    role: 'live'<span class="cstat-no" title="statement not covered" > | 'detect' | 'record',</span>
     staleTime: n<span class="cstat-no" title="statement not covered" >umber,</span>
     status: CameraHealthStatus
-  ): void {
+  ): void {<span class="cstat-no" title="statement not covered" ></span>
     const staleMinutes = Math.floor(staleTime / 60000);
     
     // Check if we've restarted too many times recently
     const timeSinceLastRestart = Date.now() - status.lastRestartTime;
     const oneHour = 3600000; // 1 hour in ms
     
-    if (timeSinc<span class="cstat-no" title="statement not covered" >eLastRestart &gt; oneHour) {</span>
+    if (timeSinceLastRestart &gt; oneHour) {
       // Reset counter if it's been more than an hour
-      status.restartAttempts = 0;
+      status.res<span class="cstat-no" title="statement not covered" >tartAttempts = 0;</span>
     }
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
     if (status.restartAttempts &gt;= this.config.maxRestarts) {
-      logger.error(
-<span class="fstat-no" title="function not covered" ></span>        `Camera ${cameraId} ${role} stream is stale (${staleMinutes} min) but max restarts reached`,
-<span class="cstat-no" title="statement not covered" >        'HealthMonitor',<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
-        { cameraId, role, staleMinutes, restartAttempts: status.restartAttempts }
-      );
+      logger<span class="cstat-no" title="statement not covered" >.error(</span>
+        `Camera ${cameraId} ${role} stream is stale (${staleMinutes} min) but max restarts reached`,
+        'HealthMonitor',
+<span class="fstat-no" title="function not covered" ></span>        { cameraId, role, staleMinutes, restartAttempts: status.restartAttempts }
+      );<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ></span></span></span>
       
       // Emit alert to clients
-<span class="fstat-no" title="function not covered" ></span>      this.io.emit('streamHealthAlert', {
-        cameraId,<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >        role,<span class="fstat-no" title="function not covered" ></span></span>
-        seve<span class="cstat-no" title="statement not covered" >rity: 'critical',</span>
-        message:<span class="cstat-no" title="statement not covered" > `Stream unavailable for ${stal</span>eMinutes} minutes. Max restart attempts reached.`,
-        timestamp: new Date().toISOString()
-      });
-      <span class="cstat-no" title="statement not covered" ></span>
+      this.io.emit('streamHealthAlert', {
+        cameraId,
+<span class="fstat-no" title="function not covered" ></span>        role,
+        severity: 'critical',<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        message: `Stream unavailab<span class="fstat-no" title="function not covered" >le</span> for ${staleMinutes} minutes. Max restart attempts reached.`,</span>
+        time<span class="cstat-no" title="statement not covered" >stamp: new Date().toISOString()</span>
+      });<span class="cstat-no" title="statement not covered" ></span>
+      
       return;
-<span class="fstat-no" title="function not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" ></span>
-    // Attempt restart<span class="cstat-no" title="statement not covered" ></span>
-    logg<span class="cstat-no" title="statement not covered" >er.warn(</span>
-      `Camer<span class="cstat-no" title="statement not covered" >a ${cameraId} ${role} stream</span> is stale (${staleMinutes} min), restarting...`,
-      'Healt<span class="cstat-no" title="statement not covered" >hMonitor',</span>
-      { came<span class="cstat-no" title="statement not covered" >raId, role, staleMinutes, restartAtt</span>empt: status.restartAttempts + 1 }
-    );<span class="cstat-no" title="statement not covered" ></span>
+    }<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
-    // Emit alert to clients
+<span class="fstat-no" title="function not covered" >    //</span> Attempt restart
+    logger.warn(<span class="cstat-no" title="statement not covered" ></span>
+      `Camera ${cameraI<span class="cstat-no" title="statement not covered" >d} ${role} stream is stale </span>(${staleMinutes} min), restarting...`,
+      'H<span class="cstat-no" title="statement not covered" >ealthMonitor',</span>
+      { came<span class="cstat-no" title="statement not covered" >raId, role, staleMinutes, re</span>startAttempt: status.restartAttempts + 1 }
+    );<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+    // Emit <span class="cstat-no" title="statement not covered" >alert to clients</span>
     this.io.emit('streamHealthAlert', {
       cameraId,
       role,
@@ -811,7 +802,7 @@ export c<span class="cstat-no" title="statement not covered" >lass StreamHealthM
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:10.102Z
+                at 2026-05-15T18:35:18.769Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

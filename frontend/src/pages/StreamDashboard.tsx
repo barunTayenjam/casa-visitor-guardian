@@ -11,13 +11,15 @@ const StreamDashboard = () => {
   const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>(undefined);
 
   const handleCameraFocus = useCallback((cameraId: string) => {
-    if (cameraId === 'undefined' || cameraId === undefined || cameraId === '') {
-      setFocusedCameraId(undefined);
-    } else if (focusedCameraId === cameraId) {
-      setFocusedCameraId(undefined);
-    } else {
-      setFocusedCameraId(cameraId);
-    }
+    setFocusedCameraId(prev => {
+      if (cameraId === 'undefined' || cameraId === undefined || cameraId === '') {
+        return undefined;
+      } else if (prev === cameraId) {
+        return undefined;
+      } else {
+        return cameraId;
+      }
+    });
   }, []);
 
   // Include cameras with online or warning status

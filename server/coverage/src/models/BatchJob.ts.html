@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/32</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
-                <span class="quiet">Branches</span>
                 <span class='fraction'>0/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/22</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>0/24</span>
             </div>
         
             
@@ -126,9 +126,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,42 +149,45 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Entity, <span class="cstat-no" title="statement not covered" >PrimaryGeneratedColumn, Colum<span class="fstat-no" title="function not covered" >n,</span> CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Entity, <span class="cstat-no" title="statement not covered" >PrimaryGeneratedColumn, Colum<span class="fstat-no" title="function not covered" >n,</span> CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';</span>
 <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span>
 @Ent<span class="cstat-no" title="statement not covered" >ity('batch_jobs')<span class="cstat-no" title="statement not covered" ></span></span>
 @Index(['<span class="cstat-no" title="statement not covered" >status'])<span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ></span></span></span></span>
 @Ind<span class="cstat-no" title="statement not covered" >ex(['createdAt'])</span>
 export class BatchJob {
-  @PrimaryGenerat<span class="cstat-no" title="statement not covered" >edColumn('uuid')<span class="fstat-no" title="function not covered" ></span></span>
-  id<span class="cstat-no" title="statement not covered" >!: string;<span class="cstat-no" title="statement not covered" ></span></span>
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
   @Column({ type: 'text' })
-  status!: 'que<span class="cstat-no" title="statement not covered" >ued' | 'running' | 'completed' | 'failed' | 'cancelled';</span>
+  status!: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 &nbsp;
   @Column({ type: 'timestamp', nullable: true })
   startTime!: Date | null;
@@ -203,45 +203,45 @@ export class BatchJob {
 &nbsp;
   @Column({ type: 'integer', default: 0 })
   successfulImages!: number;
-&nbsp;
+<span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'integer', default: 0 })
   failedImages!: number;
 <span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'integer', default: 0 })
   personDetections!: number;
-&nbsp;
-<span class="cstat-no" title="statement not covered" >  @Column({ type: 'integer', default: 0 })</span>
-  faceDetections!: number;
-&nbsp;
+<span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'integer', default: 0 })
-<span class="cstat-no" title="statement not covered" >  knownFaces!: number;</span>
-&nbsp;
+  faceDetections!: number;
+<span class="cstat-no" title="statement not covered" ></span>
+  @Column({ type: 'integer', default: 0 })
+  knownFaces!: number;
+<span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'integer', default: 0 })
   unknownFaces!: number;
 <span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'integer', nullable: true })
   processingTimeMs!: number | null;
-&nbsp;
-<span class="cstat-no" title="statement not covered" >  @Column({ type: 'jsonb' })</span>
+<span class="cstat-no" title="statement not covered" ></span>
+  @Column({ type: 'jsonb' })
   optionsJson!: Record&lt;string, any&gt;;
-&nbsp;
+<span class="cstat-no" title="statement not covered" ></span>
   @Column({ type: 'text', nullable: true })
-<span class="cstat-no" title="statement not covered" >  errorMessage!: string | null;</span>
-&nbsp;
+  errorMessage!: string | null;
+<span class="cstat-no" title="statement not covered" ></span>
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 <span class="cstat-no" title="statement not covered" ></span>
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
-}
-<span class="cstat-no" title="statement not covered" ></span></pre></td></tr></table></pre>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:10.102Z
+                at 2026-05-15T18:35:18.769Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

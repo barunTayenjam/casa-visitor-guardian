@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/154</span>
+                <span class='fraction'>0/161</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/99</span>
+                <span class='fraction'>0/105</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/154</span>
+                <span class='fraction'>0/161</span>
             </div>
         
             
@@ -431,7 +431,17 @@
 <a name='L366'></a><a href='#L366'>366</a>
 <a name='L367'></a><a href='#L367'>367</a>
 <a name='L368'></a><a href='#L368'>368</a>
-<a name='L369'></a><a href='#L369'>369</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -440,6 +450,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -494,15 +506,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -696,6 +714,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -745,6 +764,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -807,23 +827,25 @@ import { EventEmitter } from 'events';
 &nbsp;
 interface RetentionConfig {
   camera?: string;<span class="cstat-no" title="statement not covered" ></span>
-  alertsDays: number;<span class="cstat-no" title="statement not covered" ></span>
-  detectionsDays: number;
-  previewsDays: number;
+  alertsDays: numb<span class="cstat-no" title="statement not covered" >er;</span>
+  detectionsDays<span class="cstat-no" title="statement not covered" >: numb</span>er;
+  previewsDays: number;<span class="cstat-no" title="statement not covered" ></span>
   snapshotsDays: number;
   eventsDays: number;
   retainIndefinitely: boolean;
 }
-<span class="fstat-no" title="function not covered" ></span>
-export c<span class="cstat-no" title="statement not covered" >lass Rete</span>ntionPolicyService extends EventEmitter {
-  privat<span class="cstat-no" title="statement not covered" >e static instance: RetentionPolicyService;</span>
-  private initialized = false;
+&nbsp;
+export class RetentionPolicyService extends EventEmitter {
+  pr<span class="fstat-no" title="function not covered" >iv</span>ate static instance: RetentionPolicyService;
+  privat<span class="cstat-no" title="statement not covered" >e initial</span>ized = false;
+  privat<span class="cstat-no" title="statement not covered" >e policyCache: Map&lt;string, { policy: RetentionPolicy;</span> timestamp: number }&gt; = new Map();
+  private readonly CACHE_TTL = 60000; // 1 minute cache
   pr<span class="fstat-no" title="function not covered" >iv</span>ate readonly DEFAULT_RETENTION_DAYS = {
-    aler<span class="cstat-no" title="statement not covered" >ts: 30,</span>
-    detectio<span class="cstat-no" title="statement not covered" >ns: 7,</span>
-    previews: 7,
-    snap<span class="cstat-no" title="statement not covered" >shots: 30,</span>
-    events: 30,
+    aler<span class="cstat-no" title="statement not covered" >ts: 7,</span>
+    snapshot<span class="cstat-no" title="statement not covered" >s: 7,</span>
+    events: 7,
+    dete<span class="cstat-no" title="statement not covered" >ctions: 30,</span>
+    previews: 14,
   };<span class="fstat-no" title="function not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
   private co<span class="cstat-no" title="statement not covered" >nstructo</span>r() {
@@ -863,23 +885,29 @@ export c<span class="cstat-no" title="statement not covered" >lass Rete</span>nt
     try {
 <span class="fstat-no" title="function not covered" ></span>      const policy = AppDataSource.getRepository(RetentionPolicy).create({
 <span class="cstat-no" title="statement not covered" >        camera: null,</span>
-        alerts_days: this<span class="cstat-no" title="statement not covered" >.DEFAULT_RETENTION_DAYS.alerts,</span>
-        detections_days: this.DEFAULT_RETENTION_DAYS.detections,
-        previews_days: this.DEFAULT_RETENTION_DAYS.previews,
-        snapshots_days: this.DEFAULT_RETENTION_DAYS.snapshots,
-        even<span class="cstat-no" title="statement not covered" >ts_days: this.DEFAULT_RETENTION_DAYS.events,</span>
-        retain_i<span class="cstat-no" title="statement not covered" >ndefinitely: false,</span>
+        alerts_days: this.DEF<span class="cstat-no" title="statement not covered" >AULT_RETENTION_DAYS</span>.alerts,
+        detections_days: th<span class="cstat-no" title="statement not covered" >is.DEFAULT_RETENTION_DAYS.detec</span>tions,
+        prev<span class="cstat-no" title="statement not covered" >iews_days: this.DEFAULT_RETENTION_DAYS.previews,</span>
+        snapshot<span class="cstat-no" title="statement not covered" >s_days: this.DEFAULT_R</span>ETENTION_DAYS.snapshots,
+        events_days: this.DEFAULT_RETENTION_DAYS.events,
+        retain_indefinite<span class="cstat-no" title="statement not covered" >ly: false,</span>
       });
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
       return await AppDataSource.getRepository(RetentionPolicy).save(policy);
-    } catch (error) {
-      consol<span class="cstat-no" title="statement not covered" >e.error('Error creating global retention policy:', error);</span>
-      throw <span class="cstat-no" title="statement not covered" >error;</span>
-    }
-  }
-<span class="fstat-no" title="function not covered" ></span>
-  async <span class="cstat-no" title="statement not covered" >getPolicy(camera?: string): Promise&lt;RetentionPolicy&gt; {</span>
+    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      console.er<span class="cstat-no" title="statement not covered" >ror('Error creating global retention policy:', e</span>rror);
+      throw error;
+    }<span class="cstat-no" title="statement not covered" ></span>
+  }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+  async getPolicy(camera?: string): Promise&lt;RetentionPolicy&gt; {
     try {<span class="cstat-no" title="statement not covered" ></span>
+      const <span class="cstat-no" title="statement not covered" >cacheKey = ca</span>mera || 'global';
+      const cached = this.policyCache.get(cacheKey);
+      if (cached &amp;&amp; Date.now() - cached.timestamp &lt; this.CACHE_TTL) {
+<span class="fstat-no" title="function not covered" ></span>        return cached.policy;
+      }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
       let policy = await AppDataSource.getRepository(RetentionPolicy)
         .createQueryBuilder('rp')
         .where('rp.camera = :camera', { camera: camera || null })
@@ -889,10 +917,11 @@ export c<span class="cstat-no" title="statement not covered" >lass Rete</span>nt
         poli<span class="cstat-no" title="statement not covered" >cy = await th</span>is.createCameraPolicy(camera);
       }
 &nbsp;
-<span class="fstat-no" title="function not covered" ></span>      return policy;
-    } ca<span class="cstat-no" title="statement not covered" >tch (error) {</span>
-      console.error(`Error retrie<span class="cstat-no" title="statement not covered" >ving retention policy f</span>or ${camera || 'global'}:`, error);
-      throw error;<span class="cstat-no" title="statement not covered" ></span>
+<span class="fstat-no" title="function not covered" ></span>      this.policyCache.set(cacheKey, { policy, timestamp: Date.now() });
+      re<span class="cstat-no" title="statement not covered" >turn policy;</span>
+    } catch (error) {<span class="cstat-no" title="statement not covered" ></span>
+      console.error(`Error <span class="cstat-no" title="statement not covered" >retrieving retention policy for ${camera || 'global'}:`, error);</span>
+      throw error;
     }
   }
 &nbsp;
@@ -900,168 +929,168 @@ export c<span class="cstat-no" title="statement not covered" >lass Rete</span>nt
     try {
       return await AppDataSource.getRepository(RetentionPolicy)
         .createQueryBuilder('rp')
-        .orderBy('rp.camera', 'ASC')
-        .get<span class="cstat-no" title="statement not covered" >Many();</span>
+        .ord<span class="cstat-no" title="statement not covered" >erBy('rp.camera', 'ASC')</span>
+        .getMany();
     } catch (error) {
-      console.error('Error retrieving all retention policies:', error);
-      throw <span class="cstat-no" title="statement not covered" >error;</span>
-    }<span class="cstat-no" title="statement not covered" ></span>
-  }
-&nbsp;
-  as<span class="fstat-no" title="function not covered" >yn</span>c createCameraPolicy(camera?: string): Promise&lt;RetentionPolicy&gt; {
-    try <span class="cstat-no" title="statement not covered" >{</span>
-      const globalPolicy = <span class="cstat-no" title="statement not covered" >await this.getPolicy();</span>
-<span class="cstat-no" title="statement not covered" ></span>
-      const poli<span class="cstat-no" title="statement not covered" >cy = AppDataSource.getRepository(Retenti</span>onPolicy).create({
-        came<span class="cstat-no" title="statement not covered" >ra: camera || null,</span>
-        alerts_d<span class="cstat-no" title="statement not covered" >ays: globalPolicy.alerts_days,</span>
-        dete<span class="cstat-no" title="statement not covered" >ctions_days: globalPolicy.detections_days,</span>
-        previews<span class="cstat-no" title="statement not covered" >_days: globalPolicy.previews_days,</span>
-        snap<span class="cstat-no" title="statement not covered" >shots_days: globalPolicy.snapshots_days,</span>
-        events_d<span class="cstat-no" title="statement not covered" >ays: globalPolicy.events_days,</span>
-        reta<span class="cstat-no" title="statement not covered" >in_indefinitely: globalPolicy.retain_indefinitely,</span>
-      });<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-      return awa<span class="cstat-no" title="statement not covered" >it AppDataSource.getRepository(RetentionPolicy).save(pol</span>icy);
-    } catch (error) {<span class="cstat-no" title="statement not covered" ></span>
-      consol<span class="cstat-no" title="statement not covered" >e.error(`Error creating retention policy for ${camera || 'global'}:`, error);</span>
+      consol<span class="cstat-no" title="statement not covered" >e.error('Error retrieving all retention policies:', error);</span>
       throw <span class="cstat-no" title="statement not covered" >error;</span>
     }
   }
-<span class="cstat-no" title="statement not covered" ></span>
-  async upda<span class="cstat-no" title="statement not covered" >tePolicy(came</span>ra: string | null, config: Partial&lt;RetentionConfig&gt;): Promise&lt;RetentionPolicy&gt; {
-    try {
-      const policy = await this.getPolicy(camera || undefined);
 <span class="fstat-no" title="function not covered" ></span>
-      if<span class="cstat-no" title="statement not covered" > (config.alertsDays !== undefined) policy.alerts_days = config.alertsDays;</span>
-      if (co<span class="cstat-no" title="statement not covered" >nfig.detectionsDays !== undefined) policy.detections_days = config.detectionsDays;</span>
+  async <span class="cstat-no" title="statement not covered" >createCameraPolicy(camera?: string): Promise&lt;RetentionPolicy&gt; {</span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      const <span class="cstat-no" title="statement not covered" >globalPolicy = await this.getPolicy();</span>
+<span class="cstat-no" title="statement not covered" ></span>
+      const <span class="cstat-no" title="statement not covered" >policy = AppDataSource.getRepository(RetentionPolicy).create({</span>
+        camera: <span class="cstat-no" title="statement not covered" >camera || null,</span>
+        aler<span class="cstat-no" title="statement not covered" >ts_days: globalPolicy.alerts_days,</span>
+        detectio<span class="cstat-no" title="statement not covered" >ns_days: globalPolicy.detections_days,</span>
+        prev<span class="cstat-no" title="statement not covered" >iews_days: globalPolicy.previews_days,</span>
+        snapshot<span class="cstat-no" title="statement not covered" >s_days: globalPolicy.snapshots_days,</span>
+        even<span class="cstat-no" title="statement not covered" >ts_days: globalPolicy.events_days,</span>
+        retain_i<span class="cstat-no" title="statement not covered" >ndefinitely: globalPolicy.retain_indefin</span>itely,
+      });<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+      return await AppDataSource.g<span class="cstat-no" title="statement not covered" >etRepository(RetentionPolicy).save(policy);</span>
+    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      consol<span class="cstat-no" title="statement not covered" >e.error(`Error creatin</span>g retention policy for ${camera || 'global'}:`, error);
+      throw error;
+    }
+  }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+  async updatePolicy(camera: string | null, config: Partial&lt;RetentionConfig&gt;): Promise&lt;RetentionPolicy&gt; {
+    try {
+<span class="fstat-no" title="function not covered" ></span>      const policy = await this.getPolicy(camera || undefined);
+<span class="cstat-no" title="statement not covered" ></span>
+      if (co<span class="cstat-no" title="statement not covered" >nfig.alertsDays !== undefined) policy.alerts_days = config.alertsDays;</span>
+      if (config.detectionsDays !== undefined) policy.detections_days = config.detectionsDays;
       if (config.previewsDays !== undefined) policy.previews_days = config.previewsDays;
       if (config.snapshotsDays !== undefined) policy.snapshots_days = config.snapshotsDays;
       if (config.eventsDays !== undefined) policy.events_days = config.eventsDays;
-      if (config.retainIndefinitely !== undefined) policy.retain_indefinitely = config.retainIndefinitely;
-<span class="cstat-no" title="statement not covered" ></span>
-      const updatedPolicy = await AppDataSource.getRepository(RetentionPolicy).save(policy);
+      if (co<span class="cstat-no" title="statement not covered" >nfig.retainIndefinitely !== undefined) p</span>olicy.retain_indefinitely = config.retainIndefinitely;
 &nbsp;
-      this.e<span class="cstat-no" title="statement not covered" >mit('policyUpdated', { camera: camera || 'global', policy: updatedPolicy</span> });
+      const updatedPolicy = await AppDataSource.getRepository(RetentionPolicy).save(policy);
 <span class="cstat-no" title="statement not covered" ></span>
+      this.e<span class="cstat-no" title="statement not covered" >mit('policyUp</span>dated', { camera: camera || 'global', policy: updatedPolicy });
+&nbsp;
       return updatedPolicy;
+<span class="fstat-no" title="function not covered" >    } </span>catch (error) {
+      co<span class="cstat-no" title="statement not covered" >nsole.error(`Error updating retention policy for ${camera || 'global'}:`, error);</span>
+      throw error;<span class="cstat-no" title="statement not covered" ></span>
+    }<span class="cstat-no" title="statement not covered" ></span>
+  }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+  async deletePolicy(camera: strin<span class="cstat-no" title="statement not covered" >g): Promise&lt;void&gt; {</span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      await <span class="cstat-no" title="statement not covered" >AppDataSource.getRepository(RetentionPolicy)</span>
+        .createQueryBuilder('rp')<span class="cstat-no" title="statement not covered" ></span>
+        .del<span class="cstat-no" title="statement not covered" >ete()</span>
+        .where('<span class="cstat-no" title="statement not covered" >rp.camera = :camera', { camera })</span>
+        .execute();
+<span class="cstat-no" title="statement not covered" ></span>
+      this.emit(<span class="cstat-no" title="statement not covered" >'policyDeleted', { camera });</span>
     } catch (error) {
-<span class="fstat-no" title="function not covered" ></span>      console.error(`Error updating retention policy for ${camera || 'global'}:`, error);
+      consol<span class="cstat-no" title="statement not covered" >e.error(`Error deleting retention policy for ${camera}:`, error);</span>
+      throw erro<span class="cstat-no" title="statement not covered" >r;</span>
+    }
+  }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+  async getExpiredFiles(camera?: string, category?: string): Promise&lt;string[]&gt; {
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      const poli<span class="cstat-no" title="statement not covered" >cy = await this.getPolicy(camera);</span>
+&nbsp;
+      if (po<span class="cstat-no" title="statement not covered" >licy.retain_indefinit</span>ely) {
+        return [];
+      }
+<span class="cstat-no" title="statement not covered" ></span>
+      const <span class="cstat-no" title="statement not covered" >retentionDays</span> = this.getRetentionDaysForCategory(policy, category);
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+<span class="fstat-no" title="function not covered" ></span>
+      co<span class="cstat-no" title="statement not covered" >nst expiredFiles: string[] = [];</span>
+&nbsp;
+      if (catego<span class="cstat-no" title="statement not covered" >ry === 'alerts' || !categor</span>y) {
+        expiredFiles.push(...await this.findExpiredFiles('alerts', camera, cutoffDate));
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+      if (catego<span class="cstat-no" title="statement not covered" >ry === 'detections' || !categ</span>ory) {
+        expiredFiles.push(...await this.findExpiredFiles('detections', camera, cutoffDate));
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+      if (catego<span class="cstat-no" title="statement not covered" >ry === 'previews' || !categ</span>ory) {
+        expiredFiles.push(...await this.findExpiredFiles('previews', camera, cutoffDate));
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+      if (category === 'snapshots' || !category) {
+<span class="fstat-no" title="function not covered" ></span>        expiredFiles.push(...await this.findExpiredFiles('snapshots', camera, cutoffDate));
+      }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+      if (category === 'event<span class="cstat-no" title="statement not covered" >s' || !category) {</span>
+<span class="cstat-no" title="statement not covered" >        expiredFiles.push(...await this.findExpiredFiles('events', camera, cutoffDate));</span>
+      }<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
+      return expiredFiles;
+    } catch <span class="cstat-no" title="statement not covered" >(error) {</span>
+      console.error(`Error finding expired files for ${camera || 'global'}/${category || 'all'}:`, error);
       th<span class="cstat-no" title="statement not covered" >row error;</span>
     }<span class="cstat-no" title="statement not covered" ></span>
   }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
-  async deletePolicy(camera: string): Promise&lt;void&gt; {
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      await AppDataSource.getRe<span class="cstat-no" title="statement not covered" >pository(Re</span>tentionPolicy)
-        .cre<span class="cstat-no" title="statement not covered" >ateQueryBuilder('rp')</span>
-        .delete()<span class="cstat-no" title="statement not covered" ></span>
-        .whe<span class="cstat-no" title="statement not covered" >re('rp.camera = :camera', { camera })</span>
-        .execute<span class="cstat-no" title="statement not covered" >();</span>
-&nbsp;
-      this.e<span class="cstat-no" title="statement not covered" >mit('policyDeleted', { camera });</span>
-    } catch (err<span class="cstat-no" title="statement not covered" >or) {</span>
-      console.error(`Error deleting retention policy for ${camera}:`, error);
-      throw <span class="cstat-no" title="statement not covered" >error;</span>
-    }<span class="cstat-no" title="statement not covered" ></span>
-  }
-<span class="cstat-no" title="statement not covered" ></span>
-  async getExpir<span class="cstat-no" title="statement not covered" >edFiles(camera?: string, category?: string): Promise&lt;string[]&gt; {</span>
-    try {
-      const <span class="cstat-no" title="statement not covered" >policy = await this.getPolicy(camera);</span>
-<span class="cstat-no" title="statement not covered" ></span>
-      if (policy.retain_indefinitely) {
-        retu<span class="cstat-no" title="statement not covered" >rn [];</span>
-      }
-&nbsp;
-      const <span class="cstat-no" title="statement not covered" >retentionDays = this.getRetentionDaysForCategory(policy, category);</span>
-      const <span class="cstat-no" title="statement not covered" >cutoffDate = </span>new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-&nbsp;
-<span class="fstat-no" title="function not covered" ></span>      const expiredFiles: string[] = [];
-<span class="cstat-no" title="statement not covered" ></span>
-      if (category === 'alerts' || !category) {
-        expiredF<span class="cstat-no" title="statement not covered" >iles.push(...await this.fin</span>dExpiredFiles('alerts', camera, cutoffDate));
-      }
-<span class="cstat-no" title="statement not covered" ></span>
-      if (category === 'detections' || !category) {
-        expiredF<span class="cstat-no" title="statement not covered" >iles.push(...await this.findE</span>xpiredFiles('detections', camera, cutoffDate));
-      }
-<span class="cstat-no" title="statement not covered" ></span>
-      if (category === 'previews' || !category) {
-        expiredF<span class="cstat-no" title="statement not covered" >iles.push(...await this.fin</span>dExpiredFiles('previews', camera, cutoffDate));
-      }
-<span class="cstat-no" title="statement not covered" ></span>
-      if (category === 'snapshots' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('snapshots', camera, cutoffDate));
-<span class="fstat-no" title="function not covered" ></span>      }
-<span class="cstat-no" title="statement not covered" ></span>
-      if (category === 'events<span class="cstat-no" title="statement not covered" >' || !category) {</span>
-        expiredFiles.push(...<span class="cstat-no" title="statement not covered" >await this.findExpiredFiles('events', camera, cutoffDa</span>te));
-      }<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-      return expiredFiles;
-    } catch (error) {
-      consol<span class="cstat-no" title="statement not covered" >e.error(`Error findin</span>g expired files for ${camera || 'global'}/${category || 'all'}:`, error);
-      throw error;
-    }<span class="cstat-no" title="statement not covered" ></span>
-  }<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-  private getRet<span class="cstat-no" title="statement not covered" >entionDaysForCategory(policy: RetentionPolicy, category?: string): number {</span>
-    switch (category<span class="cstat-no" title="statement not covered" >) {</span>
+  private getRetenti<span class="cstat-no" title="statement not covered" >onDaysForCategory(policy: Rete</span>ntionPolicy, category?: string): number {
+    switch (category) {
       case 'alerts':
         return policy.alerts_days;
       case 'detections':
-        return policy.detections_days;
-      case '<span class="cstat-no" title="statement not covered" >previews':</span>
-        return policy.previews_days;
-      ca<span class="cstat-no" title="statement not covered" >se 'snapshots':</span>
-        return policy.snapshots_days;
-<span class="fstat-no" title="function not covered" ></span>      case 'events':
-        return policy.events_<span class="cstat-no" title="statement not covered" >days;</span>
-      de<span class="cstat-no" title="statement not covered" >fault:</span>
-        return Math.min(
-          policy<span class="cstat-no" title="statement not covered" >.alerts_days,</span>
-          policy.detections_days,
-          policy<span class="cstat-no" title="statement not covered" >.previews_days,</span>
-          policy.snapshots_days,
-          policy<span class="cstat-no" title="statement not covered" >.events_days</span>
-        );
-    }<span class="cstat-no" title="statement not covered" ></span>
-  }
-<span class="cstat-no" title="statement not covered" ></span>
-  private async findExpiredFiles(category: string, camera: string | undefined, cutoffDate: Date): Promise&lt;string[]&gt; {
-    const expire<span class="cstat-no" title="statement not covered" >dFiles: string[] = [];</span>
-    const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
-    const categoryPath = this.getCategoryPath(category, camera, detectionsDir);
-<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span>
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      aw<span class="cstat-no" title="statement not covered" >ait fs.access(categoryPath);</span>
-    } catch {<span class="cstat-no" title="statement not covered" ></span>
-      return<span class="cstat-no" title="statement not covered" > expiredFiles;</span>
-    }<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" ></span>
-    try {<span class="cstat-no" title="statement not covered" ></span>
-      const files = <span class="cstat-no" title="statement not covered" >await this.scanDirectory(</span>categoryPath);
+        retu<span class="cstat-no" title="statement not covered" >rn policy.detections_days;</span>
+      case 'previews':
+<span class="cstat-no" title="statement not covered" >        return policy.preview</span>s_days;
+      case 'snapshots':
+<span class="fstat-no" title="function not covered" ></span>        return policy.snapshots_days;
+      case 'events':<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        return policy.events_days;</span>
+      default:
+        return M<span class="cstat-no" title="statement not covered" >ath.min(</span>
+          policy.alerts_days,
+          policy<span class="cstat-no" title="statement not covered" >.detections_days,</span>
+          policy.previews_days,
+          policy<span class="cstat-no" title="statement not covered" >.snapshots_days,</span>
+          policy.events_days
+        );<span class="cstat-no" title="statement not covered" ></span>
+    }
+  }<span class="cstat-no" title="statement not covered" ></span>
 &nbsp;
-      for (const file<span class="cstat-no" title="statement not covered" > of files) {</span>
-        if (file.mti<span class="cstat-no" title="statement not covered" >me &lt; cutoffDate) {</span>
-          expiredFiles.push(file.path)<span class="cstat-no" title="statement not covered" >;</span>
-        }<span class="cstat-no" title="statement not covered" ></span>
+  private async <span class="cstat-no" title="statement not covered" >findExpiredFiles(category: string, ca</span>mera: string | undefined, cutoffDate: Date): Promise&lt;string[]&gt; {
+    const expiredFiles: string[] = [];
+    const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
+<span class="fstat-no" title="function not covered" >    co</span>nst categoryPath = this.getCategoryPat<span class="branch-0 cbranch-no" title="branch not covered" >h(</span>category, camera, detectionsDir);
+<span class="cstat-no" title="statement not covered" ></span>
+    try <span class="cstat-no" title="statement not covered" >{</span>
+      await fs.access(catego<span class="cstat-no" title="statement not covered" >ryPath);</span>
+    } catch <span class="cstat-no" title="statement not covered" >{</span>
+      return expiredFiles;<span class="cstat-no" title="statement not covered" ></span>
+    }<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      const files = await this.scanDirectory(categoryPath);
+<span class="cstat-no" title="statement not covered" ></span>
+      for (const fil<span class="cstat-no" title="statement not covered" >e of files) {</span>
+        if (file.mtime &lt; cutoffDate) {<span class="cstat-no" title="statement not covered" ></span>
+          expiredFiles.p<span class="cstat-no" title="statement not covered" >ush(file.path);</span>
+        }
       }
     } catch (error) {
       console.warn(`Error scanning ${category} directory for ${camera || 'global'}:`, error);
     }
-&nbsp;
-    return expiredFiles;<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" ></span>
+    return expiredFiles;
   }
 &nbsp;
   private getCategoryPath(category: string, camera: string | undefined, baseDir: string): string {
     const cameraSuffix = camera ? `_${camera}` : '';
-&nbsp;
-    switch (<span class="cstat-no" title="statement not covered" >category) {</span>
-      case 'alerts':
-<span class="cstat-no" title="statement not covered" >        return path.jo</span>in(baseDir, 'alerts');
+<span class="cstat-no" title="statement not covered" ></span>
+    switch (category) {
+      ca<span class="cstat-no" title="statement not covered" >se 'alerts':</span>
+        return path.join(baseDir, 'alerts');
       case 'snapshots':
 <span class="fstat-no" title="function not covered" ></span>        return path.join(baseDir, 'snapshots');
       ca<span class="cstat-no" title="statement not covered" >se 'previews':</span>
@@ -1106,13 +1135,14 @@ export c<span class="cstat-no" title="statement not covered" >lass Rete</span>nt
     return files;
   }<span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" ></span>
+  // Only used by cleanup job - not cached, runs at 3AM
   async getRetentionSummary(camera?: string): Promise&lt;{
-    policy: RetentionPolicy;
-<span class="fstat-no" title="function not covered" >    ex</span>piredCounts: { [key: string]: number };
-    tota<span class="cstat-no" title="statement not covered" >lExpiredFiles: number;</span>
+<span class="fstat-no" title="function not covered" >    po</span>licy: RetentionPolicy;
+    expi<span class="cstat-no" title="statement not covered" >redCounts: { [key: string</span>]: number };
+    totalExpiredFiles: number;
   }&gt; {
-    try {
-      const policy = await this.getPol<span class="cstat-no" title="statement not covered" >icy(camera);</span>
+    try {<span class="cstat-no" title="statement not covered" ></span>
+      const policy = await this.getPolicy(camera);
       const expiredCounts: { [key: string]: number } = {};
       let totalExpiredFiles = 0;
 &nbsp;
@@ -1174,7 +1204,7 @@ export default retentionPolicyService;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T17:07:09.943Z
+                at 2026-05-15T18:35:18.558Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

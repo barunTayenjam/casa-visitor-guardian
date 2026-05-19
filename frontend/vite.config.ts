@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
+  cacheDir: '/tmp/vite-sentryvision-cache',
   server: {
     host: "::",
     port: 5173,

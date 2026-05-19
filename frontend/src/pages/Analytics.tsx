@@ -31,13 +31,15 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageLoading } from '@/components/ui/PageLoading';
+import { systemService } from '@/services/api/systemService';
+import { eventService } from '@/services/api/eventService';
 
 interface AnalyticsEvent {
   id: string;
   timestamp: string;
-  camera_id: string;
+  cameraId: string;
   persons_detected: number;
-  object_detections?: { class: string }[];
+  object_detections?: { class?: string }[] | null;
 }
 
 interface HourlyDataPoint {
@@ -98,37 +100,34 @@ const AnalyticsPage = () => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        // Fetch hourly analytics
-        const hourlyRes = await fetch('/api/analytics/hourly');
-        const hourlyData = await hourlyRes.json();
+        const hourlyData = await systemService.getHourlyAnalytics();
 
-        // Fetch events for time range
         const now = new Date();
         let daysBack = 7;
         if (timeRange === '30d') daysBack = 30;
         if (timeRange === '90d') daysBack = 90;
 
         const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-        const eventsRes = await fetch(
-          `/api/events/list-enhanced?page=1&pageSize=1000&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`
-        );
-        const eventsData = await eventsRes.json();
-
-        // Process events data
-        const events = eventsData.events || [];
+        const eventsResponse = await eventService.getEnhancedEventsList({
+          page: 1,
+          pageSize: 1000,
+          start_date: startDate.toISOString(),
+          end_date: now.toISOString(),
+        });
+        const events = eventsResponse.events || [];
         const eventsByDay = new Map<string, { events: number; persons: number; vehicles: number; packages: number }>();
 
         // Initialize with all days in range
         for (let i = daysBack - 1; i >= 0; i--) {
           const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-          const dateKey = date.toLocaleDateString('en-US', { weekday: 'short' });
+          const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           eventsByDay.set(dateKey, { events: 0, persons: 0, vehicles: 0, packages: 0 });
         }
 
         // Count events by type and day
         events.forEach((event: AnalyticsEvent) => {
           const eventDate = new Date(event.timestamp);
-          const dateKey = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
+          const dateKey = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const current = eventsByDay.get(dateKey) || { events: 0, persons: 0, vehicles: 0, packages: 0 };
 
           current.events++;
@@ -151,7 +150,7 @@ const AnalyticsPage = () => {
           packages: counts.packages,
         }));
 
-        // Count detection types
+         // Count detection types
         const detectionCounts = { person: 0, vehicle: 0, package: 0, motion: 0 };
         events.forEach((event: AnalyticsEvent) => {
           if (event.persons_detected > 0) detectionCounts.person += event.persons_detected;
@@ -164,23 +163,23 @@ const AnalyticsPage = () => {
           }
           detectionCounts.motion++;
         });
-
+        
         const detectionTypes = [
-          { name: 'Person', value: detectionCounts.person, color: colors.detection.person, icon: Users },
-          { name: 'Vehicle', value: detectionCounts.vehicle, color: colors.detection.vehicle, icon: Car },
-          { name: 'Package', value: detectionCounts.package, color: colors.detection.package, icon: Package },
-          { name: 'Motion', value: detectionCounts.motion, color: colors.detection.motion, icon: Activity },
+          { name: 'Person', value: detectionCounts.person, color: '#22c55e', icon: Users }, // person: green-500
+          { name: 'Vehicle', value: detectionCounts.vehicle, color: '#3b82f6', icon: Car }, // vehicle: blue-500
+          { name: 'Package', value: detectionCounts.package, color: '#06b6d4', icon: Package }, // package: cyan-500
+          { name: 'Motion', value: detectionCounts.motion, color: '#f59e0b', icon: Activity }, // motion: amber-500
         ].filter(d => d.value > 0);
 
         // Camera uptime
         const cameraUptime = cameras.map(cam => ({
           camera: cam.name,
-          events: events.filter((e: AnalyticsEvent) => e.camera_id === cam.id).length,
+          events: events.filter((e: AnalyticsEvent) => e.cameraId === cam.id).length,
           status: cam.status,
         }));
 
         // Hourly activity from backend
-        const hourlyActivity = (hourlyData.hourlyData || []).map((h: HourlyDataPoint) => ({
+        const hourlyActivity = (Array.isArray(hourlyData) ? hourlyData : []).map((h: HourlyDataPoint) => ({
           hour: `${h.hour}:00`,
           events: h.count,
         }));
@@ -310,32 +309,32 @@ const AnalyticsPage = () => {
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.info }} />
                   <span className="text-xs text-muted-foreground">Events</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.detection.person }} />
-                  <span className="text-xs text-muted-foreground">Persons</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.detection.vehicle }} />
-                  <span className="text-xs text-muted-foreground">Vehicles</span>
-                </div>
+                 <div className="flex items-center gap-1">
+                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#22c55e' }} />
+                   <span className="text-xs text-muted-foreground">Persons</span>
+                 </div>
+                 <div className="flex items-center gap-1">
+                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
+                   <span className="text-xs text-muted-foreground">Vehicles</span>
+                 </div>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={analyticsData.eventsOverTime}>
-                <defs>
-                  <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors.status.info} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={colors.status.info} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorPersons" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors.detection.person} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={colors.detection.person} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorVehicles" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors.detection.vehicle} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={colors.detection.vehicle} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+                 <defs>
+                   <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor={colors.status.info} stopOpacity={0.3} />
+                     <stop offset="95%" stopColor={colors.status.info} stopOpacity={0} />
+                   </linearGradient>
+                   <linearGradient id="colorPersons" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                   </linearGradient>
+                   <linearGradient id="colorVehicles" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                   </linearGradient>
+                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
                 <YAxis stroke="#64748b" fontSize={12} />
@@ -347,8 +346,8 @@ const AnalyticsPage = () => {
                   }}
                 />
                 <Area type="monotone" dataKey="events" stroke={colors.status.info} fillOpacity={1} fill="url(#colorEvents)" strokeWidth={2} />
-                <Area type="monotone" dataKey="persons" stroke={colors.detection.person} fillOpacity={1} fill="url(#colorPersons)" strokeWidth={2} />
-                <Area type="monotone" dataKey="vehicles" stroke={colors.detection.vehicle} fillOpacity={1} fill="url(#colorVehicles)" strokeWidth={2} />
+                 <Area type="monotone" dataKey="persons" stroke="#22c55e" fillOpacity={1} fill="url(#colorPersons)" strokeWidth={2} />
+                 <Area type="monotone" dataKey="vehicles" stroke="#3b82f6" fillOpacity={1} fill="url(#colorVehicles)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

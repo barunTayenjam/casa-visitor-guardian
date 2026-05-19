@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
-import { ReviewSegment } from '../models/ReviewSegment.js';
-import { UserReviewStatus } from '../models/UserReviewStatus.js';
+import { ReviewSegment } from '../../models/ReviewSegment.js';
+import { UserReviewStatus } from '../../models/UserReviewStatus.js';
 import { cacheService } from '../cacheService.js';
 
 interface ReviewQuery {
@@ -88,7 +88,7 @@ export class ReviewService {
     return status?.has_been_reviewed ?? false;
   }
 
-  async acknowledgeSegment(segmentId: string, userId: string): Promise<void> {
+  async acknowledgeSegment(segmentId: string, userId: string, action?: 'dismiss' | 'confirm'): Promise<void> {
     const existing = await this.reviewStatusRepo.findOne({
       where: { user_id: userId, review_segment_id: segmentId },
     });
@@ -96,7 +96,7 @@ export class ReviewService {
     if (existing) {
       await this.reviewStatusRepo.update(
         { user_id: userId, review_segment_id: segmentId },
-        { has_been_reviewed: true, reviewed_at: new Date() }
+        { has_been_reviewed: true, reviewed_at: new Date(), review_action: action || null }
       );
     } else {
       await this.reviewStatusRepo.save({
@@ -104,6 +104,7 @@ export class ReviewService {
         review_segment_id: segmentId,
         has_been_reviewed: true,
         reviewed_at: new Date(),
+        review_action: action || null,
       });
     }
 

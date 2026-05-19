@@ -131,7 +131,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      timeEvents[0] && onEventSelect?.(timeEvents[0].id);
+                      if (timeEvents[0]) onEventSelect?.(timeEvents[0].id);
                     }
                   }}
                 >

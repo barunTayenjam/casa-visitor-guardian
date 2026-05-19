@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
-import { VisitorTimeline } from './Visitor.js';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 @Entity('face_embeddings')
 @Index(['visitorId'])
@@ -56,8 +55,4 @@ export class FaceEmbedding {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt!: Date;
-
-  @ManyToOne(() => VisitorTimeline, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'visitor_id' })
-  visitor!: VisitorTimeline;
 }

@@ -13,6 +13,8 @@ class CacheService {
   private isConnected: boolean = false;
   private connectionAttempted: boolean = false;
   private redisAvailable: boolean = false;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private static readonly MAX_MEMORY_CACHE_SIZE = 2000;
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
@@ -76,9 +78,15 @@ class CacheService {
       this.isConnected = false;
       this.client = null;
     }
+
+    this.cleanupTimer = setInterval(() => this.cleanupMemoryCache(), 120000);
   }
 
   async disconnect(): Promise<void> {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
     if (this.client) {
       await this.client.disconnect();
       this.client = null;
@@ -97,8 +105,8 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = await this.client.get(key);
-      return value || null;
+      const value = await this.client.get(key) as string | null;
+      return value ?? null;
     } catch (error) {
       console.warn('Redis get error, falling back to memory:', error);
       return this.getMemoryCacheString(key);
@@ -112,7 +120,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = await this.client.get(key);
+      const value = await this.client.get(key) as string | null;
       return value ? JSON.parse(value) : null;
     } catch (error) {
       console.warn('Redis get error, falling back to memory:', error);
@@ -216,15 +224,17 @@ class CacheService {
   }
 
   private setMemoryCache(key: string, value: any, ttl: number): void {
+    if (this.memoryCache.size >= CacheService.MAX_MEMORY_CACHE_SIZE) {
+      this.cleanupMemoryCache();
+    }
+    if (this.memoryCache.size >= CacheService.MAX_MEMORY_CACHE_SIZE) {
+      const oldestKey = this.memoryCache.keys().next().value;
+      if (oldestKey) this.memoryCache.delete(oldestKey);
+    }
     this.memoryCache.set(key, {
       value,
       expiry: Date.now() + (ttl * 1000)
     });
-    
-    // Cleanup expired entries periodically
-    if (this.memoryCache.size > 1000) {
-      this.cleanupMemoryCache();
-    }
   }
 
   private delMemoryCache(key: string): void {

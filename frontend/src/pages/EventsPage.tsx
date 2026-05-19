@@ -16,9 +16,22 @@ import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useSearchParams } from 'react-router-dom';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'confidence';
+
+// Helper function to get color for detection labels
+const getLabelColor = (label: string): string => {
+  const colorMap: Record<string, string> = {
+    person: '22c55e',     // green-500
+    vehicle: '3b82f6',    // blue-500
+    face: '8b5cf6',       // violet-500
+    package: '06b6d4',    // cyan-500
+    motion: 'f59e0b',     // amber-500
+  };
+  return colorMap[label] || colorMap.motion;
+};
 
 interface ApiEvent {
   id: string;
@@ -42,6 +55,7 @@ interface ApiEvent {
 const EventsPage = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
@@ -51,13 +65,23 @@ const EventsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [todayEvents, setTodayEvents] = useState(0);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [filters, setFilters] = useState<FilterState>({
-    searchQuery: '',
-    cameraId: 'all',
-    detectionType: 'all',
-    dateRange: { start: undefined, end: undefined },
-    confidence: 'all',
+  const [filters, setFilters] = useState<FilterState>(() => {
+    return {
+      searchQuery: searchParams.get('q') || '',
+      cameraId: searchParams.get('camera') || 'all',
+      detectionType: (searchParams.get('type') as FilterState['detectionType']) || 'all',
+      dateRange: {
+        start: searchParams.get('start') ? new Date(searchParams.get('start')!) : undefined,
+        end: searchParams.get('end') ? new Date(searchParams.get('end')!) : undefined,
+      },
+      confidence: (searchParams.get('confidence') as FilterState['confidence']) || 'all',
+      faceStatus: (searchParams.get('faces') as FilterState['faceStatus']) || 'all',
+      quickRange: 'all',
+      timeOfDay: (searchParams.get('time') as FilterState['timeOfDay']) || 'all',
+      personCount: (searchParams.get('people') as FilterState['personCount']) || 'all',
+    };
   });
 
   // Bulk selection state
@@ -85,18 +109,27 @@ const EventsPage = () => {
     try {
       const result = await detectionService.analyzeEvent(eventId);
       if (result.success && result.analysis) {
-        setAnalysisByEvent(prev => ({ ...prev, [eventId]: {
-          sceneDescription: result.analysis?.overall_summary || result.analysis?.summary || '',
-          summary: result.analysis?.summary,
-          persons: (result.analysis?.persons || []) as Record<string, unknown>[],
-          vehicles: (result.analysis?.vehicles || []) as Record<string, unknown>[],
-        } }));
+        const a = result.analysis;
+        const analysisEntry = {
+          sceneDescription: a.sceneDescription || a.overall_summary || a.summary || '',
+          summary: a.summary,
+          threatAssessment: a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
+          detectedEntities: a.detectedEntities || {
+            people: (a.persons as string[]) || [],
+            vehicles: (a.vehicles as string[]) || [],
+            animals: [],
+            objects: [],
+          },
+          recommendedActions: a.recommendedActions || [],
+          processingTime: a.processing_time_ms || a.processingTime || 0,
+          modelUsed: a.model || a.modelUsed || 'unknown',
+        };
+        setAnalysisByEvent(prev => ({ ...prev, [eventId]: analysisEntry }));
         toast({
           title: 'AI Analysis Complete',
-          description: result.analysis?.overall_summary || result.analysis?.summary || 'Analysis complete',
+          description: a.overall_summary || a.summary || a.sceneDescription || 'Analysis complete',
           variant: 'default',
         });
-        loadEvents();
       } else {
         toast({
           title: 'Analysis Failed',
@@ -105,6 +138,7 @@ const EventsPage = () => {
         });
       }
     } catch (error) {
+      console.error('[AI Analysis] Error analyzing event:', error);
       toast({
         title: 'Analysis Failed',
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -121,17 +155,23 @@ const EventsPage = () => {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const pageSize = viewMode === 'grid' ? 100 : 100;
-      const response = await eventService.getEnhancedEventsList({
-        page: currentPage,
-        pageSize: pageSize,
-        camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
-        start_date: filters.dateRange.start?.toISOString(),
-        end_date: filters.dateRange.end?.toISOString(),
-        event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
-        searchQuery: filters.searchQuery || undefined,
-        sortBy: sortBy,
-      });
+      const [response, dailyCount] = await Promise.all([
+        eventService.getEnhancedEventsList({
+          page: currentPage,
+          pageSize: viewMode === 'grid' ? 100 : 100,
+          camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
+          start_date: filters.dateRange.start?.toISOString(),
+          end_date: filters.dateRange.end?.toISOString(),
+          event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
+          searchQuery: filters.searchQuery || undefined,
+          sortBy: sortBy,
+          confidence: filters.confidence === 'all' ? undefined : filters.confidence,
+          faceStatus: filters.faceStatus === 'all' ? undefined : filters.faceStatus,
+        }),
+        eventService.getDailyStats()
+      ]);
+
+      setTodayEvents(dailyCount);
 
       const transformedEvents = response.events.map((event: ApiEvent): MotionEvent => ({
         id: event.id,
@@ -173,6 +213,20 @@ const EventsPage = () => {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  useEffect(() => {
+    const newParams = new URLSearchParams();
+    if (filters.searchQuery) newParams.set('q', filters.searchQuery);
+    if (filters.cameraId !== 'all') newParams.set('camera', filters.cameraId);
+    if (filters.detectionType !== 'all') newParams.set('type', filters.detectionType);
+    if (filters.dateRange.start) newParams.set('start', filters.dateRange.start.toISOString());
+    if (filters.dateRange.end) newParams.set('end', filters.dateRange.end.toISOString());
+    if (filters.confidence !== 'all') newParams.set('confidence', filters.confidence);
+    if (filters.faceStatus !== 'all') newParams.set('faces', filters.faceStatus);
+    if (filters.timeOfDay !== 'all') newParams.set('time', filters.timeOfDay);
+    if (filters.personCount !== 'all') newParams.set('people', filters.personCount);
+    setSearchParams(newParams, { replace: true });
+  }, [filters, setSearchParams]);
 
   const handleEventSelect = (eventId: string) => {
     setSelectedEventId(eventId);
@@ -223,7 +277,7 @@ const EventsPage = () => {
     });
   };
 
-  const selectAllEvents = () => {
+  const selectAllEvents = useCallback(() => {
     if (selectedEventIds.size === events.length) {
       setSelectedEventIds(new Set());
       setShowBulkActions(false);
@@ -232,12 +286,12 @@ const EventsPage = () => {
       setSelectedEventIds(allIds);
       setShowBulkActions(true);
     }
-  };
+  }, [selectedEventIds.size, events]);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedEventIds(new Set());
     setShowBulkActions(false);
-  };
+  }, []);
 
   const bulkDelete = async () => {
     if (selectedEventIds.size === 0) return;
@@ -313,43 +367,46 @@ const EventsPage = () => {
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+A: Select all
-      if (e.ctrlKey && e.key === 'a' && !selectedEventId) {
-        e.preventDefault();
-        selectAllEvents();
-        return;
-      }
-      
-      if (e.key === 'Escape') {
-        if (showBulkActions) {
-          clearSelection();
-        } else {
-          setSelectedEventId(null);
-        }
-      } else if (selectedEventId) {
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          goToPreviousEvent();
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          goToNextEvent();
-        }
-      }
-    };
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+    if (e.ctrlKey && e.key === 'a' && !selectedEventId) {
+      e.preventDefault();
+      selectAllEvents();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      if (showBulkActions) {
+        clearSelection();
+      } else {
+        setSelectedEventId(null);
+      }
+    } else if (selectedEventId) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedEventId(prev => {
+          const idx = filteredEvents.findIndex(ev => ev.id === prev);
+          return idx > 0 ? filteredEvents[idx - 1].id : prev;
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedEventId(prev => {
+          const idx = filteredEvents.findIndex(ev => ev.id === prev);
+          return idx < filteredEvents.length - 1 ? filteredEvents[idx + 1].id : prev;
+        });
+      }
+    }
+  }, [selectedEventId, filteredEvents, showBulkActions, selectAllEvents, clearSelection]);
+
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedEventId, filteredEvents, selectedEvent, showBulkActions]);
+  }, [handleKeyDown]);
 
   const stats = {
     total: totalEvents,
-    today: events.filter(e => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return e.timestamp >= today;
-    }).length,
+    today: todayEvents,
   };
 
   return (
@@ -460,6 +517,10 @@ const EventsPage = () => {
 
       <SmartFilters cameras={cameraNames} onFiltersChange={setFilters} />
 
+      <div className="px-4 md:px-6 py-2 text-sm text-muted-foreground">
+        Showing <span className="font-medium text-foreground">{filteredEvents.length}</span> of <span className="font-medium text-foreground">{totalEvents}</span> events
+      </div>
+
       {viewMode === 'grid' && (
         <EventTimeline
           events={filteredEvents}
@@ -522,13 +583,13 @@ const EventsPage = () => {
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    {event.labels && event.labels.length > 0 && (
-                      <div className="absolute top-2 left-2 z-10">
-                        <div className="px-2 py-1 rounded-lg text-xs font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `${colors.detection[event.labels[0] as keyof typeof colors.detection] || colors.detection.motion}DD` }}>
-                          {event.labels[0]}
-                        </div>
-                      </div>
-                    )}
+                     {event.labels && event.labels.length > 0 && (
+                       <div className="absolute top-2 left-2 z-10">
+                         <div className="px-2 py-1 rounded-lg text-xs font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `#${getLabelColor(event.labels[0])}DD` }}>
+                           {event.labels[0]}
+                         </div>
+                       </div>
+                     )}
                     {event.confidence > 0 && (
                       <div className="absolute top-2 right-2 z-10">
                         <div className="px-2 py-1 rounded-lg text-xs font-semibold bg-black/70 backdrop-blur-md text-white">
@@ -636,9 +697,9 @@ size="sm"
                       </p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {event.labels && event.labels.length > 0 && (
-                          <div className="px-2 py-0.5 rounded text-xs font-medium text-white" style={{ backgroundColor: `${colors.detection[event.labels[0] as keyof typeof colors.detection] || colors.detection.motion}DD` }}>
-                            {event.labels[0]}
-                          </div>
+                           <div className="px-2 py-0.5 rounded text-xs font-medium text-white" style={{ backgroundColor: `#${getLabelColor(event.labels[0])}DD` }}>
+                             {event.labels[0]}
+                           </div>
                         )}
                         {event.confidence > 0 && (
                           <div className="px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">

@@ -3,7 +3,8 @@ import { validate, commonSchemas } from '../middleware/validation.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
-import type { Camera, CameraConfig } from '../config/index.js';
+import type { Camera } from '../streams/rtspManager.js';
+import type { CameraConfig } from '../config/index.js';
 
 // Validate cameraId parameter
 function validateCameraIdParam(cameraId: string, res: Response): boolean {

@@ -7,7 +7,7 @@ export class NotificationPreferences {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'user_id', type: 'text', unique: true })
+  @Column({ name: 'user_id', type: 'uuid', unique: true })
   userId!: string;
 
   @OneToOne(() => User, { onDelete: 'CASCADE' })

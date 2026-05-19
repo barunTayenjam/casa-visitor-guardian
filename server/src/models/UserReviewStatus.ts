@@ -14,6 +14,9 @@ export class UserReviewStatus {
   @Column({ type: 'timestamptz', nullable: true, comment: 'Review timestamp' })
   reviewed_at!: Date | null;
 
+  @Column({ type: 'varchar', length: 10, nullable: true, comment: 'Review action: dismiss or confirm' })
+  review_action!: string | null;
+
   @CreateDateColumn({ name: 'created_at', comment: 'Record creation time' })
   created_at!: Date;
 }

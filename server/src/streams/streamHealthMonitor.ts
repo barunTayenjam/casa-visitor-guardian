@@ -105,23 +105,20 @@ export class StreamHealthMonitor {
 
     cameras.forEach((camera: any) => {
       ['live', 'detect', 'record'].forEach((role) => {
-        // Only check health for active roles
-        if (!camera.activeRoles.has(role)) {
-          return;
-        }
-
         const key = `${camera.id}-${role}`;
         const status = this.healthStatus.get(key);
 
-        // If we have no recorded frame time, skip (stream just started)
         if (!status || status.lastFrameTime === 0) {
           return;
         }
 
+        const wasActive = status.isActive;
         const timeSinceLastFrame = now - status.lastFrameTime;
 
-        // Check if stream is stale
         if (timeSinceLastFrame > this.config.staleThresholdMs) {
+          this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
+        } else if (!camera.activeRoles.has(role) && wasActive && (role === 'detect' || role === 'record')) {
+          console.log(`[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`);
           this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
         }
       });

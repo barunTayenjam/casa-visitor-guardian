@@ -244,7 +244,7 @@ class SocketService {
   }
 
   // Convenience method for enhanced motion events
-  onEnhancedMotionDetected(callback: (data: any) => void) {
+  onEnhancedMotionDetected(callback: (data: Record<string, unknown>) => void) {
     return this.on('enhancedMotionDetected', callback);
   }
 

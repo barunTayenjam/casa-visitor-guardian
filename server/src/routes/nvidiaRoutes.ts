@@ -1,14 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { analyzeImage, checkApiHealth, analyzeWithBoundingBoxes, analyzePersons } from '../services/nvidiaAnalysisService.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuth } from '../middleware/auth.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const router = Router();
 
-// Apply authentication to all routes in this router
-// Remove this line if you want the endpoint to be publicly accessible
-// router.use(authenticate());
+router.use(optionalAuth);
 
 /**
  * POST /api/nvidia/analyze
@@ -22,7 +20,7 @@ const router = Router();
  * - eventType: optional event type (string)
  * - detectedObjects: optional array of detected objects (string[])
  */
-router.post('/analyze', async (req: Request, res: Response) => {
+router.post('/analyze', authenticate(), async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
     
@@ -88,7 +86,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
     const eventIdentifier = imagePath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
     const { AppDataSource } = await import('../database.js');
     try {
-      const entities = result.detectedEntities || {};
+      const entities = result.detectedEntities || { people: [], vehicles: [], animals: [], objects: [], actions: [] };
       await AppDataSource.query(
         `INSERT INTO ai_analysis_results 
          (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, 
@@ -150,7 +148,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
  * - eventId: the ID of the event to analyze
  * - useStoredImage: whether to use the stored event image (boolean, default: true)
  */
-router.post('/analyze-event', async (req: Request, res: Response) => {
+router.post('/analyze-event', authenticate(), async (req: Request, res: Response) => {
   try {
     const { eventId, useStoredImage = true } = req.body;
 
@@ -216,13 +214,18 @@ router.post('/analyze-event', async (req: Request, res: Response) => {
     console.log(`[NVIDIA Routes] Analyzing event ${eventId} (${event.event_type})`);
 
     let result;
+    let isNvidiaResult = false;
     try {
-      // Try NVIDIA first
       result = await analyzeImage(imagePath, context);
+      isNvidiaResult = true;
+      // Check if analyzeImage returned an error result instead of throwing
+      if (result.sceneDescription?.startsWith('Analysis failed:')) {
+        throw new Error(result.sceneDescription.replace('Analysis failed: ', ''));
+      }
     } catch (nvidiaError: any) {
       console.log('[NVIDIA Routes] NVIDIA failed, falling back to OpenCV:', nvidiaError.message);
       // Fallback to OpenCV detection
-      const axios = await import('axios');
+      const { default: axios } = await import('axios');
       const { getOpenCVServiceUrl } = await import('../config/index.js');
       
       try {
@@ -251,6 +254,25 @@ router.post('/analyze-event', async (req: Request, res: Response) => {
           error: `Analysis failed: ${nvidiaError.message}. OpenCV fallback also failed.`
         });
       }
+    }
+
+    // Normalize NVIDIA result to match frontend expected format
+    if (isNvidiaResult && result) {
+      const sceneDesc = result.sceneDescription || '';
+      result = {
+        sceneDescription: sceneDesc,
+        summary: sceneDesc,
+        persons: result.detectedEntities?.people || [],
+        vehicles: result.detectedEntities?.vehicles || [],
+        activities: result.detectedEntities?.actions || [],
+        overall_summary: sceneDesc,
+        threatAssessment: result.threatAssessment || { level: 'low', factors: [], confidence: 0 },
+        detectedEntities: result.detectedEntities || { people: [], vehicles: [], animals: [], objects: [], actions: [] },
+        recommendedActions: result.recommendedActions || [],
+        additionalObservations: result.additionalObservations || [],
+        processing_time_ms: result.processingTime || 0,
+        model: result.modelUsed || 'nvidia'
+      };
     }
 
     res.json({
@@ -441,7 +463,7 @@ router.put('/config', authenticate(), async (req: Request, res: Response) => {
  * - cameraName: optional camera name (string)
  * - triggerReason: optional reason for analysis (string)
  */
-router.post('/analyze-with-bboxes', async (req: Request, res: Response) => {
+router.post('/analyze-with-bboxes', authenticate(), async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
     
@@ -534,7 +556,7 @@ router.post('/analyze-with-bboxes', async (req: Request, res: Response) => {
  * - eventType: optional event type (string)
  * - onlyOnMotion: optional - only trigger if motion detected (boolean)
  */
-router.post('/analyze-persons', async (req: Request, res: Response) => {
+router.post('/analyze-persons', authenticate(), async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
     
@@ -689,7 +711,7 @@ router.post('/analyze-persons', async (req: Request, res: Response) => {
  * - eventId: the ID of the event to analyze (string)
  * - includeAnnotatedImage: whether to include the annotated image (boolean, default: true)
  */
-router.post('/analyze-event-with-bboxes', async (req: Request, res: Response) => {
+router.post('/analyze-event-with-bboxes', authenticate(), async (req: Request, res: Response) => {
   try {
     const { eventId, includeAnnotatedImage = true } = req.body;
 

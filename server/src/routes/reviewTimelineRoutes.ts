@@ -51,8 +51,8 @@ export function configureReviewTimelineRoutes(app: Express) {
   app.post('/api/review/:id/acknowledge', requireUser, async (req: Request, res: Response) => {
     try {
       const reviewService = serviceRegistry.getReviewService();
-      const { userId = 'anonymous' } = req.body;
-      await reviewService.acknowledgeSegment(req.params.id, userId);
+      const { userId = 'anonymous', action } = req.body;
+      await reviewService.acknowledgeSegment(req.params.id, userId, action);
       res.json({ success: true });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {

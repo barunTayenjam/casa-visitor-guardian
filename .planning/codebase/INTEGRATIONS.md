@@ -1,194 +1,193 @@
 # External Integrations
 
-**Analysis Date:** 2026-05-06
+**Analysis Date:** 2026-05-15
 
 ## APIs & External Services
 
 **NVIDIA AI Vision API:**
-- Service: NVIDIA NIM (build.nvidia.com) — Vision LLM for image analysis
-- SDK/Client: Native `fetch` to `https://integrate.api.nvidia.com/v1/chat/completions`
-- Auth: `NVIDIA_API_KEY` env var
-- Models: `nvidia/llama-3.1-nemotron-nano-vl-8b-v1` (default), configurable via `NVIDIA_MODEL`
-- Capabilities: Object detection with bounding boxes, person analysis, scene description
-- Implementation: `server/src/services/nvidiaAnalysisService.ts`, `server/src/routes/nvidiaRoutes.ts`
-- Fallback: Falls back to OpenCV service when NVIDIA API fails
-- Status: Optional — degrades gracefully when API key not configured
+- Purpose: AI-powered scene analysis, person detection with bounding boxes, threat assessment
+- SDK/Client: Native `fetch()` calls to `https://integrate.api.nvidia.com/v1/chat/completions`
+- Auth: `NVIDIA_API_KEY` env var (Bearer token in Authorization header)
+- Implementation: `server/src/services/nvidiaAnalysisService.ts` (963 lines)
+- Routes: `server/src/routes/nvidiaRoutes.ts` — `POST /api/nvidia/analyze`, `POST /api/nvidia/analyze-bbox`, `POST /api/nvidia/analyze-persons`
+- Models used: Configurable, vision LLM chat completions
+- Status: Optional — requires API key to be set; gracefully disabled when key is absent
 
-**OpenCV Detection Service (Internal microservice):**
-- Service: Python Flask app running on port 8084
-- SDK/Client: `axios` HTTP client via `server/src/services/opencvMicroserviceClient.ts`
-- Auth: None (internal network only, Docker `sentryvision_network`)
-- Endpoints used: `/detect`, `/detect-faces`, `/health`, `/motion-detect`
-- Protocol: HTTP REST with JSON payloads
-- Features: YOLO object detection, face recognition, motion detection (MOG2), Redis-cached results
-- Implementation: `opencv-service/app.py` (1903 lines), `opencv-service/improved_face_recognition.py`
+**RTSP Camera Streams:**
+- Purpose: Live video from IP cameras (currently 2 cameras)
+- Protocol: RTSP over TCP, processed via FFmpeg
+- Configuration: `server/cameras.json` — per-camera RTSP URLs, resolution, FPS, zones, object filters
+- Client: `ffmpeg-static` or system `ffmpeg` (auto-detected at startup)
+- Implementation: `server/src/streams/rtspManager.ts` — manages FFmpeg child processes per camera
+- Stream roles: `detect` (low-res for CV), `live` (socket.io frames), `record` (future)
+- Cameras:
+  - cam1 "Front Door" — 1920x1080 @ 2 FPS (live), 1280x720 @ 5 FPS (detect)
+  - cam2 "Back Door" — 1920x1080 @ 2 FPS (live), 1280x720 @ 5 FPS (detect)
+
+**OpenCV Python Microservice:**
+- Purpose: Object detection (YOLO), face recognition, motion detection, detection caching
+- URL: `http://opencv:8084` (Docker) / `http://localhost:8084` (local)
+- Client: `server/src/services/opencvMicroserviceClient.ts` — Axios-based with circuit breaker pattern
+- Endpoints: `/health`, `/detect`, `/detect-face`, `/recognize-face`, `/motion-detect`, `/cache/stats`
+- Health monitoring: 30-second health checks with automatic circuit breaker
 
 ## Data Storage
 
 **Databases:**
-- PostgreSQL 15 (Alpine Docker image)
-  - Connection: `postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision`
-  - Env vars: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-  - ORM: TypeORM with entity files in `server/src/models/` (32 model files)
-  - Direct SQL: Also used via `AppDataSource.query()` for complex queries
-  - Python access: `psycopg2` with connection pooling in `opencv-service/app.py`
-  - Migrations: 26 SQL files in `database/migrations/` (001–017 with sub-variants)
-  - Tables: 17+ tables (users, events, visitors, batch_jobs, review_segments, face_embeddings, etc.)
-  - Docker volume: `postgres_data` for persistent storage
+- PostgreSQL 15 (Alpine)
+  - Host: `DB_HOST` env var (default: `postgres` in Docker, `172.26.0.3` local)
+  - Port: `DB_PORT` (5432)
+  - Database: `sentryvision`
+  - Client: TypeORM (`server/src/database.ts`) + direct SQL via `pg` driver
+  - ORM entities: `server/src/models/*.ts` (28 model files)
+  - Migrations: `database/migrations/` (26 SQL files, 001–017)
+  - Connection pool: TypeORM managed, configurable via `DB_POOL_*` env vars
+- OpenCV service also has direct PostgreSQL access via `psycopg2` for detection cache (`detection_cache` table)
 
 **File Storage:**
-- Local filesystem with structured directories
-  - Base path: `data/detections/` (configurable via `DETECTIONS_DIR`)
-  - Layout: `data/detections/{YYYY-MM}/events/{faces,motion}/` — monthly partitioning
-  - Snapshots: `data/snapshots/`
-  - Events: `data/events/` and `public/events/`
-  - Detection files tracked in `detection_files` database table with `storage_path`, `original_filename`, `file_type`
-  - Archive path: `data/detections/archive/{YYYY-MM}/`
-  - Config: `server/src/config/index.ts` → `storage` section
+- Local filesystem only — organized by year-month directories
+- Detection images: `data/detections/YYYY-MM/events/{faces,motion}/`
+- Snapshots: `data/detections/YYYY-MM/snapshots/`
+- Batch results: `data/detections/YYYY-MM/batch-results/`
+- Archive: `data/detections/archive/YYYY-MM/`
+- Configuration: `server/src/config/index.ts` — `getDetectionsPath()`, `getEventPath()`, `getArchivePath()`
+- Storage stats tracked in `storage_stats` table via `server/src/services/storageStatsService.ts`
 
 **Caching:**
-- Redis 7 (Alpine Docker image)
-  - Connection: `redis://redis:6379` (Docker) or `redis://localhost:6379` (local)
-  - Env vars: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
-  - Max memory: 50MB (configurable via `REDIS_MAX_MEMORY`)
-  - Eviction: `allkeys-lru` policy
-  - Used for: Detection result caching, session data, rate limit counters
-  - Clients: `redis` npm package (Node.js), `redis` pip package (Python)
-  - Graceful degradation: Falls back to in-memory Map cache when Redis unavailable
-  - Can be disabled entirely: Set `REDIS_DISABLED=true`
-  - Docker volume: `redis_data`
-  - Implementation:
-    - `server/src/services/cacheService.ts` — Primary cache service with Redis/memory fallback
-    - `server/src/services/redisCache.ts` — Alternative Redis client using `ioredis`
-    - `server/src/detection/consolidatedDetectionService.ts` — Detection result caching
+- Redis 7 (Alpine)
+  - Host: `REDIS_HOST` (default: `redis` in Docker)
+  - Port: `REDIS_PORT` (6379)
+  - Max memory: 40MB with `allkeys-lru` eviction
+  - Client: `ioredis` via `server/src/services/redisCache.ts` — typed get/set/del/keys with TTL
+  - Also used by OpenCV service directly (`redis` Python package)
+  - Fallback: `server/src/services/cacheService.ts` — in-memory cache when Redis unavailable
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Custom JWT-based authentication
-  - Implementation: `server/src/auth/index.ts`, `server/src/services/authenticationService.ts`
-  - Token strategy: Access tokens (15 min default) + Refresh tokens (7 days)
-  - Hashing: `bcrypt` (native) with 12 rounds (configurable via `BCRYPT_ROUNDS`)
-  - JWT library: `jsonwebtoken` npm package
-  - Secrets: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` env vars
-  - Session tracking: `user_sessions` table + `UserSession` TypeORM model
-  - Middleware: `server/src/middleware/auth.ts` — `requireUser`, `requireAdmin`, `optionalAuth`
+- Custom JWT-based implementation
+  - Implementation: `server/src/auth/index.ts` — `AuthService` class
+  - Token format: JWT with `{userId, username, role}` payload
+  - Access token: `JWT_ACCESS_SECRET` env var, configurable expiry (`JWT_EXPIRES_IN`, default 24h)
+  - Refresh token: `JWT_REFRESH_SECRET` env var
+  - Password hashing: bcrypt with 12 rounds
+  - MFA: TOTP-based via `speakeasy` — QR code generation via `qrcode` package
+  - Seed users: Default `admin/admin123` and `user/user123` seeded in development mode
+  - Middleware: `server/src/middleware/auth.ts` — `authenticate()` with optional role checking
 
-**MFA (Multi-Factor Authentication):**
-- TOTP-based (Google Authenticator compatible)
-  - Library: `speakeasy` npm package
-  - Implementation: `server/src/services/totpService.ts`
-  - Setup endpoint: `GET /api/auth/mfa/setup` — generates QR code via `qrcode` package
-  - Verify endpoint: `POST /api/auth/mfa/verify`
-  - Features: Backup codes, rate limiting on verification attempts
-
-**Web Push Notifications:**
-- VAPID protocol via `web-push` npm package
-  - Implementation: `server/src/services/notificationService.ts`
-  - Keys: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` env vars
-  - Subscription storage: `NotificationSubscription` TypeORM entity → `notification_subscriptions` table
-  - Log storage: `NotificationLog` entity → `notification_logs` table
-  - Preferences: `NotificationPreferences` entity → `notification_preferences` table
-  - Status: Initialized but VAPID keys must be configured for push to work
+**Authorization Roles:**
+- `admin` — Full access, all permissions (`['*']`)
+- `user` — Limited access (`['read:own', 'write:own']`)
+- `viewer` — Read-only (defined in `roles` table)
+- Enforced via `authenticate({ roles: ['admin'] })` middleware on routes
 
 **Credential Encryption:**
-- AES-256 encryption for stored RTSP credentials
-  - Implementation: `server/src/services/credentialEncryption.ts`
-  - Key: `CREDENTIAL_ENCRYPTION_KEY` env var (32-byte minimum)
-  - Applied to: Camera RTSP stream paths in `cameras.json`
+- RTSP camera credentials encrypted at rest
+- Implementation: `server/src/services/credentialEncryption.ts` — AES-256-GCM with PBKDF2 key derivation
+- Key: `CREDENTIAL_ENCRYPTION_KEY` env var (min 32 characters)
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None (no Sentry, DataDog, or similar integrated)
-- Placeholder config exists in `.env.example` for Datadog (`DATADOG_ENABLED`, `DATADOG_API_KEY`) and New Relic (`NEW_RELIC_ENABLED`, `NEW_RELIC_LICENSE_KEY`)
+- Custom security event logging to `security_events` table
+- Implementation: `server/src/models/SecurityEvent.ts` — tracks events like `CREDENTIAL_DECRYPTION_FAILED`, `PLAINTEXT_CREDENTIALS_DETECTED`
+- No external error tracking service (no Sentry, etc.)
 
 **Logs:**
-- Custom logger: `server/src/utils/logger.ts`
-- Console-based logging with severity levels
-- Audit logging: `server/src/utils/auditLogger.ts` → `audit_logs` database table
-- Security event logging: `server/src/models/SecurityEvent.ts` → `security_events` table
-- Log files: Configured via `LOG_LEVEL`, `LOG_FILE` env vars (`.env.example`)
+- Custom logger: `server/src/utils/logger.ts` — structured logging with context
+- Console-based (stdout/stderr) — captured by Docker logs
+- Health monitor script runs alongside backend: `sh /app/health-monitor.sh` in Docker
+- Stream health: `server/src/streams/streamHealthMonitor.ts` — monitors camera stream stability
 
 **Health Checks:**
-- Backend: `GET /api/health` — Docker healthcheck every 30s
-- OpenCV: `GET /health` — Docker healthcheck every 30s
-- PostgreSQL: `pg_isready` — Docker healthcheck every 10s
-- Redis: `redis-cli ping` — Docker healthcheck every 10s
+- Backend: `GET /api/health` — returns service status
+- OpenCV: `GET /health` — returns model initialization status
+- PostgreSQL: `pg_isready` in Docker healthcheck
+- Redis: `redis-cli ping` in Docker healthcheck
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Self-hosted on Linux (Manjaro) — Docker Compose based deployment
-- systemd service: `sentryvision.service` for auto-start on boot
-- Deployment script: `deploy-to-manjaro.sh`
-- OpenCV deploy: `deploy-opencv-docker.sh`
+- Self-hosted on local Linux machine (Manjaro)
+- Docker Compose for service orchestration
+- systemd service for auto-start on boot (`sentryvision.service`)
 
 **CI Pipeline:**
-- None (no GitHub Actions, GitLab CI, or similar configured)
-- Testing is manual via `npm run test`, `npm run lint`, `npm run typecheck`
+- None — no CI/CD platform configured (no GitHub Actions, Jenkins, etc.)
+- Manual deployment via shell scripts (`deploy-to-manjaro.sh`, `start-all-services.sh`)
 
 **Reverse Proxy:**
-- Nginx (`nginx.conf`) — configured for production deployment
-  - Proxies `/api/` and `/socket.io/` to backend
-  - Serves frontend static files with SPA routing
-  - Gzip compression enabled
-  - Security headers (X-Frame-Options, CSP, etc.)
+- nginx (`nginx.conf`) — for production static file serving + API proxy
+- Vite dev proxy — for development mode API forwarding
 
 ## Environment Configuration
 
-**Required env vars (backend):**
-- `PORT` — Server port (default: 9753)
-- `NODE_ENV` — Environment mode (development/production)
+**Required env vars (active — actually consumed by code):**
+- `PORT` — Backend API port (default: 9753)
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — PostgreSQL connection
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` — JWT signing keys
-- `CREDENTIAL_ENCRYPTION_KEY` — Camera credential encryption key
-- `OPENCV_SERVICE_URL` — OpenCV Flask service URL (default: `http://opencv:8084`)
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` — JWT signing
+- `CREDENTIAL_ENCRYPTION_KEY` — RTSP credential encryption
+- `OPENCV_SERVICE_URL` — OpenCV microservice URL
+- `DETECTIONS_DIR` — File storage root for detections
+- `LOW_RESOURCE_MODE` — Enable resource-constrained optimizations
+- `VITE_BACKEND_URL` — Frontend → Backend URL (dev proxy target)
+- `TZ` — Timezone (Asia/Kolkata)
+- `REDIS_HOST`, `REDIS_PORT` — Redis connection
 
-**Optional env vars (features):**
-- `NVIDIA_API_KEY`, `NVIDIA_MODEL` — AI vision analysis
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` — Redis caching (falls back to memory)
-- `REDIS_DISABLED` — Set to `true` to skip Redis entirely
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — Web push notifications
-- `MQTT_ENABLED`, `MQTT_HOST`, `MQTT_PORT` — IoT integration
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` — Email notifications (placeholder)
-- `VITE_BACKEND_URL` — Frontend backend URL (default: `http://localhost:9753`)
+**Optional env vars (configured but feature may be inactive):**
+- `NVIDIA_API_KEY` — AI vision analysis
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push notifications
+- `MQTT_*` — MQTT integration (config defined in `server/src/config/index.ts` but no MQTT client package installed)
+- `SMTP_*` — Email sending (nodemailer installed but not actively used in routes)
 
 **Secrets location:**
-- `.env` file at project root (gitignored)
-- `server/.env` (gitignored)
-- Docker Compose environment sections (contains development defaults)
-- `server/cameras.json` — Contains RTSP URLs with embedded credentials
+- `.env` file at project root — contains all secrets (gitignored)
+- `.env.example` — template with placeholder values
+- `.env.production` — production overrides
+- `docker-compose.yml` — contains default dev credentials (acceptable for dev-only)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None configured
+- None — no webhook receiver endpoints
 
 **Outgoing:**
-- MQTT Publishing (optional) — Publishes security events to MQTT broker
-  - Implementation: `server/src/services/mqttService.ts`
-  - Config: `MQTT_ENABLED`, `MQTT_HOST`, `MQTT_PORT`, `MQTT_TOPIC_PREFIX`
-  - Default topic prefix: `sentryvision`
-  - Status: Implemented but disabled by default
-- Web Push — Outbound push notifications to browser clients via VAPID
-  - Implementation: `server/src/services/notificationService.ts`
-- Webhook placeholders (configured in `.env.example` but not implemented):
-  - `SLACK_WEBHOOK`, `DISCORD_WEBHOOK` — Alert webhooks
-  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — Telegram notifications
-  - `WEBHOOK_URL` — Generic webhook endpoint
+- Web Push notifications via `web-push` library (`server/src/services/notificationService.ts`)
+  - VAPID protocol for push subscription management
+  - Per-user notification preferences stored in `notification_preferences` table
+  - Quiet hours support
+- Notification models: `server/src/models/NotificationSubscription.ts`, `NotificationLog.ts`, `NotificationPreferences.ts`
+- Routes: `server/src/routes/notificationRoutes.ts`
 
-## RTSP Camera Integration
+## Real-time Communication
 
-**Camera Connectivity:**
-- Protocol: RTSP over TCP
-- Cameras: 2 IP cameras on local network (192.168.31.61, 192.168.31.62)
-- Stream processing: FFmpeg (bundled via `ffmpeg-static`) decodes RTSP → JPEG frames
-- Configuration: `server/cameras.json` — per-camera RTSP URLs, resolution, FPS, zones
-- Stream management: `server/src/streams/rtspManager.ts` — orchestrates stream lifecycle
-- Frame delivery: Socket.IO streams MJPEG frames to frontend clients
-- Credentials: Embedded in RTSP URLs or encrypted via credential encryption service
+**Socket.io:**
+- Server: `socket.io` on backend (port 9753)
+- Client: `socket.io-client` on frontend
+- Frontend service: `frontend/src/services/SocketService.ts`
+- Frontend context: `frontend/src/contexts/SocketContext.tsx`
+- Events:
+  - `requestStream` / `stopStream` — Camera live view control
+  - `frame` — Camera frame delivery (base64 JPEG)
+  - `motionDetected` — Real-time motion alerts
+- Connection: Auto-reconnect with visibility change handling
+
+## Third-party Packages (Notable)
+
+**Circuit Breaker:**
+- Custom implementation: `server/src/services/circuitBreaker.ts` — used with OpenCV microservice calls
+- States: CLOSED → OPEN → HALF_OPEN with configurable thresholds
+
+**Image Processing:**
+- `sharp` — Server-side image resize/convert (backend)
+- OpenCV (`cv2`) — Motion detection, object detection, face detection (Python service)
+- `ffmpeg-static` / system FFmpeg — RTSP stream decoding, frame extraction
+
+**Scheduled Tasks:**
+- `node-cron` — Automated cleanup, retention enforcement (`server/src/utils/cronJobs.ts`)
+- `server/src/services/retentionPolicyService.ts` — Data retention management
+- `server/src/services/automatedCleanupService.ts` — Automated detection file cleanup
 
 ---
 
-*Integration audit: 2026-05-06*
+*Integration audit: 2026-05-15*

@@ -55,6 +55,48 @@ router.delete('/unsubscribe', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/unsubscribe', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { endpoint } = req.body;
+
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+
+    await NotificationService.unsubscribe(userId, endpoint);
+
+    res.json({ message: 'Unsubscribed successfully' });
+  } catch (error) {
+    console.error('Unsubscribe error:', error);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
+router.post('/resubscribe', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { endpoint, keys } = req.body;
+
+    if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+      return res.status(400).json({ error: 'Invalid subscription format' });
+    }
+
+    await NotificationService.subscribe(userId, {
+      endpoint,
+      keys: {
+        p256h: keys.p256dh,
+        auth: keys.auth,
+      },
+    });
+
+    res.json({ message: 'Resubscribed successfully' });
+  } catch (error) {
+    console.error('Resubscribe error:', error);
+    res.status(500).json({ error: 'Failed to resubscribe' });
+  }
+});
+
 router.get('/subscription', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;

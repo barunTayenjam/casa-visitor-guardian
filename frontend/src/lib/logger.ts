@@ -131,7 +131,7 @@ class Logger {
     // Try to get user ID from various sources
     return localStorage.getItem('userId') || 
            sessionStorage.getItem('userId') || 
-           (window as any).currentUser?.id;
+           ((window as unknown as { currentUser?: { id?: string } }).currentUser)?.id;
   }
   
   private saveLogsToStorage() {

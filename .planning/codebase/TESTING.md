@@ -1,14 +1,13 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-05-06
+**Analysis Date:** 2026-05-15
 
 ## Test Framework
 
 **Runner:**
-- Jest 30.2.0
-- Backend config: `server/jest.config.js` (ESM mode)
-- Root config: `jest.config.js` (points to server tests)
-- Frontend config: No dedicated Jest config — uses root `package.json` scripts pointing to `cd frontend && jest`
+- Jest 30.2 with ts-jest 29.4.5
+- Backend config: `server/jest.config.js`
+- Root config: `jest.config.js` (points to `server/src`)
 
 **Assertion Library:**
 - Jest built-in (`expect` from `@jest/globals`)
@@ -16,277 +15,249 @@
 
 **Run Commands:**
 ```bash
-# Frontend tests
-npm run test                    # Run all frontend tests
-npm run test:watch              # Watch mode
-npm run test:coverage           # Coverage report
-npm run test:services           # Only service tests
-npm run test:utils              # Only utility tests
+# From root
+npm run test                    # Run frontend tests via Jest
+npm run test:coverage           # Frontend tests with coverage
+npm run test:watch              # Frontend tests in watch mode
 
-# Backend tests
-cd server && npm run test:server   # Run backend tests with --experimental-vm-modules
+# From server/
+cd server && npm run test:server   # Run backend tests
 
-# Root level
-npm run test                    # Equivalent to cd frontend && jest
+# Specific test patterns
+npm run test:setup              # Run setup tests only
+npm run test:services           # Run service tests only
+npm run test:utils              # Run utility tests only
 ```
 
 ## Test File Organization
 
 **Location:**
-- Backend tests: **Co-located** with source files — test files sit next to the files they test
-  - `server/src/routes/auth.test.ts` next to `server/src/routes/auth.ts`
-  - `server/src/models/Event.test.ts` next to `server/src/models/Event.ts`
-  - `server/src/utils/logger.test.ts` next to `server/src/utils/logger.ts`
-  - `server/src/services/review/reviewService.test.ts` next to `reviewService.ts`
-- Backend also has a separate `server/tests/` directory with basic/smoke tests
-- Frontend tests: Separate `frontend/src/tests/setup.ts` exists but **no actual test files found** — frontend test coverage is effectively zero
+- Co-located with source files: test files sit next to the code they test
+- Additional test directory: `server/tests/` for integration-style tests
 
 **Naming:**
-- Pattern: `<filename>.test.ts`
-- Examples: `auth.test.ts`, `Event.test.ts`, `logger.test.ts`, `reviewService.test.ts`
+- Pattern: `<sourceFile>.test.ts`
+- Examples: `User.test.ts`, `auth.test.ts`, `logger.test.ts`, `encryption.test.ts`
 
 **Structure:**
 ```
-server/
-├── src/
-│   ├── routes/
-│   │   ├── index.ts
-│   │   ├── auth.ts
-│   │   ├── auth.test.ts              ← Route-level integration tests
-│   │   ├── visitorRoutes.ts
-│   │   ├── visitorRoutes.test.ts
-│   │   ├── reviewRoutes.ts
-│   │   ├── reviewRoutes.test.ts
-│   │   ├── storageRoutes.ts
-│   │   ├── storageRoutes.test.ts
-│   │   ├── batchDetection.ts
-│   │   └── batchDetection.test.ts
-│   ├── models/
-│   │   ├── Event.ts
-│   │   ├── Event.test.ts             ← Model unit tests
-│   │   ├── User.ts
-│   │   ├── User.test.ts
-│   │   ├── Role.ts
-│   │   ├── Role.test.ts
-│   │   ├── AuditLog.ts
-│   │   ├── AuditLog.test.ts
-│   │   ├── Timeline.ts
-│   │   └── Timeline.test.ts
-│   ├── services/
-│   │   ├── review/
-│   │   │   ├── reviewService.ts
-│   │   │   └── reviewService.test.ts ← Service unit tests
-│   │   ├── detection/
-│   │   │   ├── detectionService.ts
-│   │   │   └── detectionService.test.ts
-│   │   └── timeline/
-│   │       └── timelineService.test.ts
-│   └── utils/
-│       ├── logger.ts
-│       ├── logger.test.ts            ← Utility unit tests
-│       ├── encryption.ts
-│       ├── encryption.test.ts
-│       ├── fileHash.ts
-│       ├── fileHash.test.ts
-│       ├── cronJobs.ts
-│       └── cronJobs.test.ts
-├── tests/
-│   ├── simple.test.ts                ← Smoke test
-│   ├── setup.test.ts                 ← Setup verification
+server/src/
+├── models/
+│   ├── User.ts
+│   ├── User.test.ts           # Model tests
+│   ├── Event.ts
+│   ├── Event.test.ts
+│   └── ...
+├── routes/
+│   ├── auth.ts
+│   ├── auth.test.ts           # Route tests
+│   ├── visitorRoutes.test.ts
+│   └── ...
+├── services/
+│   ├── review/
+│   │   ├── reviewService.ts
+│   │   └── reviewService.test.ts  # Service tests
+│   ├── detection/
+│   │   ├── detectionService.ts
+│   │   └── detectionService.test.ts
+│   └── timeline/
+│       ├── timelineService.ts
+│       └── timelineService.test.ts
+├── utils/
+│   ├── logger.ts
+│   ├── logger.test.ts         # Utility tests
+│   ├── encryption.ts
+│   ├── encryption.test.ts
+│   └── ...
+├── database.test.ts           # Core module tests
+└── index.test.ts              # Entry point tests
+
+server/tests/
+├── simple.test.ts             # Sanity check tests
+├── setup.test.ts              # Environment setup tests
+├── services/
 │   ├── basic.test.ts
-│   └── services/
-│       ├── authenticationService.test.ts
-│       └── basic.test.ts
-frontend/
-└── src/
-    └── tests/
-        └── setup.ts                  ← DB setup file (no actual tests)
+│   └── authenticationService.test.ts  # Integration-level service tests
 ```
 
 ## Test Structure
 
 **Suite Organization:**
 ```typescript
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+// Pattern from server/src/routes/auth.test.ts
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import request from 'supertest';
+import jwt from 'jsonwebtoken';
 
-describe('ReviewService', () => {
-  let reviewService: ReviewService;
-  let mockReviewSegmentRepo: any;
-  let mockReviewStatusRepo: any;
+jest.mock('../middleware/authenticate.js');
+jest.mock('../config/index.js');
+
+describe('Authentication Routes', () => {
+  let app: any;
+  let mockDb: any;
+  let adminToken: string;
+  let userToken: string;
 
   beforeEach(() => {
-    // Set up mocks and service instance
-    mockReviewSegmentRepo = {
-      createQueryBuilder: jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-      }),
-      findOne: jest.fn(),
-      save: jest.fn(),
-      update: jest.fn(),
+    app = require('./index.ts').default;
+    mockDb = {
+      getRepository: jest.fn(),
     };
-
-    reviewService = new ReviewService(
-      mockReviewSegmentRepo,
-      mockReviewStatusRepo,
-      mockTimelineService,
-      mockPreviewService,
+    adminToken = jwt.sign(
+      { userId: 'admin-123', username: 'admin', role: 'admin' },
+      'test-secret',
+      { expiresIn: '1h' }
     );
   });
 
-  describe('getReviewSegments', () => {
-    it('should return empty segments when no data exists', async () => {
-      // Arrange
-      mockReviewSegmentRepo.createQueryBuilder().getManyAndCount
-        .mockResolvedValue([[], 0]);
-      // Act
-      const result = await reviewService.getReviewSegments({});
-      // Assert
-      expect(result.segments).toEqual([]);
-      expect(result.total).toBe(0);
-      expect(result.hasMore).toBe(false);
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('POST /api/auth/register (Admin Only)', () => {
+    it('should allow admin to register a new user', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ username: 'newuser', email: 'newuser@example.com', password: 'Password123!' });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
     });
   });
 });
 ```
-Source: `server/src/services/review/reviewService.test.ts`
 
 **Patterns:**
-- **Setup:** `beforeEach` creates fresh mock objects and service instances per test
+- **Setup:** `beforeEach` creates fresh mocks and app instances per test
 - **Teardown:** `afterEach` calls `jest.clearAllMocks()` or `jest.restoreAllMocks()`
-- **Imports:** Always from `@jest/globals` — `import { describe, it, expect, beforeEach, jest } from '@jest/globals'`
-- **Nesting:** `describe` blocks for class/module → method → specific scenarios
-- **Test naming:** Descriptive sentences — `'should return empty segments when no data exists'`
+- **Assertion style:** Standard Jest `expect().toBe()`, `toBeDefined()`, `toEqual()`
+- **Grouping:** Nested `describe()` blocks for route groups, HTTP methods, and scenarios
 
 ## Mocking
 
-**Framework:** Jest built-in mocking (`jest.fn()`, `jest.mock()`, `jest.spyOn()`)
+**Framework:** Jest built-in mocking (`jest.mock()`, `jest.fn()`)
 
 **Patterns:**
 
-**1. Service Mocking (Unit Tests):**
-Mock repositories are plain objects with `jest.fn()` methods:
+### Database Repository Mocking
 ```typescript
-const mockConfigRepo = {
-  findOne: jest.fn(),
-  update: jest.fn(),
-  save: jest.fn(),
-};
+// Pattern from server/src/services/review/reviewService.test.ts
+let mockReviewSegmentRepo: any;
 
-detectionService = new DetectionService(mockConfigRepo);
+beforeEach(() => {
+  mockReviewSegmentRepo = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    }),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  reviewService = new ReviewService(
+    mockReviewSegmentRepo,
+    mockReviewStatusRepo,
+    mockTimelineService,
+    mockPreviewService
+  );
+});
 ```
-Source: `server/src/services/detection/detectionService.test.ts`
 
-**2. TypeORM QueryBuilder Mocking:**
-Chainable mock builder pattern:
+### Module-Level Mocking
 ```typescript
-mockReviewSegmentRepo = {
-  createQueryBuilder: jest.fn().mockReturnValue({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-  }),
-};
-```
-Source: `server/src/services/review/reviewService.test.ts`
-
-**3. Module Mocking (Integration Tests):**
-```typescript
+// Pattern from server/src/routes/auth.test.ts
 jest.mock('../middleware/authenticate.js');
 jest.mock('../config/index.js');
+
+// Pattern from server/src/services/timeline/timelineService.test.ts
+jest.mock('../models/Timeline.js');
+jest.mock('../models/AdaptiveRegion.js');
+jest.mock('./cacheService.js');
 ```
-Source: `server/src/routes/auth.test.ts`
 
-**4. Express App for HTTP Tests:**
-Two approaches used:
-
-Approach A — Require the app (fragile):
+### Dependency Injection for Services
 ```typescript
-beforeEach(() => {
-  app = require('./index.ts').default;
-});
+// Services accept mocked repos via constructor
+detectionService = new DetectionService(mockConfigRepo);
+reviewService = new ReviewService(mockSegmentRepo, mockStatusRepo, mockTimelineService, mockPreviewService);
+timelineService = new TimelineService(mockTimelineRepo, mockRegionRepo);
 ```
-Source: `server/src/routes/auth.test.ts`
 
-Approach B — Create fresh Express app with specific routes:
+### TypeORM Mocking
 ```typescript
-beforeAll(async () => {
-  app = express();
-  app.use(express.json());
-  app.use('/api/storage', storageRoutes);
-  await storageStatsService.initialize();
-});
-```
-Source: `server/src/routes/storageRoutes.test.ts`
+// Pattern from server/src/models/User.test.ts
+jest.mock('../models/Role.js');
 
-**5. Accessing Private Methods:**
-Use type assertion to test private methods:
-```typescript
-const severity = (reviewService as any).calculateSeverity(objects);
+// Pattern from server/src/database.test.ts
+jest.mock('typeorm');
+jest.mock('../database.js');
 ```
-Source: `server/src/services/review/reviewService.test.ts`
-
-**6. Internal State Access:**
-```typescript
-(detectionService as any).scoreHistories.set('obj1', { scores: [1, 2, 3] });
-expect((detectionService as any).scoreHistories.size).toBe(0);
-```
-Source: `server/src/services/detection/detectionService.test.ts`
 
 **What to Mock:**
-- TypeORM repositories and query builders
-- External services (OpenCV, Redis)
-- Authentication middleware (when testing routes)
-- Configuration modules
-- Console output in some tests
+- Database connections (`typeorm`, `../database.js`)
+- Authentication middleware (`../middleware/authenticate.js`)
+- Configuration (`../config/index.js`)
+- External services (cache, timeline, preview)
+- Repository return values
 
 **What NOT to Mock:**
-- The service class under test itself
-- Zod validation logic (test it directly)
-- Encryption/decryption (test with real implementation — see `encryption.test.ts`)
+- Entity class instantiation (create `new User()`, `new Event()` directly)
+- Simple utility functions (test them directly)
+- Encryption/decryption (test actual encrypt→decrypt cycle)
 
 ## Fixtures and Factories
 
 **Test Data:**
-Inline test data created directly in tests — no external fixture files or factory functions:
 ```typescript
-// Inline event creation
-const event = new Event();
-event.event_type = 'motion';
-event.file_path = '/path/to/snapshot.jpg';
-event.camera_id = 'cam1';
+// Pattern from server/tests/services/authenticationService.test.ts
+import { UserFactory, MockDataGenerator, TestHelpers } from '../utils/factories';
 
-// Inline JWT tokens for auth tests
+// Generating valid test data
+const userData = MockDataGenerator.generateValidUserData();
+
+// Creating mock entity instances
+const user = new User();
+user.username = 'testuser';
+user.email = 'test@example.com';
+user.passwordHash = 'hashedpassword123';
+```
+
+**Inline Test Data:**
+```typescript
+// JWT token generation for auth tests
 adminToken = jwt.sign(
   { userId: 'admin-123', username: 'admin', role: 'admin' },
   'test-secret',
   { expiresIn: '1h' }
 );
 
-// Inline detection data
-const detections = [
-  { label: 'person', score: 0.2, object_id: 'p1' },
-  { label: 'person', score: 0.5, object_id: 'p2' },
-];
+// Mock request data
+const response = await request(app)
+  .post('/api/auth/register')
+  .set('Authorization', `Bearer ${adminToken}`)
+  .send({
+    username: 'newuser',
+    email: 'newuser@example.com',
+    password: 'Password123!'
+  });
 ```
 
 **Location:**
-- No dedicated fixtures directory
-- No factory functions detected
-- Test data lives directly in test files
+- Factory/test utilities: `server/tests/utils/factories` (referenced but may be in progress)
+- Inline test data in test files
 
 ## Coverage
 
-**Requirements:** 80% threshold enforced across all dimensions
+**Requirements:** 80% threshold enforced for all metrics (branches, functions, lines, statements)
 
-**Configuration (both root and server `jest.config.js`):**
+**Configuration** (`server/jest.config.js` and root `jest.config.js`):
 ```javascript
 coverageThreshold: {
   global: {
@@ -295,145 +266,172 @@ coverageThreshold: {
     lines: 80,
     statements: 80
   }
-}
-```
-
-**View Coverage:**
-```bash
-cd server && npm run test:server    # collectCoverage: true in config
-npm run test:coverage               # Frontend coverage
-```
-
-**Coverage Collection:**
-```javascript
+},
+collectCoverage: true,
 collectCoverageFrom: [
   'src/**/*.ts',
   '!src/**/*.d.ts',
   '!src/tests/**'
 ],
 coverageReporters: ['text', 'lcov', 'html'],
-collectCoverage: true,
 ```
-Source: `server/jest.config.js`
 
-**Note:** Despite the 80% threshold being configured, actual coverage likely falls short given the number of files without corresponding tests (e.g., detection implementations, stream managers, many service files).
+**View Coverage:**
+```bash
+npm run test:coverage      # Terminal output + lcov report
+# Open coverage/lcov-report/index.html in browser for HTML report
+```
+
+**Timeout:** 10 seconds per test (configured in root `jest.config.js` via `testTimeout: 10000`)
 
 ## Test Types
 
 **Unit Tests:**
-- Models: Test entity instantiation and property defaults — `server/src/models/*.test.ts`
-- Utilities: Test individual utility functions — `server/src/utils/*.test.ts`
-- Services: Test business logic with mocked repositories — `server/src/services/*/service.test.ts`
-- Pattern: Instantiate class with mock deps, call methods, assert results
+- Model entity tests: instantiation, default values, serialization (e.g., `User.test.ts`, `Event.test.ts`)
+- Utility tests: pure function testing (e.g., `logger.test.ts`, `encryption.test.ts`, `fileHash.test.ts`)
+- Service tests: constructor injection with mocked repos (e.g., `reviewService.test.ts`, `detectionService.test.ts`)
+- Pattern: Create instance, set properties, assert values
 
 **Integration Tests:**
-- Routes: Test full HTTP request/response cycle using Supertest — `server/src/routes/*.test.ts`
-- Storage: Test against real service initialization — `server/src/routes/storageRoutes.test.ts`
-- Pattern: Create Express app, mount routes, make HTTP requests, assert responses
+- Route tests: Full Express app or Router mounted on test Express instance, tested via Supertest
+- Storage routes test (`storageRoutes.test.ts`): Uses `beforeAll` to initialize real services
+- Authentication service test (`authenticationService.test.ts`): Tests full register/login flow with mocked dependencies
 
 **E2E Tests:**
-- Not used in the test suite
-- Manual E2E scripts exist at root level (e.g., `test_auth.mjs`, `test-gallery.mjs`) — these are standalone scripts, not part of the Jest suite
+- Not currently implemented
+- `puppeteer` and `jest-environment-jsdom` are listed as devDependencies but no E2E test files found
 
 ## Common Patterns
 
-**Async Testing:**
+### HTTP Endpoint Testing
 ```typescript
-it('should return camera-specific config when exists', async () => {
-  mockConfigRepo.findOne.mockResolvedValue({
-    id: 'uuid-1',
-    camera: 'front_door',
-    config: { ... },
+// Create test app and make requests with supertest
+import request from 'supertest';
+import express from 'express';
+
+describe('GET /api/visitors', () => {
+  let app: express.Express;
+
+  beforeEach(() => {
+    app = express();
+    app.use(express.json());
   });
 
-  const result = await detectionService.getConfig('front_door');
+  it('should return visitors list', async () => {
+    const response = await request(app)
+      .get('/api/visitors')
+      .set('Authorization', 'Bearer valid-token');
 
-  expect(result.thresholds.person.min_score).toBe(0.5);
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
 });
 ```
 
-**Error Testing:**
+### Error Testing
 ```typescript
-it('should reject registration without authentication', async () => {
+// Testing error responses
+it('should return 404 for non-existent visitor', async () => {
   const response = await request(app)
-    .post('/api/auth/register')
-    .send({ username: 'newuser', email: 'newuser@example.com', password: 'Password123!' });
+    .get('/api/visitors/non-existent')
+    .set('Authorization', 'Bearer valid-token');
 
-  expect(response.status).toBe(401);
+  expect(response.status).toBe(404);
   expect(response.body.success).toBe(false);
 });
 ```
 
-**Mocked Return Sequences:**
+### Async Testing
 ```typescript
-mockConfigRepo.findOne
-  .mockResolvedValueOnce(null)           // First call: camera-specific not found
-  .mockResolvedValueOnce({               // Second call: global fallback
-    id: 'uuid-2',
-    camera: null,
-    config: { ... },
-  });
+// All route tests use async/await with supertest
+it('should create new batch job', async () => {
+  const response = await request(app)
+    .post('/api/batch/process')
+    .set('Authorization', 'Bearer valid-token')
+    .send({
+      cameraId: 'cam1',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T01:00:00Z'
+    });
+
+  expect(response.status).toBe(201);
+  expect(response.body.success).toBe(true);
+  expect(response.body.data.id).toBeDefined();
+});
 ```
 
-**Asserting Mock Calls:**
+### Query Builder Mocking
 ```typescript
-expect(mockReviewSegmentRepo.createQueryBuilder).toHaveBeenCalledWith('segment');
-expect(mockReviewStatusRepo.save).toHaveBeenCalledWith(
-  expect.objectContaining({
-    user_id: 'user_1',
-    has_been_reviewed: true,
-  })
+// Mocking TypeORM QueryBuilder chain
+mockTimelineRepo.createQueryBuilder.mockReturnValue({
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  getMany: jest.fn().mockResolvedValue([]),
+  skip: jest.fn().mockReturnThis(),
+  take: jest.fn().mockReturnThis(),
+  getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+});
+
+// Asserting query builder calls
+expect(mockTimelineRepo.createQueryBuilder().andWhere).toHaveBeenCalledWith(
+  'timeline.camera = :camera',
+  { camera: 'front_door' }
 );
 ```
 
-## Test Environment
+## Test Environment Configuration
 
-**Backend:**
-- `testEnvironment: 'node'`
-- ESM mode with `ts-jest` preset: `preset: 'ts-jest/presets/default-esm'`
-- Module name mapper: `'^(\\.{1,2}/.*)\\.js$': '$1'` (resolves `.js` imports to `.ts` files)
-- Test timeout: 10000ms (root config)
+**TypeScript in Tests:**
+- ts-jest with ESM support (`ts-jest/presets/default-esm`)
+- ESM module resolution via `moduleNameMapper`: `'^(\\.{1,2}/.*)\\.js$': '$1'`
+- Test files use `.js` extension in import paths (ESM requirement)
+- `@jest/globals` imported for type-safe test functions
 
-**Frontend Test Setup:**
-- `frontend/src/tests/setup.ts` — configures test database, mocks console, sets test env vars
-- References models from `frontend/src/models` (which doesn't exist as a frontend dir — likely unused/broken setup)
-- No `jest.config.js` in frontend — relies on root config or default settings
+**Environment:**
+- `testEnvironment: 'node'` for all server tests
+- Test timeout: 10,000ms
+- `process.env.NODE_ENV` expected to be `'test'`
 
-**Jest Global Setup in Frontend (`frontend/src/tests/setup.ts`):**
-```typescript
-beforeAll(async () => {
-  await testDataSource.initialize();
-});
+## Test File Inventory
 
-afterAll(async () => {
-  await testDataSource.destroy();
-});
+**Backend Tests (co-located in `server/src/`):**
+| File | Category | Lines |
+|------|----------|-------|
+| `server/src/models/User.test.ts` | Model unit | 89 |
+| `server/src/models/Event.test.ts` | Model unit | 79 |
+| `server/src/models/Role.test.ts` | Model unit | 48 |
+| `server/src/models/AuditLog.test.ts` | Model unit | 59 |
+| `server/src/models/Timeline.test.ts` | Model unit | 54 |
+| `server/src/routes/auth.test.ts` | Route integration | 171 |
+| `server/src/routes/visitorRoutes.test.ts` | Route integration | 79 |
+| `server/src/routes/reviewRoutes.test.ts` | Route integration | 58 |
+| `server/src/routes/batchDetection.test.ts` | Route integration | 104 |
+| `server/src/routes/storageRoutes.test.ts` | Route integration | 224 |
+| `server/src/services/review/reviewService.test.ts` | Service unit | 192 |
+| `server/src/services/detection/detectionService.test.ts` | Service unit | 222 |
+| `server/src/services/timeline/timelineService.test.ts` | Service unit | 219 |
+| `server/src/utils/logger.test.ts` | Utility unit | 66 |
+| `server/src/utils/encryption.test.ts` | Utility unit | 98 |
+| `server/src/utils/fileHash.test.ts` | Utility unit | 46 |
+| `server/src/utils/cronJobs.test.ts` | Utility unit | 65 |
+| `server/src/database.test.ts` | Core module | 45 |
+| `server/src/index.test.ts` | Entry point | 64 |
 
-beforeEach(async () => {
-  // Clean all tables between tests
-  for (const entity of testDataSource.entityMetadatas) {
-    const repository = testDataSource.getRepository(entity.name);
-    await repository.query(`DELETE FROM ${entity.tableName};`);
-  }
-});
+**Backend Tests (in `server/tests/`):**
+| File | Category | Lines |
+|------|----------|-------|
+| `server/tests/simple.test.ts` | Sanity check | 6 |
+| `server/tests/setup.test.ts` | Environment setup | 14 |
+| `server/tests/services/authenticationService.test.ts` | Service integration | 533 |
+| `server/tests/services/basic.test.ts` | Basic check | — |
 
-// Mock console to reduce noise
-global.console = { ...console, log: jest.fn(), debug: jest.fn(), ... };
-```
-
-## Gaps and Notes
-
-**Frontend Testing:** Zero frontend test files exist despite the test infrastructure being set up. No component tests, no hook tests, no service tests. The `frontend/src/tests/setup.ts` file references backend models (out of scope for frontend).
-
-**Backend Coverage:** Tests exist for major routes (auth, visitors, review, storage, batch detection) and some services (review, detection, timeline), but many files lack test coverage:
-- `server/src/routes/index.ts` (5134 lines) — no direct test file
-- `server/src/detection/*.ts` — no test files
-- `server/src/streams/*.ts` — no test files
-- `server/src/services/notificationService.ts` — no test file
-- `opencv-service/app.py` (1903 lines) — no tests
-
-**Test Quality Note:** Some tests are superficial — e.g., `logger.test.ts` tests that methods exist and don't throw, but doesn't verify logging output. Model tests (`Event.test.ts`) only test property assignment, not database interactions.
+**Frontend Tests:**
+- Frontend has test scripts configured in `package.json` but no co-located `.test.ts`/`.test.tsx` files were found in `frontend/src/`
+- Jest configuration exists at the frontend level with `jest-environment-jsdom` as a devDependency
 
 ---
 
-*Testing analysis: 2026-05-06*
+*Testing analysis: 2026-05-15*

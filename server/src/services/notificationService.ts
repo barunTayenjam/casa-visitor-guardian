@@ -37,8 +37,13 @@ export class NotificationService {
     this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
 
     if (!this.vapidPublicKey || !this.vapidPrivateKey) {
-      console.warn('VAPID keys not configured. Notifications will not work.');
-      return;
+      console.log('VAPID keys not found, generating new keys...');
+      const keys = webPush.generateVAPIDKeys();
+      this.vapidPublicKey = keys.publicKey;
+      this.vapidPrivateKey = keys.privateKey;
+      console.log('VAPID keys generated. Add these to .env for persistence:');
+      console.log(`VAPID_PUBLIC_KEY=${this.vapidPublicKey}`);
+      console.log(`VAPID_PRIVATE_KEY=${this.vapidPrivateKey}`);
     }
 
     webPush.setVapidDetails(

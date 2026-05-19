@@ -72,3 +72,13 @@ root.render(
 );
 
 logger.info('Application successfully started', 'APP');
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      logger.info('Service worker registered', 'SW', { scope: reg.scope });
+    }).catch((err) => {
+      logger.error('Service worker registration failed', 'SW', err);
+    });
+  });
+}

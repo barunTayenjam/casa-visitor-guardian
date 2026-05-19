@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { AppDataSource } from '../database.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -7,9 +7,9 @@ import * as path from 'path';
 const router = Router();
 
 // Endpoint to re-run detection on a specific image file
-router.post('/rerun-detection', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/rerun-detection', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -57,7 +57,7 @@ router.post('/rerun-detection', authenticate, async (req: AuthenticatedRequest, 
 
     // Call the detection service to process the image
     // We'll use the same detection logic as in motionTriggeredDetection
-    const axios = await import('axios');
+    const { default: axios } = await import('axios');
     const { getOpenCVServiceUrl } = await import('../config/index.js');
 
     try {
@@ -151,9 +151,9 @@ router.post('/rerun-detection', authenticate, async (req: AuthenticatedRequest, 
 });
 
 // Endpoint to re-run detection on a specific event by ID
-router.post('/rerun-event-detection', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/rerun-event-detection', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -214,7 +214,7 @@ router.post('/rerun-event-detection', authenticate, async (req: AuthenticatedReq
 
     // Read and process image
     const imageBuffer = await fs.readFile(imagePath);
-    const axios = await import('axios');
+    const { default: axios } = await import('axios');
     const { getOpenCVServiceUrl } = await import('../config/index.js');
 
     const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {

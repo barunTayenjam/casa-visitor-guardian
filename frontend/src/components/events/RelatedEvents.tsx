@@ -6,6 +6,18 @@ import { colors } from '@/styles/design-tokens';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+// Helper function to get color for detection labels
+const getLabelColor = (label: string): string => {
+  const colorMap: Record<string, string> = {
+    person: '22c55e',     // green-500
+    vehicle: '3b82f6',    // blue-500
+    face: '8b5cf6',       // violet-500
+    package: '06b6d4',    // cyan-500
+    motion: 'f59e0b',     // amber-500
+  };
+  return colorMap[label] || colorMap.motion;
+};
+
 interface RelatedEventsProps {
   currentEvent: MotionEvent;
   events: MotionEvent[];
@@ -126,15 +138,15 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({
               {/* Detection Type Badge */}
               {event.labels && event.labels.length > 0 && (
                 <div className="absolute top-2 right-2">
-                  <Badge
-                    className="text-[10px] px-1.5 py-0.5"
-                    style={{
-                      backgroundColor: `${colors.detection[event.labels[0] as keyof typeof colors.detection] || colors.detection.motion}80`,
-                      color: 'white',
-                    }}
-                  >
-                    {event.labels[0]}
-                  </Badge>
+                   <Badge
+                     className="text-[10px] px-1.5 py-0.5"
+                     style={{
+                       backgroundColor: `${getLabelColor(event.labels[0])}80`,
+                       color: 'white',
+                     }}
+                   >
+                     {event.labels[0]}
+                   </Badge>
                 </div>
               )}
             </div>

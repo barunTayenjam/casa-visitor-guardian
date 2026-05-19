@@ -1,5 +1,4 @@
 import { retentionPolicyService } from './retentionPolicyService.js';
-import { storageStatsService } from './storageStatsService.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { EventEmitter } from 'events';
@@ -68,27 +67,27 @@ export class AutomatedCleanupService extends EventEmitter {
       // Get events older than retention days
       const oldEvents = await AppDataSource.getRepository(Event)
         .createQueryBuilder('event')
-        .select(['event.id', 'event.filename', 'event.camera_id'])
+        .select(['event.id', 'event.file_path', 'event.camera_id'])
         .where('event.timestamp < :cutoffDate', { cutoffDate })
-        .andWhere('event.filename IS NOT NULL')
+        .andWhere('event.file_path IS NOT NULL')
         .getMany();
 
       console.log(`Found ${oldEvents.length} events older than ${retentionDays} days`);
 
       for (const event of oldEvents) {
-        if (!event.filename) continue;
+        if (!event.file_path) continue;
 
         // Skip if this file was analyzed by AI
-        if (analyzedFilenames.has(event.filename)) {
+        if (analyzedFilenames.has(event.file_path)) {
           preserved++;
           continue;
         }
 
         // Try to delete the image file
         const possiblePaths = [
-          path.join(DETECTIONS_DIR, 'events', event.camera_id || '', event.filename),
-          path.join(DETECTIONS_DIR, event.filename),
-          path.join(DETECTIONS_DIR, 'detections', event.camera_id || '', event.filename),
+          path.join(DETECTIONS_DIR, 'events', event.camera_id || '', event.file_path),
+          path.join(DETECTIONS_DIR, event.file_path),
+          path.join(DETECTIONS_DIR, 'detections', event.camera_id || '', event.file_path),
         ];
 
         for (const filePath of possiblePaths) {
@@ -136,7 +135,6 @@ export class AutomatedCleanupService extends EventEmitter {
       console.log('Running scheduled cleanup...');
       await this.runAutomaticCleanup();
     }, {
-      scheduled: true,
       timezone: process.env.TZ || 'UTC',
     });
 
@@ -161,7 +159,6 @@ export class AutomatedCleanupService extends EventEmitter {
       // Only the physical image files are deleted by cleanupOldImages()
       await this.cleanupOldImages(7); // Default 7-day retention for images
       await this.cleanupByStorageThreshold();
-      await storageStatsService.calculateAllStats();
 
       const duration = Date.now() - startTime;
       console.log(`Automatic cleanup completed in ${duration}ms`);
@@ -240,13 +237,6 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async cleanupExpiredEvents(): Promise<void> {
     try {
-      // NOTE: We intentionally DO NOT delete event records from database
-      // Event records are valuable for statistics and history
-      // Only the physical image files are cleaned up by cleanupOldImages()
-      // This preserves: event counts per day, camera activity, motion patterns, etc.
-      
-      console.log('Preserving event records for statistics (database records not deleted)...');
-      
       const policies = await retentionPolicyService.getAllPolicies();
 
       for (const policy of policies) {
@@ -258,18 +248,32 @@ export class AutomatedCleanupService extends EventEmitter {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-        // Just log the count - don't delete
-        const oldEventsCount = await AppDataSource.getRepository(Event)
+        const eventRepo = AppDataSource.getRepository(Event);
+        const oldEvents = await eventRepo
           .createQueryBuilder('event')
           .where('event.timestamp < :cutoffDate', { cutoffDate })
-          .getCount();
+          .getMany();
 
-        if (oldEventsCount > 0) {
-          console.log(`Would delete ${oldEventsCount} events older than ${retentionDays} days - preserving for statistics`);
+        if (oldEvents.length > 0) {
+          const camera = policy.camera || 'global';
+
+          for (const event of oldEvents) {
+            if (event.file_path) {
+              try {
+                const fullPath = path.resolve(event.file_path);
+                await fs.access(fullPath).then(() => fs.unlink(fullPath)).catch(() => {});
+              } catch (fileErr) {
+                console.error(`Failed to delete file for event ${event.id}:`, fileErr);
+              }
+            }
+          }
+
+          await eventRepo.remove(oldEvents);
+          console.log(`Deleted ${oldEvents.length} events older than ${retentionDays} days (${camera})`);
         }
       }
 
-      console.log('Event records preserved for historical statistics');
+      console.log('Event cleanup completed');
     } catch (error) {
       console.error('Error cleaning up expired events:', error);
       throw error;
@@ -277,25 +281,6 @@ export class AutomatedCleanupService extends EventEmitter {
   }
 
   private async cleanupByStorageThreshold(): Promise<void> {
-    try {
-      const globalStats = await storageStatsService.getGlobalStorageStats();
-      const maxStorageGB = await this.getMaxStorageGB();
-      const usedStorageGB = globalStats.totalBytes / (1024 * 1024 * 1024);
-      const usagePercentage = (usedStorageGB / maxStorageGB) * 100;
-
-      const WARNING_THRESHOLD = 80;
-      const CRITICAL_THRESHOLD = 90;
-
-      if (usagePercentage >= CRITICAL_THRESHOLD) {
-        console.warn(`Storage usage critical: ${usagePercentage.toFixed(2)}%. Running aggressive cleanup...`);
-        await this.runAggressiveCleanup();
-      } else if (usagePercentage >= WARNING_THRESHOLD) {
-        console.warn(`Storage usage high: ${usagePercentage.toFixed(2)}%. Running standard cleanup...`);
-        await this.runStandardCleanup();
-      }
-    } catch (error) {
-      console.error('Error checking storage threshold:', error);
-    }
   }
 
   private async runAggressiveCleanup(): Promise<void> {
@@ -488,8 +473,6 @@ export class AutomatedCleanupService extends EventEmitter {
           totalFreedBytes += result.freedBytes;
         }
       }
-
-      await storageStatsService.calculateAllStats();
 
       const result: CleanupResult = {
         camera,

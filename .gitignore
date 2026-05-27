@@ -83,3 +83,31 @@ server/node-env/
 **/.venv/
 **/venv/
 
+# Camera configuration (contains RTSP credentials)
+server/cameras.json
+
+# AI tool artifacts
+.aic-logs/
+.crush/
+.qwen/
+.planning/
+
+# Test artifacts
+test-logs/
+
+# Generated reports
+public/reports/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Coverage reports
+coverage/
+frontend/coverage/
+server/coverage/
+
+# Vite cache
+frontend/.vite/
+

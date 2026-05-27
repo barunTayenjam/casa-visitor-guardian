@@ -52,7 +52,7 @@ SentryVision is a comprehensive home security system with real-time camera strea
 | Backend | 9753 | Express API server |
 | OpenCV | 8084 | Python Flask service |
 | PostgreSQL | 5432 | Database |
-| Redis | 6379 | Cache and sessions |
+| Redis | 6379 | Detection result caching (with in-memory fallback) |
 
 ## Essential Commands
 
@@ -345,12 +345,12 @@ confidence_multiplier=8  # Accurate confidence calculation
 **File**: `server/cameras.json`
 
 **Current Cameras**:
-1. **cam1 - Front Door** (192.168.31.62)
+1. **cam1 - Front Door**
    - Resolution: 1920x1080 @ 4 FPS (stream), 640x360 @ 3 FPS (detection)
    - Objects: person, car, dog, cat, package
    - Zones: Front Steps, Driveway, Street
 
-2. **cam2 - Back Door** (192.168.31.61)
+2. **cam2 - Back Door**
    - Resolution: 1920x1080 @ 4 FPS (stream), 640x360 @ 3 FPS (detection)
    - Objects: person, car, dog, cat
    - Zones: Back Patio, Gate
@@ -565,7 +565,7 @@ lsof -ti:5173 | xargs kill -9
 
 ### Memory Management
 - Automatic cleanup of disconnected clients
-- Redis for caching frequent queries
+- Redis for detection result caching (graceful fallback to in-memory Map)
 - Detection results cached for 1 hour
 
 ### Optimization
@@ -652,7 +652,7 @@ DB_HOST=postgres
 DB_PORT=5432
 DB_NAME=sentryvision
 DB_USER=sentryvision
-DB_PASSWORD=sentryvision123
+DB_PASSWORD=${POSTGRES_PASSWORD}
 JWT_ACCESS_SECRET=change-in-production
 JWT_REFRESH_SECRET=change-in-production
 OPENCV_SERVICE_URL=http://opencv:8084

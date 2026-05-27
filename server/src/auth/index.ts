@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
@@ -76,14 +77,14 @@ async function seedDefaultUsers() {
       });
     }
 
-    const adminPasswordHash = await bcrypt.hash('admin123', 12);
-    const userPasswordHash = await bcrypt.hash('user123', 12);
+    const adminPasswordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'changeme', 12);
+    const userPasswordHash = await bcrypt.hash(process.env.SEED_USER_PASSWORD || 'changeme', 12);
 
     await userRepository.save({
       username: 'admin',
       email: 'admin@security.local',
       password_hash: adminPasswordHash,
-      salt: 'dev-salt',
+      salt: crypto.randomBytes(16).toString('hex'),
       role_id: adminRole.id,
       status: 'active',
       mfa_enabled: false,
@@ -97,7 +98,7 @@ async function seedDefaultUsers() {
       username: 'user',
       email: 'user@security.local',
       password_hash: userPasswordHash,
-      salt: 'dev-salt',
+      salt: crypto.randomBytes(16).toString('hex'),
       role_id: userRole.id,
       status: 'active',
       mfa_enabled: false,

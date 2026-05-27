@@ -55,24 +55,6 @@ router.delete('/unsubscribe', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/unsubscribe', async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user.userId;
-    const { endpoint } = req.body;
-
-    if (!endpoint) {
-      return res.status(400).json({ error: 'Endpoint is required' });
-    }
-
-    await NotificationService.unsubscribe(userId, endpoint);
-
-    res.json({ message: 'Unsubscribed successfully' });
-  } catch (error) {
-    console.error('Unsubscribe error:', error);
-    res.status(500).json({ error: 'Failed to unsubscribe' });
-  }
-});
-
 router.post('/resubscribe', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;

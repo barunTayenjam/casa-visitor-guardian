@@ -15,10 +15,17 @@ WORKDIR /app
 COPY package.json .
 
 # Install dependencies
-RUN npm install --force
+RUN npm install --force && \
+    chown -R node:node /app
 
 # Copy source code
 COPY . .
+
+# Set ownership for non-root user
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
 
 # Expose port
 EXPOSE 5173

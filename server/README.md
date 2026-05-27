@@ -130,7 +130,7 @@ rtsp://username:password@camera-ip:port/stream
 
 For example:
 ```
-rtsp://admin:admin123@192.168.1.100:554/stream1
+rtsp://username:password@192.168.1.100:554/stream1
 ```
 
 Check your camera's documentation for the exact RTSP URL format.

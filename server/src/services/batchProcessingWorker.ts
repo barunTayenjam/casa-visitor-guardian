@@ -195,7 +195,7 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
       host: process.env.DB_HOST || 'postgres',
       port: parseInt(process.env.DB_PORT || '5432'),
       user: process.env.DB_USER || 'sentryvision',
-      password: process.env.DB_PASSWORD || 'sentryvision123',
+      password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME || 'sentryvision'
     });
 

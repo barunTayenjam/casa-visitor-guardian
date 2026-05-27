@@ -118,9 +118,9 @@ router.get('/image/:filename', optionalAuth, async (req: Request, res: Response)
       const storagePath = await eventSearchService.lookupEventImagePath(filename);
       if (storagePath) {
         let actualImagePath = storagePath;
-        if (actualImagePath.startsWith('/home/barun/Documents/home-security-non-docker/data/detections/'))
-          actualImagePath = actualImagePath.replace('/home/barun/Documents/home-security-non-docker/data/detections/', '/app/data/detections/');
-        const allowedPaths = [path.join(process.cwd(), 'public'), path.join(process.cwd(), '..', 'public'), '/app/data/detections', '/app/public', '/data/detections', '/home/barun/Documents/home-security-non-docker/data/detections'];
+        if (actualImagePath.includes('/data/detections/'))
+          actualImagePath = actualImagePath.replace(/.*\/data\/detections\//, '/app/data/detections/');
+        const allowedPaths = [path.join(process.cwd(), 'public'), path.join(process.cwd(), '..', 'public'), '/app/data/detections', '/app/public', '/data/detections'];
         const isAllowed = allowedPaths.some(p => actualImagePath.startsWith(p));
         if (!isAllowed) return res.status(403).json({ success: false, error: 'Unauthorized file access' });
         if (fs.existsSync(actualImagePath)) return res.sendFile(actualImagePath);

@@ -33,103 +33,43 @@ A comprehensive home security system with real-time camera streaming, motion det
              └─────────────┘            └─────────────┘
 ```
 
-### Components
-
-- **Frontend**: React 18 + TypeScript + Vite + TailwindCSS + Radix UI
-- **Backend**: Node.js + Express + TypeScript + TypeORM + Socket.io
-- **Database**: PostgreSQL with 17 tables
-- **OpenCV Service**: Python Flask with native OpenCV for AI detection
-- **Cache**: Redis for session management and caching
-
-## Tech Stack
-
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: TailwindCSS + Radix UI components (shadcn/ui)
-- **Routing**: React Router v6
-- **State Management**: React Query + Context API
-- **Real-time**: Socket.io client
-- **Charts**: Recharts for analytics
-
-### Backend
-- **Runtime**: Node.js with ES modules
-- **Framework**: Express
-- **Language**: TypeScript (strict mode)
-- **ORM**: TypeORM
-- **Authentication**: JWT with refresh tokens + TOTP MFA
-- **Validation**: Zod schemas
-- **Real-time**: Socket.io server
-- **Stream Processing**: FFmpeg for RTSP handling
-
-### Database
-- **Engine**: PostgreSQL 15+
-- **Migrations**: 8 migration files
-- **Tables**: 17 tables including users, events, visitors, batch_jobs, review_segments
-
-### AI/ML
-- **Motion Detection**: OpenCV MOG2 background subtraction
-- **Object Detection**: YOLO-based classification
-- **Face Recognition**: Face embeddings with known person matching
+| Service | Stack | Port |
+|---------|-------|------|
+| Frontend | React 18 + TypeScript + Vite + TailwindCSS + Radix UI | 5173 |
+| Backend | Node.js + Express + TypeScript + TypeORM + Socket.io | 9753 |
+| OpenCV | Python Flask + OpenCV (MOG2 motion detection, YOLO objects, face recognition) | 8084 |
+| Database | PostgreSQL 15+ with 17 tables across 8 migrations | 5432 |
+| Cache | Redis for detection result caching (with in-memory fallback) | 6379 |
 
 ## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Node.js 20+ (for local development)
-- PostgreSQL 15+
-- Python 3.10+ with OpenCV
 
 ### Using Docker (Recommended)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd home-security-non-docker
-
-# Start all services
+git clone <repository-url> && cd home-security-non-docker
 docker-compose up -d
-
-# Check service status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
+docker-compose ps          # Check service status
+docker-compose logs -f     # View logs
 ```
-
-Services will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:9753
-- OpenCV Service: http://localhost:8084
-- Database: localhost:5432
-- Redis: localhost:6379
 
 ### Local Development
 
 ```bash
-# Install dependencies
-npm install
-cd server && npm install
-cd ../frontend && npm install
-cd ../database && npm install
+npm install && cd server && npm install && cd ../frontend && npm install && cd ../database && npm install
 
-# Start PostgreSQL (if not using Docker)
-createdb sentryvision
+createdb sentryvision     # Create database
+cd database && npm run migrate  # Run migrations
 
-# Run database migrations
-cd database
-npm run migrate
-
-# Start backend (from root)
-npm run dev:server
-
-# Start frontend (from root)
-npm run dev
-
-# Or start both concurrently
-npm run dev:full
+npm run dev:full           # Start both frontend and backend
 ```
+
+### Service URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:9753 |
+| OpenCV Service | http://localhost:8084 |
 
 ## Configuration
 
@@ -162,37 +102,28 @@ Edit `server/cameras.json` to configure your cameras:
 }
 ```
 
-### Motion Detection Settings
+### Motion Detection
 
 Optimized MOG2 parameters in `opencv-service/app.py`:
 
-- **History**: 200 frames (fast adaptation)
-- **Variance Threshold**: 8 (2x more sensitive)
-- **Shadow Detection**: Disabled (reduces noise)
-- **Motion Threshold**: 0.2% of frame area
-- **Contour Threshold**: 0.15% of frame area
+| Parameter | Default | Optimized | Improvement |
+|-----------|---------|-----------|-------------|
+| History | 500 | 200 | 2.5x faster adaptation |
+| varThreshold | 16 | 8 | 2x more sensitive |
+| detectShadows | true | false | Reduced noise |
+| Motion threshold | 0.3% | 0.2% | Detect smaller motion |
+| Contour threshold | 0.2% | 0.15% | Better edge detection |
 
-Backend detection settings in `server/src/detection/optimizedMotionDetection.ts`:
+Backend detection in `server/src/detection/optimizedMotionDetection.ts`:
 
-- **Sensitivity**: 90/100 (maximum)
-- **Detection Interval**: 3 seconds
-- **Cooldown**: 10 seconds between events
-- **Min Confidence**: 5% (very low threshold)
-- **Night Mode**: Enhanced sensitivity 22:00-06:00
+- Sensitivity: 90/100 (maximum)
+- Detection interval: 3 seconds
+- Cooldown: 10 seconds between events
+- Night mode: Enhanced sensitivity 22:00-06:00
 
-## Database Schema
+### Timezone
 
-Key tables:
-
-- **users**: User accounts with roles and MFA
-- **roles**: Role definitions (admin, user, viewer)
-- **events**: Motion events with detection data
-- **visitor_timeline**: Visitor tracking with known faces
-- **review_segments**: Bundled review periods with severity
-- **adaptive_regions**: Spatial detection zones
-- **batch_jobs**: Async processing job tracking
-- **user_sessions**: JWT session management
-- **audit_logs**: Security audit trail
+All services configured for **IST (Asia/Kolkata, UTC+5:30)** via `TZ=Asia/Kolkata` in docker-compose.yml.
 
 ## API Endpoints
 
@@ -227,9 +158,7 @@ Key tables:
 - `GET /api/cameras` - List cameras
 - `POST /api/cameras/:id/snapshot` - Capture snapshot
 
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 home-security-non-docker/
@@ -248,7 +177,7 @@ home-security-non-docker/
 │   │   ├── services/     # Business logic
 │   │   ├── models/       # TypeORM entities
 │   │   ├── middleware/   # Express middleware
-│   │   ├── detection/    # Motion detection
+│   │   ├── detection/    # Motion detection (3 implementations)
 │   │   └── streams/      # RTSP management
 │   ├── cameras.json      # Camera configuration
 │   └── package.json
@@ -257,156 +186,99 @@ home-security-non-docker/
 │   ├── improved_face_recognition.py
 │   └── models/          # ML models
 ├── database/            # PostgreSQL setup
-│   └── migrations/      # SQL migrations (8 files)
-├── docs/                # Documentation
-└── docker-compose.yml   # Multi-service setup
+│   └── migrations/      # SQL migrations (001-008)
+├── scripts/             # Utility scripts (health, diagnose, backup, deploy)
+├── AGENTS.md            # Development guidelines (comprehensive)
+└── docker-compose.yml   # Multi-service orchestration
 ```
 
-### Detection Services
-
-Three motion detection implementations are active:
-
-1. **optimizedMotionDetection.ts** (988 lines)
-   - Main detection with adaptive intervals
-   - Used by: index.ts, rtspManager.ts, cleanupService.ts
-
-2. **simpleMotionDetection.ts** (138 lines)
-   - Basic detection for event queue
-   - Used by: eventQueueService.ts
-
-3. **motionTriggeredDetection.ts** (664 lines)
-   - Motion-triggered object/face detection
-   - Used by: rtspManager.ts, motionBatchIntegration.ts
-
-### Scripts
+## Development Scripts
 
 ```bash
-# Frontend
-npm run dev              # Start dev server
-npm run build            # Build for production
-npm run typecheck        # Type checking
-npm run lint             # Lint code
-npm run test             # Run tests
-
-# Backend
-cd server
-npm run dev              # Start with hot reload
-npm run build            # Compile TypeScript
-npm start                # Start production server
-
-# Database
-cd database
-npm run migrate          # Run migrations
+# Root commands
+npm run dev                 # Start frontend only
+npm run dev:server          # Start backend only
+npm run dev:full            # Start both
+npm run build               # Build frontend
+npm run build:server        # Build backend
+npm run kill:ports          # Kill processes on ports 5173, 9753
 
 # Docker
-npm run docker:dev       # Start development containers
-npm run docker:dev:logs  # View logs
-npm run docker:clean     # Remove containers and volumes
+docker-compose up -d        # Start all services
+docker-compose down         # Stop all services
+docker-compose logs -f      # View logs
+
+# Utility scripts (in scripts/)
+scripts/health.sh           # Service health monitoring
+scripts/diagnose.sh         # System diagnostic (cameras, ports, ffmpeg)
+scripts/test-opencv.sh [host]  # Test OpenCV + backend + frontend
+scripts/backup.sh           # Database and file backups
+scripts/deploy.sh           # Production deployment
+scripts/sentryvision.sh     # Interactive management console
+
+# Frontend (cd frontend)
+npm run typecheck           # TypeScript type checking
+npm run lint                # ESLint check
+npm test                    # Run Jest tests
+
+# Backend (cd server)
+npm run dev                 # Start with hot reload
+npm run build               # Compile TypeScript
+npm start                   # Start production server
+
+# Database (cd database)
+npm run migrate             # Run migrations
 ```
 
-## Timezone Configuration
+## Database Schema
 
-All services are configured for **IST (Asia/Kolkata, UTC+5:30)**:
+17 tables across user management, detection, visitor tracking, review, and system config:
 
-```yaml
-# docker-compose.yml
-environment:
-  - TZ=Asia/Kolkata
-```
-
-Database timezone:
-```sql
-ALTER DATABASE sentryvision SET timezone TO 'Asia/Kolkata';
-```
-
-## Motion Detection Optimization
-
-The system uses optimized MOG2 parameters for better sensitivity:
-
-| Parameter | Default | Optimized | Improvement |
-|-----------|---------|-----------|-------------|
-| History | 500 | 200 | 2.5x faster adaptation |
-| varThreshold | 16 | 8 | 2x more sensitive |
-| detectShadows | true | false | Reduced noise |
-| Motion threshold | 0.3% | 0.2% | Detect smaller motion |
-| Contour threshold | 0.2% | 0.15% | Better edge detection |
-
-**Expected improvement**: 2-4x better motion detection sensitivity
+| Category | Tables |
+|----------|--------|
+| Users | `users`, `roles`, `user_sessions`, `password_history`, `audit_logs` |
+| Detection | `events`, `detection_config`, `processed_images`, `adaptive_regions` |
+| Visitors | `visitor_timeline`, `timeline` |
+| Review | `review_segments`, `user_review_status`, `batch_jobs` |
+| System | `retention_policies`, `storage_stats`, `system_settings` |
 
 ## Security
 
-- **Authentication**: JWT with access/refresh token pattern
-- **MFA Support**: TOTP-based (Google Authenticator compatible)
-- **Role-Based Access**: admin, user, viewer roles
+- **Authentication**: JWT with access/refresh token pattern (15 min / 7 days)
+- **MFA**: TOTP-based (Google Authenticator compatible)
+- **Authorization**: Role-based access (admin, user, viewer)
 - **Rate Limiting**: Configurable per endpoint
-- **Input Validation**: Zod schemas for all requests
+- **Input Validation**: Zod schemas for all API inputs
 - **Audit Logging**: Complete trail of sensitive operations
-- **CORS**: Configured for specific domains
-- **Helmet.js**: Security headers
+- **Security Headers**: Helmet.js with CSP, X-Frame-Options
 - **Password Policies**: Complexity requirements + history tracking
 
 ## Testing
 
-### Frontend Tests
 ```bash
-cd frontend
-npm test                    # Run tests
-npm run test:watch          # Watch mode
-npm run test:coverage       # Coverage report
-```
+# Frontend
+cd frontend && npm test
 
-### Backend Tests
-```bash
-cd server
-npm test                    # Run all tests
+# Backend
+cd server && npm test
 ```
 
 ## Troubleshooting
 
-### Port Conflicts
-```bash
-# Kill processes on ports
-npm run kill:ports
-```
+| Issue | Solution |
+|-------|----------|
+| Port conflicts | `npm run kill:ports` |
+| Database connection | `docker ps \| grep postgres` then `docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision` |
+| OpenCV not responding | `curl http://localhost:8084/health` |
+| Motion not detecting | Check RTSP URLs in `cameras.json`, verify FFmpeg, check detection zones |
+| Frontend build errors | `rm -rf frontend/node_modules && cd frontend && npm install` |
+| Backend TypeScript errors | `cd server && rm -rf dist && npm run build` |
 
-### Database Connection
-```bash
-# Check PostgreSQL is running
-docker ps | grep postgres
+## Documentation
 
-# Test connection
-docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision
-```
-
-### OpenCV Service
-```bash
-# Check OpenCV service health
-curl http://localhost:8084/health
-
-# View logs
-docker logs sentryvision-opencv
-```
-
-### Motion Detection Not Working
-1. Verify RTSP URLs in cameras.json
-2. Check FFmpeg is installed
-3. Review OpenCV service logs
-4. Ensure detection zones are configured
-5. Check sensitivity settings
-
-## Current Status
-
-- **Services**: 5 containers running
-- **Cameras**: 2 RTSP cameras (Front Door, Back Door)
-- **Events**: 1,050+ events recorded
-- **Database**: 17 tables, all migrations applied
-- **Timezone**: IST (Asia/Kolkata)
-- **Simulation Mode**: Disabled (real detection only)
+- **`AGENTS.md`** - Comprehensive development guidelines, code conventions, and system details
+- **`server/cameras.example.json`** - Camera configuration reference
 
 ## License
 
 Private project
-
-## Support
-
-For issues and questions, please refer to `AGENTS.md` for development guidelines.

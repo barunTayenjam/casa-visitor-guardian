@@ -12,7 +12,7 @@ services:
     environment:
       - POSTGRES_DB=sentryvision
       - POSTGRES_USER=sentryvision
-      - POSTGRES_PASSWORD=sentryvision123
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
       - TZ=Asia/Kolkata
     command: >
       postgres
@@ -58,17 +58,17 @@ services:
       - DB_PORT=5432
       - DB_NAME=sentryvision
       - DB_USER=sentryvision
-      - DB_PASSWORD=sentryvision123
-      - JWT_ACCESS_SECRET=dev-jwt-access-secret-change-in-production
-      - JWT_REFRESH_SECRET=dev-jwt-refresh-secret-change-in-production
-      - CREDENTIAL_ENCRYPTION_KEY=dev-credential-encryption-key-32bytes-min
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-dev-jwt-access-secret-change-me}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-me}
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-dev-credential-encryption-key-change}
       - RATE_LIMIT_STANDARD_REQUESTS=100
       - RATE_LIMIT_STANDARD_WINDOW=900000
       - RATE_LIMIT_DETECTION_REQUESTS=10
       - RATE_LIMIT_DETECTION_WINDOW=60000
       - RATE_LIMIT_BATCH_REQUESTS=5
       - RATE_LIMIT_BATCH_WINDOW=3600000
-      - DATABASE_URL=postgresql://sentryvision:sentryvision123@postgres:5432/sentryvision
+      - DATABASE_URL=postgresql://sentryvision:${POSTGRES_PASSWORD:-changeme}@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
@@ -193,7 +193,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=sentryvision
       - POSTGRES_USER=sentryvision
-      - POSTGRES_PASSWORD=sentryvision123
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DETECTIONS_DIR=/app/data/detections

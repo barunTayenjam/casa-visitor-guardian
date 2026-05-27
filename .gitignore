@@ -7,7 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
 *.local
@@ -26,16 +29,16 @@ credentials.json
 *.pem
 *.key
 
-# Database files
+# Database files (migrated to PostgreSQL)
 *.db
 *.db-journal
-data/*.db
 
 # Batch processing results
 server/public/batch-results/
 
 # Code coverage reports
 coverage/
+frontend/coverage/
 server/coverage/
 
 # Editor directories and files
@@ -69,17 +72,20 @@ server/coverage/
 *.bmp
 *.tiff
 *.svg
-server/test_output.mjpeg
 *.mjpeg
-data/redis/dump.rdb
+
+# Runtime data
 data/
+server/data/logs.db
+server/temp/
 
 # ML Model weights (too large for GitHub, download separately)
 *.weights
 
-# Python virtual environments
-server/node-env/
-**/node-env/
+# Python
+__pycache__/
+*.pyc
+*.pyo
 **/.venv/
 **/venv/
 
@@ -98,16 +104,5 @@ test-logs/
 # Generated reports
 public/reports/
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-
-# Coverage reports
-coverage/
-frontend/coverage/
-server/coverage/
-
 # Vite cache
 frontend/.vite/
-

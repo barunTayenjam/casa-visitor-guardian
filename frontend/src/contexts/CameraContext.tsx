@@ -216,21 +216,16 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const startCameraStream = useCallback(async (id: string) => {
     try {
       if (streamingCamerasRef.current.has(id)) {
-        console.log(`⚠️ CameraContext: Camera ${id} already streaming, skipping`);
         return;
       }
 
-      console.log(`🎬 CameraContext: Requesting stream for camera ${id}`);
-
       if (!socketService.isConnected()) {
-        console.log(`Socket not connected, attempting to connect...`);
         await socketService.connect();
       }
 
       socketService.requestStream(id);
       setStreamingCameras(prev => new Set(prev).add(id));
       updateCamera(id, { status: 'online' });
-      console.log(`✅ CameraContext: Stream request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to start stream for camera ${id}:`, err);
       throw err;
@@ -240,14 +235,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
     try {
-      console.log(`🛑 CameraContext: Stopping stream for camera ${id}`);
       socketService.stopStream(id);
       setStreamingCameras(prev => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
-      console.log(`✅ CameraContext: Stop request sent for camera ${id}`);
     } catch (err) {
       console.error(`Failed to stop stream for camera ${id}:`, err);
       throw err;

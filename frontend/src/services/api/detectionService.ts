@@ -111,7 +111,7 @@ export const detectionService = {
     success: boolean; detections: Array<{ label: string; confidence: number; bbox: number[] }>;
   }> {
     try {
-      const response = await apiClient.post<{ success: boolean; detections: Array<{ label: string; confidence: number; bbox: number[] }> }>(`/detection/analyze/${cameraId}`, options);
+      const response = await apiClient.post<{ success: boolean; detections: Array<{ label: string; confidence: number; bbox: number[] }> }>(`/motion/${cameraId}/analyze`, options);
       return response;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -219,16 +219,6 @@ export const detectionService = {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError('Failed to start batch detection', 500, 'BATCH_DETECT_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
-    }
-  },
-
-  async getDetectionStatus(jobId: string): Promise<{ success: boolean; status: string; progress: number; result?: unknown }> {
-    try {
-      const response = await apiClient.get<{ success: boolean; status: string; progress: number; result?: unknown }>(`/detection/status/${jobId}`);
-      return response;
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(`Failed to get detection status for job ${jobId}`, 500, 'GET_DETECTION_STATUS_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
     }
   },
 

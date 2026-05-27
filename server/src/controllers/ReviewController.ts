@@ -1,10 +1,9 @@
-import { Express, Request, Response } from 'express';
-import { optionalAuth, requireUser } from '../middleware/auth.js';
+import { Request, Response } from 'express';
+import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 
-export function configureReviewTimelineRoutes(app: Express) {
-  // Get review segments
-  app.get('/api/review', optionalAuth, async (req: Request, res: Response) => {
+export class ReviewController extends BaseController {
+  async getSegments(req: Request, res: Response): Promise<void> {
     try {
       const reviewService = serviceRegistry.getReviewService();
       const { camera, after, before, severity, labels, limit, offset } = req.query;
@@ -19,52 +18,47 @@ export function configureReviewTimelineRoutes(app: Express) {
         offset: offset ? parseInt(offset as string) : 0,
       });
 
-      res.json({ success: true, data: result });
+      this.ok(res, { data: result });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {
-        return res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
+        res.json({ success: true, data: { segments: [], total: 0, hasMore: false } });
+        return;
       }
-      console.error('Error fetching review segments:', error);
-      res.status(500).json({ success: false, error: 'Failed to fetch review segments' });
+      this.serverError(res, error, 'getSegments');
     }
-  });
+  }
 
-  // Get review segment by ID
-  app.get('/api/review/:id', optionalAuth, async (req: Request, res: Response) => {
+  async getSegmentById(req: Request, res: Response): Promise<void> {
     try {
       const reviewService = serviceRegistry.getReviewService();
       const segment = await reviewService.getReviewSegment(req.params.id);
-      if (!segment) {
-        return res.status(404).json({ success: false, error: 'Segment not found' });
-      }
-      res.json({ success: true, data: segment });
+      if (!segment) { this.notFound(res, 'Segment not found'); return; }
+      this.ok(res, { data: segment });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {
-        return res.status(503).json({ success: false, error: 'Review service not available' });
+        res.status(503).json({ success: false, error: 'Review service not available' });
+        return;
       }
-      console.error('Error fetching review segment:', error);
-      res.status(500).json({ success: false, error: 'Failed to fetch review segment' });
+      this.serverError(res, error, 'getSegmentById');
     }
-  });
+  }
 
-  // Acknowledge review segment
-  app.post('/api/review/:id/acknowledge', requireUser, async (req: Request, res: Response) => {
+  async acknowledgeSegment(req: Request, res: Response): Promise<void> {
     try {
       const reviewService = serviceRegistry.getReviewService();
       const { userId = 'anonymous', action } = req.body;
       await reviewService.acknowledgeSegment(req.params.id, userId, action);
-      res.json({ success: true });
+      this.ok(res, {});
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {
-        return res.status(503).json({ success: false, error: 'Review service not available' });
+        res.status(503).json({ success: false, error: 'Review service not available' });
+        return;
       }
-      console.error('Error acknowledging segment:', error);
-      res.status(500).json({ success: false, error: 'Failed to acknowledge segment' });
+      this.serverError(res, error, 'acknowledgeSegment');
     }
-  });
+  }
 
-  // Get timeline
-  app.get('/api/timeline', optionalAuth, async (req: Request, res: Response) => {
+  async getTimeline(req: Request, res: Response): Promise<void> {
     try {
       const timelineService = serviceRegistry.getTimelineService();
       const { camera, after, before, sources, limit } = req.query;
@@ -77,32 +71,33 @@ export function configureReviewTimelineRoutes(app: Express) {
         limit: limit ? parseInt(limit as string) : 1000,
       });
 
-      res.json({ success: true, data: result });
+      this.ok(res, { data: result });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {
-        return res.json({ success: true, data: { events: [], summary: {} } });
+        res.json({ success: true, data: { events: [], summary: {} } });
+        return;
       }
-      console.error('Error fetching timeline:', error);
-      res.status(500).json({ success: false, error: 'Failed to fetch timeline' });
+      this.serverError(res, error, 'getTimeline');
     }
-  });
+  }
 
-  // Get active objects for a camera
-  app.get('/api/timeline/active/:camera', optionalAuth, async (req: Request, res: Response) => {
+  async getActiveObjects(req: Request, res: Response): Promise<void> {
     try {
       const timelineService = serviceRegistry.getTimelineService();
       const activeObjects = await timelineService.getActiveObjects(req.params.camera);
-      const result: Record<string, { label: string; lastSeen: string; score: number }> = {};
+      const result: Record<string, any> = {};
       for (const [id, obj] of activeObjects.entries()) {
         result[id] = { ...obj, lastSeen: obj.lastSeen.toISOString() };
       }
-      res.json({ success: true, data: result });
+      this.ok(res, { data: result });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {
-        return res.json({ success: true, data: {} });
+        res.json({ success: true, data: {} });
+        return;
       }
-      console.error('Error fetching active objects:', error);
-      res.status(500).json({ success: false, error: 'Failed to fetch active objects' });
+      this.serverError(res, error, 'getActiveObjects');
     }
-  });
+  }
 }
+
+export const reviewController = new ReviewController();

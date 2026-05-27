@@ -17,6 +17,7 @@ dist-ssr
 .env.local
 .env.production
 .env.*.local
+.env.deploy
 
 # Credentials and encryption keys
 *.credentials.enc
@@ -32,6 +33,10 @@ data/*.db
 
 # Batch processing results
 server/public/batch-results/
+
+# Code coverage reports
+coverage/
+server/coverage/
 
 # Editor directories and files
 .vscode/*

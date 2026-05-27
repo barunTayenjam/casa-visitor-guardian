@@ -196,7 +196,7 @@ export const cameraService = {
     isActive: boolean; fps: number; width: number; height: number; hasFrame: boolean; frameSize: number;
   }> {
     try {
-      const response = await fetchWithRetry(`${API_URL}/cameras/${cameraId}/stream/status`);
+      const response = await fetchWithRetry(`${API_URL}/streams/${cameraId}/status`);
       const data = await response.json();
       if (!data.success || !data.stream) {
         throw new ApiError(data.error || `Failed to get stream status for camera ${cameraId}`, response.status, 'GET_STREAM_STATUS_ERROR', data);
@@ -442,8 +442,12 @@ export const cameraService = {
 
   async testCameraConnection(cameraData: { name: string; rtspUrl: string; username?: string; password?: string }): Promise<{ success: boolean; message: string; latency?: number }> {
     try {
-      const response = await apiClient.post<{ success: boolean; message: string; latency?: number }>('/cameras/test-connection', cameraData);
-      return { success: response.success, message: response.message, latency: response.latency };
+      const response = await fetchWithRetry(`${API_URL}/cameras/${encodeURIComponent(cameraData.name)}/stream/start-test`, {
+        method: 'POST',
+        body: JSON.stringify({ rtspUrl: cameraData.rtspUrl }),
+      });
+      const data = await response.json();
+      return { success: data.success, message: data.message || 'Connection test initiated', latency: data.latency };
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError('Failed to test camera connection', 500, 'TEST_CAMERA_CONNECTION_ERROR', { originalError: error instanceof Error ? error.message : String(error) });

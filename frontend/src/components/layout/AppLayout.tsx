@@ -7,13 +7,10 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Page Content */}
-      <main className="flex-1 pb-20">
+    <div className="flex min-h-[100dvh] flex-col">
+      <main className="flex-1 pb-28">
         {children}
       </main>
-
-      {/* macOS-style Dock Navigation */}
       <MacDock />
     </div>
   );

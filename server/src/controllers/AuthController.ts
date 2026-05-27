@@ -1,0 +1,288 @@
+import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
+import { BaseController } from './BaseController.js';
+import authService, { AuthService } from '../auth/index.js';
+import auditLogger from '../utils/auditLogger.js';
+import { logger } from '../utils/logger.js';
+
+export class AuthController extends BaseController {
+  private authService: AuthService;
+
+  constructor(authServiceInstance: AuthService) {
+    super();
+    this.authService = authServiceInstance;
+  }
+
+  async register(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, email, password, role } = req.body;
+      const result = await this.authService.register({ username, email, password, role });
+
+      if (result.success) {
+        auditLogger.log({
+          level: 'INFO',
+          category: 'AUTH',
+          action: 'USER_REGISTER',
+          userId: result.user?.id,
+          username: result.user?.username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          details: { email, role: role || 'user' },
+          success: true
+        });
+        logger.info(`User registered successfully: ${username}`, 'AuthRoutes');
+        this.created(res, {
+          message: 'User registered successfully',
+          user: result.user as Record<string, unknown>,
+          token: result.token
+        });
+      } else {
+        auditLogger.log({
+          level: 'WARN',
+          category: 'AUTH',
+          action: 'USER_REGISTER_FAILED',
+          username: username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          details: { email, error: result.error },
+          success: false
+        });
+        this.badRequest(res, result.error || 'Registration failed');
+      }
+    } catch (error) {
+      this.serverError(res, error, 'register');
+    }
+  }
+
+  async login(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, password } = req.body;
+      const result = await this.authService.login({ username, password });
+
+      if (result.success) {
+        auditLogger.log({
+          level: 'INFO',
+          category: 'AUTH',
+          action: 'USER_LOGIN',
+          userId: result.user?.id,
+          username: result.user?.username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          details: { loginMethod: 'password' },
+          success: true
+        });
+        logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');
+        this.ok(res, {
+          message: 'Login successful',
+          user: result.user as Record<string, unknown>,
+          token: result.token
+        });
+      } else {
+        auditLogger.log({
+          level: 'WARN',
+          category: 'AUTH',
+          action: 'USER_LOGIN_FAILED',
+          username: username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          details: { error: result.error },
+          success: false
+        });
+        res.status(401).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      this.serverError(res, error, 'login');
+    }
+  }
+
+  async getProfile(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'User not authenticated' });
+        return;
+      }
+
+      const user = await this.authService.getUserById(req.user.userId);
+
+      if (!user) {
+        this.notFound(res, 'User not found');
+        return;
+      }
+
+      this.ok(res, { user: user as unknown as Record<string, unknown> });
+    } catch (error) {
+      this.serverError(res, error, 'getProfile');
+    }
+  }
+
+  async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'User not authenticated' });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const result = await this.authService.changePassword(
+        req.user.userId,
+        currentPassword,
+        newPassword
+      );
+
+      if (result.success) {
+        logger.info(`Password changed for user: ${req.user.username}`, 'AuthRoutes');
+        this.ok(res, { message: 'Password changed successfully' });
+      } else {
+        this.badRequest(res, result.error || 'Password change failed');
+      }
+    } catch (error) {
+      this.serverError(res, error, 'changePassword');
+    }
+  }
+
+  async refreshToken(req: Request, res: Response): Promise<void> {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : null;
+
+      if (!token) {
+        res.status(401).json({ success: false, error: 'No token provided' });
+        return;
+      }
+
+      let payload = this.authService.verifyToken(token);
+
+      if (!payload) {
+        try {
+          const decoded = jwt.decode(token) as { userId?: string; username?: string; role?: string; exp?: number } | null;
+
+          if (!decoded || !decoded.userId) {
+            res.status(401).json({ success: false, error: 'Invalid token' });
+            return;
+          }
+
+          payload = {
+            userId: decoded.userId,
+            username: decoded.username || '',
+            role: decoded.role || 'user'
+          };
+        } catch {
+          res.status(401).json({ success: false, error: 'Invalid token' });
+          return;
+        }
+      }
+
+      const user = await this.authService.getUserById(payload.userId);
+
+      if (!user) {
+        this.notFound(res, 'User not found');
+        return;
+      }
+
+      try {
+        const newToken = this.authService.generateToken(user as any);
+        this.ok(res, { token: newToken });
+      } catch (error) {
+        logger.error(`Token refresh error during JWT signing: ${error}`, 'AuthRoutes');
+        this.serverError(res, error, 'Token refresh failed - JWT signing error');
+      }
+    } catch (error) {
+      this.serverError(res, error, 'refreshToken');
+    }
+  }
+
+  async logout(req: Request, res: Response): Promise<void> {
+    try {
+      auditLogger.log({
+        level: 'INFO',
+        category: 'AUTH',
+        action: 'USER_LOGOUT',
+        userId: req.user?.userId,
+        username: req.user?.username,
+        ip: auditLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        success: true
+      });
+      logger.info(`User logged out: ${req.user?.username}`, 'AuthRoutes');
+      this.ok(res, { message: 'Logout successful' });
+    } catch (error) {
+      auditLogger.log({
+        level: 'ERROR',
+        category: 'AUTH',
+        action: 'USER_LOGOUT_FAILED',
+        userId: req.user?.userId,
+        username: req.user?.username,
+        ip: auditLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        success: false
+      });
+      this.serverError(res, error, 'logout');
+    }
+  }
+
+  async setupMfa(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const secret = speakeasy.generateSecret({
+        name: `SentryVision:${req.user?.username || userId}`,
+        length: 20,
+      });
+
+      const qrCode = await QRCode.toDataURL(secret.otpauth_url || '');
+
+      this.ok(res, {
+        secret: secret.base32,
+        qrCode,
+      });
+    } catch (error) {
+      this.serverError(res, error, 'setupMfa');
+    }
+  }
+
+  async verifyMfa(req: Request, res: Response): Promise<void> {
+    try {
+      const { code, secret } = req.body;
+      if (!code || !secret) {
+        this.badRequest(res, 'Code and secret are required');
+        return;
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: code,
+        window: 2,
+      });
+
+      if (verified) {
+        auditLogger.log({
+          level: 'INFO',
+          category: 'AUTH',
+          action: 'MFA_VERIFIED',
+          userId: req.user?.userId,
+          username: req.user?.username,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          success: true,
+        });
+        this.ok(res, { message: 'MFA verified successfully' });
+      } else {
+        this.badRequest(res, 'Invalid MFA code');
+      }
+    } catch (error) {
+      this.serverError(res, error, 'verifyMfa');
+    }
+  }
+}
+
+export const authController = new AuthController(authService);

@@ -124,6 +124,7 @@ class SocketService {
         this.socket.on('disconnect', (reason) => {
           console.log('Socket disconnected:', reason);
           this.isConnecting = false;
+          this.requestedStreams.clear();
         });
 
         this.socket.on('connect_error', (error) => {
@@ -151,9 +152,7 @@ class SocketService {
           // Enhanced motion detected event
         });
 
-        // Frame event listener for debugging
         this.socket.on('frame', (data) => {
-          console.log(`🖼️ SocketService: Raw frame received for camera ${data.cameraId}, size: ${data.data?.length || 0}`);
         });
 
         // Set a timeout for connection
@@ -187,19 +186,15 @@ class SocketService {
     const streamKey = `${cameraId}-${role}`;
 
     if (this.requestedStreams.has(streamKey)) {
-      console.log(`⚠️ SocketService: Stream already requested for ${streamKey}, skipping`);
       return;
     }
 
-    console.log(`📡 SocketService: Requesting stream for camera ${cameraId} role ${role}, socket connected: ${this.socket?.connected}`);
     if (!this.socket?.connected) {
-      console.warn('❌ Socket not connected, cannot request stream');
       return;
     }
 
     this.requestedStreams.add(streamKey);
     this.socket.emit('requestStream', { cameraId, role });
-    console.log(`✅ SocketService: Stream request emitted for camera ${cameraId} role ${role}`);
   }
 
   // Stop streaming a camera
@@ -215,19 +210,14 @@ class SocketService {
 
   // Add event listener
   on(event: string, callback: (...args: unknown[]) => void) {
-    console.log(`👂 SocketService: Registering listener for event: ${event}`);
     if (!this.callbacks.has(event)) {
       this.callbacks.set(event, new Set());
     }
 
     this.callbacks.get(event)?.add(callback);
 
-    // If socket is already connected, add the listener directly
     if (this.socket?.connected) {
-      console.log(`🔌 SocketService: Socket connected, adding listener for ${event}`);
       this.socket.on(event, callback);
-    } else {
-      console.log(`⚠️ SocketService: Socket not connected, listener queued for ${event}`);
     }
 
     return () => this.off(event, callback);

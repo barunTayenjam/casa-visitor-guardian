@@ -21,7 +21,7 @@ DB_CONFIG = {
     'port': os.getenv('POSTGRES_PORT', '5432'),
     'dbname': os.getenv('POSTGRES_DB', 'sentryvision'),
     'user': os.getenv('POSTGRES_USER', 'sentryvision'),
-    'password': os.getenv('POSTGRES_PASSWORD', 'sentryvision123')
+    'password': os.getenv('POSTGRES_PASSWORD', '')
 }
 
 def load_class_names():

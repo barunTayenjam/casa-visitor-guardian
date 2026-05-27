@@ -9,9 +9,7 @@ export default defineConfig({
     host: "::",
     port: 5173,
     allowedHosts: [
-      'argus.tayenjam.qzz.io',
-      '192.168.31.99',
-      'localhost',
+      process.env.VITE_ALLOWED_HOST || 'localhost',
       '127.0.0.1',
       '::1',
       '.lan',

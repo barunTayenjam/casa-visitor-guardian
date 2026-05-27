@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const DETECTIONS_DIR = process.env.DETECTIONS_DIR || '/home/barun/Documents/home-security-non-docker/data/detections';
+const DETECTIONS_DIR = process.env.DETECTIONS_DIR || './data/detections';
 
 async function runCommand(cmd) {
     try {

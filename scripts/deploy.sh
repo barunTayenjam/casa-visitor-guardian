@@ -256,7 +256,7 @@ create_admin_user() {
     
     log_success "Default admin user created"
     log_info "Username: admin"
-    log_info "Password: admin123 (change this immediately)"
+    log_info "Password: (set via SEED_ADMIN_PASSWORD env var)"
     log_warning "Please change the default admin password immediately!"
 }
 
@@ -401,7 +401,7 @@ deploy() {
     echo
     echo "Application URL: https://$DOMAIN"
     echo "Admin Username: admin"
-    echo "Admin Password: admin123 (CHANGE THIS!)"
+    echo "Admin Password: (set via SEED_ADMIN_PASSWORD env var)"
     echo
     echo "Service Status:"
     docker-compose -f "$PROJECT_DIR/docker-compose.prod.yml" ps

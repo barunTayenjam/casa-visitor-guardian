@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import cron from 'node-cron';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger.js';
 
 const DETECTIONS_DIR = process.env.DETECTIONS_DIR || '/app/data/detections';
 
@@ -36,7 +37,6 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private constructor() {
     super();
-    console.log('AutomatedCleanupService: Initializing');
   }
 
   static getInstance(): AutomatedCleanupService {
@@ -47,8 +47,8 @@ export class AutomatedCleanupService extends EventEmitter {
   }
 
   async cleanupOldImages(retentionDays: number = 7): Promise<{ deleted: number; preserved: number; freedBytes: number }> {
-    console.log(`Starting image cleanup - keeping images analyzed by AI for ${retentionDays} days...`);
-    
+    logger.info(`Starting image cleanup - keeping images analyzed by AI for ${retentionDays} days...`, 'CLEANUP');
+
     let deleted = 0;
     let preserved = 0;
     let freedBytes = 0;
@@ -57,14 +57,12 @@ export class AutomatedCleanupService extends EventEmitter {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-      // Get all analyzed event IDs (these should be preserved)
       const analyzedResults = await AppDataSource.query(
         `SELECT DISTINCT event_filename FROM ai_analysis_results WHERE analyzed_at IS NOT NULL`
       );
       const analyzedFilenames = new Set(analyzedResults.map((r: any) => r.event_filename));
-      console.log(`Found ${analyzedFilenames.size} AI-analyzed images to preserve`);
+      logger.info(`Found ${analyzedFilenames.size} AI-analyzed images to preserve`, 'CLEANUP');
 
-      // Get events older than retention days
       const oldEvents = await AppDataSource.getRepository(Event)
         .createQueryBuilder('event')
         .select(['event.id', 'event.file_path', 'event.camera_id'])
@@ -72,18 +70,12 @@ export class AutomatedCleanupService extends EventEmitter {
         .andWhere('event.file_path IS NOT NULL')
         .getMany();
 
-      console.log(`Found ${oldEvents.length} events older than ${retentionDays} days`);
+      logger.info(`Found ${oldEvents.length} events older than ${retentionDays} days`, 'CLEANUP');
 
       for (const event of oldEvents) {
         if (!event.file_path) continue;
+        if (analyzedFilenames.has(event.file_path)) { preserved++; continue; }
 
-        // Skip if this file was analyzed by AI
-        if (analyzedFilenames.has(event.file_path)) {
-          preserved++;
-          continue;
-        }
-
-        // Try to delete the image file
         const possiblePaths = [
           path.join(DETECTIONS_DIR, 'events', event.camera_id || '', event.file_path),
           path.join(DETECTIONS_DIR, event.file_path),
@@ -96,76 +88,56 @@ export class AutomatedCleanupService extends EventEmitter {
             await fs.unlink(filePath);
             deleted++;
             freedBytes += stats.size;
-            console.log(`Deleted: ${filePath}`);
             break;
           } catch (err: any) {
-            if (err.code !== 'ENOENT') {
-              console.error(`Error deleting ${filePath}:`, err.message);
-            }
+            if (err.code !== 'ENOENT') logger.error(`Error deleting ${filePath}: ${err.message}`, 'CLEANUP');
           }
         }
       }
 
-      console.log(`Image cleanup complete: ${deleted} deleted, ${preserved} preserved, ${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`);
-      
+      logger.info(`Image cleanup complete: ${deleted} deleted, ${preserved} preserved, ${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`, 'CLEANUP');
       return { deleted, preserved, freedBytes };
     } catch (error) {
-      console.error('Error during image cleanup:', error);
+      logger.error('Error during image cleanup', 'CLEANUP', error);
       throw error;
     }
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-
     try {
       await this.scheduleAutomaticCleanup();
       this.initialized = true;
-      console.log('AutomatedCleanupService initialized');
+      logger.info('AutomatedCleanupService initialized', 'CLEANUP');
     } catch (error) {
-      console.error('Failed to initialize AutomatedCleanupService:', error);
+      logger.error('Failed to initialize AutomatedCleanupService', 'CLEANUP', error);
       throw error;
     }
   }
 
   private async scheduleAutomaticCleanup(): Promise<void> {
     const cleanupSchedule = process.env.CLEANUP_SCHEDULE || '0 2 * * *';
-
     this.cronTask = cron.schedule(cleanupSchedule, async () => {
-      console.log('Running scheduled cleanup...');
       await this.runAutomaticCleanup();
-    }, {
-      timezone: process.env.TZ || 'UTC',
-    });
-
-    console.log(`Scheduled automatic cleanup at ${cleanupSchedule}`);
+    }, { timezone: process.env.TZ || 'UTC' });
+    logger.info(`Scheduled automatic cleanup at ${cleanupSchedule}`, 'CLEANUP');
   }
 
   async runAutomaticCleanup(): Promise<void> {
-    if (this.cleanupInProgress) {
-      console.log('Cleanup already in progress, skipping');
-      return;
-    }
+    if (this.cleanupInProgress) { logger.warn('Cleanup already in progress, skipping', 'CLEANUP'); return; }
 
     this.cleanupInProgress = true;
     const startTime = Date.now();
 
     try {
-      console.log('Starting automatic cleanup process...');
-
       await this.cleanupExpiredFiles();
-      // NOTE: We intentionally DO NOT delete event records from database
-      // Database records are kept for statistics (events per day, etc.)
-      // Only the physical image files are deleted by cleanupOldImages()
-      await this.cleanupOldImages(7); // Default 7-day retention for images
-      await this.cleanupByStorageThreshold();
+      await this.cleanupOldImages(7);
 
       const duration = Date.now() - startTime;
-      console.log(`Automatic cleanup completed in ${duration}ms`);
-
+      logger.info(`Automatic cleanup completed in ${duration}ms`, 'CLEANUP');
       this.emit('cleanupCompleted', { duration });
     } catch (error) {
-      console.error('Error during automatic cleanup:', error);
+      logger.error('Error during automatic cleanup', 'CLEANUP', error);
       this.emit('cleanupError', error);
     } finally {
       this.cleanupInProgress = false;
@@ -174,30 +146,26 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async cleanupExpiredFiles(): Promise<void> {
     try {
-      console.log('Cleaning up expired files based on retention policies...');
-
       const policies = await retentionPolicyService.getAllPolicies();
       const cameras = ['cam1', 'cam2'];
       const categories = ['alerts', 'detections', 'previews', 'snapshots', 'events'];
 
       for (const policy of policies) {
         const camera = policy.camera || undefined;
-
         for (const category of categories) {
           const result = await this.cleanupCategory(camera, category);
           if (result.deletedFiles > 0) {
-            console.log(`Cleaned up ${result.deletedFiles} ${category} files for ${camera || 'global'}`);
+            logger.info(`Cleaned up ${result.deletedFiles} ${category} files for ${camera || 'global'}`, 'CLEANUP');
           }
         }
       }
     } catch (error) {
-      console.error('Error cleaning up expired files:', error);
+      logger.error('Error cleaning up expired files', 'CLEANUP', error);
       throw error;
     }
   }
 
   private async cleanupCategory(camera: string | undefined, category: string): Promise<CleanupResult> {
-    const startTime = Date.now();
     let deletedFiles = 0;
     let freedBytes = 0;
 
@@ -206,312 +174,41 @@ export class AutomatedCleanupService extends EventEmitter {
 
       for (const filePath of expiredFiles) {
         try {
-          const { promises: fs } = await import('fs');
           const stats = await fs.stat(filePath);
           await fs.unlink(filePath);
-
           deletedFiles++;
           freedBytes += stats.size;
         } catch (error) {
-          console.warn(`Error deleting file ${filePath}:`, error);
+          logger.warn(`Error deleting file ${filePath}: ${error}`, 'CLEANUP');
         }
       }
 
       const result: CleanupResult = {
-        camera,
-        category,
-        deletedFiles,
-        freedBytes,
-        deletedEvents: 0,
-        timestamp: new Date(),
+        camera, category, deletedFiles, freedBytes, deletedEvents: 0, timestamp: new Date(),
       };
-
       this.addToHistory(result);
-
       return result;
     } catch (error) {
-      console.error(`Error cleaning up ${category} for ${camera || 'global'}:`, error);
+      logger.error(`Error cleaning up ${category} for ${camera || 'global'}`, 'CLEANUP', error);
       throw error;
     }
-  }
-
-  private async cleanupExpiredEvents(): Promise<void> {
-    try {
-      const policies = await retentionPolicyService.getAllPolicies();
-
-      for (const policy of policies) {
-        if (policy.retain_indefinitely) {
-          continue;
-        }
-
-        const retentionDays = policy.events_days;
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-
-        const eventRepo = AppDataSource.getRepository(Event);
-        const oldEvents = await eventRepo
-          .createQueryBuilder('event')
-          .where('event.timestamp < :cutoffDate', { cutoffDate })
-          .getMany();
-
-        if (oldEvents.length > 0) {
-          const camera = policy.camera || 'global';
-
-          for (const event of oldEvents) {
-            if (event.file_path) {
-              try {
-                const fullPath = path.resolve(event.file_path);
-                await fs.access(fullPath).then(() => fs.unlink(fullPath)).catch(() => {});
-              } catch (fileErr) {
-                console.error(`Failed to delete file for event ${event.id}:`, fileErr);
-              }
-            }
-          }
-
-          await eventRepo.remove(oldEvents);
-          console.log(`Deleted ${oldEvents.length} events older than ${retentionDays} days (${camera})`);
-        }
-      }
-
-      console.log('Event cleanup completed');
-    } catch (error) {
-      console.error('Error cleaning up expired events:', error);
-      throw error;
-    }
-  }
-
-  private async cleanupByStorageThreshold(): Promise<void> {
-  }
-
-  private async runAggressiveCleanup(): Promise<void> {
-    const categories = ['alerts', 'detections', 'previews', 'snapshots', 'events'];
-    const cameras = ['cam1', 'cam2'];
-
-    for (const camera of cameras) {
-      for (const category of categories) {
-        const result = await this.cleanupOldestFiles(camera, category, 0.1);
-        if (result.deletedFiles > 0) {
-          console.log(`Aggressive cleanup: Removed ${result.deletedFiles} ${category} files from ${camera}`);
-        }
-      }
-    }
-  }
-
-  private async runStandardCleanup(): Promise<void> {
-    const categories = ['alerts', 'detections', 'previews', 'snapshots', 'events'];
-
-    for (const category of categories) {
-      const result = await this.cleanupCategory(undefined, category);
-      if (result.deletedFiles > 0) {
-        console.log(`Standard cleanup: Removed ${result.deletedFiles} ${category} files`);
-      }
-    }
-  }
-
-  private async cleanupOldestFiles(camera: string, category: string, percentageToRemove: number): Promise<CleanupResult> {
-    const { promises: fs } = await import('fs');
-    const path = await import('path');
-    const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
-
-    let categoryPath: string;
-    switch (category) {
-      case 'alerts':
-        categoryPath = path.join(detectionsDir, 'alerts');
-        break;
-      case 'snapshots':
-        categoryPath = path.join(detectionsDir, 'snapshots');
-        break;
-      case 'previews':
-        categoryPath = path.join(detectionsDir, 'previews');
-        break;
-      case 'detections':
-        categoryPath = path.join(detectionsDir, `detections_${camera}`);
-        break;
-      case 'events':
-        categoryPath = path.join(detectionsDir, `events_${camera}`);
-        break;
-      default:
-        categoryPath = path.join(detectionsDir, category);
-    }
-
-    let deletedFiles = 0;
-    let freedBytes = 0;
-
-    try {
-      await fs.access(categoryPath);
-
-      const allFiles = await this.scanDirectoryWithStats(categoryPath);
-      const filesToDelete = Math.ceil(allFiles.length * percentageToRemove);
-
-      allFiles.sort((a, b) => a.mtimeMs - b.mtimeMs);
-
-      for (let i = 0; i < Math.min(filesToDelete, allFiles.length); i++) {
-        try {
-          await fs.unlink(allFiles[i].path);
-          deletedFiles++;
-          freedBytes += allFiles[i].size;
-        } catch (error) {
-          console.warn(`Error deleting file ${allFiles[i].path}:`, error);
-        }
-      }
-
-      const result: CleanupResult = {
-        camera,
-        category,
-        deletedFiles,
-        freedBytes,
-        deletedEvents: 0,
-        timestamp: new Date(),
-      };
-
-      this.addToHistory(result);
-
-      return result;
-    } catch (error) {
-      console.warn(`Error in aggressive cleanup for ${camera}/${category}:`, error);
-      return {
-        camera,
-        category,
-        deletedFiles: 0,
-        freedBytes: 0,
-        deletedEvents: 0,
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  private async scanDirectoryWithStats(dirPath: string, maxDepth = 3): Promise<Array<{ path: string; size: number; mtimeMs: number }>> {
-    const { promises: fs } = await import('fs');
-    const path = await import('path');
-    const files: Array<{ path: string; size: number; mtimeMs: number }> = [];
-
-    try {
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-      for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry.name);
-
-        if (entry.isDirectory() && maxDepth > 0) {
-          const subFiles = await this.scanDirectoryWithStats(fullPath, maxDepth - 1);
-          files.push(...subFiles);
-        } else if (entry.isFile()) {
-          try {
-            const stats = await fs.stat(fullPath);
-            files.push({
-              path: fullPath,
-              size: stats.size,
-              mtimeMs: stats.mtimeMs,
-            });
-          } catch (error) {
-            console.warn(`Error reading file stats for ${fullPath}:`, error);
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`Error scanning directory ${dirPath}:`, error);
-    }
-
-    return files;
   }
 
   private addToHistory(result: CleanupResult): void {
     this.cleanupHistory.push(result);
-
     if (this.cleanupHistory.length > this.MAX_HISTORY_SIZE) {
       this.cleanupHistory.shift();
     }
   }
 
-  async getCleanupHistory(limit = 20): Promise<CleanupResult[]> {
-    return this.cleanupHistory.slice(-limit);
-  }
+  isCleanupInProgress(): boolean { return this.cleanupInProgress; }
 
-  async getCleanupStats(): Promise<CleanupStats> {
-    const totalCleanupRuns = this.cleanupHistory.length;
-    const totalFilesDeleted = this.cleanupHistory.reduce((sum, r) => sum + r.deletedFiles, 0);
-    const totalBytesFreed = this.cleanupHistory.reduce((sum, r) => sum + r.freedBytes, 0);
-    const totalEventsDeleted = this.cleanupHistory.reduce((sum, r) => sum + r.deletedEvents, 0);
-
-    const totalTime = this.cleanupHistory.reduce((sum, r) => {
-      return sum + (Date.now() - r.timestamp.getTime());
-    }, 0);
-
-    const averageCleanupTime = totalCleanupRuns > 0 ? totalTime / totalCleanupRuns : 0;
-
-    return {
-      lastCleanupTime: this.cleanupHistory.length > 0 ? this.cleanupHistory[this.cleanupHistory.length - 1].timestamp : null,
-      totalCleanupRuns,
-      totalFilesDeleted,
-      totalBytesFreed,
-      totalEventsDeleted,
-      averageCleanupTime,
-    };
-  }
-
-  async runManualCleanup(camera?: string, category?: string): Promise<CleanupResult> {
-    if (this.cleanupInProgress) {
-      throw new Error('Cleanup already in progress');
-    }
-
-    this.cleanupInProgress = true;
-
-    try {
-      console.log(`Running manual cleanup for ${camera || 'all'} / ${category || 'all'}...`);
-
-      let totalDeletedFiles = 0;
-      let totalFreedBytes = 0;
-
-      if (category) {
-        const result = await this.cleanupCategory(camera, category);
-        totalDeletedFiles += result.deletedFiles;
-        totalFreedBytes += result.freedBytes;
-      } else {
-        const categories = ['alerts', 'detections', 'previews', 'snapshots', 'events'];
-        for (const cat of categories) {
-          const result = await this.cleanupCategory(camera, cat);
-          totalDeletedFiles += result.deletedFiles;
-          totalFreedBytes += result.freedBytes;
-        }
-      }
-
-      const result: CleanupResult = {
-        camera,
-        category,
-        deletedFiles: totalDeletedFiles,
-        freedBytes: totalFreedBytes,
-        deletedEvents: 0,
-        timestamp: new Date(),
-      };
-
-      this.emit('manualCleanupCompleted', result);
-
-      return result;
-    } finally {
-      this.cleanupInProgress = false;
-    }
-  }
-
-  private async getMaxStorageGB(): Promise<number> {
-    try {
-      const settings = await AppDataSource.query(`SELECT maxstoragegb FROM system_settings LIMIT 1`);
-      return settings[0]?.maxstoragegb || 100;
-    } catch {
-      return 100;
-    }
-  }
-
-  isCleanupInProgress(): boolean {
-    return this.cleanupInProgress;
-  }
-
-  isInitialized(): boolean {
-    return this.initialized;
-  }
+  isInitialized(): boolean { return this.initialized; }
 
   async shutdown(): Promise<void> {
     if (this.cronTask) {
       this.cronTask.stop();
-      console.log('Cleanup scheduler stopped');
+      logger.info('Cleanup scheduler stopped', 'CLEANUP');
     }
   }
 }

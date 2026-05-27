@@ -15,16 +15,8 @@ const __dirname = path.dirname(__filename);
 
 // Import configuration
 import { config } from './config/index.js';
-
 import { configureRoutes } from './routes/index.js';
-import { configureAuthRoutes } from './routes/auth.js';
-import { configureCameraRoutes } from './routes/cameraRoutes.js';
-import { configureAnalyticsRoutes } from './routes/analyticsRoutes.js';
-import { configureSettingsRoutes } from './routes/settingsRoutes.js';
-import { configureStreamRoutes } from './routes/streamRoutes.js';
-import { configureSystemRoutes } from './routes/systemRoutes.js';
-import { configureReviewTimelineRoutes } from './routes/reviewTimelineRoutes.js';
-import { requireUser, requireAdmin, optionalAuth } from './middleware/auth.js';
+
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase, AppDataSource } from './database.js';
 import { setupOptimizedMotionDetection, cleanupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
@@ -399,20 +391,7 @@ async function initializeServices() {
 await initializeServices();
 
 // Configure routes (now that services are registered)
-configureAuthRoutes(app);
 configureRoutes(app, io);
-
-// NVIDIA AI Vision Analysis Routes
-import nvidiaRoutes from './routes/nvidiaRoutes.js';
-app.use('/api/nvidia', nvidiaRoutes);
-
-// Extracted domain-specific route modules
-configureCameraRoutes(app);
-configureAnalyticsRoutes(app);
-configureSettingsRoutes(app);
-configureStreamRoutes(app);
-configureSystemRoutes(app);
-configureReviewTimelineRoutes(app);
 
 console.log('Routes configured successfully');
 
@@ -539,7 +518,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 8082;
+const PORT = process.env.PORT || 9753;
 
 server.listen(PORT, async () => {
   console.log(`SentryVision Server started on port ${PORT}`);

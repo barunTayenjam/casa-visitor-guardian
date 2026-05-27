@@ -417,22 +417,35 @@ function parseAIResponse(
 }
 
 function buildResult(parsed: any, processingTime: number, model: string): NvidianalysisResult {
+  // Handle double-encoded JSON: some models return
+  // {"scene_description": "{\"scene_description\": ...}"}  — unwrap it
+  let p = parsed;
+  const topDesc = p.scene_description || p.sceneDescription || '';
+  if (typeof topDesc === 'string' && topDesc.trim().startsWith('{')) {
+    try {
+      const inner = JSON.parse(topDesc);
+      if (inner && typeof inner === 'object') {
+        p = inner;
+      }
+    } catch {}
+  }
+
   return {
-    sceneDescription: parsed.scene_description || parsed.sceneDescription || 'No description available',
+    sceneDescription: p.scene_description || p.sceneDescription || 'No description available',
     threatAssessment: {
-      level: parsed.threat_assessment?.level || parsed.threatAssessment?.level || 'low',
-      factors: parsed.threat_assessment?.reasoning ? [parsed.threat_assessment.reasoning] : (parsed.threat_assessment?.factors || parsed.threatAssessment?.factors || []),
-      confidence: parsed.threat_assessment?.confidence || parsed.threatAssessment?.confidence || 50
+      level: p.threat_assessment?.level || p.threatAssessment?.level || 'low',
+      factors: p.threat_assessment?.reasoning ? [p.threat_assessment.reasoning] : (p.threat_assessment?.factors || p.threatAssessment?.factors || []),
+      confidence: p.threat_assessment?.confidence || p.threatAssessment?.confidence || 50
     },
     detectedEntities: {
-      people: normalizeEntityArray(parsed.detected_entities?.people || parsed.detectedEntities?.people, 'person'),
-      vehicles: normalizeEntityArray(parsed.detected_entities?.vehicles || parsed.detectedEntities?.vehicles, 'vehicle'),
-      animals: normalizeEntityArray(parsed.detected_entities?.animals || parsed.detectedEntities?.animals, 'animal'),
-      objects: normalizeEntityArray(parsed.detected_entities?.objects || parsed.detectedEntities?.objects, 'object'),
+      people: normalizeEntityArray(p.detected_entities?.people || p.detectedEntities?.people, 'person'),
+      vehicles: normalizeEntityArray(p.detected_entities?.vehicles || p.detectedEntities?.vehicles, 'vehicle'),
+      animals: normalizeEntityArray(p.detected_entities?.animals || p.detectedEntities?.animals, 'animal'),
+      objects: normalizeEntityArray(p.detected_entities?.objects || p.detectedEntities?.objects, 'object'),
       actions: []
     },
-    recommendedActions: parsed.recommended_actions || parsed.recommendedActions || [],
-    additionalObservations: parsed.additional_observations || parsed.additionalObservations || [],
+    recommendedActions: p.recommended_actions || p.recommendedActions || [],
+    additionalObservations: p.additional_observations || p.additionalObservations || [],
     processingTime,
     modelUsed: model
   };

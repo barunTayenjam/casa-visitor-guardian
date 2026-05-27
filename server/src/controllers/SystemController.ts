@@ -1,9 +1,9 @@
-import { Express, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'url';
-import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
+import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { inMemoryState, MotionEvent } from '../services/inMemoryStateService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
@@ -12,9 +12,8 @@ import type { Camera } from '../streams/rtspManager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function configureSystemRoutes(app: Express) {
-  // Health check endpoint
-  app.get('/api/health', (req: Request, res: Response) => {
+export class SystemController extends BaseController {
+  health(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
@@ -30,9 +29,9 @@ export function configureSystemRoutes(app: Express) {
         activeCameras: 0
       });
     }
-  });
+  }
 
-  app.get('/api/stats', optionalAuth, async (req: Request, res: Response) => {
+  async stats(req: Request, res: Response): Promise<void> {
     try {
       const { AppDataSource } = await import('../database.js');
       const { Event } = await import('../models/index.js');
@@ -50,30 +49,27 @@ export function configureSystemRoutes(app: Express) {
         knownVisitors = parseInt(visitorResult?.[0]?.count) || 0;
       } catch {}
 
-      let storageUsed = 0;
-      let storageTotal = 0;
-
-      res.json({
-        success: true,
+      this.ok(res, {
         stats: {
           totalEvents,
           totalCameras: cameras.length,
           activeCameras,
           knownVisitors,
-          storageUsed,
-          storageTotal,
+          storageUsed: 0,
+          storageTotal: 0,
         }
       });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      this.serverError(res, error, 'stats');
     }
-  });
+  }
 
-  app.post('/api/maintenance/cleanup-images', requireAdmin, async (req: Request, res: Response) => {
+  async cleanupImages(req: Request, res: Response): Promise<void> {
     try {
       const retentionDays = parseInt(req.body.retentionDays) || 7;
       if (retentionDays < 1 || retentionDays > 365) {
-        return res.status(400).json({ success: false, error: 'Retention days must be between 1 and 365' });
+        this.badRequest(res, 'Retention days must be between 1 and 365');
+        return;
       }
 
       console.log(`Admin triggered image cleanup with ${retentionDays} days retention`);
@@ -90,25 +86,15 @@ export function configureSystemRoutes(app: Express) {
         freedMB: (result.freedBytes / 1024 / 1024).toFixed(2)
       });
     } catch (error: any) {
-      console.error('Image cleanup error:', error);
-      res.status(500).json({ success: false, error: error.message || 'Cleanup failed' });
+      this.serverError(res, error, 'cleanupImages');
     }
-  });
+  }
 
-  // Get cleanup status
-  app.get('/api/maintenance/cleanup-status', requireAdmin, async (req: Request, res: Response) => {
-    try {
-      res.json({
-        success: true,
-        message: 'Use POST /api/maintenance/cleanup-images to run cleanup'
-      });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
+  async cleanupStatus(_req: Request, res: Response): Promise<void> {
+    res.status(501).json({ success: false, error: 'Not implemented - use POST /api/maintenance/cleanup-images instead', code: 'NOT_IMPLEMENTED' });
+  }
 
-  // System overview endpoint
-  app.get('/api/system/overview', requireUser, async (req: Request, res: Response) => {
+  async overview(req: Request, res: Response): Promise<void> {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
@@ -134,15 +120,13 @@ export function configureSystemRoutes(app: Express) {
         storageTotal
       };
 
-      res.json({ success: true, data: overview });
+      this.ok(res, { data: overview });
     } catch (error) {
-      console.error('Error getting system overview:', error);
-      res.status(500).json({ success: false, error: 'Failed to get system overview' });
+      this.serverError(res, error, 'overview');
     }
-  });
+  }
 
-  // System health endpoint
-  app.get('/api/system/health', optionalAuth, (req: Request, res: Response) => {
+  systemHealth(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
@@ -159,7 +143,6 @@ export function configureSystemRoutes(app: Express) {
 
       const recentEvents = inMemoryState.getRecentEvents();
 
-      // Calculate CPU Load (Average across all cores)
       const cpus = os.cpus();
       const loadAvg = os.loadavg();
       const cpuUsage = (loadAvg[0] / cpus.length) * 100;
@@ -194,13 +177,11 @@ export function configureSystemRoutes(app: Express) {
         }
       });
     } catch (error) {
-      console.error('Error getting system health:', error);
-      res.status(500).json({ success: false, error: 'Failed to get system health' });
+      this.serverError(res, error, 'systemHealth');
     }
-  });
+  }
 
-  // Get system logs
-  app.get('/api/system/logs', requireUser, async (req: Request, res: Response) => {
+  async getLogs(req: Request, res: Response): Promise<void> {
     try {
       const { level, limit } = req.query;
       const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
@@ -233,15 +214,13 @@ export function configureSystemRoutes(app: Express) {
       logs.push(...parseLogFile(errorLogFile, 'ERROR'));
 
       const maxLogs = parseInt(limit as string) || 100;
-      res.json({ success: true, logs: logs.slice(-maxLogs).reverse() });
+      this.ok(res, { logs: logs.slice(-maxLogs).reverse() });
     } catch (error) {
-      console.error('Error getting system logs:', error);
-      res.status(500).json({ success: false, error: 'Failed to get system logs' });
+      this.serverError(res, error, 'getLogs');
     }
-  });
+  }
 
-  // Clear system logs
-  app.delete('/api/system/logs', requireAdmin, async (req: Request, res: Response) => {
+  async clearLogs(req: Request, res: Response): Promise<void> {
     try {
       const logsDir = path.join(__dirname, '../../logs');
       const errorLogFile = path.join(logsDir, 'error.log');
@@ -251,10 +230,11 @@ export function configureSystemRoutes(app: Express) {
       if (fs.existsSync(errorLogFile)) { fs.writeFileSync(errorLogFile, ''); cleared.push('error.log'); }
       if (fs.existsSync(combinedLogFile)) { fs.writeFileSync(combinedLogFile, ''); cleared.push('combined.log'); }
 
-      res.json({ success: true, message: 'Logs cleared', cleared });
+      this.ok(res, { message: 'Logs cleared', cleared });
     } catch (error) {
-      console.error('Error clearing system logs:', error);
-      res.status(500).json({ success: false, error: 'Failed to clear system logs' });
+      this.serverError(res, error, 'clearLogs');
     }
-  });
+  }
 }
+
+export const systemController = new SystemController();

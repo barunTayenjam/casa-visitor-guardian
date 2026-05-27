@@ -85,7 +85,7 @@ export const settingsService = {
 
   async getDetectionConfig(camera?: string): Promise<DetectionConfig> {
     try {
-      const endpoint = camera ? `/detection/config/${camera}` : '/detection/config';
+      const endpoint = camera ? `/detection/${camera}` : '/detection';
       const response = await apiClient.get<{ success: boolean; config: DetectionConfig }>(endpoint);
       if (response.success) return response.config;
       throw new ApiError('Failed to get detection config', 400, 'GET_DETECTION_CONFIG_ERROR');
@@ -98,7 +98,7 @@ export const settingsService = {
   async updateDetectionConfig(data: Partial<DetectionConfig> & { cameraId?: string }): Promise<DetectionConfig> {
     try {
       const { cameraId, ...configData } = data;
-      const endpoint = cameraId ? `/detection/config/${cameraId}` : '/detection/config';
+      const endpoint = cameraId ? `/detection/${cameraId}` : '/detection';
       const response = await apiClient.put<{ success: boolean; config: DetectionConfig }>(endpoint, configData);
       if (response.success) return response.config;
       throw new ApiError('Failed to update detection config', 400, 'UPDATE_DETECTION_CONFIG_ERROR');

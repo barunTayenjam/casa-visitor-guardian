@@ -96,17 +96,12 @@ export class StreamManager {
     // Setup event listeners for motion detection
     this.setupDetectionEventListeners();
 
-    // Start periodic detection
-    motionTriggeredDetection.startPeriodicDetection(this);
+    // Start periodic detection (disabled: OptimizedMotionDetector handles this)
+    // motionTriggeredDetection.startPeriodicDetection(this);
   }
 
   private setupDetectionEventListeners(): void {
-    // Listen for EventEmitter events from motionTriggeredDetection
-    motionTriggeredDetection.on('motionDetected', (event: any) => {
-      this.emitDetectionEvent(event);
-    });
-
-    // Also listen for Socket.IO events from simulation (simulateMotionDetection emits via Socket.IO)
+    // Listen for Socket.IO events from simulation (simulateMotionDetection emits via Socket.IO)
     this.io.on('motionDetected', (event: any) => {
       this.emitDetectionEvent(event);
     });
@@ -795,13 +790,9 @@ export class StreamManager {
     return true;
   }
 
-  // Process frame for motion detection (non-blocking)
+  // Process frame for motion detection (non-blocking) — disabled: OptimizedMotionDetector handles this
   private async processFrameForMotion(cameraId: string, frame: Buffer): Promise<void> {
-    try {
-      await motionTriggeredDetection.processFrame(cameraId, frame);
-    } catch (error) {
-      console.error(`Motion detection processing error for ${cameraId}:`, error);
-    }
+    // OptimizedMotionDetector runs on its own timer via streamManager.getLastFrame()
   }
 
   // Simulate motion detection

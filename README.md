@@ -1,66 +1,64 @@
 # SentryVision
 
-A comprehensive home security system with real-time camera streaming, motion detection, facial recognition, and visitor analytics.
+Home security system with real-time camera streaming, motion detection, facial recognition, and visitor analytics.
 
 ## Features
 
-- **Real-time Camera Streaming**: RTSP stream processing with FFmpeg and WebSocket delivery
-- **Motion Detection**: Optimized OpenCV-based MOG2 background subtraction with adaptive sensitivity
-- **Object Detection**: Track persons, vehicles (cars), pets (dogs, cats), and packages
-- **Facial Recognition**: Face detection and known person matching via Python OpenCV service
+- **Real-time Streaming**: RTSP → FFmpeg → WebSocket delivery with adaptive quality
+- **Motion Detection**: OpenCV MOG2 background subtraction with adaptive sensitivity and night mode
+- **Object Detection**: YOLOv4-tiny tracking (person, car, dog, cat, package)
+- **Facial Recognition**: Face detection, embedding, and known person matching via Python service
 - **Visitor Analytics**: Timeline views, review segments, and visitor tracking
 - **Multi-camera Support**: Zone-based detection with customizable tracking areas
-- **Event Recording**: 24/7 recording with configurable retention policies
-- **User Management**: Role-based access control with MFA support
-- **System Health Monitoring**: Real-time metrics and performance dashboard
+- **AI Analysis**: NVIDIA-powered scene analysis for events
+- **Notifications**: Push notification system with configurable preferences
+- **Auth**: JWT + refresh tokens, TOTP MFA, role-based access (admin/user/viewer)
 
 ## Architecture
 
 ```
-┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   Frontend      │      │    Backend      │      │  OpenCV Service │
-│   (React)       │◄────►│   (Node.js)     │◄────►│   (Python)      │
-│   Port: 5173    │      │   Port: 9753    │      │   Port: 8084    │
-└─────────────────┘      └─────────────────┘      └─────────────────┘
-         │                        │                        │
-         └────────────────────────┼────────────────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-             ┌──────▼──────┐            ┌──────▼──────┐
-             │  PostgreSQL │            │    Redis    │
-             │  Port: 5432 │            │  Port: 6379 │
-             └─────────────┘            └─────────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Frontend   │     │   Backend    │     │  OpenCV Svc  │
+│   React 18   │◄───►│   Express    │◄───►│   Flask      │
+│   :5173      │     │   :9753      │     │   :8084      │
+└──────────────┘     └──────┬───────┘     └──────────────┘
+                            │
+                  ┌─────────┴─────────┐
+                  │                   │
+            ┌─────▼─────┐      ┌─────▼─────┐
+            │ PostgreSQL│      │   Redis   │
+            │   :5432   │      │   :6379   │
+            └───────────┘      └───────────┘
 ```
 
 | Service | Stack | Port |
 |---------|-------|------|
 | Frontend | React 18 + TypeScript + Vite + TailwindCSS + Radix UI | 5173 |
-| Backend | Node.js + Express + TypeScript + TypeORM + Socket.io | 9753 |
-| OpenCV | Python Flask + OpenCV (MOG2 motion detection, YOLO objects, face recognition) | 8084 |
-| Database | PostgreSQL 15+ with 17 tables across 8 migrations | 5432 |
-| Cache | Redis for detection result caching (with in-memory fallback) | 6379 |
+| Backend | Node.js + Express 5 + TypeScript + TypeORM + Socket.io | 9753 |
+| OpenCV | Python Flask + OpenCV (MOG2, YOLOv4-tiny, face recognition) | 8084 |
+| Database | PostgreSQL 15+ with 28 migrations | 5432 |
+| Cache | Redis (in-memory fallback) | 6379 |
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Docker (Recommended)
 
 ```bash
 git clone <repository-url> && cd home-security-non-docker
 docker-compose up -d
-docker-compose ps          # Check service status
-docker-compose logs -f     # View logs
+docker-compose ps
+docker-compose logs -f
 ```
 
 ### Local Development
 
 ```bash
-npm install && cd server && npm install && cd ../frontend && npm install && cd ../database && npm install
+npm install && cd server && npm install && cd ../frontend && npm install
 
-createdb sentryvision     # Create database
-cd database && npm run migrate  # Run migrations
+createdb sentryvision
+cd database && npm run migrate
 
-npm run dev:full           # Start both frontend and backend
+npm run dev:full
 ```
 
 ### Service URLs
@@ -75,7 +73,7 @@ npm run dev:full           # Start both frontend and backend
 
 ### Camera Setup
 
-Edit `server/cameras.json` to configure your cameras:
+Edit `server/cameras.json` (see `server/cameras.example.json` for template):
 
 ```json
 {
@@ -84,17 +82,12 @@ Edit `server/cameras.json` to configure your cameras:
   "streams": [{
     "path": "rtsp://user:pass@192.168.1.100:554/stream1",
     "roles": ["live", "detect", "record"],
-    "width": 1920,
-    "height": 1080,
-    "fps": 4
+    "width": 1920, "height": 1080, "fps": 4
   }],
-  "objects": {
-    "track": ["person", "car", "dog", "cat", "package"]
-  },
+  "objects": { "track": ["person", "car", "dog", "cat", "package"] },
   "zones": [
     {
-      "id": "front_steps",
-      "name": "Front Steps",
+      "id": "front_steps", "name": "Front Steps",
       "coordinates": [[0.1, 0.5], [0.4, 0.3], [0.5, 0.4], [0.2, 0.7]],
       "objects": ["person", "package"]
     }
@@ -102,182 +95,151 @@ Edit `server/cameras.json` to configure your cameras:
 }
 ```
 
-### Motion Detection
-
-Optimized MOG2 parameters in `opencv-service/app.py`:
-
-| Parameter | Default | Optimized | Improvement |
-|-----------|---------|-----------|-------------|
-| History | 500 | 200 | 2.5x faster adaptation |
-| varThreshold | 16 | 8 | 2x more sensitive |
-| detectShadows | true | false | Reduced noise |
-| Motion threshold | 0.3% | 0.2% | Detect smaller motion |
-| Contour threshold | 0.2% | 0.15% | Better edge detection |
-
-Backend detection in `server/src/detection/optimizedMotionDetection.ts`:
-
-- Sensitivity: 90/100 (maximum)
-- Detection interval: 3 seconds
-- Cooldown: 10 seconds between events
-- Night mode: Enhanced sensitivity 22:00-06:00
-
 ### Timezone
 
-All services configured for **IST (Asia/Kolkata, UTC+5:30)** via `TZ=Asia/Kolkata` in docker-compose.yml.
+All services use **IST (Asia/Kolkata, UTC+5:30)** via `TZ=Asia/Kolkata`.
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - Register new user
+### Auth
+- `POST /api/auth/register` - Register user
 - `POST /api/auth/login` - Login with JWT
 - `POST /api/auth/refresh` - Refresh access token
 - `POST /api/auth/logout` - Invalidate session
 - `GET /api/auth/mfa/setup` - Setup MFA
-- `POST /api/auth/mfa/verify` - Verify MFA code
+- `POST /api/auth/mfa/verify` - Verify TOTP code
 
 ### Events
-- `GET /api/events/list` - List events with pagination
-- `GET /api/events/list-enhanced` - Enhanced event list with filters
-- `GET /api/events/:id` - Get event details
-- `GET /api/events/image/:filename` - Get event image
+- `GET /api/events/list` - List with pagination
+- `GET /api/events/list-enhanced` - Filtered list (type, camera, date range)
+- `GET /api/events/:id` - Event details
+- `GET /api/events/image/:filename` - Event image
+- `DELETE /api/events/:id` - Delete event
 
 ### Visitors
-- `GET /api/visitors/list` - List all visitors
-- `GET /api/visitors/timeline` - Get visitor timeline
-- `GET /api/visitors/:id` - Get visitor details
-- `PUT /api/visitors/:id` - Update visitor info
+- `GET /api/visitors/list` - All visitors
+- `GET /api/visitors/timeline` - Visitor timeline
+- `GET /api/visitors/:id` - Visitor details
+- `PUT /api/visitors/:id` - Update visitor
 
 ### Review
-- `GET /api/review/segments` - Get review segments
-- `POST /api/review/segments/:id/dismiss` - Dismiss segment
-- `POST /api/review/segments/:id/confirm` - Confirm detection
+- `GET /api/review/segments` - Review segments
+- `POST /api/review/segments/:id/dismiss` - Dismiss
+- `POST /api/review/segments/:id/confirm` - Confirm
+
+### Detection
+- `POST /api/detection/redo` - Re-run detection
+- `POST /api/detection/batch` - Batch detection
+- `GET /api/detection/status/:jobId` - Job status
 
 ### System
 - `GET /api/health` - Health check
-- `GET /api/stats` - System statistics
-- `GET /api/cameras` - List cameras
+- `GET /api/stats` - Statistics
+- `GET /api/cameras` - Camera list
 - `POST /api/cameras/:id/snapshot` - Capture snapshot
 
 ## Project Structure
 
 ```
 home-security-non-docker/
-├── frontend/              # React frontend
-│   ├── src/
-│   │   ├── components/   # UI components
-│   │   ├── pages/        # Route pages
-│   │   ├── services/     # API clients
-│   │   ├── hooks/        # Custom React hooks
-│   │   ├── types/        # TypeScript definitions
-│   │   └── contexts/     # React contexts
-│   └── package.json
-├── server/               # Node.js backend
-│   ├── src/
-│   │   ├── routes/       # API endpoints
-│   │   ├── services/     # Business logic
-│   │   ├── models/       # TypeORM entities
-│   │   ├── middleware/   # Express middleware
-│   │   ├── detection/    # Motion detection (3 implementations)
-│   │   └── streams/      # RTSP management
-│   ├── cameras.json      # Camera configuration
-│   └── package.json
-├── opencv-service/       # Python OpenCV service
-│   ├── app.py           # Flask application
+├── frontend/                # React frontend
+│   └── src/
+│       ├── pages/           # Route pages (Events, Analytics, Settings, DayHighlights...)
+│       ├── components/      # UI components
+│       │   ├── live/        # Camera grid, stream panels
+│       │   ├── events/      # Event detail, filters, timeline
+│       │   ├── layout/      # AppLayout, MacDock navigation
+│       │   ├── settings/    # Motion/optimization settings
+│       │   └── ui/          # shadcn/ui (Radix primitives)
+│       ├── services/api/    # API clients (camera, event, detection, auth...)
+│       ├── contexts/        # Auth, Camera, Socket contexts
+│       └── types/           # TypeScript definitions
+├── server/                  # Node.js backend
+│   └── src/
+│       ├── controllers/     # MVC controllers (Camera, Stream, Auth, Detection...)
+│       ├── routes/          # Express route definitions
+│       ├── services/        # Business logic (batch, retention, notifications...)
+│       ├── models/          # TypeORM entities (User, Event, Visitor, BatchJob...)
+│       ├── middleware/      # Auth, validation, rate limiting
+│       ├── detection/       # Motion detection (optimized, triggered, consolidated)
+│       ├── streams/         # RTSP manager, stream health monitor
+│       └── utils/           # Logger, encryption, cron jobs, audit logging
+├── opencv-service/          # Python OpenCV service
+│   ├── app.py               # Flask application
 │   ├── improved_face_recognition.py
-│   └── models/          # ML models
-├── database/            # PostgreSQL setup
-│   └── migrations/      # SQL migrations (001-008)
-├── scripts/             # Utility scripts (health, diagnose, backup, deploy)
-├── AGENTS.md            # Development guidelines (comprehensive)
-└── docker-compose.yml   # Multi-service orchestration
+│   └── models/              # YOLO weights, face detection models
+├── database/
+│   └── migrations/          # SQL migrations (001-028)
+├── scripts/                 # Utility scripts (deploy, health, backup, diagnose)
+└── docker-compose.yml
 ```
 
-## Development Scripts
+## Commands
 
 ```bash
-# Root commands
-npm run dev                 # Start frontend only
-npm run dev:server          # Start backend only
-npm run dev:full            # Start both
-npm run build               # Build frontend
-npm run build:server        # Build backend
-npm run kill:ports          # Kill processes on ports 5173, 9753
+# Development
+npm run dev                 # Frontend only (5173)
+npm run dev:server          # Backend only (9753)
+npm run dev:full            # Both
+npm run kill:ports          # Kill processes on 5173, 9753
 
-# Docker
-docker-compose up -d        # Start all services
-docker-compose down         # Stop all services
-docker-compose logs -f      # View logs
+# Build
+npm run build               # Frontend
+npm run build:server        # Backend
+npm run build:full          # Both
 
-# Utility scripts (in scripts/)
+# Testing
+npm run lint                # ESLint (frontend)
+npm run typecheck           # TypeScript check (frontend)
+npm run test                # Jest (frontend)
+
+# Utility scripts
 scripts/health.sh           # Service health monitoring
-scripts/diagnose.sh         # System diagnostic (cameras, ports, ffmpeg)
-scripts/test-opencv.sh [host]  # Test OpenCV + backend + frontend
+scripts/diagnose.sh         # System diagnostics
+scripts/test-opencv.sh      # Test OpenCV + backend + frontend
 scripts/backup.sh           # Database and file backups
 scripts/deploy.sh           # Production deployment
 scripts/sentryvision.sh     # Interactive management console
-
-# Frontend (cd frontend)
-npm run typecheck           # TypeScript type checking
-npm run lint                # ESLint check
-npm test                    # Run Jest tests
-
-# Backend (cd server)
-npm run dev                 # Start with hot reload
-npm run build               # Compile TypeScript
-npm start                   # Start production server
-
-# Database (cd database)
-npm run migrate             # Run migrations
 ```
 
-## Database Schema
+## Database
 
-17 tables across user management, detection, visitor tracking, review, and system config:
+28 migrations creating tables across 5 domains:
 
 | Category | Tables |
 |----------|--------|
 | Users | `users`, `roles`, `user_sessions`, `password_history`, `audit_logs` |
-| Detection | `events`, `detection_config`, `processed_images`, `adaptive_regions` |
-| Visitors | `visitor_timeline`, `timeline` |
+| Detection | `events`, `detection_config`, `processed_images`, `adaptive_regions`, `face_embeddings` |
+| Visitors | `visitor_timeline`, `timeline`, `unknown_faces` |
 | Review | `review_segments`, `user_review_status`, `batch_jobs` |
-| System | `retention_policies`, `storage_stats`, `system_settings` |
+| System | `retention_policies`, `storage_stats`, `system_settings`, `notification_*`, `security_events`, `rate_limit_counters`, `ai_analysis_results` |
 
 ## Security
 
-- **Authentication**: JWT with access/refresh token pattern (15 min / 7 days)
-- **MFA**: TOTP-based (Google Authenticator compatible)
-- **Authorization**: Role-based access (admin, user, viewer)
-- **Rate Limiting**: Configurable per endpoint
-- **Input Validation**: Zod schemas for all API inputs
-- **Audit Logging**: Complete trail of sensitive operations
-- **Security Headers**: Helmet.js with CSP, X-Frame-Options
-- **Password Policies**: Complexity requirements + history tracking
+- JWT access (15 min) / refresh (7 days) tokens
+- TOTP MFA (Google Authenticator compatible)
+- Role-based access (admin, user, viewer)
+- BCrypt password hashing with history tracking
+- Zod input validation on all endpoints
+- Rate limiting per endpoint
+- Helmet.js security headers
+- Full audit logging of sensitive operations
 
-## Testing
+## Deployment
 
-```bash
-# Frontend
-cd frontend && npm test
+See `scripts/deploy.sh` for production deployment. Key steps:
 
-# Backend
-cd server && npm test
-```
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Port conflicts | `npm run kill:ports` |
-| Database connection | `docker ps \| grep postgres` then `docker exec -it sentryvision-postgres psql -U sentryvision -d sentryvision` |
-| OpenCV not responding | `curl http://localhost:8084/health` |
-| Motion not detecting | Check RTSP URLs in `cameras.json`, verify FFmpeg, check detection zones |
-| Frontend build errors | `rm -rf frontend/node_modules && cd frontend && npm install` |
-| Backend TypeScript errors | `cd server && rm -rf dist && npm run build` |
+1. Configure `.env` with production secrets (never use defaults)
+2. Run `scripts/deploy.sh` or `docker-compose up -d`
+3. Set up SSL/TLS reverse proxy
+4. Configure PostgreSQL backups
+5. Monitor via `scripts/health.sh`
 
 ## Documentation
 
-- **`AGENTS.md`** - Comprehensive development guidelines, code conventions, and system details
-- **`server/cameras.example.json`** - Camera configuration reference
+- **`AGENTS.md`** - Developer guidelines, architecture details, conventions
+- **`server/cameras.example.json`** - Camera config reference
+- **`.env.example`** - Environment variable template
 
 ## License
 

@@ -245,7 +245,7 @@ export class MotionTriggeredDetection extends EventEmitter {
       
       const detections = response.data.detections;
       
-      const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'package'];
+      const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat'];
       const relevantDetections = detections.filter(d => relevantClasses.includes(d.class));
       
       if (relevantDetections.length === 0) {
@@ -418,7 +418,6 @@ export class MotionTriggeredDetection extends EventEmitter {
     const carCount = validDetections.filter(d => d.class === 'car').length;
     const dogCount = validDetections.filter(d => d.class === 'dog').length;
     const catCount = validDetections.filter(d => d.class === 'cat').length;
-    const packageCount = validDetections.filter(d => d.class === 'package').length;
     const maxConfidence = validDetections.length > 0 ? Math.max(...validDetections.map(d => d.confidence)) : 0;
 
     // Count unique object classes

@@ -22,7 +22,7 @@ const DEFAULT_TRACKED_OBJECTS = new Set([
   'backpack', 'handbag', 'suitcase', 'umbrella',
   'bottle', 'cup', 'chair', 'couch', 'bed',
   'dining table', 'tv', 'laptop', 'cell phone',
-  'package', 'box',
+  'box',
 ]);
 
 // Optimized motion detection settings
@@ -724,7 +724,7 @@ export class OptimizedMotionDetector extends EventEmitter {
     if (!analysisResult?.allDetections || analysisResult.allDetections.length === 0) {
       return false;
     }
-    const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'package'];
+    const relevantClasses = ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat'];
     return analysisResult.allDetections.some((d) => relevantClasses.includes(d.class));
   }
 

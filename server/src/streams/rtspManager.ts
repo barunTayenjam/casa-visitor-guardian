@@ -339,6 +339,16 @@ export class StreamManager {
       return true;
     }
 
+    // Check pipeline mode — skip FFmpeg spawn if Python handles RTSP for this camera
+    const cameraConfig = config.cameras.find(c => c.id === cameraId);
+    const pythonEnabled = cameraConfig?.pythonEnabled ?? (config.pipeline.mode === 'python-only');
+
+    if (pythonEnabled) {
+      console.log(`[StreamManager] ${cameraId}: Python manages RTSP (pipeline=${config.pipeline.mode})`);
+      camera.isActive = true;
+      return true;
+    }
+
     // Start main FFmpeg process if not already running (first role request)
     if (!camera.mainProcess || !camera.mainProcess.pid) {
       try {

@@ -1,10 +1,20 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'node:events';
 
+interface FrameMetadata {
+  cameraId: string | null;
+  timestamp: number;
+}
+
 interface FrameMessage {
   cameraId: string | null;
   data: Buffer;
   timestamp: number;
+}
+
+interface SubscriptionMessage {
+  type: 'subscribe' | 'unsubscribe';
+  cameraId: string;
 }
 
 export class PythonWsClient extends EventEmitter {
@@ -14,6 +24,7 @@ export class PythonWsClient extends EventEmitter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private url: string;
   private _connected = false;
+  private pendingMetadata: FrameMetadata | null = null;
 
   constructor(url?: string) {
     super();
@@ -39,22 +50,41 @@ export class PythonWsClient extends EventEmitter {
       this.emit('connected');
     });
 
-    this.ws.on('message', (data: Buffer) => {
-      const message: FrameMessage = {
-        cameraId: null,
-        data,
-        timestamp: Date.now()
-      };
-      this.emit('frame', message);
+    this.ws.on('message', (data: WebSocket.Data, isBinary: boolean) => {
+      if (isBinary) {
+        const metadata = this.pendingMetadata;
+        this.pendingMetadata = null;
+        if (!metadata) {
+          return;
+        }
+        const message: FrameMessage = {
+          cameraId: metadata.cameraId,
+          data: data as Buffer,
+          timestamp: metadata.timestamp,
+        };
+        this.emit('frame', message);
+      } else {
+        try {
+          const parsed = JSON.parse(data.toString());
+          if (parsed.type === 'frame') {
+            this.pendingMetadata = {
+              cameraId: parsed.cameraId || null,
+              timestamp: parsed.timestamp || Date.now(),
+            };
+          }
+        } catch {
+          // ignore malformed messages
+        }
+      }
     });
 
     this.ws.on('close', () => {
       this._connected = false;
-      this.emit('disconnected');
       this.reconnectTimer = setTimeout(() => {
         this.connect();
       }, this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+      this.emit('disconnected');
     });
 
     this.ws.on('error', (err: Error) => {
@@ -70,13 +100,15 @@ export class PythonWsClient extends EventEmitter {
 
   subscribe(cameraId: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'subscribe', cameraId }));
+      const msg: SubscriptionMessage = { type: 'subscribe', cameraId };
+      this.ws.send(JSON.stringify(msg));
     }
   }
 
   unsubscribe(cameraId: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'unsubscribe', cameraId }));
+      const msg: SubscriptionMessage = { type: 'unsubscribe', cameraId };
+      this.ws.send(JSON.stringify(msg));
     }
   }
 

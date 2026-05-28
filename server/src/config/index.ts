@@ -185,6 +185,7 @@ export interface CameraConfig {
   };
   nightMode: boolean;
   credentialId?: string;
+  pythonEnabled?: boolean;
 }
 
 export interface DatabaseConfig {
@@ -203,6 +204,11 @@ export interface MQTTConfig {
   user?: string;
   password?: string;
   qos?: 0 | 1 | 2;
+}
+
+export interface PipelineConfig {
+  mode: 'legacy' | 'dual' | 'python-only';
+  pythonWsUrl: string;
 }
 
 export interface AppConfig {
@@ -237,6 +243,7 @@ export interface AppConfig {
     defaultFps: number;
     defaultResolution: string;
   };
+  pipeline: PipelineConfig;
 }
 
 export const config: AppConfig = {
@@ -327,6 +334,10 @@ export const config: AppConfig = {
     threads: parseInt(process.env.FFMPEG_THREADS || '2', 10),
     defaultFps: parseInt(process.env.DEFAULT_FPS || '2', 10),
     defaultResolution: process.env.DEFAULT_RESOLUTION || '640x360'
+  },
+  pipeline: {
+    mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'legacy',
+    pythonWsUrl: process.env.PYTHON_WS_URL || 'ws://opencv:9090'
   }
 };
 

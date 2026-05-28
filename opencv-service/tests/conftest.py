@@ -6,6 +6,8 @@ Provides mock frame generators (random, blank, motion) and
 a camera configuration fixture matching cameras.example.json format.
 """
 
+pytest_plugins = ('pytest_asyncio',)
+
 import numpy as np
 import pytest
 

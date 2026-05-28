@@ -393,72 +393,11 @@ export class MotionTriggeredDetection extends EventEmitter {
   // Object detection is now handled via HTTP requests to the opencv service
 
   /**
-   * Validate and filter detection results to ensure realistic bounding boxes
-   */
-  private validateDetections(detections: any[]): any[] {
-    return detections.filter(detection => {
-      // Basic validation
-      if (!detection.bbox || typeof detection.bbox !== 'object') {
-        return false;
-      }
-
-      const { x, y, width, height } = detection.bbox;
-
-      // Check if coordinates are valid numbers
-      if (typeof x !== 'number' || typeof y !== 'number' ||
-          typeof width !== 'number' || typeof height !== 'number') {
-        return false;
-      }
-
-      // Check for realistic bounds (assuming max image size of 4096x2160)
-      if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
-          x > 4096 || y > 2160 || width > 4096 || height > 2160) {
-        return false;
-      }
-
-      // Check for reasonable aspect ratios (not extremely narrow/wide)
-      const aspectRatio = width / height;
-      if (aspectRatio > 10 || aspectRatio < 0.1) {
-        return false;
-      }
-
-      // Check for minimum size (at least 5x5 pixels)
-      if (width < 5 || height < 5) {
-        return false;
-      }
-
-      // Check for maximum size (not taking up entire frame)
-      if (width > 3000 || height > 2000) {
-        return false;
-      }
-
-      // Confidence should be between 0 and 100
-      if (typeof detection.confidence === 'number' &&
-          (detection.confidence < 0 || detection.confidence > 100)) {
-        return false;
-      }
-
-      return true;
-    }).map(detection => {
-      // Round coordinates to integers to ensure consistency
-      return {
-        ...detection,
-        bbox: {
-          x: Math.round(detection.bbox.x),
-          y: Math.round(detection.bbox.y),
-          width: Math.round(detection.bbox.width),
-          height: Math.round(detection.bbox.height)
-        }
-      };
-    });
-  }
-
-  /**
    * Save motion-detected frame
    */
   private async saveMotionFrame(cameraId: string, frame: Buffer, detections: any[]): Promise<string> {
     // Validate detections before saving
-    const validDetections = this.validateDetections(detections);
+    const validDetections = validateDetections(detections);
 
     // Use unified storage system
     const { getEventPath } = await import('../config/index.js');
@@ -666,6 +605,56 @@ export class MotionTriggeredDetection extends EventEmitter {
   }
 }
 
-// Singleton instance
-export const motionTriggeredDetection = new MotionTriggeredDetection();
-export default motionTriggeredDetection;
+/**
+ * Validate and filter detection results to ensure realistic bounding boxes
+ */
+export function validateDetections(detections: any[]): any[] {
+  return detections.filter(detection => {
+    if (!detection.bbox || typeof detection.bbox !== 'object') {
+      return false;
+    }
+
+    const { x, y, width, height } = detection.bbox;
+
+    if (typeof x !== 'number' || typeof y !== 'number' ||
+        typeof width !== 'number' || typeof height !== 'number') {
+      return false;
+    }
+
+    if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
+        x > 4096 || y > 2160 || width > 4096 || height > 2160) {
+      return false;
+    }
+
+    const aspectRatio = width / height;
+    if (aspectRatio > 10 || aspectRatio < 0.1) {
+      return false;
+    }
+
+    if (width < 5 || height < 5) {
+      return false;
+    }
+
+    if (width > 3000 || height > 2000) {
+      return false;
+    }
+
+    if (typeof detection.confidence === 'number' &&
+        (detection.confidence < 0 || detection.confidence > 100)) {
+      return false;
+    }
+
+    return true;
+  }).map(detection => {
+    return {
+      ...detection,
+      bbox: {
+        x: Math.round(detection.bbox.x),
+        y: Math.round(detection.bbox.y),
+        width: Math.round(detection.bbox.width),
+        height: Math.round(detection.bbox.height)
+      }
+    };
+  });
+}
+

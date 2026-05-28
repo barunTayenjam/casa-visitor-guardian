@@ -20,7 +20,7 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-white/[0.08] bg-black/90 backdrop-blur-3xl text-foreground",
+        default: "border-white/[0.14] bg-black/90 backdrop-blur-3xl text-foreground",
         destructive: "border-destructive/30 bg-destructive/20 backdrop-blur-3xl text-destructive",
       },
     },
@@ -41,7 +41,7 @@ const ToastAction = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Action ref={ref}
-    className={cn("inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-transparent px-3 text-xs font-medium ring-offset-background transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50", className)} {...props} />
+    className={cn("inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-white/[0.14] bg-transparent px-3 text-xs font-medium ring-offset-background transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50", className)} {...props} />
 ))
 ToastAction.displayName = ToastPrimitives.Action.displayName
 

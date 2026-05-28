@@ -44,7 +44,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({ open, onOpenChange, ca
               <DrawerDescription className="sr-only">Stream information and controls for {camera.name}</DrawerDescription>
             </DrawerHeader>
             <div className="px-4 pb-5 space-y-3 overflow-y-auto">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-[0.75rem] bg-white/[0.03]" role="status" aria-label={`Connection status: ${conn.label}`}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-[0.75rem] bg-white/[0.06]" role="status" aria-label={`Connection status: ${conn.label}`}>
                 <ConnIcon className={cn('h-4 w-4', conn.color, (connectionState === 'connecting' || connectionState === 'reconnecting') && 'animate-spin')} />
                 <span className={cn('text-xs font-medium', conn.color)}>{conn.label}</span>
               </div>
@@ -68,9 +68,9 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({ open, onOpenChange, ca
                 <RecentDetectionsSection cameraId={camera.id} />
               </div>
               <div className="flex items-center justify-center gap-3 pt-1">
-                {imgRef && <ScreenshotButton camera={camera} imgRef={imgRef} className="h-10 w-10 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-foreground" />}
+                {imgRef && <ScreenshotButton camera={camera} imgRef={imgRef} className="h-10 w-10 rounded-full bg-white/[0.08] hover:bg-white/[0.08] text-foreground" />}
                 {onFullscreen && (
-                  <Button variant="ghost" size="icon-sm" className="h-10 w-10 rounded-full bg-white/[0.04] hover:bg-white/[0.08]" onClick={onFullscreen} title="Fullscreen" aria-label="Enter fullscreen">
+                  <Button variant="ghost" size="icon-sm" className="h-10 w-10 rounded-full bg-white/[0.08] hover:bg-white/[0.08]" onClick={onFullscreen} title="Fullscreen" aria-label="Enter fullscreen">
                     <Maximize2 className="h-4 w-4" />
                   </Button>
                 )}

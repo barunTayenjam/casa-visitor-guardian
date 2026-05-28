@@ -35,7 +35,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
   if (findRelatedEvents.length === 0) {
     return (
       <div className="p-8 text-center">
-        <div className="w-10 h-10 rounded-full bg-white/[0.03] flex items-center justify-center mx-auto mb-3">
+        <div className="w-10 h-10 rounded-full bg-white/[0.06] flex items-center justify-center mx-auto mb-3">
           <Link2 className="h-4 w-4 text-muted-foreground" />
         </div>
         <p className="text-xs text-muted-foreground">No related events found</p>
@@ -66,7 +66,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
         {findRelatedEvents.map((event, index) => (
           <div
             key={event.id}
-            className="p-[1px] rounded-[1.25rem] bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer hover:bg-white/[0.06] opacity-0"
+            className="p-[1px] rounded-[1.25rem] bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer hover:bg-white/[0.06] opacity-0"
             style={{ animation: `slide-up-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms forwards` }}
             onClick={() => onEventSelect?.(event.id)}
           >
@@ -75,7 +75,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
                 {event.imageUrl ? (
                   <img src={event.imageUrl} alt={`Related event`} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center"><p className="text-[10px] text-white/30">No image</p></div>
+                  <div className="w-full h-full flex items-center justify-center"><p className="text-[10px] text-white/60">No image</p></div>
                 )}
                 <div className="absolute top-1.5 left-1.5">
                   <Badge variant="glass" className="text-[8px] px-1.5 py-0.5 bg-blue-500/60 text-white border-none">{getRelationLabel(event)}</Badge>

@@ -238,28 +238,31 @@ const AnalyticsPage = () => {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-background">
+      <div className="w-full min-h-[100dvh] bg-background">
         <PageLoading message="Loading analytics..." />
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-background">
-      <div className="px-4 md:px-6 py-6">
+    <div className="w-full min-h-[100dvh] bg-background">
+      <div className="px-5 pt-6 pb-2 animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-            <p className="text-sm text-muted-foreground">System insights and statistics</p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
+              Analytics
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Insights & Statistics</h1>
           </div>
-          <div className="flex items-center gap-2 bg-muted rounded-xl p-1 border border-border" role="group" aria-label="Time range selection">
+          <div className="bezel inline-flex" role="group" aria-label="Time range selection">
+            <div className="bezel-inner flex items-center gap-0 p-1">
               {(['7d', '30d', '90d'] as const).map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={cn(
-                    'px-4 py-2 rounded-lg text-xs font-medium transition-all',
-                    timeRange === range ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                    'px-4 py-2 rounded-[3px] text-xs font-medium transition-all',
+                    timeRange === range ? 'bg-white/[0.06] text-foreground' : 'text-muted-foreground hover:text-foreground'
                   )}
                   aria-label={range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}
                   aria-pressed={timeRange === range}
@@ -267,11 +270,12 @@ const AnalyticsPage = () => {
                   {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
                 </button>
               ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="px-5 pb-28 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Total Events"
@@ -301,161 +305,169 @@ const AnalyticsPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-xl border bg-card border-border">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Events Over Time</h3>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.info }} />
-                  <span className="text-xs text-muted-foreground">Events</span>
+          <div className="bezel">
+            <div className="bezel-inner p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-foreground">Events Over Time</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.status.info }} />
+                    <span className="text-xs text-muted-foreground">Events</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#22c55e' }} />
+                    <span className="text-xs text-muted-foreground">Persons</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
+                    <span className="text-xs text-muted-foreground">Vehicles</span>
+                  </div>
                 </div>
-                 <div className="flex items-center gap-1">
-                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#22c55e' }} />
-                   <span className="text-xs text-muted-foreground">Persons</span>
-                 </div>
-                 <div className="flex items-center gap-1">
-                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
-                   <span className="text-xs text-muted-foreground">Vehicles</span>
-                 </div>
               </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={analyticsData.eventsOverTime}>
+                  <defs>
+                    <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={colors.status.info} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={colors.status.info} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorPersons" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorVehicles" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} />
+                  <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: colors.background.secondary,
+                      border: `1px solid ${colors.border.subtle}`,
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Area type="monotone" dataKey="events" stroke={colors.status.info} fillOpacity={1} fill="url(#colorEvents)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="persons" stroke="#22c55e" fillOpacity={1} fill="url(#colorPersons)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="vehicles" stroke="#3b82f6" fillOpacity={1} fill="url(#colorVehicles)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={analyticsData.eventsOverTime}>
-                 <defs>
-                   <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor={colors.status.info} stopOpacity={0.3} />
-                     <stop offset="95%" stopColor={colors.status.info} stopOpacity={0} />
-                   </linearGradient>
-                   <linearGradient id="colorPersons" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                   </linearGradient>
-                   <linearGradient id="colorVehicles" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                   </linearGradient>
-                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: colors.background.secondary,
-                    border: `1px solid ${colors.border.subtle}`,
-                    borderRadius: '8px',
-                  }}
-                />
-                <Area type="monotone" dataKey="events" stroke={colors.status.info} fillOpacity={1} fill="url(#colorEvents)" strokeWidth={2} />
-                 <Area type="monotone" dataKey="persons" stroke="#22c55e" fillOpacity={1} fill="url(#colorPersons)" strokeWidth={2} />
-                 <Area type="monotone" dataKey="vehicles" stroke="#3b82f6" fillOpacity={1} fill="url(#colorVehicles)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
           </div>
 
-          <div className="p-5 rounded-xl border bg-card border-border">
-            <h3 className="text-base font-semibold text-foreground mb-4">Detection Types</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={analyticsData.detectionTypes}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={90}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {analyticsData.detectionTypes.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: colors.background.secondary,
-                    border: `1px solid ${colors.border.subtle}`,
-                    borderRadius: '8px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="bezel">
+            <div className="bezel-inner p-5">
+              <h3 className="text-base font-semibold text-foreground mb-4">Detection Types</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={analyticsData.detectionTypes}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={90}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {analyticsData.detectionTypes.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: colors.background.secondary,
+                      border: `1px solid ${colors.border.subtle}`,
+                      borderRadius: '8px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          <div className="p-5 rounded-xl border bg-card border-border">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Hourly Activity</h3>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                Last 24 hours
+          <div className="bezel">
+            <div className="bezel-inner p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-foreground">Hourly Activity</h3>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Last 24 hours
+                </div>
               </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={analyticsData.hourlyActivity}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} />
+                  <XAxis dataKey="hour" stroke="#64748b" fontSize={12} interval={3} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: colors.background.secondary,
+                      border: `1px solid ${colors.border.subtle}`,
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Bar dataKey="events" fill={colors.status.info} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={analyticsData.hourlyActivity}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="hour" stroke="#64748b" fontSize={12} interval={3} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: colors.background.secondary,
-                    border: `1px solid ${colors.border.subtle}`,
-                    borderRadius: '8px',
-                  }}
-                />
-                <Bar dataKey="events" fill={colors.status.info} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
 
-          <div className="p-5 rounded-xl border bg-card border-border">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Camera Status</h3>
-              <div className="flex items-center gap-1 text-xs text-green-400">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                {cameras.filter(c => c.status === 'online').length} online
+          <div className="bezel">
+            <div className="bezel-inner p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-foreground">Camera Status</h3>
+                <div className="flex items-center gap-1 text-xs text-green-400">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  {cameras.filter(c => c.status === 'online').length} online
+                </div>
               </div>
-            </div>
-            <div className="space-y-4">
-              {analyticsData.cameraUptime.map((camera) => (
-                <div key={camera.camera} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${camera.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`} />
-                      <span className="text-sm font-medium text-foreground">{camera.camera}</span>
+              <div className="space-y-4">
+                {analyticsData.cameraUptime.map((camera) => (
+                  <div key={camera.camera} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${camera.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`} />
+                        <span className="text-sm font-medium text-foreground">{camera.camera}</span>
+                      </div>
+                      <span className={cn('text-xs font-medium', camera.status === 'online' ? 'text-green-400' : 'text-red-400')}>
+                        {camera.status}
+                      </span>
                     </div>
-                    <span
-                      className={cn('text-xs font-medium', camera.status === 'online' ? 'text-green-400' : 'text-red-400')}
-                    >
-                      {camera.status}
-                    </span>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{camera.events} events recorded</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{camera.events} events recorded</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="p-5 rounded-xl border bg-card border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-foreground">Storage Overview</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="text-center p-6 bg-muted/50 rounded-xl">
-              <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
-                <HardDrive className="h-6 w-6" style={{ color: colors.status.info }} />
-              </div>
-              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.used} GB</p>
-              <p className="text-sm text-muted-foreground mt-1">Used Space</p>
+        <div className="bezel">
+          <div className="bezel-inner p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-foreground">Storage Overview</h3>
             </div>
-            <div className="text-center p-6 bg-muted/50 rounded-xl">
-              <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.warning}15` }}>
-                <Activity className="h-6 w-6" style={{ color: colors.status.warning }} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-center p-6 bg-white/[0.06] rounded-[0.75rem]">
+                <div className="w-12 h-12 rounded-[0.75rem] mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
+                  <HardDrive className="h-6 w-6" style={{ color: colors.status.info }} />
+                </div>
+                <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.used} GB</p>
+                <p className="text-sm text-muted-foreground mt-1">Used Space</p>
               </div>
-              <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.events.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground mt-1">Total Events</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">stored in database</p>
+              <div className="text-center p-6 bg-white/[0.06] rounded-[0.75rem]">
+                <div className="w-12 h-12 rounded-[0.75rem] mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${colors.status.warning}15` }}>
+                  <Activity className="h-6 w-6" style={{ color: colors.status.warning }} />
+                </div>
+                <p className="text-3xl font-bold text-foreground">{analyticsData.storageStats.events.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total Events</p>
+                <p className="text-xs text-muted-foreground mt-1">stored in database</p>
+              </div>
             </div>
           </div>
         </div>

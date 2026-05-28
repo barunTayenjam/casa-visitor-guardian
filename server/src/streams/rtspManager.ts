@@ -6,7 +6,6 @@ import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
 import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig, CameraStreamConfig } from "../config/index.js";
-import { motionTriggeredDetection } from "../detection/motionTriggeredDetection.js";
 import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
 import { OptimizedMotionDetector } from "../detection/optimizedMotionDetection.js";
@@ -96,8 +95,7 @@ export class StreamManager {
     // Setup event listeners for motion detection
     this.setupDetectionEventListeners();
 
-    // Start periodic detection (disabled: OptimizedMotionDetector handles this)
-    // motionTriggeredDetection.startPeriodicDetection(this);
+
   }
 
   private setupDetectionEventListeners(): void {

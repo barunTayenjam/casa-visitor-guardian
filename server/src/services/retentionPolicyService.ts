@@ -241,32 +241,55 @@ export class RetentionPolicyService extends EventEmitter {
   private async findExpiredFiles(category: string, camera: string | undefined, cutoffDate: Date): Promise<string[]> {
     const expiredFiles: string[] = [];
     const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
-    const categoryPath = this.getCategoryPath(category, camera, detectionsDir);
 
-    try {
-      await fs.access(categoryPath);
-    } catch {
+    if (category !== 'detections' && category !== 'events') {
+      const categoryPath = this.getCategoryPath(category, camera, detectionsDir);
+      try {
+        await fs.access(categoryPath);
+      } catch {
+        return expiredFiles;
+      }
+      try {
+        const files = await this.scanDirectory(categoryPath);
+        for (const file of files) {
+          if (file.mtime < cutoffDate) {
+            expiredFiles.push(file.path);
+          }
+        }
+      } catch (error) {
+        console.warn(`Error scanning ${category} directory for ${camera || 'global'}:`, error);
+      }
       return expiredFiles;
     }
 
     try {
-      const files = await this.scanDirectory(categoryPath);
+      const entries = await fs.readdir(detectionsDir, { withFileTypes: true });
+      const monthDirs = entries
+        .filter(e => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
+        .map(e => e.name);
 
-      for (const file of files) {
-        if (file.mtime < cutoffDate) {
-          expiredFiles.push(file.path);
+      for (const monthDir of monthDirs) {
+        const scanPath = path.join(detectionsDir, monthDir);
+        const files = await this.scanDirectory(scanPath, 4);
+
+        for (const file of files) {
+          if (file.mtime < cutoffDate) {
+            if (camera) {
+              const basename = path.basename(file.path);
+              if (!basename.includes(`_${camera}_`) && !basename.includes(`_${camera}`)) continue;
+            }
+            expiredFiles.push(file.path);
+          }
         }
       }
     } catch (error) {
-      console.warn(`Error scanning ${category} directory for ${camera || 'global'}:`, error);
+      console.warn(`Error scanning detections for ${camera || 'global'}:`, error);
     }
 
     return expiredFiles;
   }
 
   private getCategoryPath(category: string, camera: string | undefined, baseDir: string): string {
-    const cameraSuffix = camera ? `_${camera}` : '';
-
     switch (category) {
       case 'alerts':
         return path.join(baseDir, 'alerts');
@@ -275,9 +298,8 @@ export class RetentionPolicyService extends EventEmitter {
       case 'previews':
         return path.join(baseDir, 'previews');
       case 'detections':
-        return path.join(baseDir, `detections${cameraSuffix}`);
       case 'events':
-        return path.join(baseDir, `events${cameraSuffix}`);
+        return baseDir;
       default:
         return path.join(baseDir, category);
     }

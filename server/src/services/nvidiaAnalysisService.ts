@@ -254,7 +254,6 @@ async function callNvidiaApi(
     throw new Error('NVIDIA_API_KEY environment variable is not set');
   }
 
-  // Build context-aware user message
   const contextInfo = [
     context.cameraName ? `Camera: ${context.cameraName}` : null,
     context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
@@ -296,21 +295,34 @@ async function callNvidiaApi(
     top_p: 0.9
   };
 
-  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(requestBody)
-  });
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < 3) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
-  return await response.json();
+  throw lastError || new Error('NVIDIA API call failed after 3 retries');
 }
 
 /**

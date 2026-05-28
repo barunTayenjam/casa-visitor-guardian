@@ -33,16 +33,18 @@
     
     <!-- Theme and color scheme -->
     <script>
-      // Set theme before page renders to prevent flash
       (function() {
-        const theme = localStorage.getItem('theme') || 'dark';
+        var theme = localStorage.getItem('sentryvision-theme') || 'dark';
+        if (theme === 'system') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
+        }
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.classList.add(theme);
       })();
     </script>
   </head>
 
-  <body class="bg-slate-900 text-slate-100 antialiased">
+  <body class="bg-[#050505] text-[#f5f5f5] antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -130,11 +130,11 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-1">
           <Select value={filters.quickRange} onValueChange={(value) => updateFilter('quickRange', value as FilterState['quickRange'])}>
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.03] border-white/[0.08] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
               <Calendar className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Time" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.08] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
               {quickRangeOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value} className="rounded-[0.75rem] text-xs">{option.label}</SelectItem>
               ))}
@@ -142,11 +142,11 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
           </Select>
 
           <Select value={filters.cameraId} onValueChange={(value) => updateFilter('cameraId', value)}>
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.03] border-white/[0.08] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
               <Camera className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Cameras" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.08] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
               <SelectItem value="all" className="rounded-[0.75rem] text-xs">All Cameras</SelectItem>
               {cameras.map((camera) => (
                 <SelectItem key={camera.id} value={camera.id} className="rounded-[0.75rem] text-xs">{camera.name}</SelectItem>
@@ -155,10 +155,10 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
           </Select>
 
           <Select value={filters.detectionType} onValueChange={(value: string) => updateFilter('detectionType', value as FilterState['detectionType'])}>
-            <SelectTrigger className="w-full md:w-32 h-9 rounded-[0.75rem] bg-white/[0.03] border-white/[0.08] text-xs">
+            <SelectTrigger className="w-full md:w-32 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
               <SelectValue placeholder="Event Type" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.08] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
               <SelectItem value="all" className="rounded-[0.75rem] text-xs">All Events</SelectItem>
               <SelectItem value="motion" className="rounded-[0.75rem] text-xs">Motion</SelectItem>
               <SelectItem value="person" className="rounded-[0.75rem] text-xs">Person</SelectItem>
@@ -178,7 +178,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
                 ) : <span>Calendar</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.08]" align="end">
+            <PopoverContent className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.14]" align="end">
               <div className="p-3 hairline-bottom flex items-center justify-between">
                 <Button variant="ghost" size="icon-sm" onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}>
                   <ChevronDown className="h-3.5 w-3.5" />

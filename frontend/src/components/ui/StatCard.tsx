@@ -12,7 +12,7 @@ const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
     const isPositive = change && change.value >= 0;
     const isNegative = change && change.value < 0;
     return (
-      <div ref={ref} className={cn("p-[1px] rounded-[1.25rem] bg-white/[0.04]", className)} {...props}>
+      <div ref={ref} className={cn("p-[1px] rounded-[1.25rem] bg-white/[0.08]", className)} {...props}>
         <div className="rounded-[calc(1.25rem-1px)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] p-4">
           <div className="flex items-start justify-between">
             <div className="space-y-1.5">
@@ -20,7 +20,7 @@ const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
               <p className="text-2xl font-semibold tracking-tight">{value}</p>
             </div>
             {Icon && (
-              <div className="flex h-9 w-9 items-center justify-center rounded-[0.75rem] bg-white/[0.03]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-[0.75rem] bg-white/[0.06]">
                 <Icon className={cn("h-4 w-4", iconColor)} />
               </div>
             )}

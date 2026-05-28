@@ -5,6 +5,7 @@ WORKDIR /app
 
 # Install system dependencies (updated for Debian trixie)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
     curl \
     cmake \
     g++ \

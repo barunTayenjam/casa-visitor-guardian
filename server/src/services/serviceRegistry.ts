@@ -9,6 +9,7 @@ import NotificationService from './notificationService.js';
 import { RetentionPolicyService } from './retentionPolicyService.js';
 import { AutomatedCleanupService } from './automatedCleanupService.js';
 import { PreviewService } from './preview/previewService.js';
+import { PythonWsClient } from './pythonWsClient.js';
 
 /**
  * Type-safe service registry replacing the unsafe `(global as any)` pattern.
@@ -128,6 +129,16 @@ class ServiceRegistry {
 
   getPreviewService(): PreviewService {
     return this.getRequired<PreviewService>('previewService');
+  }
+
+  // ── PythonWsClient ──
+
+  setPythonWsClient(client: PythonWsClient): void {
+    this.services.set('pythonWsClient', client);
+  }
+
+  getPythonWsClient(): PythonWsClient {
+    return this.getRequired<PythonWsClient>('pythonWsClient');
   }
 
   // ── Core getter with fail-fast ──

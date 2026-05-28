@@ -19,7 +19,7 @@ const StreamDashboard = () => {
     <div className="min-h-[100dvh] flex flex-col">
       {!focusedCameraId && (
         <div className="px-5 pt-6 pb-4 animate-fade-in">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
             Live View
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Cameras</h1>

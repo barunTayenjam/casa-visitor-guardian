@@ -5,8 +5,11 @@ import { EventEmitter } from 'events';
 import cron from 'node-cron';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { logger } from '../utils/logger.js';
 
+const execFileAsync = promisify(execFile);
 const DETECTIONS_DIR = process.env.DETECTIONS_DIR || '/app/data/detections';
 
 interface CleanupResult {
@@ -131,7 +134,6 @@ export class AutomatedCleanupService extends EventEmitter {
 
     try {
       await this.cleanupExpiredFiles();
-      await this.cleanupOldImages(7);
 
       const duration = Date.now() - startTime;
       logger.info(`Automatic cleanup completed in ${duration}ms`, 'CLEANUP');
@@ -146,58 +148,79 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async cleanupExpiredFiles(): Promise<void> {
     try {
-      const policies = await retentionPolicyService.getAllPolicies();
-      const cameras = ['cam1', 'cam2'];
-      const categories = ['alerts', 'detections', 'previews', 'snapshots', 'events'];
-
-      for (const policy of policies) {
-        const camera = policy.camera || undefined;
-        for (const category of categories) {
-          const result = await this.cleanupCategory(camera, category);
-          if (result.deletedFiles > 0) {
-            logger.info(`Cleaned up ${result.deletedFiles} ${category} files for ${camera || 'global'}`, 'CLEANUP');
-          }
-        }
+      const policy = await retentionPolicyService.getPolicy();
+      if (policy.retain_indefinitely) {
+        logger.info('Retention set to indefinite, skipping file cleanup', 'CLEANUP');
+        return;
       }
+
+      const detectionDays = policy.detections_days;
+      const eventDays = policy.events_days;
+      const retentionDays = Math.min(detectionDays, eventDays);
+
+      const totalDeleted = await this.deleteOldFiles(retentionDays);
+      if (totalDeleted > 0) {
+        logger.info(`Deleted ${totalDeleted} expired detection files (retention: ${retentionDays} days)`, 'CLEANUP');
+      } else {
+        logger.info('No expired detection files to clean up', 'CLEANUP');
+      }
+
+      await this.cleanupEmptyMonthDirs();
     } catch (error) {
       logger.error('Error cleaning up expired files', 'CLEANUP', error);
       throw error;
     }
   }
 
-  private async cleanupCategory(camera: string | undefined, category: string): Promise<CleanupResult> {
-    let deletedFiles = 0;
-    let freedBytes = 0;
-
+  private async deleteOldFiles(days: number): Promise<number> {
     try {
-      const expiredFiles = await retentionPolicyService.getExpiredFiles(camera, category);
+      const { stdout } = await execFileAsync('find', [
+        DETECTIONS_DIR,
+        '-name', '*.jpg',
+        '-mtime', `+${days}`,
+        '-type', 'f',
+        '-delete',
+        '-print',
+      ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
 
-      for (const filePath of expiredFiles) {
-        try {
-          const stats = await fs.stat(filePath);
-          await fs.unlink(filePath);
-          deletedFiles++;
-          freedBytes += stats.size;
-        } catch (error) {
-          logger.warn(`Error deleting file ${filePath}: ${error}`, 'CLEANUP');
-        }
-      }
-
-      const result: CleanupResult = {
-        camera, category, deletedFiles, freedBytes, deletedEvents: 0, timestamp: new Date(),
-      };
-      this.addToHistory(result);
-      return result;
+      const count = stdout.trim().split('\n').filter(Boolean).length;
+      return count;
     } catch (error) {
-      logger.error(`Error cleaning up ${category} for ${camera || 'global'}`, 'CLEANUP', error);
-      throw error;
+      logger.error(`Error running find/delete: ${error}`, 'CLEANUP');
+      return 0;
     }
   }
 
-  private addToHistory(result: CleanupResult): void {
-    this.cleanupHistory.push(result);
-    if (this.cleanupHistory.length > this.MAX_HISTORY_SIZE) {
-      this.cleanupHistory.shift();
+  private async cleanupEmptyMonthDirs(): Promise<void> {
+    const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
+    try {
+      const entries = await fs.readdir(detectionsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && /^\d{4}-\d{2}$/.test(entry.name)) {
+          const dirPath = path.join(detectionsDir, entry.name);
+          await this.removeEmptyDirs(dirPath);
+        }
+      }
+    } catch (error) {
+      logger.warn(`Error cleaning empty directories: ${error}`, 'CLEANUP');
+    }
+  }
+
+  private async removeEmptyDirs(dirPath: string): Promise<void> {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          await this.removeEmptyDirs(path.join(dirPath, entry.name));
+        }
+      }
+      const remaining = await fs.readdir(dirPath);
+      if (remaining.length === 0) {
+        await fs.rmdir(dirPath);
+        logger.info(`Removed empty directory: ${dirPath}`, 'CLEANUP');
+      }
+    } catch {
+      // Directory not empty or in use, skip
     }
   }
 

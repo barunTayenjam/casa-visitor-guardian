@@ -380,7 +380,7 @@ const EventsPage = () => {
       <div className="px-5 pt-6 pb-2 animate-fade-in">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
               Security Log
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
@@ -397,7 +397,7 @@ const EventsPage = () => {
               </div>
             </div>
             {showBulkActions ? (
-              <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-[1.25rem] px-3 py-1">
+              <div className="flex items-center gap-2 bg-white/[0.08] border border-white/[0.14] rounded-[1.25rem] px-3 py-1">
                 <span className="text-xs text-foreground">{selectedEventIds.size} selected</span>
                 <Button size="sm" variant="ghost" onClick={selectAllEvents} className="text-xs h-8">
                   {selectedEventIds.size === events.length ? 'Deselect All' : 'Select All'}
@@ -418,16 +418,16 @@ const EventsPage = () => {
               </Button>
             )}
             <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
-              <SelectTrigger className="w-full sm:w-[130px] h-9 rounded-[0.75rem] bg-white/[0.03] border-white/[0.08] text-xs">
+              <SelectTrigger className="w-full sm:w-[130px] h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.08] rounded-[1.25rem]">
+              <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
                 <SelectItem value="newest" className="rounded-[0.75rem]">Newest</SelectItem>
                 <SelectItem value="oldest" className="rounded-[0.75rem]">Oldest</SelectItem>
                 <SelectItem value="confidence" className="rounded-[0.75rem]">Confidence</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-1 bg-white/[0.03] rounded-[1.25rem] p-1 border border-white/[0.06]">
+            <div className="flex items-center gap-1 bg-white/[0.06] rounded-[1.25rem] p-1 border border-white/[0.12]">
               <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon-sm" onClick={() => setViewMode('grid')} aria-label="Grid view">
                 <Grid className="h-3.5 w-3.5" />
               </Button>
@@ -456,11 +456,11 @@ const EventsPage = () => {
           {loading ? (
             <div className={cn(viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'space-y-3', 'gap-4')}>
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="animate-pulse rounded-[1.25rem] overflow-hidden bg-white/[0.03] border border-white/[0.06]">
-                  <div className="aspect-video bg-white/[0.04]" />
+                <div key={i} className="animate-pulse rounded-[1.25rem] overflow-hidden bg-white/[0.06] border border-white/[0.12]">
+                  <div className="aspect-video bg-white/[0.08]" />
                   <div className="p-4 space-y-2">
-                    <div className="h-3 bg-white/[0.04] rounded-full w-3/4" />
-                    <div className="h-2 bg-white/[0.03] rounded-full w-1/2" />
+                    <div className="h-3 bg-white/[0.08] rounded-full w-3/4" />
+                    <div className="h-2 bg-white/[0.06] rounded-full w-1/2" />
                   </div>
                 </div>
               ))}
@@ -473,7 +473,7 @@ const EventsPage = () => {
                 <div
                   key={event.id}
                   className={cn(
-                    'p-[1px] rounded-[4px] bg-white/[0.04] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer',
+                    'p-[1px] rounded-[4px] bg-white/[0.08] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer',
                     'hover:bg-white/[0.08] hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)]',
                     selectedEventId === event.id && 'bg-primary/20 shadow-[0_0_24px_rgba(59,130,246,0.15)]',
                     'opacity-0',
@@ -488,7 +488,7 @@ const EventsPage = () => {
                       {event.imageUrl ? (
                         <ProgressiveImage src={event.imageUrl} alt={`Motion event: ${event.labels?.[0] || 'detection'} on ${event.cameraName}`} className="w-full h-full" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center"><p className="text-xs text-white/30">No image</p></div>
+                        <div className="w-full h-full flex items-center justify-center"><p className="text-xs text-white/60">No image</p></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]" />
                       {event.labels && event.labels.length > 0 && (
@@ -579,7 +579,7 @@ const EventsPage = () => {
                 <div
                   key={event.id}
                   className={cn(
-                    'p-[1px] rounded-[4px] bg-white/[0.03] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer',
+                    'p-[1px] rounded-[4px] bg-white/[0.06] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer',
                     'hover:bg-white/[0.06]',
                     selectedEventId === event.id && 'bg-primary/20',
                     'opacity-0',
@@ -595,7 +595,7 @@ const EventsPage = () => {
                         {event.imageUrl ? (
                           <ProgressiveImage src={event.imageUrl} alt={`Motion event: ${event.labels?.[0] || 'detection'} on ${event.cameraName}`} className="w-full h-full" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center"><p className="text-xs text-white/30">No image</p></div>
+                          <div className="w-full h-full flex items-center justify-center"><p className="text-xs text-white/60">No image</p></div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -608,7 +608,7 @@ const EventsPage = () => {
                               </div>
                             )}
                             {event.confidence > 0 && (
-                              <div className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.04] text-muted-foreground">
+                              <div className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.08] text-muted-foreground">
                                 {Math.round(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}%
                               </div>
                             )}
@@ -668,7 +668,7 @@ const EventsPage = () => {
 
           {totalPages > 1 && (
             <div className="mt-8 flex justify-center">
-              <div className="p-[1px] rounded-[4px] bg-white/[0.04]">
+              <div className="p-[1px] rounded-[4px] bg-white/[0.08]">
                 <div className="rounded-[3px] bg-card px-2 py-1.5">
                   <Pagination>
                     <PaginationContent className="gap-0">
@@ -734,7 +734,7 @@ const EventsPage = () => {
               analyzing={analyzingEventId === selectedEvent.id}
               analysis={selectedEvent ? analysisByEvent[selectedEvent.id] : null}
             />
-            <div className="w-full md:w-[400px] lg:w-[500px] border-l border-white/[0.06] overflow-y-auto bg-black/20">
+            <div className="w-full md:w-[400px] lg:w-[500px] border-l border-white/[0.12] overflow-y-auto bg-black/20">
               <RelatedEvents currentEvent={selectedEvent} events={filteredEvents} onEventSelect={handleEventSelect} />
             </div>
           </>

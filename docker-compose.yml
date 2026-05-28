@@ -5,7 +5,8 @@ services:
       context: ./database
       dockerfile: Dockerfile
     container_name: sentryvision-postgres
-    # ports: - only internal network access
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/migrations:/docker-entrypoint-initdb.d
@@ -88,7 +89,7 @@ services:
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
     working_dir: /app
-    command: ["sh", "-c", "npx tsx watch --clear-screen=false src/index.ts & sh /app/health-monitor.sh"]
+    command: ["sh", "-c", "npx tsx watch --clear-screen=false src/index.ts"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,7 +123,7 @@ services:
       - "0.0.0.0:5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_BACKEND_URL=http://sentryvision-backend:9753
+      - VITE_BACKEND_URL=http://172.17.0.1:9753
       - TZ=Asia/Kolkata
     volumes:
       - ./frontend:/app

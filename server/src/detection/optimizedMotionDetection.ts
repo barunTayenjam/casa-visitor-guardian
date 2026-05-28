@@ -1083,7 +1083,7 @@ export function setupOptimizedMotionDetection(
   io: SocketIOServer,
   detectionService?: any
 ): OptimizedMotionDetector {
-  const detector = new OptimizedMotionDetector(streamManager, io);
+  const detector = new OptimizedMotionDetector(streamManager, io, detectionService);
   detector.start();
 
   // Setup periodic cleanup

@@ -24,7 +24,7 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           )}
           <div className="flex items-center gap-2 min-w-0">
             {Icon && (
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-[0.75rem] bg-white/[0.03]">
+              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-[0.75rem] bg-white/[0.06]">
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </div>
             )}

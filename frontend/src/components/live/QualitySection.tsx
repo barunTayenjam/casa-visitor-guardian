@@ -37,7 +37,7 @@ export const QualitySection: React.FC<QualitySectionProps> = ({ metrics, classNa
   const latencyStatus = getLatencyStatus(metrics.latency);
 
   return (
-    <div className={cn('flex items-center gap-3 px-3 py-2 rounded-[0.75rem] bg-white/[0.03]', className)} role="status" aria-label="Stream quality metrics">
+    <div className={cn('flex items-center gap-3 px-3 py-2 rounded-[0.75rem] bg-white/[0.06]', className)} role="status" aria-label="Stream quality metrics">
       <MetricItem icon={Monitor} label="Res" value={metrics.resolution} status="good" />
       <MetricItem icon={Activity} label="FPS" value={`${metrics.fps}`} status={fpsStatus} />
       <MetricItem icon={Wifi} label="BW" value={`${metrics.bandwidth} Kbps`} status={bandwidthStatus} />

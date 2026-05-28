@@ -159,7 +159,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
     <div className="relative w-full h-full flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex-1">
         {activeCameras.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center text-white/40">
+          <div className="w-full h-full flex items-center justify-center text-white/60">
             <div className="text-center"><p className="text-base">No Cameras Online</p><p className="text-sm mt-2">Add cameras to start viewing live streams</p></div>
           </div>
         ) : focusedCameraId ? (

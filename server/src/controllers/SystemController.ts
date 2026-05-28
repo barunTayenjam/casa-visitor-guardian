@@ -90,6 +90,17 @@ export class SystemController extends BaseController {
     }
   }
 
+  async runFullCleanup(_req: Request, res: Response): Promise<void> {
+    try {
+      console.log('Admin triggered full retention cleanup');
+      const cleanupService = AutomatedCleanupService.getInstance();
+      await cleanupService.runAutomaticCleanup();
+      res.json({ success: true, message: 'Full cleanup completed' });
+    } catch (error: any) {
+      this.serverError(res, error, 'runFullCleanup');
+    }
+  }
+
   async cleanupStatus(_req: Request, res: Response): Promise<void> {
     res.status(501).json({ success: false, error: 'Not implemented - use POST /api/maintenance/cleanup-images instead', code: 'NOT_IMPLEMENTED' });
   }

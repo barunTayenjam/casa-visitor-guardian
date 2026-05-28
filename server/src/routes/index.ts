@@ -104,6 +104,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.get('/api/system/logs', requireUser, (req, res) => systemController.getLogs(req, res));
   app.delete('/api/system/logs', requireAdmin, (req, res) => systemController.clearLogs(req, res));
   app.post('/api/maintenance/cleanup-images', requireAdmin, (req, res) => systemController.cleanupImages(req, res));
+  app.post('/api/maintenance/cleanup-full', requireAdmin, (req, res) => systemController.runFullCleanup(req, res));
   app.get('/api/maintenance/cleanup-status', requireAdmin, (req, res) => systemController.cleanupStatus(req, res));
 
   // Detection image with overlays

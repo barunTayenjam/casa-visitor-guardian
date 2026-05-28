@@ -34,6 +34,7 @@ import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
+import { PythonWsClient } from './services/pythonWsClient.js';
 
 dotenv.config({ path: './.env' });
 
@@ -348,6 +349,41 @@ async function initializeServices() {
     serviceRegistry.setStreamManager(streamManagerInstance);
     console.log('Stream manager initialized successfully');
 
+    console.log('Initializing Python WebSocket client...');
+    try {
+      const pythonWsClient = new PythonWsClient(config.pipeline.pythonWsUrl);
+      pythonWsClient.connect();
+      serviceRegistry.setPythonWsClient(pythonWsClient);
+
+      pythonWsClient.on('frame', (payload: { cameraId: string | null; data: Buffer; timestamp: number }) => {
+        const { cameraId, data, timestamp } = payload;
+        if (!cameraId) return;
+        const frameData = data.toString('base64');
+        io.to(`camera-${cameraId}-live`).emit('frame', {
+          cameraId,
+          data: frameData,
+          timestamp: new Date(timestamp).toISOString(),
+        });
+      });
+
+      pythonWsClient.on('connected', () => {
+        console.log('[PythonWsClient] Connected to Python WebSocket server');
+        const cameras = config.cameras.filter(c => {
+          const perCamera = c.pythonEnabled;
+          return perCamera === true || (perCamera === undefined && config.pipeline.mode !== 'legacy');
+        });
+        cameras.forEach(cam => pythonWsClient.subscribe(cam.id));
+      });
+
+      pythonWsClient.on('disconnected', () => {
+        console.warn('[PythonWsClient] Disconnected from Python WebSocket server');
+      });
+
+      console.log('Python WebSocket client initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Python WebSocket client:', error);
+    }
+
     console.log('Initializing motion detection...');
     const motionDetectorInstance = setupOptimizedMotionDetection(streamManagerInstance, io, consolidatedDetectionService);
     serviceRegistry.setMotionDetector(motionDetectorInstance);
@@ -488,6 +524,16 @@ async function gracefulShutdown(signal: string): Promise<void> {
     const cleanupService = serviceRegistry.getAutomatedCleanupService();
     if (typeof cleanupService.shutdown === 'function') {
       await cleanupService.shutdown();
+    }
+
+    try {
+      const pythonWsClient = serviceRegistry.getPythonWsClient();
+      if (pythonWsClient) {
+        pythonWsClient.disconnect();
+        console.log('Python WebSocket client disconnected');
+      }
+    } catch {
+      // Service may not have been initialized
     }
 
     io.disconnectSockets(true);

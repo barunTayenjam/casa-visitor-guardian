@@ -27,7 +27,7 @@ export function ProgressiveImage({ src, alt, className, placeholderClassName, on
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden', className)}>
       {!loaded && !error && (
-        <div className={cn('absolute inset-0 bg-white/[0.03] animate-pulse', placeholderClassName)} />
+        <div className={cn('absolute inset-0 bg-white/[0.06] animate-pulse', placeholderClassName)} />
       )}
       {inView && !error && (
         <img src={src} alt={alt}
@@ -37,7 +37,7 @@ export function ProgressiveImage({ src, alt, className, placeholderClassName, on
       )}
       {error && (
         <div className="w-full h-full flex items-center justify-center bg-black/40">
-          <p className="text-xs text-white/30">Image unavailable</p>
+          <p className="text-xs text-white/60">Image unavailable</p>
         </div>
       )}
     </div>

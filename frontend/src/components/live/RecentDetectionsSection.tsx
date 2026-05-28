@@ -55,7 +55,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
   if (loading) {
     return (
       <div className={cn('flex items-center justify-center py-3', className)}>
-        <div className="flex gap-2">{[0, 1, 2].map((i) => (<div key={i} className="h-10 w-10 rounded-[0.5rem] bg-white/[0.03] animate-pulse" />))}</div>
+        <div className="flex gap-2">{[0, 1, 2].map((i) => (<div key={i} className="h-10 w-10 rounded-[0.5rem] bg-white/[0.06] animate-pulse" />))}</div>
       </div>
     );
   }
@@ -74,7 +74,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
         const ObjectIcon = getPrimaryObject({ labels: [det.objectType] }).icon;
         return (
           <button key={det.id} role="listitem"
-            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:bg-white/[0.04] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] text-left focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.12] bg-white/[0.06] overflow-hidden hover:bg-white/[0.08] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] text-left focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label={`${det.objectType} detected ${formatRelativeTime(det.timestamp)}`}
             onClick={() => { window.location.href = `/events/${det.id}`; }}
           >

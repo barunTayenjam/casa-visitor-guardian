@@ -45,7 +45,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
   };
 
   return (
-    <div className="mx-5 mb-4 p-[1px] rounded-[1.25rem] bg-white/[0.04]">
+    <div className="mx-5 mb-4 p-[1px] rounded-[1.25rem] bg-white/[0.08]">
       <div className="rounded-[calc(1.25rem-1px)] bg-card/50 backdrop-blur-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
         <div className="relative h-20 overflow-hidden cursor-grab active:cursor-grabbing select-none"
           ref={timelineRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
@@ -53,7 +53,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
           <div className="absolute top-2 left-0 right-0 flex px-4">
             {timeLabels.map((label, index) => (
               <div key={index} className="flex-1 text-center" style={{ minWidth: `${100 / timeLabels.length}%` }}>
-                <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                <span className="text-[10px] text-muted-foreground">{label}</span>
               </div>
             ))}
           </div>
@@ -96,7 +96,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
           </div>
         </div>
 
-        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.03] border border-white/[0.06]">
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.06] border border-white/[0.12]">
           {(['hour', 'day', 'week'] as const).map((z) => (
             <button key={z}
               className={cn('px-2.5 py-1 text-[10px] rounded-[0.5rem] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]', zoom === z ? 'bg-white/[0.08] text-foreground' : 'text-muted-foreground hover:text-foreground')}

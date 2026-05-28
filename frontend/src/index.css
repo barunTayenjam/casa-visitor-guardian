@@ -7,29 +7,29 @@
     --background: 0 0% 2%;
     --foreground: 0 0% 96%;
 
-    --card: 0 0% 4%;
+    --card: 0 0% 6%;
     --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 4%;
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 96%;
 
     --primary: 217 91% 59%;
     --primary-foreground: 0 0% 2%;
 
-    --secondary: 0 0% 8%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 96%;
 
-    --muted: 0 0% 8%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 63%;
 
-    --accent: 0 0% 10%;
+    --accent: 0 0% 12%;
     --accent-foreground: 0 0% 96%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 2%;
 
-    --border: 0 0% 12%;
-    --input: 0 0% 12%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
     --ring: 217 91% 59%;
 
     --radius: 1.25rem;
@@ -38,9 +38,9 @@
     --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: 217 91% 59%;
     --sidebar-primary-foreground: 0 0% 2%;
-    --sidebar-accent: 0 0% 6%;
+    --sidebar-accent: 0 0% 8%;
     --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 10%;
+    --sidebar-border: 0 0% 14%;
     --sidebar-ring: 217 91% 59%;
   }
 
@@ -110,11 +110,11 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-white/[0.03] backdrop-blur-2xl border border-white/[0.06];
+    @apply bg-white/[0.06] backdrop-blur-2xl border border-white/[0.10];
   }
 
   .glass-panel-solid {
-    @apply bg-card/90 backdrop-blur-2xl border border-white/[0.08];
+    @apply bg-card/90 backdrop-blur-2xl border border-white/[0.12];
   }
 
   .noise-overlay {
@@ -137,11 +137,11 @@
   }
 
   .hairline {
-    @apply border border-white/[0.06];
+    @apply border border-white/[0.10];
   }
 
   .hairline-bottom {
-    @apply border-b border-white/[0.06];
+    @apply border-b border-white/[0.10];
   }
 
   .text-muted {
@@ -171,12 +171,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.25);
   }
 
   .animate-stagger-1 { animation-delay: 0ms; }
@@ -185,4 +185,12 @@
   .animate-stagger-4 { animation-delay: 240ms; }
   .animate-stagger-5 { animation-delay: 320ms; }
   .animate-stagger-6 { animation-delay: 400ms; }
+
+  .bezel {
+    @apply p-[1px] rounded-[4px] bg-white/[0.08];
+  }
+
+  .bezel-inner {
+    @apply rounded-[3px] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)];
+  }
 }

@@ -64,7 +64,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
     <div className="fixed inset-y-0 right-0 z-30 w-full md:w-[600px] lg:w-[700px] flex flex-col text-white">
       {/* Outer shell */}
       <div className="h-full p-[1px] rounded-l-[4px] bg-white/[0.06]">
-        <div className="h-full rounded-l-[3px] bg-black/90 backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.06]">
+        <div className="h-full rounded-l-[3px] bg-black/90 backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.12]">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 hairline-bottom">
             <div className="flex items-center gap-3">
@@ -102,7 +102,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {!imageError && event.imageUrl ? (
                 <ProgressiveImage src={event.imageUrl} alt={`Event from ${event.cameraName}`} className="w-full h-full" onError={() => setImageError(true)} />
               ) : (
-                <div className="w-full h-full flex items-center justify-center"><p className="text-white/40 text-sm">Image not available</p></div>
+                <div className="w-full h-full flex items-center justify-center"><p className="text-white/60 text-sm">Image not available</p></div>
               )}
               {(event.detections && event.detections.length > 0) && (
                 <div className="absolute inset-0 pointer-events-none">
@@ -180,7 +180,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   { label: 'Persons', value: event.personCount || 0 },
                   { label: 'Faces', value: event.faceCount || 0 },
                 ].map((stat, i) => (
-                  <div key={i} className="p-[1px] rounded-[0.75rem] bg-white/[0.04]">
+                  <div key={i} className="p-[1px] rounded-[0.75rem] bg-white/[0.08]">
                     <div className="rounded-[calc(0.75rem-1px)] bg-black/40 px-3 py-2.5 text-center">
                       <p className="text-[10px] uppercase tracking-[0.08em] text-white/60 mb-0.5">{stat.label}</p>
                       <p className="text-base font-semibold">{stat.value}</p>
@@ -277,7 +277,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
                   {/* Threat Assessment */}
                   {analysis.threatAssessment && (
-                    <div className="p-[1px] rounded-[0.875rem] bg-white/[0.04]">
+                    <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
                       <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-2.5">
                         <div className="flex items-center gap-3">
                           <div className={cn(
@@ -328,8 +328,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         {analysis.threatAssessment.factors?.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {analysis.threatAssessment.factors.map((factor, i) => (
-                              <div key={i} className="p-[1px] rounded-full bg-white/[0.04]">
-                                <div className="rounded-full bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
+                              <div key={i} className="p-[1px] rounded-full bg-white/[0.08]">
+                                <div className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
                                   {factor}
                                 </div>
                               </div>
@@ -421,7 +421,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
                   {/* Recommended Actions */}
                   {analysis.recommendedActions?.length > 0 && (
-                    <div className="p-[1px] rounded-[0.875rem] bg-white/[0.04]">
+                    <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
                       <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-3">
                         <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60 mb-2.5">Recommended Actions</p>
                         <div className="space-y-1.5">
@@ -454,7 +454,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                       {analysis.modelUsed && (
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] text-white/60">via</span>
-                          <div className="p-[1px] rounded-full bg-white/[0.04]">
+                          <div className="p-[1px] rounded-full bg-white/[0.08]">
                             <div className="rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-mono text-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
                               {analysis.modelUsed}
                             </div>

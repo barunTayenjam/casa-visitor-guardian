@@ -70,10 +70,8 @@ router.post('/rerun-detection', authenticate, async (req: Request, res: Response
 
       const detections = response.data.detections || [];
 
-      // Import the validation function from motionTriggeredDetection
-      const { MotionTriggeredDetection } = await import('../detection/motionTriggeredDetection.js');
-      const validator = new MotionTriggeredDetection();
-      const validDetections = validator['validateDetections'](detections);
+      const { validateDetections } = await import('../detection/motionTriggeredDetection.js');
+      const validDetections = validateDetections(detections);
 
       // Update the database record with new detection results
       const updateQuery = `
@@ -224,10 +222,8 @@ router.post('/rerun-event-detection', authenticate, async (req: Request, res: Re
 
     const detections = response.data.detections || [];
 
-    // Validate detections
-    const { MotionTriggeredDetection } = await import('../detection/motionTriggeredDetection.js');
-    const validator = new MotionTriggeredDetection();
-    const validDetections = validator['validateDetections'](detections);
+    const { validateDetections } = await import('../detection/motionTriggeredDetection.js');
+    const validDetections = validateDetections(detections);
 
     const personCount = validDetections.filter(d => d.class === 'person').length;
     const faceCount = validDetections.filter(d => d.class === 'face').length;

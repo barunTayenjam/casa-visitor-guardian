@@ -97,7 +97,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Eyebrow */}
         <div className="text-center mb-10 animate-fade-in-up">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-5">
             Security Platform
           </div>
           <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">
@@ -121,13 +121,13 @@ export default function Login() {
                 <TabsContent value="login">
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="username" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Username</Label>
+                      <Label htmlFor="username" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Username</Label>
                       <Input
                         id="username"
                         type="text"
                         value={loginData.username}
                         onChange={(e) => handleLoginChange('username', e.target.value)}
-                        className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                        className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
                         placeholder="Enter your username"
                         disabled={isLoading}
                       />
@@ -135,14 +135,14 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Password</Label>
+                      <Label htmlFor="password" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Password</Label>
                       <div className="relative">
                         <Input
                           id="password"
                           type={showLoginPassword ? 'text' : 'password'}
                           value={loginData.password}
                           onChange={(e) => handleLoginChange('password', e.target.value)}
-                          className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
                           placeholder="Enter your password"
                           disabled={isLoading}
                         />
@@ -188,13 +188,13 @@ export default function Login() {
                 <TabsContent value="register">
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="reg-username" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Username</Label>
+                      <Label htmlFor="reg-username" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Username</Label>
                       <Input
                         id="reg-username"
                         type="text"
                         value={registerData.username}
                         onChange={(e) => handleRegisterChange('username', e.target.value)}
-                        className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                        className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
                         placeholder="Choose a username"
                         disabled={isLoading}
                       />
@@ -202,13 +202,13 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Email</Label>
+                      <Label htmlFor="email" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Email</Label>
                       <Input
                         id="email"
                         type="email"
                         value={registerData.email}
                         onChange={(e) => handleRegisterChange('email', e.target.value)}
-                        className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                        className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
                         placeholder="Enter your email"
                         disabled={isLoading}
                       />
@@ -216,16 +216,16 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="role" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Role</Label>
+                      <Label htmlFor="role" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Role</Label>
                       <Select
                         value={registerData.role}
                         onValueChange={(value: 'admin' | 'user' | 'viewer') => handleRegisterChange('role', value)}
                         disabled={isLoading}
                       >
-                        <SelectTrigger className="bg-white/[0.03] border-white/[0.08] text-foreground rounded-[0.75rem] h-11">
+                        <SelectTrigger className="bg-white/[0.06] border-white/[0.14] text-foreground rounded-[0.75rem] h-11">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.08] rounded-[1.25rem]">
+                        <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
                           <SelectItem value="viewer" className="rounded-[0.75rem]">Viewer - View only access</SelectItem>
                           <SelectItem value="user" className="rounded-[0.75rem]">User - Standard access</SelectItem>
                           <SelectItem value="admin" className="rounded-[0.75rem]">Admin - Full access</SelectItem>
@@ -234,14 +234,14 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="reg-password" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Password</Label>
+                      <Label htmlFor="reg-password" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Password</Label>
                       <div className="relative">
                         <Input
                           id="reg-password"
                           type={showRegisterPassword ? 'text' : 'password'}
                           value={registerData.password}
                           onChange={(e) => handleRegisterChange('password', e.target.value)}
-                          className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
                           placeholder="Create a password"
                           disabled={isLoading}
                         />
@@ -259,14 +259,14 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="confirm-password" className="text-xs text-foreground/60 uppercase tracking-[0.08em] font-medium">Confirm Password</Label>
+                      <Label htmlFor="confirm-password" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Confirm Password</Label>
                       <div className="relative">
                         <Input
                           id="confirm-password"
                           type={showConfirmPassword ? 'text' : 'password'}
                           value={registerData.confirmPassword}
                           onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
-                          className="bg-white/[0.03] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
                           placeholder="Confirm your password"
                           disabled={isLoading}
                         />

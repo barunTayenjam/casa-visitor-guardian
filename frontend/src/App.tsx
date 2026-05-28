@@ -47,7 +47,7 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="rounded-full bg-white/[0.04] border border-white/[0.10] text-foreground/80 px-5 py-2.5 text-sm font-medium hover:bg-white/[0.08] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]"
+              className="rounded-full bg-white/[0.08] border border-white/[0.16] text-foreground/80 px-5 py-2.5 text-sm font-medium hover:bg-white/[0.08] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]"
             >
               Reload Page
             </button>

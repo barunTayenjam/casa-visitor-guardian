@@ -4,7 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useCameras } from '@/contexts/CameraContext';
 import { Calendar, Play, Pause, SkipBack, SkipForward, Clock, Users, User, UserCheck, Moon, ChevronLeft, ChevronRight, Filter, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -258,7 +257,7 @@ const DayHighlightsPage = () => {
     if (hour >= 22 || hour <= 6) {
       return { label: 'Night Activity', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: <Moon className="w-4 h-4" /> };
     }
-    return { label: 'Motion', color: 'bg-slate-500/20 text-muted-foreground border-slate-500/30', icon: null };
+    return { label: 'Motion', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: null };
   };
 
   const getCategoryInfo = (highlight: HighlightEvent) => {
@@ -278,7 +277,7 @@ const DayHighlightsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-[100dvh] bg-background">
         <PageLoading message="Loading Highlights..." />
       </div>
     );
@@ -286,7 +285,7 @@ const DayHighlightsPage = () => {
 
   if (highlights.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="min-h-[100dvh] bg-background p-4">
         <div className="max-w-7xl mx-auto">
           <PageHeader
             title="Day Highlights"
@@ -313,7 +312,7 @@ const DayHighlightsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-[100dvh] bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <PageHeader
           title="Day Highlights"
@@ -416,8 +415,9 @@ const DayHighlightsPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card className="bg-card border-border overflow-hidden">
-              <div className="relative aspect-video bg-black">
+            <div className="bezel">
+              <div className="bezel-inner overflow-hidden">
+                <div className="relative aspect-video bg-black">
                 {currentHighlight?.imageUrl ? (
                   <img
                     src={currentHighlight.imageUrl}
@@ -481,12 +481,14 @@ const DayHighlightsPage = () => {
                   <span className="text-xs text-muted-foreground">Press ? for keyboard shortcuts</span>
                 </div>
               </div>
-            </Card>
+             </div>
+           </div>
           </div>
 
           <div className="space-y-4">
-            <Card className="bg-card border-border p-4">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Event Details</h3>
+            <div className="bezel">
+              <div className="bezel-inner p-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Event Details</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Confidence</span>
@@ -525,10 +527,12 @@ const DayHighlightsPage = () => {
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
+            </div>
 
-            <Card className="bg-card border-border p-4 max-h-96 overflow-y-auto">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Timeline</h3>
+            <div className="bezel">
+              <div className="bezel-inner p-4 max-h-96 overflow-y-auto">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Timeline</h3>
               <div className="space-y-2">
                 {filteredHighlights.map((highlight, index) => {
                   const info = getCategoryInfo(highlight);
@@ -537,7 +541,7 @@ const DayHighlightsPage = () => {
                       key={highlight.id}
                       onClick={() => setCurrentIndex(index)}
                       className={cn(
-                        'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all',
+                        'flex items-center gap-3 p-2 rounded-[0.375rem] cursor-pointer transition-all',
                         index === currentIndex
                           ? 'bg-blue-500/20 border border-blue-500/30'
                           : 'hover:bg-muted border border-transparent'
@@ -559,8 +563,9 @@ const DayHighlightsPage = () => {
                     </div>
                   );
                 })}
+                  </div>
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -568,7 +573,8 @@ const DayHighlightsPage = () => {
       {/* Keyboard Shortcuts Help Modal */}
       {showKeyboardHelp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowKeyboardHelp(false)}>
-          <Card className="bg-card border-border p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bezel">
+            <div className="bezel-inner p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
               <Keyboard className="w-5 h-5" />
               Keyboard Shortcuts
@@ -614,7 +620,8 @@ const DayHighlightsPage = () => {
             <Button onClick={() => setShowKeyboardHelp(false)} variant="outline" className="w-full mt-4">
               Close
             </Button>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -3,13 +3,6 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 // Types for OpenCV microservice communication
-export interface DetectionRequest {
-  imagePath: string;
-  fileHash: string;
-  fileSize: number;
-  fileModified: string;
-}
-
 export interface DetectionResult {
   success: boolean;
   cached: boolean;
@@ -128,33 +121,28 @@ export class OpenCVMicroserviceClient {
    */
   async detectObjects(imagePath: string): Promise<DetectionResult> {
     try {
-      // Validate file exists
       if (!fs.existsSync(imagePath)) {
         throw new Error(`Image file not found: ${imagePath}`);
       }
 
-      // Generate file metadata
+      const imageBuffer = await fs.promises.readFile(imagePath);
       const stats = fs.statSync(imagePath);
       const fileHash = this.generateFileHash(imagePath, stats);
 
-      const request: DetectionRequest = {
-        imagePath,
-        fileHash,
-        fileSize: stats.size,
-        fileModified: stats.mtime.toISOString()
-      };
-
       console.log(`OpenCV Microservice: Detecting objects in ${imagePath}`);
-      
-      const response = await this.client.post('/detect-objects', request);
-      return response.data;
+
+      const response = await this.client.post('/detect-objects', imageBuffer, {
+        headers: { 'Content-Type': 'image/jpeg' },
+        params: { fileHash, fileSize: stats.size }
+      });
+      return { ...response.data, fileHash };
     } catch (error) {
       console.error(`OpenCV Microservice: Object detection failed for ${imagePath}:`, error);
-      
+
       if (axios.isAxiosError(error)) {
         throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
       }
-      
+
       throw error;
     }
   }
@@ -164,33 +152,28 @@ export class OpenCVMicroserviceClient {
    */
   async recognizeFaces(imagePath: string): Promise<DetectionResult> {
     try {
-      // Validate file exists
       if (!fs.existsSync(imagePath)) {
         throw new Error(`Image file not found: ${imagePath}`);
       }
 
-      // Generate file metadata
+      const imageBuffer = await fs.promises.readFile(imagePath);
       const stats = fs.statSync(imagePath);
       const fileHash = this.generateFileHash(imagePath, stats);
 
-      const request: DetectionRequest = {
-        imagePath,
-        fileHash,
-        fileSize: stats.size,
-        fileModified: stats.mtime.toISOString()
-      };
-
       console.log(`OpenCV Microservice: Recognizing faces in ${imagePath}`);
-      
-      const response = await this.client.post('/recognize-faces', request);
-      return response.data;
+
+      const response = await this.client.post('/recognize-faces', imageBuffer, {
+        headers: { 'Content-Type': 'image/jpeg' },
+        params: { fileHash, fileSize: stats.size }
+      });
+      return { ...response.data, fileHash };
     } catch (error) {
       console.error(`OpenCV Microservice: Face recognition failed for ${imagePath}:`, error);
-      
+
       if (axios.isAxiosError(error)) {
         throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
       }
-      
+
       throw error;
     }
   }

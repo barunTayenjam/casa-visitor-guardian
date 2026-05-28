@@ -70,7 +70,7 @@ export class ConsolidatedDetectionService {
 
   private async initializeRedisWithRetry(retries = 5, delay = 1000): Promise<void> {
     this.redisClient = redis.createClient({
-      url: process.env.REDIS_URL || 'redis://redis:6379',
+      url: process.env.REDIS_URL || (process.env.NODE_ENV === 'production' ? 'redis://redis:6379' : 'redis://localhost:6379'),
       socket: {
         connectTimeout: 5000,
         reconnectStrategy: (retries: number) => {
@@ -129,11 +129,11 @@ export class ConsolidatedDetectionService {
   private initializeDefaultSettings() {
     this.objectDetectionSettings.set('default', { 
       enabled: true, 
-      sensitivity: 50, // 0-100 scale
+      sensitivity: 50,
       cooldownPeriod: 1000,
-      minConfidence: 0.35, // Lower threshold to detect more objects (filter later)
-      maxDetections: 20, // Allow more detections
-      targetClasses: ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'chair', 'couch', 'bed', 'dining table']
+      minConfidence: 0.55,
+      maxDetections: 10,
+      targetClasses: ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'bird', 'horse']
     });
   }
 
@@ -174,7 +174,7 @@ export class ConsolidatedDetectionService {
     // Check Redis cache first (only if connected)
     if (this.redisConnected) {
       try {
-        const cachedData = await this.redisClient.get(`detection:${fileHash}`);
+        const cachedData = await this.redisClient.get(`detection:${cameraId}:${fileHash}`);
         if (cachedData) {
           const data = JSON.parse(cachedData);
           if (Date.now() - data.timestamp < this.CACHE_DURATION) {
@@ -224,7 +224,7 @@ export class ConsolidatedDetectionService {
             if (this.redisConnected) {
               try {
                 await this.redisClient.set(
-                  `detection:${fileHash}`,
+                  `detection:${cameraId}:${fileHash}`,
                   JSON.stringify({
                     result: {
                       ...data,
@@ -267,11 +267,11 @@ export class ConsolidatedDetectionService {
     // Check Redis cache first (only if connected)
     if (this.redisConnected) {
       try {
-        const cachedData = await this.redisClient.get(`face:${fileHash}`);
+        const cachedData = await this.redisClient.get(`face:${cameraId}:${fileHash}`);
         if (cachedData) {
           const data = JSON.parse(cachedData);
           if (Date.now() - data.timestamp < this.CACHE_DURATION) {
-            console.log(`ConsolidatedDetectionService: Using Redis cached face result for ${fileHash}`);
+            console.log(`ConsolidatedDetectionService: Using Redis cached face result for camera ${cameraId} ${fileHash}`);
             const faces = data.result.faceDetections || [];
             const knownFaces = faces.filter((face: FaceDetection) => face.name !== 'Unknown');
             const unknownFaces = faces.filter((face: FaceDetection) => face.name === 'Unknown');
@@ -320,7 +320,7 @@ export class ConsolidatedDetectionService {
             if (this.redisConnected) {
               try {
                 await this.redisClient.set(
-                  `face:${fileHash}`,
+                  `face:${cameraId}:${fileHash}`,
                   JSON.stringify({
                     result: {
                       ...data,

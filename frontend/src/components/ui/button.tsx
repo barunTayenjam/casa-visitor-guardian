@@ -13,7 +13,7 @@ const buttonVariants = cva(
         destructive:
           "rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]",
         outline:
-          "rounded-full border border-white/[0.10] bg-white/[0.02] text-foreground hover:bg-white/[0.06] hover:border-white/[0.15] backdrop-blur-sm",
+          "rounded-full border border-white/[0.16] bg-white/[0.06] text-foreground hover:bg-white/[0.06] hover:border-white/[0.15] backdrop-blur-sm",
         secondary:
           "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]",
         ghost:
@@ -21,7 +21,7 @@ const buttonVariants = cva(
         link:
           "text-primary underline-offset-4 hover:underline",
         "pill-ghost":
-          "rounded-full text-foreground/60 hover:text-foreground hover:bg-white/[0.04]",
+          "rounded-full text-foreground/70 hover:text-foreground hover:bg-white/[0.08]",
       },
       size: {
         default: "h-10 px-5 py-2",

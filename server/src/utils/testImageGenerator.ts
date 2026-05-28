@@ -7,7 +7,8 @@ function createMinimalJpeg(cameraId: string): Buffer {
   // Create a simple test pattern JPEG
   // This is a basic 64x64 pixel JPEG with a gradient pattern
   const time = Date.now() / 1000;
-  const colorValue = Math.floor((Math.sin(time) + 1) * 127); // Animated color
+  const idSeed = cameraId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const colorValue = Math.floor((Math.sin(time + idSeed) + 1) * 127); // Animated color unique per camera
   
   // Create a minimal but valid JPEG with animated content
   const jpegData = Buffer.from([

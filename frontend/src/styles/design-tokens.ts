@@ -6,18 +6,18 @@ export const colors = {
   },
   text: {
     primary: '#f5f5f5',
-    secondary: '#a3a3a3',
-    muted: '#666666',
+    secondary: '#b0b0b0',
+    muted: '#8a8a8a',
   },
   border: {
-    subtle: 'rgba(255, 255, 255, 0.06)',
-    default: 'rgba(255, 255, 255, 0.10)',
-    hover: 'rgba(255, 255, 255, 0.15)',
+    subtle: 'rgba(255, 255, 255, 0.10)',
+    default: 'rgba(255, 255, 255, 0.14)',
+    hover: 'rgba(255, 255, 255, 0.20)',
   },
   glass: {
-    light: 'rgba(255, 255, 255, 0.03)',
-    medium: 'rgba(255, 255, 255, 0.06)',
-    heavy: 'rgba(255, 255, 255, 0.10)',
+    light: 'rgba(255, 255, 255, 0.06)',
+    medium: 'rgba(255, 255, 255, 0.10)',
+    heavy: 'rgba(255, 255, 255, 0.14)',
   },
   status: {
     success: '#22c55e',

@@ -2,8 +2,8 @@ export type Theme = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'sentryvision-theme';
 
-function getSystemTheme(): 'light' | 'dark' {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+function getSystemTheme(): 'dark' {
+  return 'dark';
 }
 
 export function resolveTheme(theme: Theme): 'light' | 'dark' {
@@ -14,12 +14,12 @@ export function resolveTheme(theme: Theme): 'light' | 'dark' {
 }
 
 export function getStoredTheme(): Theme {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'dark';
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark' || stored === 'system') {
     return stored;
   }
-  return 'system';
+  return 'dark';
 }
 
 export function storeTheme(theme: Theme): void {

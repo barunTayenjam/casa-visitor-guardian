@@ -12,7 +12,7 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
   ({ icon: Icon, title, description, action, className, ...props }, ref) => {
     return (
       <div ref={ref} className={cn("flex flex-col items-center justify-center gap-5 py-16 text-center", className)} {...props}>
-        <div className="w-14 h-14 rounded-full bg-white/[0.03] flex items-center justify-center border border-white/[0.06]">
+        <div className="w-14 h-14 rounded-full bg-white/[0.06] flex items-center justify-center border border-white/[0.12]">
           <Icon className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="space-y-1.5">

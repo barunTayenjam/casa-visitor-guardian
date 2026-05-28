@@ -45,9 +45,9 @@ export const MacDock: React.FC = () => {
     <TooltipProvider delayDuration={0}>
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[40]">
         {/* Outer shell (Doppelrand) */}
-        <div className="p-[1px] rounded-[2rem] bg-white/[0.04]">
+        <div className="p-[1px] rounded-[2rem] bg-white/[0.08]">
           {/* Inner core */}
-          <div className="flex items-end gap-0.5 px-2 py-2 md:px-3 md:py-2 rounded-[calc(2rem-1px)] bg-black/70 backdrop-blur-3xl border border-white/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] overflow-x-auto max-w-full md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-end gap-0.5 px-2 py-2 md:px-3 md:py-2 rounded-[calc(2rem-1px)] bg-black/70 backdrop-blur-3xl border border-white/[0.12] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] overflow-x-auto max-w-full md:overflow-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {navItems.map((item, index) => {
               const isActive = location.pathname === item.href;
               return (
@@ -71,7 +71,7 @@ export const MacDock: React.FC = () => {
                       )}
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.08] text-xs px-3 py-1.5">
+                  <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5">
                     {item.label}
                   </TooltipContent>
                 </Tooltip>
@@ -92,11 +92,11 @@ export const MacDock: React.FC = () => {
                     </button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.08] text-xs px-3 py-1.5">
+                <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5">
                   Logout
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="center" className="w-48 mt-2 rounded-[1.25rem] bg-black/80 backdrop-blur-3xl border border-white/[0.08] p-1">
+              <DropdownMenuContent align="center" className="w-48 mt-2 rounded-[1.25rem] bg-black/80 backdrop-blur-3xl border border-white/[0.14] p-1">
                 <DropdownMenuItem onClick={handleLogout} className="rounded-[0.75rem] text-sm py-2.5 hover:bg-white/[0.06] cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out

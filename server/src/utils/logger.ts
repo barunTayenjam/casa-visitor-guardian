@@ -137,8 +137,9 @@ const writeToDatabase = async (
 const log = (level: string, message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => {
   // Check if this type of log should be shown
   if (level === 'info' && !LOGGING_CONFIG.enableInfo) {
-    // Special cases for important info logs
-    if (source === 'SERVER' && LOGGING_CONFIG.enableServerStart) {
+    if (source === 'CLEANUP') {
+      // Always show cleanup logs
+    } else if (source === 'SERVER' && LOGGING_CONFIG.enableServerStart) {
       // Allow server start messages
     } else if (source === 'STREAM' && !LOGGING_CONFIG.enableStreamLogs) {
       return; // Skip stream logs

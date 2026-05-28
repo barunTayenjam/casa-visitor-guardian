@@ -315,22 +315,24 @@ const SettingsPage = () => {
   };
 
   const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div className={cn('bg-card border border-border rounded-xl p-5 space-y-4', className)}>
-      {children}
+    <div className={cn('bezel', className)}>
+      <div className="bezel-inner p-5 space-y-4">
+        {children}
+      </div>
     </div>
   );
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen flex flex-col bg-background">
-        <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between bg-background/80 backdrop-blur-sm border-border">
-          <div className="flex items-center gap-4 md:gap-6">
+      <div className="w-full min-h-[100dvh] flex flex-col bg-background">
+        <div className="px-5 pt-6 pb-2 animate-fade-in">
+          <div className="flex items-center gap-4">
             <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
             </div>
           </div>
         </div>
@@ -342,33 +344,30 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-background">
-      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between bg-background/80 backdrop-blur-sm border-border">
-        <div className="flex items-center gap-4 md:gap-6">
-          <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${colors.status.info}15` }}>
-              <SettingsIcon className="h-5 w-5" style={{ color: colors.status.info }} />
-            </div>
+    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
+      <div className="px-5 pt-6 pb-2 animate-fade-in">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Settings</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Configure your SentryVision system</p>
+              <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+              <p className="text-sm text-muted-foreground mt-1">Configure your SentryVision system</p>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasChanges && (
-            <Button size="sm" variant="ghost" onClick={handleReset}>
-              Reset
+          <div className="flex items-center gap-2">
+            {hasChanges && (
+              <Button size="sm" variant="ghost" onClick={handleReset}>
+                Reset
+              </Button>
+            )}
+            <Button size="sm" onClick={handleSave} disabled={!hasChanges || saving}>
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
-          )}
-          <Button size="sm" onClick={handleSave} disabled={!hasChanges || saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+          </div>
         </div>
       </div>
 
@@ -397,7 +396,7 @@ const SettingsPage = () => {
                   <select
                     value={settings.timezone}
                     onChange={(e) => updateSetting('timezone', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-lg bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
+                    className="mt-2 w-full px-3 py-2 rounded-[0.5rem] bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
                     <option value="America/New_York">America/New_York (EST, UTC-5)</option>
@@ -411,7 +410,7 @@ const SettingsPage = () => {
                   <select
                     value={settings.language}
                     onChange={(e) => updateSetting('language', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-lg bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
+                    className="mt-2 w-full px-3 py-2 rounded-[0.5rem] bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
@@ -432,7 +431,7 @@ const SettingsPage = () => {
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-orange-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-orange-500/10">
                       <Bell className="h-5 w-5 text-orange-500" />
                     </div>
                     <div>
@@ -451,7 +450,7 @@ const SettingsPage = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-green-500/10">
                       <Bell className="h-5 w-5 text-green-500" />
                     </div>
                     <div>
@@ -466,7 +465,7 @@ const SettingsPage = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-purple-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-purple-500/10">
                       <Bell className="h-5 w-5 text-purple-500" />
                     </div>
                     <div>
@@ -481,7 +480,7 @@ const SettingsPage = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-blue-500/10">
                       <BellOff className="h-5 w-5 text-blue-500" />
                     </div>
                     <div>
@@ -498,7 +497,7 @@ const SettingsPage = () => {
                 <div className="pt-3 border-t border-border">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-amber-500/10">
+                      <div className="p-2 rounded-[0.5rem] bg-amber-500/10">
                         <Clock className="h-5 w-5 text-amber-500" />
                       </div>
                       <div>
@@ -539,7 +538,7 @@ const SettingsPage = () => {
                 <div className="pt-3 border-t border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-sky-500/10">
+                      <div className="p-2 rounded-[0.5rem] bg-sky-500/10">
                         <Volume2 className="h-5 w-5 text-sky-500" />
                       </div>
                       <div>
@@ -556,7 +555,7 @@ const SettingsPage = () => {
                 <div className="pt-3 border-t border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-rose-500/10">
+                      <div className="p-2 rounded-[0.5rem] bg-rose-500/10">
                         <Mail className="h-5 w-5 text-rose-500" />
                       </div>
                       <div>
@@ -602,7 +601,7 @@ const SettingsPage = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-blue-500/10">
                       <Clock className="h-5 w-5 text-blue-500" />
                     </div>
                     <div>
@@ -628,7 +627,7 @@ const SettingsPage = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-green-500/10">
                       <HardDrive className="h-5 w-5 text-green-500" />
                     </div>
                     <div>
@@ -654,7 +653,7 @@ const SettingsPage = () => {
 
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-amber-500/10">
+                    <div className="p-2 rounded-[0.5rem] bg-amber-500/10">
                       <Trash2 className="h-5 w-5 text-amber-500" />
                     </div>
                     <div>
@@ -687,27 +686,15 @@ const SettingsPage = () => {
                       <SelectValue placeholder="Select theme" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light">
-                        <span className="flex items-center gap-2">
-                          <Sun className="h-4 w-4" />
-                          Light
-                        </span>
-                      </SelectItem>
                       <SelectItem value="dark">
                         <span className="flex items-center gap-2">
                           <Moon className="h-4 w-4" />
                           Dark
                         </span>
                       </SelectItem>
-                      <SelectItem value="system">
-                        <span className="flex items-center gap-2">
-                          <Monitor className="h-4 w-4" />
-                          System
-                        </span>
-                      </SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground/70 mt-1.5">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     System mode matches your operating system preference
                   </p>
                 </div>

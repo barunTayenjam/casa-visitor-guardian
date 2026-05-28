@@ -26,6 +26,26 @@ import threading
 app = Flask(__name__)
 CORS(app)
 
+# RTSP Ingestion Service (Phase 1)
+_rtsp_service = None
+
+def start_rtsp_service():
+    global _rtsp_service
+    if _rtsp_service is not None:
+        return
+    try:
+        from rtsp_ingestion import RTSPService, load_camera_config
+        config_path = os.environ.get('CAMERAS_CONFIG_PATH', '/app/cameras.json')
+        cameras = load_camera_config(config_path)
+        if cameras:
+            _rtsp_service = RTSPService(cameras)
+            _rtsp_service.start_non_blocking()
+            print(f"[app.py] RTSPService started with {len(cameras)} cameras")
+        else:
+            print("[app.py] No cameras found, RTSPService not started")
+    except Exception as e:
+        print(f"[app.py] Failed to start RTSPService: {e}")
+
 # Configuration
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
 CACHE_DIR = os.path.join(os.path.dirname(__file__), 'data', 'cache')
@@ -235,7 +255,7 @@ class YOLOObjectDetector:
         self.net = None
         self.layer_names = None
         self.input_size = 640  # YOLOv5/YOLOv8 standard input size
-        self.confidence_threshold = 0.55  # Increased from 0.5 for better accuracy
+        self.confidence_threshold = 0.40  # Reduced from 0.55 to let per-class thresholds gate detections
         self.nms_threshold = 0.30  # Lowered from 0.40 for more aggressive duplicate suppression
         self.model_type = None  # 'yolov8', 'yolov5' or 'yolov4'
         
@@ -327,11 +347,10 @@ class YOLOObjectDetector:
             'toothbrush': 0.45,
         }
         
-        # Minimum box area to filter out small detections (false positives)
-        # Increased from 1500 to 4000 for better accuracy
-        self.min_box_area = 4000  # Minimum area in pixels (was 1500)
-        self.min_box_width = 40   # Minimum width in pixels (was 30)
-        self.min_box_height = 40  # Minimum height in pixels (was 30)
+        # Minimum box area - lowered to allow smaller detections (distant animals, small objects)
+        self.min_box_area = 1600  # 40x40 minimum area in pixels (was 4000, too restrictive)
+        self.min_box_width = 40   # Minimum width in pixels
+        self.min_box_height = 40  # Minimum height in pixels
 
     def initialize(self):
         """Initialize YOLO detector - prefers YOLOv8 for accuracy, falls back to YOLOv5/YOLOv4"""
@@ -1347,6 +1366,9 @@ class FaceRecognition:
             print(f"OpenCV Service: Face detection error: {e}")
             return []
 
+# Start RTSP ingestion service in background
+start_rtsp_service()
+
 # Try to import improved face recognition module
 try:
     from improved_face_recognition import ImprovedFaceRecognition
@@ -1633,6 +1655,18 @@ def recognize_faces_route():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/rtsp/metrics', methods=['GET'])
+def rtsp_metrics():
+    """RTSP ingestion metrics endpoint"""
+    global _rtsp_service
+    if _rtsp_service is None:
+        return jsonify({'status': 'not_started'})
+    try:
+        return jsonify(_rtsp_service.get_metrics_snapshot())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/health')

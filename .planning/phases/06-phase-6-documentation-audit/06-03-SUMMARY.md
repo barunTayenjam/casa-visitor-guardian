@@ -83,6 +83,15 @@ None
 
 Phase 6 Documentation Audit now complete (3/3 plans). Ready for next step.
 
+## Self-Check: PASSED
+
+- ✅ `AGENTS.md` — No references to `optimizedMotionDetection`, `motionTriggeredDetection`, `objectDetection`
+- ✅ `AGENTS.md` — New pipeline content present (`FFmpegReader`, `MotionGate`, `wirePythonWsFrames`)
+- ✅ `AGENTS.md` — Detection directory listing matches actual files on disk (2 files)
+- ✅ `SUMMARY.md` created at `.planning/phases/06-phase-6-documentation-audit/06-03-SUMMARY.md`
+- ✅ Task commit exists: `7f366f2`
+- ✅ Metadata commit exists: `c470b49`
+
 ---
 
 *Phase: 06-phase-6-documentation-audit*

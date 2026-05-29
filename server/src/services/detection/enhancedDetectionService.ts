@@ -3,7 +3,7 @@ import { DetectionConfig } from '../../models/DetectionConfig.js';
 import { Event } from '../../models/Event.js';
 import { Timeline } from '../../models/Timeline.js';
 import { TimelineService } from '../timeline/timelineService.js';
-import { DetectionResult } from '../../detection/objectDetection.js';
+import { DetectionResult } from '../../detection/consolidatedDetectionService.js';
 import { cacheService } from '../cacheService.js';
 
 export interface EnhancedDetectionData {

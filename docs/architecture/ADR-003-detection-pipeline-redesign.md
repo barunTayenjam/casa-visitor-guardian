@@ -1,6 +1,8 @@
 # ADR-003 (Revised): Pragmatic Edge Detection Pipeline
 
-**Status**: Proposed
+**Status**: Accepted
+
+> **Accepted 2026-05-29** — Phase 5 (Pipeline Cleanup) complete. All legacy Node.js detection modules removed. `PIPELINE_MODE` defaults to `python-only`. FFmpeg subprocess management stripped from rtspManager; Python pipeline owns RTSP ingestion and frame delivery via WebSocket.
 **Date**: 2026-05-28
 **Version**: 4.0
 

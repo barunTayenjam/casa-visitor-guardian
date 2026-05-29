@@ -13,7 +13,7 @@ export class StreamController extends BaseController {
         viewerCount: camera.activeViewers?.size || 0,
         adaptiveFps: camera.adaptiveFps || 4,
         isActive: camera.isActive,
-        bandwidth: camera.streams.get('live')?.lastFrame?.length || 0,
+        bandwidth: camera.lastFrame?.length || 0,
         fps: camera.adaptiveFps || 4,
       }));
 
@@ -44,8 +44,7 @@ export class StreamController extends BaseController {
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      const detectStream = camera.streams.get('detect');
-      if (!camera.isActive || !detectStream?.lastFrame) {
+      if (!camera.isActive || !camera.lastFrame) {
         const placeholder = Buffer.from([
           0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
           0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43
@@ -62,12 +61,12 @@ export class StreamController extends BaseController {
 
       res.writeHead(200, {
         'Content-Type': 'image/jpeg',
-        'Content-Length': detectStream.lastFrame.length.toString(),
+        'Content-Length': camera.lastFrame.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Access-Control-Allow-Origin': '*'
       });
-      res.end(detectStream.lastFrame);
+      res.end(camera.lastFrame);
     } catch (error) {
       console.error(`Error getting snapshot for camera ${cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get snapshot' });
@@ -97,38 +96,20 @@ export class StreamController extends BaseController {
         'Access-Control-Allow-Headers': 'Cache-Control'
       });
 
-      const stream = streamManager.getStream(cameraId, 'detect');
-      const process = stream ? stream.process : null;
-      const isTestStream = stream && !process;
-
-      if (process && process.stdout && !isTestStream) {
-        let isActive = true;
-        const writeChunk = (chunk: Buffer) => {
-          if (!isActive) return;
-          try { res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${chunk.length}\r\n\r\n`); res.write(chunk); res.write(`\r\n--${boundary}\r\n`); } catch { isActive = false; }
-        };
-        process.stdout.on('data', writeChunk);
-        req.on('close', () => { isActive = false; try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
-        req.on('aborted', () => { isActive = false; });
-      } else if (isTestStream) {
-        let isActive = true;
-        const interval = setInterval(() => {
-          if (!isActive || !stream.lastFrame) return;
-          const frame = stream.lastFrame;
-          try {
-            res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
-            res.write(frame);
-            res.write(`\r\n--${boundary}\r\n`);
-          } catch { isActive = false; clearInterval(interval); }
-        }, Math.floor(1000 / (stream.fps || 4)));
-        req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
-        req.on('aborted', () => { isActive = false; clearInterval(interval); });
-      } else {
-        res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: 1000\r\n\r\n`);
-        res.write(Buffer.alloc(1000, 0));
-        res.write(`\r\n--${boundary}--\r\n`);
-        res.end();
-      }
+      let isActive = true;
+      const sendFrame = () => {
+        if (!isActive || !camera.lastFrame) return;
+        const frame = camera.lastFrame;
+        try {
+          res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
+          res.write(frame);
+          res.write(`\r\n--${boundary}\r\n`);
+        } catch { isActive = false; }
+      };
+      const interval = setInterval(sendFrame, 250);
+      res.write(`--${boundary}\r\n`);
+      req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
+      req.on('aborted', () => { isActive = false; clearInterval(interval); });
     } catch (error) {
       console.error(`Error serving stream for camera ${cameraId}:`, error);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve stream' });
@@ -147,10 +128,7 @@ export class StreamController extends BaseController {
       const camera = streamManager.getCamera(cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      const stream = camera.streams.get('detect');
-      if (!stream) { res.status(404).json({ success: false, error: 'Detect stream not configured' }); return; }
-
-      if (!stream.isActive) streamManager.startStream(cameraId, 'detect');
+      if (!camera.isActive) streamManager.startStream(cameraId, 'live');
 
       const boundary = '--myboundary';
       res.writeHead(200, {
@@ -164,15 +142,15 @@ export class StreamController extends BaseController {
 
       let isActive = true;
       const sendFrame = () => {
-        if (!isActive || !stream.lastFrame) return;
-        const frame = stream.lastFrame;
+        if (!isActive || !camera.lastFrame) return;
+        const frame = camera.lastFrame;
         try {
           res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
           res.write(frame);
           res.write(`\r\n--${boundary}\r\n`);
         } catch { isActive = false; }
       };
-      const interval = setInterval(sendFrame, Math.floor(1000 / stream.fps));
+      const interval = setInterval(sendFrame, 250);
       res.write(`--${boundary}\r\n`);
       req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
       req.on('aborted', () => { isActive = false; clearInterval(interval); });
@@ -194,11 +172,7 @@ export class StreamController extends BaseController {
       const camera = streamManager.getCamera(cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      let stream = camera.streams.get('record');
-      if (!stream) stream = camera.streams.get('detect');
-      if (!stream) { res.status(404).json({ success: false, error: 'No suitable stream found' }); return; }
-
-      if (!stream.isActive) streamManager.startStream(cameraId, stream.role);
+      if (!camera.isActive) streamManager.startStream(cameraId, 'live');
 
       const boundary = '--myboundary';
       res.writeHead(200, {
@@ -212,16 +186,15 @@ export class StreamController extends BaseController {
 
       let isActive = true;
       const sendFrame = () => {
-        if (!isActive || !stream?.lastFrame) return;
-        const frame = stream.lastFrame;
+        if (!isActive || !camera.lastFrame) return;
+        const frame = camera.lastFrame;
         try {
           res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
           res.write(frame);
           res.write(`\r\n--${boundary}\r\n`);
         } catch { isActive = false; }
       };
-      const fps = Math.min(stream.fps, 15);
-      const interval = setInterval(sendFrame, Math.floor(1000 / fps));
+      const interval = setInterval(sendFrame, 250);
       res.write(`--${boundary}\r\n`);
       req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
       req.on('aborted', () => { isActive = false; clearInterval(interval); });
@@ -243,16 +216,15 @@ export class StreamController extends BaseController {
       const camera = streamManager.getCamera(cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      const stream = camera.streams.get('detect');
-      if (!stream || !stream.lastFrame) { res.status(503).json({ success: false, error: 'No frame available' }); return; }
+      if (!camera.lastFrame) { res.status(503).json({ success: false, error: 'No frame available' }); return; }
 
       res.writeHead(200, {
         'Content-Type': 'image/jpeg',
-        'Content-Length': stream.lastFrame.length.toString(),
+        'Content-Length': camera.lastFrame.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Access-Control-Allow-Origin': '*'
       });
-      res.end(stream.lastFrame);
+      res.end(camera.lastFrame);
     } catch (error) {
       console.error(`Error getting frame for camera ${cameraId}:`, error);
       res.status(500).json({ success: false, error: 'Failed to get frame' });
@@ -271,17 +243,14 @@ export class StreamController extends BaseController {
       const camera = streamManager.getCamera(cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      const streams: Record<string, any> = {};
-      camera.streams.forEach((stream: any, role: string) => {
-        streams[role] = {
-          isActive: stream.isActive,
-          fps: stream.fps,
-          width: stream.width,
-          height: stream.height,
-          hasFrame: !!stream.lastFrame,
-          frameSize: stream.lastFrame?.length || 0
-        };
-      });
+      const streams: Record<string, any> = {
+        live: {
+          isActive: camera.isActive,
+          fps: camera.adaptiveFps || 4,
+          hasFrame: !!camera.lastFrame,
+          frameSize: camera.lastFrame?.length || 0
+        }
+      };
 
       res.json({
         success: true,

@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Detection Pipeline Redesign
-status: executing
-last_updated: "2026-05-29T14:10:00.000Z"
+milestone: v1.3
+milestone_name: Pipeline Cleanup
+status: planning
+last_updated: "2026-05-29T14:30:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 0
+  percent: 0
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 04 — Legacy Cleanup (complete)
+**Current focus:** Phase 05 — Pipeline Cleanup & Default Switch (3 plans, planned)
 
 ---
 
@@ -36,6 +36,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Milestone v1.0 | ✅ Shipped | 6/6 phases complete, 2026-03-23 |
 | Milestone v1.1 | ✅ Shipped | 11/11 phases, 58/58 reqs, 2026-05-18 |
 | Milestone v1.2 | ✅ Complete | 4/4 phases, 11/11 plans, 100% |
+| Milestone v1.3 | 📋 Planning | 0/1 phases, 0/3 plans, 0% |
 
 ## Accumulated Context
 
@@ -118,15 +119,17 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 | 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
 | 3 | InsightFace ArcFace Upgrade | ✅ Complete | 2/2 | 100% |
 | 4 | Legacy Cleanup | ✅ Complete | 1/1 | 100% |
+| 5 | Pipeline Cleanup & Default Switch | 📋 Planned | 0/3 | 0% |
 
 ---
 
 ## Next Steps
 
-Phase 4 complete! Milestone v1.2 (Detection Pipeline Redesign) is fully delivered.
-All 4 phases, 11 plans, 100% complete.
+Phase 4 complete — Milestone v1.2 fully delivered.
 
-Next: Plan v1.3 (next milestone) or start a quick task.
+Phase 5 (Pipeline Cleanup & Default Switch) planned: 3 plans in 2 waves.
+
+1. Execute Phase 5: `/gsd-execute-phase 5`
 
 ---
 
@@ -141,12 +144,12 @@ Next: Plan v1.3 (next milestone) or start a quick task.
 
 ## Session Context
 
-**Last Session:** 2026-05-29T19:40:00+05:30
+**Last Session:** 2026-05-29T14:30:00+05:30
 
-- **Status:** Milestone v1.2 (Detection Pipeline Redesign) — fully delivered
-- **Next:** Plan v1.3 or run a quick task
+- **Status:** v1.2 complete, v1.3 in planning
+- **Next:** Execute Phase 5: `/gsd-execute-phase 5`
 - **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 4 complete (Legacy Cleanup), Milestone v1.2 fully delivered*
+*State updated: 2026-05-29 — Phase 5 planned (Pipeline Cleanup & Default Switch), 3 plans, ready to execute*

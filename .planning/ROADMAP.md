@@ -94,10 +94,10 @@ Plans:
 
 **Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08
 **Depends on:** Phase 5
-**Plans:** 3 plans in 2 waves
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 06-01-PLAN.md — Fix double frame emission + add E2E frame relay test — Wave 1
+- [x] 06-01-PLAN.md — Fix double frame emission + add E2E frame relay test — Wave 1
 - [ ] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
 - [ ] 06-03-PLAN.md — Update AGENTS.md + fix stale references — Wave 2
 

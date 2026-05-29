@@ -18,7 +18,6 @@ from typing import List, Dict, Any, Optional
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor, Json
-import pickle
 import redis
 
 import threading
@@ -42,6 +41,8 @@ def start_rtsp_service():
             _rtsp_service.start_non_blocking()
 
             def _face_rec_fn(face_roi):
+                if face_recognition is None:
+                    return ("unknown", 0.0)
                 try:
                     return face_recognition.recognize_face(face_roi)
                 except Exception:
@@ -838,10 +839,9 @@ class YOLOObjectDetector:
             }
 
     def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect and recognize faces using the specialized face recognition module"""
+        if face_recognition is None:
+            return []
         try:
-            # Use the global face_recognition instance (could be ImprovedFaceRecognition or basic FaceRecognition)
-            # Both now implement the _detect_faces(image) method
             return face_recognition._detect_faces(image)
         except Exception as e:
             print(f"OpenCV Service: Face detection error: {e}")
@@ -1091,256 +1091,11 @@ class MotionDetector:
                 'error': str(e)
             }
 
-class FaceRecognition:
-    """Enhanced face recognition using deep learning models"""
-
-    def __init__(self):
-        self.known_faces_dir = os.path.join(os.path.dirname(__file__), 'known_faces')
-        self.models_dir = os.path.join(os.path.dirname(__file__), 'models')
-        self.model_path = os.path.join(self.models_dir, 'enhanced_face_recognizer.pkl')
-        self.embeddings_path = os.path.join(self.models_dir, 'face_embeddings_improved.pkl')
-        self.labels_path = os.path.join(self.models_dir, 'face_labels_improved.pkl')
-        self.labels = {}
-        self.is_trained = False
-
-        # Create directories if they don't exist
-        if not os.path.exists(self.known_faces_dir):
-            os.makedirs(self.known_faces_dir)
-        if not os.path.exists(self.models_dir):
-            os.makedirs(self.models_dir)
-
-        # Initialize face detection and recognition models
-        self.face_detector = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        )
-
-        # Try to load DNN face detector for better accuracy
-        self.dnn_face_detector = self._load_dnn_face_detector()
-
-        # Initialize face embeddings model
-        self.face_embeddings_model = self._load_face_embeddings_model()
-
-        # Load trained model if it exists
-        self.known_encodings = []
-        self.known_names = []
-        self._load_trained_model()
-
-    def _load_dnn_face_detector(self):
-        """Load DNN-based face detector for better accuracy"""
-        try:
-            # Try to load a DNN face detection model
-            prototxt_path = os.path.join(self.models_dir, 'deploy.prototxt')
-            model_path = os.path.join(self.models_dir, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
-
-            if os.path.exists(prototxt_path) and os.path.exists(model_path):
-                net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
-                return net
-            else:
-                print("DNN face detector model files not found, using Haar cascade")
-                return None
-        except Exception as e:
-            print(f"DNN face detector not available: {e}")
-            return None
-
-    def _load_face_embeddings_model(self):
-        """Load face embeddings model for better recognition"""
-        try:
-            # Placeholder for loading face embedding model
-            return None
-        except Exception as e:
-            print(f"Face embeddings model not available: {e}")
-            return None
-
-    def _load_trained_model(self):
-        """Load previously trained face recognition model"""
-        try:
-            if os.path.exists(self.embeddings_path) and os.path.exists(self.labels_path):
-                with open(self.embeddings_path, 'rb') as f:
-                    self.known_encodings = pickle.load(f)
-                with open(self.labels_path, 'rb') as f:
-                    self.known_names = pickle.load(f)
-                self.is_trained = True
-                print(f"Loaded trained model with {len(self.known_names)} known faces")
-        except Exception as e:
-            print(f"Failed to load trained model: {e}")
-
-    def extract_face_features(self, face_img):
-        """Extract features from face image using face_recognition library"""
-        try:
-            import face_recognition
-            # Convert to RGB (OpenCV uses BGR)
-            rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-            # Use face_recognition library for feature extraction
-            encodings = face_recognition.face_encodings(rgb_face)
-            if encodings:
-                return encodings[0]
-            return None
-        except Exception as e:
-            print(f"Error extracting face features: {e}")
-            return None
-
-    def detect_faces_dnn(self, image):
-        """Detect faces using DNN model"""
-        if self.dnn_face_detector is None:
-            return self.detect_faces_haar(image)
-
-        try:
-            h, w = image.shape[:2]
-            blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
-            self.dnn_face_detector.setInput(blob)
-            detections = self.dnn_face_detector.forward()
-
-            faces = []
-            for i in range(detections.shape[2]):
-                confidence = detections[0, 0, i, 2]
-
-                if confidence > 0.5:  # Confidence threshold
-                    box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-                    x, y, x1, y1 = box.astype(int)
-
-                    # Ensure coordinates are within image bounds
-                    x, y = max(0, x), max(0, y)
-                    x1, y1 = min(w, x1), min(h, y1)
-
-                    faces.append((x, y, x1-x, y1-y))
-
-            return faces
-        except Exception as e:
-            print(f"Error in DNN face detection: {e}")
-            return self.detect_faces_haar(image)
-
-    def detect_faces_haar(self, image):
-        """Detect faces using Haar cascade (fallback)"""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        faces = self.face_detector.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
-        return faces
-
-    def recognize_face(self, face_img):
-        """Recognize a face using trained model"""
-        if not self.is_trained or len(self.known_encodings) == 0:
-            return "unknown", 0.0
-
-        try:
-            # Extract features from the input face
-            face_features = self.extract_face_features(face_img)
-            if face_features is None:
-                return "unknown", 0.0
-
-            # Calculate distances to known faces
-            distances = []
-            for known_encoding in self.known_encodings:
-                distance = np.linalg.norm(face_features - known_encoding)
-                distances.append(distance)
-
-            # Find the closest match
-            if distances:
-                min_distance_idx = np.argmin(distances)
-                min_distance = distances[min_distance_idx]
-
-                # Convert distance to similarity score
-                threshold = 0.6  # Adjust based on your needs
-                similarity = max(0, 100 - min_distance * 100)
-
-                if min_distance < threshold:
-                    return self.known_names[min_distance_idx], similarity
-                else:
-                    return "unknown", similarity
-            else:
-                return "unknown", 0.0
-
-        except Exception as e:
-            print(f"Error recognizing face: {e}")
-            return "unknown", 0.0
-
-    def train_recognizer(self):
-        """Train the face recognizer with known faces"""
-        try:
-            faces = []
-            names = []
-
-            for person_dir in os.listdir(self.known_faces_dir):
-                person_path = os.path.join(self.known_faces_dir, person_dir)
-                if not os.path.isdir(person_path):
-                    continue
-
-                for image_file in os.listdir(person_path):
-                    if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        image_path = os.path.join(person_path, image_file)
-                        image = cv2.imread(image_path)
-
-                        if image is not None:
-                            # Extract face features
-                            face_features = self.extract_face_features(image)
-                            if face_features is not None:
-                                faces.append(face_features)
-                                names.append(person_dir)
-
-            if faces:
-                self.known_encodings = faces
-                self.known_names = names
-                self.is_trained = True
-
-                # Save the trained model
-                with open(self.embeddings_path, 'wb') as f:
-                    pickle.dump(self.known_encodings, f)
-                with open(self.labels_path, 'wb') as f:
-                    pickle.dump(self.known_names, f)
-
-                print(f"Trained face recognizer with {len(names)} faces from {len(set(names))} people")
-            else:
-                print("No training data found for face recognition")
-
-        except Exception as e:
-            print(f"Error training face recognizer: {e}")
-
-    def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect and recognize faces using Haar Cascade classifier and face recognition"""
-        face_detections = []
-
-        try:
-            # Use DNN face detector for better accuracy
-            faces = self.detect_faces_dnn(image)
-
-            for i, (x, y, w, h) in enumerate(faces):
-                # Extract face region
-                face_roi = image[y:y+h, x:x+w]
-
-                # Recognize the face
-                person_name, recognition_confidence = self.recognize_face(face_roi)
-
-                # Use recognition confidence if available, otherwise default confidence
-                confidence = recognition_confidence if recognition_confidence > 0 else 80.0
-
-                face_detections.append({
-                    'id': f'face_{i}',
-                    'name': person_name,
-                    'confidence': float(confidence),
-                    'isKnown': person_name != 'unknown',
-                    'bbox': {
-                        'x': int(x),
-                        'y': int(y),
-                        'width': int(w),
-                        'height': int(h)
-                    }
-                })
-
-            return face_detections
-
-        except Exception as e:
-            print(f"OpenCV Service: Face detection error: {e}")
-            return []
-
 # Start RTSP ingestion service in background
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
     start_rtsp_service()
 
-# ArcFace recognizer — primary face recognition engine
+# ArcFace recognizer — primary face recognition engine (legacy FaceRecognition class removed)
 try:
     from arcface_recognizer import ArcFaceRecognizer
     FaceRecognition = ArcFaceRecognizer
@@ -1352,11 +1107,11 @@ except ImportError as e:
         FaceRecognition = ImprovedFaceRecognition
         print("OpenCV Service: Using improved face recognition module (fallback)")
     except ImportError:
-        print("OpenCV Service: Improved face recognition not available, using basic module")
-        # Keep the existing FaceRecognition class defined in this file
+        print("OpenCV Service: No face recognition module available — running without face recognition")
+        FaceRecognition = None
 
 # Initialize face recognition
-face_recognition = FaceRecognition()
+face_recognition = FaceRecognition() if FaceRecognition is not None else None
 
 # Initialize detector
 detector = YOLOObjectDetector()
@@ -1847,6 +1602,9 @@ def detect_batch_paths():
 def train_face():
     """Endpoint to add a known face for training - accepts image upload"""
     try:
+        if face_recognition is None:
+            return jsonify({'success': False, 'error': 'Face recognition not available'}), 503
+
         if 'image' not in request.files:
             return jsonify({'success': False, 'error': 'No image file provided'}), 400
             
@@ -1859,19 +1617,16 @@ def train_face():
                 'error': 'personName is required'
             }), 400
 
-        # Create person directory if it doesn't exist
         person_dir = os.path.join(face_recognition.known_faces_dir, person_name)
         if not os.path.exists(person_dir):
             os.makedirs(person_dir)
 
-        # Save image to person's directory with a unique name
         timestamp = int(time.time() * 1000)
         filename = f"{timestamp}_{image_file.filename}" if image_file.filename else f"{timestamp}.jpg"
         dest_path = os.path.join(person_dir, filename)
         
         image_file.save(dest_path)
 
-        # Retrain the recognizer
         face_recognition.train_recognizer()
 
         return jsonify({
@@ -1889,6 +1644,8 @@ def train_face():
 def retrain_model():
     """Endpoint to retrain the face recognition model"""
     try:
+        if face_recognition is None:
+            return jsonify({'success': False, 'error': 'Face recognition not available'}), 503
         face_recognition.train_recognizer()
         return jsonify({
             'success': True,
@@ -1905,9 +1662,10 @@ def retrain_model():
 def get_known_faces():
     """Endpoint to list known faces"""
     try:
+        if face_recognition is None:
+            return jsonify({'success': True, 'faces': [], 'count': 0})
         faces = []
         if face_recognition.is_trained:
-            # Use known_names list (may have duplicates for multiple embeddings per person)
             unique_names = set(face_recognition.known_names)
             for idx, name in enumerate(unique_names):
                 faces.append({

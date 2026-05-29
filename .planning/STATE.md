@@ -8,8 +8,8 @@ progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 8
-  completed_plans: 9
-  percent: 56
+  completed_plans: 10
+  percent: 62
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 03 — InsightFace ArcFace Upgrade (1/2 plans)
+**Current focus:** Phase 04 — Legacy Cleanup (0/0 plans)
 
 ---
 
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Roadmap | ✓ Created | 11+4 phases |
 | Milestone v1.0 | ✅ Shipped | 6/6 phases complete, 2026-03-23 |
 | Milestone v1.1 | ✅ Shipped | 11/11 phases, 58/58 reqs, 2026-05-18 |
-| Milestone v1.2 | 🔄 Executing | 1/4 phases, 5/5 plans, 25% |
+| Milestone v1.2 | 🔄 Executing | 2/4 phases, 10/10 plans, 62% |
 
 ## Accumulated Context
 
@@ -66,6 +66,19 @@ Phase 2 delivered three targeted streaming optimizations:
 - Phase 3 added: InsightFace ArcFace Upgrade
 - Phase 4 added: Legacy Cleanup
 - Phase 1 planned: 5 plans (03-WS-client, 04-WS-publisher, 01-core, 02-ffmpeg-mog2, 05-integration) in 3 waves
+
+### Phase 3 Complete — InsightFace ArcFace Upgrade
+
+Phase 3 upgraded face recognition from dlib-based face_recognition to InsightFace ArcFace:
+
+- **ArcFaceRecognizer** (`arcface_recognizer.py`): New Python class using RetinaFace detection + ArcFace 512-dim embeddings. GPU/CPU auto-detect. Dual-mode: 128-dim legacy + 512-dim ArcFace embeddings stored separately.
+- **Fallback chain**: ArcFace → ImprovedFaceRecognition → legacy FaceRecognition (graceful degradation)
+- **Dependency management**: insightface, onnxruntime added to requirements.txt and Dockerfile
+- **Redundant DNN detector removed**: YOLOObjectDetector no longer loads Caffe face detector (saves ~10MB)
+- **CRITICAL-01 fixed**: Config reset SQL query now uses proper VALUES syntax with config_key column
+- **CRITICAL-02 fixed**: Dimension check replaces cv2.resize crash on 1D embedding vectors
+- **FaceEmbedding model**: Added `embeddingVersion` field (default '128') for dual-mode tracking
+- **Version-aware routes**: POST accepts 128/512 dims, GET supports `?version=128|512` filter
 
 ### Deferred Items (acknowledged at v1.1 close)
 
@@ -103,17 +116,17 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 |-------|------|--------|-------|------------|
 | 1 | RTSP Ownership Transfer | ✅ Complete | 5/5 | 100% |
 | 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
-| 3 | InsightFace ArcFace Upgrade | 🔄 Executing | 1/2 | 50% |
+| 3 | InsightFace ArcFace Upgrade | ✅ Complete | 2/2 | 100% |
 | 4 | Legacy Cleanup | ⬜ Not planned | 0/0 | 0% |
 
 ---
 
 ## Next Steps
 
-Phase 2 complete! Ready for Phase 3:
+Phase 3 complete! Ready for Phase 4:
 
-1. Plan Phase 3: `/gsd-plan-phase 3`
-2. Execute Phase 3: `/gsd-execute-phase 3`
+1. Plan Phase 4: `/gsd-plan-phase 4`
+2. Execute Phase 4: `/gsd-execute-phase 4`
 
 ---
 
@@ -130,10 +143,10 @@ Phase 2 complete! Ready for Phase 3:
 
 **Last Session:** 2026-05-29T15:55:00+05:30
 
-- **Status:** executing
-- **Next:** Plan Phase 3: `/gsd-plan-phase 3`
+- **Status:** Phase 3 complete (2/2 plans, 100%)
+- **Next:** Plan Phase 4: `/gsd-plan-phase 4`
 - **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 2 complete (Streaming Performance Overhaul), ready for Phase 3*
+*State updated: 2026-05-29 — Phase 3 complete (InsightFace ArcFace Upgrade), ready for Phase 4*

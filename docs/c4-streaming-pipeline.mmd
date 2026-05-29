@@ -6,24 +6,18 @@ C4Component
     System_Ext(ip_cam, "IP Cameras", "RTSP / H.264 video streams\ntsps://camera.local:554/stream1")
     System_Ext(ffmpeg_cli, "FFmpeg Binary", "System or static binary\nVideo transcoding engine")
     System_Ext(browser, "React Frontend", "Browser client\nSocket.io + REST consumer")
-    SystemDb(redis, "Redis Cache", "Detection result cache\nCircuit breaker state")
     SystemDb(postgres, "PostgreSQL 15", "events, face_embeddings\nvisitor_timeline tables")
 
     Boundary(backend, "Express Backend  :9753  (Node.js / TypeScript)", "Container") {
 
         Boundary(stream_core, "Streaming Core", "Sub-system") {
-            Component(stream_mgr, "StreamManager", "TypeScript — rtspManager.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Spawns FFmpeg child process per camera\n• Parses MJPEG byte stream → JPEG frames\n• Socket.io room mgmt per camera-role\n• Adaptive FPS throttling by viewer count\n• Viewer tracking (socket ID sets)\n• 5-min inactivity timeout\n• FFmpeg reconnect w/ exponential backoff")
+            Component(stream_mgr, "StreamManager", "TypeScript — rtspManager.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Socket.io frame relay via PythonWsClient\n• Stores lastFrame per camera\n• Adaptive FPS throttling by viewer count\n• Viewer tracking (socket ID sets)\n• 5-min inactivity timeout")
             Component(py_ws, "PythonWsClient", "TypeScript — pythonWsClient.ts\n━━━━━━━━━━━━━━━━━━━━━\n• WebSocket client → ws://localhost:9090\n• Subscribe / unsubscribe per camera\n• Receives binary JPEG + JSON events\n• Re-emits as Node EventEmitter\n• Auto-reconnect 1s → 30s exp. backoff")
-            Component(sio, "Socket.io Server", "TypeScript — index.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Handlers: requestStream, stopStream, disconnect\n• Bridges PythonWsClient events → rooms\n• Emits: frame, detection, motionDetected\n         personDetected, faceDetected")
+            Component(sio, "Socket.io Server", "TypeScript — index.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Handlers: requestStream, stopStream, disconnect\n• Bridges trackingEvent → Socket.io rooms\n• Emits: detection, motionDetected\n         personDetected, faceDetected")
         }
 
         Boundary(rest_layer, "REST API", "Interface") {
             Component(stream_ctrl, "StreamController", "TypeScript — StreamController.ts\n━━━━━━━━━━━━━━━━━━━━━\n• GET  /api/streams/:id/live   (MJPEG)\n• GET  /api/streams/:id/frame  (JPEG)\n• GET  /api/streams/:id/status\n• GET  /api/streaming/metrics")
-        }
-
-        Boundary(detect_pipe, "Detection Pipeline", "Sub-system") {
-            Component(motion_det, "OptimizedMotionDetector", "TypeScript — optimizedMotionDetection.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Adaptive polling timer (3–5 s)\n• HTTP → OpenCV /detect-motion\n• Multi-frame validation (3 consecutive)\n• Triggers enhanced analysis on confirm")
-            Component(consolidated, "ConsolidatedDetectionService", "TypeScript — consolidatedDetectionService.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• HTTP client → OpenCV\n    POST /detect-objects\n    POST /recognize-faces\n• Circuit breaker pattern\n• Redis / in-memory cache layer")
         }
 
         Component(health_mon, "StreamHealthMonitor", "TypeScript — streamHealthMonitor.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• 30-second health check cycle\n• Stale detection (no frames 5 min)\n• Auto-restart (max 3/hr/camera)\n• Severity: info → warning → critical")
@@ -55,23 +49,14 @@ C4Component
     Rel(browser, stream_ctrl, "MJPEG stream, JPEG snapshot\nStatus, metrics", "HTTP REST")
 
     %% ── Backend internal ─────────────────────────────────────────────
-    Rel(stream_mgr, ffmpeg_cli, "Spawns FFmpeg child process\n-f rtsp → -f image2pipe -c:v mjpeg\n-fflags nobuffer", "stdout pipe (MJPEG)")
-    Rel(stream_mgr, sio, "Emit JPEG frames to camera rooms\nAdaptive FPS by viewer count", "Internal")
-    Rel(py_ws, sio, "Bridge frame + trackingEvent\n→ Socket.io room emits", "EventEmitter")
+
+    Rel(py_ws, sio, "Room: forward trackingEvent\n→ Socket.io emit detection, personDetected, motionDetected", "EventEmitter")
     Rel(sio, stream_mgr, "requestStream / stopStream\nviewer socket ID tracking", "Socket.io events")
     Rel(stream_ctrl, stream_mgr, "Read .lastFrame for JPEG snapshot\nRead viewer counts for metrics", "Direct access")
     Rel(health_mon, stream_mgr, "30 s health probes\nStale detection → auto-restart", "Polling")
 
-    %% ── Detection pipeline ───────────────────────────────────────────
-    Rel(stream_mgr, motion_det, "stream_mgr.lastFrame\n→ periodic sampling", "Buffer reference")
-    Rel(motion_det, consolidated, "Motion confirmed (3×)\n→ enhanced analysis", "Internal call")
-    Rel(consolidated, redis, "Cache detection results\nCircuit breaker state", "TCP :6379")
-    Rel(consolidated, postgres, "Store events\nQuery face_embeddings", "TCP :5432")
-
     %% ── Cross-container: Backend ↔ Python ────────────────────────────
     Rel(py_ws, ws_pub, "WebSocket connect\nsubscribe / unsubscribe\nrecv binary JPEG + JSON events", "ws://localhost:9090")
-    Rel(motion_det, python_svc, "POST /detect-motion", "HTTP :8084")
-    Rel(consolidated, python_svc, "POST /detect-objects\nPOST /recognize-faces", "HTTP :8084")
 
     %% ── Python internal ──────────────────────────────────────────────
     Rel(rtsp_svc, config_py, "Read thresholds, FPS\nresolution, queue sizes")

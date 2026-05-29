@@ -27,42 +27,17 @@ export class CameraController extends BaseController {
       logger.info('Fetched cameras from stream manager', 'API', { cameraCount: cameras.length });
 
       const optimizedCameras = cameras.map((camera: Camera) => {
-        let status = 'offline';
-        if (camera.isActive) {
-          status = 'online';
-        } else if (camera.retryCount && camera.retryCount > 0) {
-          status = 'warning';
-        }
-
-        const detectStream = camera.streams.get('detect');
-        const recordStream = camera.streams.get('record');
+        const status = camera.isActive ? 'online' : 'offline';
         return {
           id: camera.id,
           name: camera.name,
           isActive: camera.isActive,
-          nightMode: camera.nightMode,
+          nightMode: camera.config.nightMode || false,
           status,
-          lastError: camera.lastError || undefined,
-          retryCount: camera.retryCount || 0,
           config: {
-            detect: camera.config.detect,
             streams: camera.config.streams,
             objects: camera.config.objects,
             zones: camera.config.zones
-          },
-          streams: {
-            detect: detectStream ? {
-              isActive: detectStream.isActive,
-              fps: detectStream.fps,
-              width: detectStream.width,
-              height: detectStream.height
-            } : null,
-            record: recordStream ? {
-              isActive: recordStream.isActive,
-              fps: recordStream.fps,
-              width: recordStream.width,
-              height: recordStream.height
-            } : null
           }
         };
       });
@@ -204,14 +179,12 @@ export class CameraController extends BaseController {
         this.notFound(res, 'Camera not found');
         return;
       }
-      if (camera.isActive && camera.mainProcess) {
+      if (camera.isActive) {
         res.status(400).json({ success: false, error: 'Camera is already streaming', status: 'streaming', cameraId: req.params.id });
         return;
       }
 
-      camera.streams.forEach((_value: any, role: 'detect' | 'record' | 'live') => {
-        streamManager.startStream(req.params.id, role);
-      });
+      streamManager.startStream(req.params.id, 'live');
 
       res.json({ success: true, status: 'streaming', cameraId: req.params.id, timestamp: new Date().toISOString() });
     } catch (error) {

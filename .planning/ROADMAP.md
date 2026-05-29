@@ -9,15 +9,16 @@
 - ✅ **v1.0 Resource Optimization** — Phases 1-6 (shipped 2026-03-23)
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
 - ✅ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
-- ⬜ **v1.3 Pipeline Cleanup** — Phase 5 (planned)
+- ✅ **v1.3 Pipeline Cleanup** — Phase 5 (complete)
 
 ---
 
-## Active / Future Phases
+## Completed Milestones
 
 v1.2 Detection Pipeline Redesign — 4 phases (complete)
+v1.3 Pipeline Cleanup — Phase 5 (complete)
 
-*Last updated: 2026-05-29 - v1.2 fully delivered*
+*Last updated: 2026-05-29 - v1.3 fully delivered*
 
 ### Phase 1: RTSP Ownership Transfer
 
@@ -80,9 +81,9 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 05-01-PLAN.md — Default pipeline switch + config cleanup — Wave 1
-- [ ] 05-02-PLAN.md — Remove legacy Node.js detection modules — Wave 1
-- [ ] 05-03-PLAN.md — Simplify rtspManager + accept ADR-003 — Wave 2
+- [x] 05-01-PLAN.md — Default pipeline switch + config cleanup — Wave 1
+- [x] 05-02-PLAN.md — Remove legacy Node.js detection modules — Wave 1
+- [x] 05-03-PLAN.md — Simplify rtspManager + accept ADR-003 — Wave 2
 
 ---
 
@@ -111,9 +112,9 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.1 Total** | | **58** | **✅ 58/58** |
 | **v1.2 Phase 1** | **RTSP-01 – RTSP-08** | **8** | **📋 Planned** |
 | **v1.2 Phase 2** | **PERF-01 – PERF-09** | **9** | **📋 Planned** |
-| **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **📋 Planned** |
+| **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **✅ Complete** |
 
-**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements, planned) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements, planned) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, planned)
+**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete)
 
 ---
 
@@ -145,7 +146,7 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | PERF-09 | Configurable max concurrent streams limit (default: 4) | Viewport Loading | 02-03 |
 
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-05-29 — v1.2 complete, v1.3 Phase 5 planned: 3 plans in 2 waves*
+*Last updated: 2026-05-29 — v1.3 complete*
 
 ## v1.3 Phase 5 Requirements
 

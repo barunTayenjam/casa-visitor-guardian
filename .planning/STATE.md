@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Detection Pipeline Redesign
 status: executing
-last_updated: "2026-05-29T08:13:18.568Z"
+last_updated: "2026-05-29T14:10:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 10
-  percent: 75
+  completed_plans: 11
+  percent: 100
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 04 — Legacy Cleanup (1 plan, planned)
+**Current focus:** Phase 04 — Legacy Cleanup (complete)
 
 ---
 
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Roadmap | ✓ Created | 11+4 phases |
 | Milestone v1.0 | ✅ Shipped | 6/6 phases complete, 2026-03-23 |
 | Milestone v1.1 | ✅ Shipped | 11/11 phases, 58/58 reqs, 2026-05-18 |
-| Milestone v1.2 | 🔄 Executing | 2/4 phases, 10/10 plans, 62% |
+| Milestone v1.2 | ✅ Complete | 4/4 phases, 11/11 plans, 100% |
 
 ## Accumulated Context
 
@@ -117,16 +117,16 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 | 1 | RTSP Ownership Transfer | ✅ Complete | 5/5 | 100% |
 | 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
 | 3 | InsightFace ArcFace Upgrade | ✅ Complete | 2/2 | 100% |
-| 4 | Legacy Cleanup | 📋 Planned | 1/1 | 0% |
+| 4 | Legacy Cleanup | ✅ Complete | 1/1 | 100% |
 
 ---
 
 ## Next Steps
 
-Phase 3 complete! Ready for Phase 4:
+Phase 4 complete! Milestone v1.2 (Detection Pipeline Redesign) is fully delivered.
+All 4 phases, 11 plans, 100% complete.
 
-1. Plan Phase 4: `/gsd-plan-phase 4`
-2. Execute Phase 4: `/gsd-execute-phase 4`
+Next: Plan v1.3 (next milestone) or start a quick task.
 
 ---
 
@@ -141,12 +141,12 @@ Phase 3 complete! Ready for Phase 4:
 
 ## Session Context
 
-**Last Session:** 2026-05-29T15:55:00+05:30
+**Last Session:** 2026-05-29T19:40:00+05:30
 
-- **Status:** Ready to execute
-- **Next:** Plan Phase 4: `/gsd-plan-phase 4`
+- **Status:** Milestone v1.2 (Detection Pipeline Redesign) — fully delivered
+- **Next:** Plan v1.3 or run a quick task
 - **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 3 complete (InsightFace ArcFace Upgrade), ready for Phase 4*
+*State updated: 2026-05-29 — Phase 4 complete (Legacy Cleanup), Milestone v1.2 fully delivered*

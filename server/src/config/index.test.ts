@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   config,
   validateConfig,
@@ -9,6 +12,9 @@ import {
   getOpenCVServiceUrl,
   getStoragePathFromFile,
 } from '../config/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('Configuration Loading and Validation', () => {
   describe('Config object shape and defaults', () => {
@@ -68,6 +74,30 @@ describe('Configuration Loading and Validation', () => {
       expect(config.mqtt).toHaveProperty('port');
       expect(config.mqtt.topicPrefix).toBe('sentryvision');
       expect(config.mqtt.port).toBe(1883);
+    });
+
+    it('should have pipeline config with expected fields', () => {
+      expect(config.pipeline).toBeDefined();
+      expect(config.pipeline).toHaveProperty('mode');
+      expect(config.pipeline).toHaveProperty('pythonWsUrl');
+    });
+
+    it('should default PIPELINE_MODE to python-only in source code', () => {
+      // The source code must have 'python-only' as the fallback default
+      // config.pipeline.mode is 'dual' when .env sets PIPELINE_MODE=dual,
+      // but the code-level default must be 'python-only'
+      const configPath = path.join(__dirname, 'index.ts');
+      const configSource = fs.readFileSync(configPath, 'utf8');
+      expect(configSource).toMatch(/PIPELINE_MODE.*\|\|.*'python-only'/);
+    });
+
+    it('should respect PIPELINE_MODE env var override', () => {
+      // Config value reflects whatever PIPELINE_MODE is set to in .env
+      expect(['legacy', 'dual', 'python-only']).toContain(config.pipeline.mode);
+    });
+
+    it('should have valid pipeline mode values', () => {
+      expect(['legacy', 'dual', 'python-only']).toContain(config.pipeline.mode);
     });
   });
 

@@ -23,12 +23,14 @@ router.post('/', async (req, res) => {
       faceConfidence,
       cameraId,
       imagePath,
-      detectionMethod
+      detectionMethod,
+      embeddingVersion = '512'
     } = req.body;
 
     // Validate embedding vector dimension
-    if (!Array.isArray(embeddingVector) || embeddingVector.length !== 128) {
-      return res.status(400).json({ error: 'Embedding vector must be 128-dimensional' });
+    const validDims = [128, 512];
+    if (!Array.isArray(embeddingVector) || !validDims.includes(embeddingVector.length)) {
+      return res.status(400).json({ error: 'Embedding vector must be 128 or 512-dimensional' });
     }
 
     // Create embedding record
@@ -44,7 +46,8 @@ router.post('/', async (req, res) => {
       faceConfidence,
       cameraId,
       imagePath,
-      detectionMethod
+      detectionMethod,
+      embeddingVersion
     });
 
     await faceEmbeddingRepository.save(embedding);
@@ -64,13 +67,19 @@ router.post('/', async (req, res) => {
 router.get('/visitor/:visitorId', async (req, res) => {
   try {
     const { visitorId } = req.params;
-    const { minQuality = 50 } = req.query;
+    const { minQuality = 50, version } = req.query;
+
+    const whereClause: Record<string, unknown> = {
+      visitorId,
+      isActive: true
+    };
+
+    if (version) {
+      whereClause.embeddingVersion = version as string;
+    }
 
     const embeddings = await faceEmbeddingRepository.find({
-      where: {
-        visitorId,
-        isActive: true
-      },
+      where: whereClause,
       order: {
         qualityScore: 'DESC'
       }

@@ -26,6 +26,7 @@ export class RetentionPolicyService extends EventEmitter {
     detections: 30,
     previews: 14,
   };
+  private creatingPolicy = false;
 
   private constructor() {
     super();
@@ -93,7 +94,15 @@ export class RetentionPolicyService extends EventEmitter {
         .getOne();
 
       if (!policy) {
-        policy = await this.createCameraPolicy(camera);
+        if (this.creatingPolicy) {
+          throw new Error('Re-entrant call to getPolicy detected');
+        }
+        this.creatingPolicy = true;
+        try {
+          policy = await this.createCameraPolicy(camera);
+        } finally {
+          this.creatingPolicy = false;
+        }
       }
 
       this.policyCache.set(cacheKey, { policy, timestamp: Date.now() });
@@ -118,7 +127,24 @@ export class RetentionPolicyService extends EventEmitter {
 
   async createCameraPolicy(camera?: string): Promise<RetentionPolicy> {
     try {
-      const globalPolicy = await this.getPolicy();
+      const globalPolicy = await AppDataSource.getRepository(RetentionPolicy)
+        .createQueryBuilder('rp')
+        .where('rp.camera IS NULL')
+        .getOne();
+
+      if (!globalPolicy) {
+        const created = await this.createGlobalPolicy();
+        const policy = AppDataSource.getRepository(RetentionPolicy).create({
+          camera: camera || null,
+          alerts_days: created.alerts_days,
+          detections_days: created.detections_days,
+          previews_days: created.previews_days,
+          snapshots_days: created.snapshots_days,
+          events_days: created.events_days,
+          retain_indefinitely: created.retain_indefinitely,
+        });
+        return await AppDataSource.getRepository(RetentionPolicy).save(policy);
+      }
 
       const policy = AppDataSource.getRepository(RetentionPolicy).create({
         camera: camera || null,

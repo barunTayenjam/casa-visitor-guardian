@@ -34,17 +34,29 @@ def start_rtsp_service():
     if _rtsp_service is not None:
         return
     try:
-        from rtsp_ingestion import RTSPService, load_camera_config
+        from rtsp_ingestion import RTSPService, load_camera_config, FramePipeline
         config_path = os.environ.get('CAMERAS_CONFIG_PATH', '/app/cameras.json')
         cameras = load_camera_config(config_path)
         if cameras:
             _rtsp_service = RTSPService(cameras)
             _rtsp_service.start_non_blocking()
+
+            def _face_rec_fn(face_roi):
+                try:
+                    return face_recognition.recognize_face(face_roi)
+                except Exception:
+                    return ("unknown", 0.0)
+
+            for pipeline in _rtsp_service._pipelines.values():
+                pipeline.set_face_recognition(_face_rec_fn)
+
             print(f"[app.py] RTSPService started with {len(cameras)} cameras")
         else:
             print("[app.py] No cameras found, RTSPService not started")
     except Exception as e:
+        import traceback
         print(f"[app.py] Failed to start RTSPService: {e}")
+        traceback.print_exc()
 
 # Configuration
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
@@ -365,12 +377,19 @@ class YOLOObjectDetector:
                 print(f"OpenCV Service: Loading YOLOv8n ONNX model from {yolov8_path}")
                 self.net = cv2.dnn.readNet(yolov8_path)
                 self.model_type = 'yolov8'
-                
-                # CPU only for ONNX models (CUDA support limited)
-                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                print("OpenCV Service: Using YOLOv8n with CPU (ONNX format)")
-                
+
+                try:
+                    if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+                        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+                        print("OpenCV Service: Using YOLOv8n with CUDA")
+                    else:
+                        raise RuntimeError("No CUDA devices")
+                except Exception:
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                    print("OpenCV Service: Using YOLOv8n with CPU")
+
                 self.initialized = True
                 print("OpenCV Service: YOLOv8n detection initialized successfully")
                 return
@@ -382,10 +401,18 @@ class YOLOObjectDetector:
                 print(f"OpenCV Service: Loading YOLOv5n ONNX model from {yolov5_path}")
                 self.net = cv2.dnn.readNet(yolov5_path)
                 self.model_type = 'yolov5'
-                
-                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                print("OpenCV Service: Using YOLOv5n with CPU (ONNX format)")
+
+                try:
+                    if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+                        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+                        print("OpenCV Service: Using YOLOv5n with CUDA")
+                    else:
+                        raise RuntimeError("No CUDA devices")
+                except Exception:
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                    print("OpenCV Service: Using YOLOv5n with CPU")
                 
             self.initialized = True
             print("OpenCV Service: YOLOv5n detection initialized successfully")
@@ -829,50 +856,11 @@ class YOLOObjectDetector:
             }
 
     def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect and recognize faces using face_recognition library (CNN model)"""
-        face_detections = []
-
+        """Detect and recognize faces using the specialized face recognition module"""
         try:
-            # Use CNN model for detection (matches training)
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            import face_recognition as fr_lib
-            face_locs = fr_lib.face_locations(rgb_image, model='hog')
-
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            import face_recognition as fr_lib
-
-            for i, (top, right, bottom, left) in enumerate(face_locs):
-                face_roi = image[top:bottom, left:right]
-                face_roi_rgb = rgb_image[top:bottom, left:right]
-                
-                encodings = fr_lib.face_encodings(face_roi_rgb)
-                
-                if encodings:
-                    import face_recognition
-                    matches = fr_lib.compare_faces(face_recognition.known_encodings, encodings[0], tolerance=0.6)
-                    distances = fr_lib.face_distance(face_recognition.known_encodings, encodings[0])
-                    
-                    if True in matches:
-                        idx = np.argmin(distances)
-                        person_name = face_recognition.known_names[idx]
-                        conf = max(0, min(100, (1 - distances[idx]) * 100))
-                    else:
-                        person_name = "unknown"
-                        conf = 80.0
-                else:
-                    person_name = "unknown"
-                    conf = 80.0
-
-                face_detections.append({
-                    'id': f'face_{i}',
-                    'name': person_name,
-                    'confidence': float(conf),
-                    'isKnown': person_name != 'unknown',
-                    'bbox': {'x': int(left), 'y': int(top), 'width': int(right - left), 'height': int(bottom - top)}
-                })
-
-            return face_detections
-
+            # Use the global face_recognition instance (could be ImprovedFaceRecognition or basic FaceRecognition)
+            # Both now implement the _detect_faces(image) method
+            return face_recognition._detect_faces(image)
         except Exception as e:
             print(f"OpenCV Service: Face detection error: {e}")
             return []
@@ -1367,7 +1355,8 @@ class FaceRecognition:
             return []
 
 # Start RTSP ingestion service in background
-start_rtsp_service()
+if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
+    start_rtsp_service()
 
 # Try to import improved face recognition module
 try:

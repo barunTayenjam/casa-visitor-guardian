@@ -31,15 +31,16 @@ JPEG_QUALITY = 60
 JPEG_OPTIMIZE = 1
 
 # FFmpeg default arguments for RTSP ingestion
+# Simplified FFmpeg args for RTSP ingestion – reduces flags that caused permission issues
 FFMPEG_DEFAULT_ARGS = [
     '-rtsp_transport', 'tcp',
     '-timeout', '5000000',
-    '-fflags', '+discardcorrupt+genpts',
-    '-max_delay', '1000000',
-    '-probesize', '1000000',
-    '-analyzeduration', '2000000',
     '-loglevel', 'error',
 ]
 
 # Metrics latency buckets (milliseconds)
 METRICS_WS_LATENCY_BUCKETS = [10, 25, 50, 100, 200, 500]
+
+# Inference backend selection: 'auto' (detect CUDA), 'cuda', 'cpu'
+INFERENCE_BACKEND = os.getenv('INFERENCE_BACKEND', 'auto')
+INFERENCE_TARGET = os.getenv('INFERENCE_TARGET', 'auto')

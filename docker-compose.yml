@@ -80,6 +80,8 @@ services:
       - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
       - STREAM_INACTIVITY_TIMEOUT=${STREAM_INACTIVITY_TIMEOUT:-300000}
       # Node.js memory optimization - increased to prevent OOM
+      - PIPELINE_MODE=${PIPELINE_MODE:-python-only}
+      - PYTHON_WS_URL=ws://opencv:9090
       - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-2560}
     volumes:
       - ./server:/app
@@ -185,6 +187,7 @@ services:
     container_name: sentryvision-opencv
     ports:
       - "0.0.0.0:8084:8084"
+      - "0.0.0.0:9090:9090"
     environment:
       - PORT=8084
       - FLASK_ENV=development
@@ -224,7 +227,7 @@ services:
       resources:
         limits:
           cpus: ${OPENCV_CPU_LIMIT:-0.5}
-          memory: ${OPENCV_MEM_LIMIT:-768M}
+          memory: ${OPENCV_MEM_LIMIT:-1024M}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.1}
           memory: ${OPENCV_MEM_RESERVE:-256M}

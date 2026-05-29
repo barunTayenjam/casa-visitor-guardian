@@ -34,8 +34,15 @@ class DropOldestQueue:
     def get(self, timeout: float | None = None) -> Any:
         return self._q.get(timeout=timeout)
 
+    def get_nowait(self) -> Any:
+        return self._q.get_nowait()
+
     def qsize(self) -> int:
         return self._q.qsize()
+
+    @property
+    def maxsize(self) -> int:
+        return self._q.maxsize
 
 
 class DropIfFullQueue:
@@ -57,5 +64,12 @@ class DropIfFullQueue:
     def get(self, timeout: float | None = None) -> Any:
         return self._q.get(timeout=timeout)
 
+    def get_nowait(self) -> Any:
+        return self._q.get_nowait()
+
     def qsize(self) -> int:
         return self._q.qsize()
+
+    @property
+    def maxsize(self) -> int:
+        return self._q.maxsize

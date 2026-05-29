@@ -3,13 +3,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (updated for Debian trixie)
+# Install runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
-    cmake \
-    g++ \
-    make \
     libgl1-mesa-dri \
     libglx-mesa0 \
     libglib2.0-0 \
@@ -22,8 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Expose port
+# Expose ports
 EXPOSE 8084
+EXPOSE 9090
 
 # Start Flask development server with debug and auto-reload
 CMD ["python", "-u", "-m", "flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "8084", "--debug", "--reload"]

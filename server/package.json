@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "start": "node dist/index.js",
-    "dev": "nodemon --watch src --watch cameras.json --exec tsx src/index.ts",
+    "start": "node --max-old-space-size=512 dist/index.js",
+    "dev": "NODE_OPTIONS='--max-old-space-size=512' nodemon --watch src --watch cameras.json --exec tsx src/index.ts",
     "dev:old": "nodemon --exec node --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts",
     "build": "tsc",
     "test:server": "node --experimental-vm-modules node_modules/.bin/jest",

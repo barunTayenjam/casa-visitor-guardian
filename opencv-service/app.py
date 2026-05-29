@@ -271,17 +271,9 @@ class YOLOObjectDetector:
         self.nms_threshold = 0.30  # Lowered from 0.40 for more aggressive duplicate suppression
         self.model_type = None  # 'yolov8', 'yolov5' or 'yolov4'
         
-        # DNN face detector for face recognition - init immediately
-        try:
-            prototxt_path = os.path.join(MODELS_DIR, 'deploy.prototxt')
-            model_path = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
-            if os.path.exists(prototxt_path) and os.path.exists(model_path):
-                self.dnn_face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
-                print("OpenCV Service: DNN face detector loaded in __init__")
-        except Exception as e:
-            print(f"OpenCV Service: Failed to load DNN face detector in __init__: {e}")
-            self.dnn_face_detector = None
-        
+        # DNN face detector — deprecated (handled by ArcFaceRecognizer now)
+        self.dnn_face_detector = None
+
         # Per-class confidence thresholds based on camera configuration
         # Increased all thresholds for better accuracy (reduces false positives)
         self.class_thresholds = {
@@ -450,16 +442,6 @@ class YOLOObjectDetector:
 
             self.initialized = True
             print("OpenCV Service: YOLO detection initialized successfully")
-            
-            # Initialize DNN face detector
-            prototxt_path = os.path.join(MODELS_DIR, 'deploy.prototxt')
-            model_path = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
-            print(f"OpenCV Service: Checking DNN face detector: prototxt={os.path.exists(prototxt_path)}, model={os.path.exists(model_path)}")
-            if os.path.exists(prototxt_path) and os.path.exists(model_path):
-                self.dnn_face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
-                print(f"OpenCV Service: DNN face detector loaded: {self.dnn_face_detector}")
-            else:
-                print("OpenCV Service: DNN face detector files not found")
             
         except Exception as e:
             print(f"OpenCV Service: Failed to initialize YOLO: {e}")
@@ -1358,14 +1340,20 @@ class FaceRecognition:
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
     start_rtsp_service()
 
-# Try to import improved face recognition module
+# ArcFace recognizer — primary face recognition engine
 try:
-    from improved_face_recognition import ImprovedFaceRecognition
-    print("OpenCV Service: Using improved face recognition module")
-    FaceRecognition = ImprovedFaceRecognition
-except ImportError:
-    print("OpenCV Service: Improved face recognition not available, using basic module")
-    # Keep the existing FaceRecognition class defined in this file
+    from arcface_recognizer import ArcFaceRecognizer
+    FaceRecognition = ArcFaceRecognizer
+    print("OpenCV Service: Using ArcFace face recognition module")
+except ImportError as e:
+    print(f"OpenCV Service: ArcFace not available ({e}), trying improved module")
+    try:
+        from improved_face_recognition import ImprovedFaceRecognition
+        FaceRecognition = ImprovedFaceRecognition
+        print("OpenCV Service: Using improved face recognition module (fallback)")
+    except ImportError:
+        print("OpenCV Service: Improved face recognition not available, using basic module")
+        # Keep the existing FaceRecognition class defined in this file
 
 # Initialize face recognition
 face_recognition = FaceRecognition()

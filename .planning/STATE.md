@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Pipeline Cleanup
 status: completed
-last_updated: "2026-05-29T10:19:08.602Z"
+last_updated: "2026-05-29T10:26:39.196Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 50
 ---
 
@@ -135,7 +135,7 @@ Phase 4 complete — Milestone v1.2 fully delivered.
 
 Phase 5 (Pipeline Cleanup & Default Switch) complete: 3/3 plans in 2 waves.
 
-Phase 6 (Documentation Audit & Fix): 1/3 plans complete.
+Phase 6 (Documentation Audit & Fix): 2/3 plans complete.
 
 ## Milestone v1.3 Summary
 
@@ -159,13 +159,13 @@ Phase 6 (Documentation Audit & Fix): 1/3 plans complete.
 
 ## Session Context
 
-**Last Session:** 2026-05-29T15:48:00+05:30
+**Last Session:** 2026-05-29T15:54:10+05:30
 
-- **Status:** Phase 6 (Documentation Audit & Fix) — 1/3 plans complete
-- **Completed:** Plan 01 — Fix double frame emission (DOC-01) + E2E integration test (DOC-08)
-- **Next:** Proceed to remaining Phase 6 plans (02, 03)
+- **Status:** Phase 6 (Documentation Audit & Fix) — 2/3 plans complete
+- **Completed:** Plan 02 — Refresh stale architecture documentation (ADR-001 through ADR-006, both C4 diagrams)
+- **Next:** Plan 03 — API layer consistency + README hygiene + Postman collection
 - **Reference:** ADR-003 accepted in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 6 plan 01 complete. 1/3 plans in Phase 6 done.*
+*State updated: 2026-05-29 — Phase 6 plan 02 complete. 2/3 plans in Phase 6 done.*

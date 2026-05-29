@@ -1,6 +1,5 @@
 import { DataSource } from 'typeorm';
 import { StreamManager } from '../streams/rtspManager.js';
-import { OptimizedMotionDetector } from '../detection/optimizedMotionDetection.js';
 import { ConsolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 import { ReviewService } from './review/reviewService.js';
 import { TimelineService } from './timeline/timelineService.js';
@@ -39,16 +38,6 @@ class ServiceRegistry {
 
   getStreamManager(): StreamManager {
     return this.getRequired<StreamManager>('streamManager');
-  }
-
-  // ── OptimizedMotionDetector ──
-
-  setMotionDetector(detector: OptimizedMotionDetector): void {
-    this.services.set('motionDetector', detector);
-  }
-
-  getMotionDetector(): OptimizedMotionDetector {
-    return this.getRequired<OptimizedMotionDetector>('motionDetector');
   }
 
   // ── ConsolidatedDetectionService ──

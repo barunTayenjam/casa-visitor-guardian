@@ -4,6 +4,48 @@ import { AppDataSource } from '../database.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+function validateDetections(detections: any[]): any[] {
+  return detections.filter(detection => {
+    if (!detection.bbox || typeof detection.bbox !== 'object') {
+      return false;
+    }
+    const { x, y, width, height } = detection.bbox;
+    if (typeof x !== 'number' || typeof y !== 'number' ||
+        typeof width !== 'number' || typeof height !== 'number') {
+      return false;
+    }
+    if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
+        x > 4096 || y > 2160 || width > 4096 || height > 2160) {
+      return false;
+    }
+    const aspectRatio = width / height;
+    if (aspectRatio > 10 || aspectRatio < 0.1) {
+      return false;
+    }
+    if (width < 5 || height < 5) {
+      return false;
+    }
+    if (width > 3000 || height > 2000) {
+      return false;
+    }
+    if (typeof detection.confidence === 'number' &&
+        (detection.confidence < 0 || detection.confidence > 100)) {
+      return false;
+    }
+    return true;
+  }).map(detection => {
+    return {
+      ...detection,
+      bbox: {
+        x: Math.round(detection.bbox.x),
+        y: Math.round(detection.bbox.y),
+        width: Math.round(detection.bbox.width),
+        height: Math.round(detection.bbox.height)
+      }
+    };
+  });
+}
+
 const router = Router();
 
 // Endpoint to re-run detection on a specific image file
@@ -70,7 +112,6 @@ router.post('/rerun-detection', authenticate, async (req: Request, res: Response
 
       const detections = response.data.detections || [];
 
-      const { validateDetections } = await import('../detection/motionTriggeredDetection.js');
       const validDetections = validateDetections(detections);
 
       // Update the database record with new detection results
@@ -222,7 +263,6 @@ router.post('/rerun-event-detection', authenticate, async (req: Request, res: Re
 
     const detections = response.data.detections || [];
 
-    const { validateDetections } = await import('../detection/motionTriggeredDetection.js');
     const validDetections = validateDetections(detections);
 
     const personCount = validDetections.filter(d => d.class === 'person').length;

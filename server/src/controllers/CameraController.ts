@@ -434,29 +434,6 @@ export class CameraController extends BaseController {
       this.serverError(res, error, 'deleteFilter');
     }
   }
-
-  getMotionSettings(req: Request, res: Response): void {
-    try {
-      const motionDetector = serviceRegistry.getMotionDetector();
-      const settings = motionDetector.getSettings(req.params.cameraId);
-      if (!settings) { this.notFound(res, 'Settings not found'); return; }
-      this.ok(res, { settings });
-    } catch (error) {
-      this.serverError(res, error, 'getMotionSettings');
-    }
-  }
-
-  updateMotionSettings(req: Request, res: Response): void {
-    try {
-      const { enabled, sensitivity, cooldownPeriod } = req.body;
-      const motionDetector = serviceRegistry.getMotionDetector();
-      const updated = motionDetector.updateSettings(req.params.cameraId, { enabled, sensitivity, cooldownPeriod });
-      if (!updated) { this.notFound(res, 'Camera not found'); return; }
-      this.ok(res, {});
-    } catch (error) {
-      this.serverError(res, error, 'updateMotionSettings');
-    }
-  }
 }
 
 export const cameraController = new CameraController();

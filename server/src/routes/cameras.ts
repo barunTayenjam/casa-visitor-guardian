@@ -27,7 +27,4 @@ router.put('/:cameraId/filters/track', requireUser, (req, res) => cameraControll
 router.put('/:cameraId/filters/:label', requireUser, (req, res) => cameraController.updateFilter(req, res));
 router.delete('/:cameraId/filters/:label', requireUser, (req, res) => cameraController.deleteFilter(req, res));
 
-router.get('/:cameraId/motion/settings', optionalAuth, (req, res) => cameraController.getMotionSettings(req, res));
-router.put('/:cameraId/motion/settings', requireUser, (req, res) => cameraController.updateMotionSettings(req, res));
-
 export default router;

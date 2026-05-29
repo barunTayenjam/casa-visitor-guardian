@@ -19,7 +19,6 @@ import { configureRoutes } from './routes/index.js';
 
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { initializeDatabase, AppDataSource } from './database.js';
-import { setupOptimizedMotionDetection, cleanupOptimizedMotionDetection } from './detection/optimizedMotionDetection.js';
 import { consolidatedDetectionService } from './detection/consolidatedDetectionService.js';
 import { ReviewService } from './services/review/reviewService.js';
 import { TimelineService } from './services/timeline/timelineService.js';
@@ -335,14 +334,9 @@ async function initializeServices() {
     // Register AppDataSource in the service registry
     serviceRegistry.setAppDataSource(AppDataSource);
 
-    console.log('Initializing consolidated detection service...');
-    const detectionStatus = await consolidatedDetectionService.getServiceStatus();
-    if (detectionStatus.available) {
-      console.log(`Detection service available at ${detectionStatus.url} (${detectionStatus.responseTime}ms)`);
-      serviceRegistry.setDetectionService(consolidatedDetectionService);
-    } else {
-      console.warn('Detection service not available, using stub detection');
-    }
+    console.log('Initializing Python detection service...');
+    console.log('Detection service: Python WebSocket pipeline active');
+    serviceRegistry.setDetectionService(consolidatedDetectionService);
 
     console.log('Initializing stream manager...');
     const streamManagerInstance = await setupRTSPStreams(io);
@@ -444,11 +438,7 @@ async function initializeServices() {
       console.error('Failed to initialize Python WebSocket client:', error);
     }
 
-    console.log('Initializing motion detection...');
-    const motionDetectorInstance = setupOptimizedMotionDetection(streamManagerInstance, io, consolidatedDetectionService);
-    serviceRegistry.setMotionDetector(motionDetectorInstance);
-    console.log('Motion detection initialized successfully');
-
+    console.log('Motion detection handled by Python pipeline (MOG2)');
     console.log('Initializing review, timeline and detection services...');
     const reviewSegmentRepo = AppDataSource.getRepository(ReviewSegment);
     const reviewStatusRepo = AppDataSource.getRepository(UserReviewStatus);
@@ -573,8 +563,6 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     const streamManager = serviceRegistry.getStreamManager();
     streamManager.shutdown();
-
-    await cleanupOptimizedMotionDetection();
 
     const detectionService = serviceRegistry.getDetectionService();
     if (typeof detectionService.cleanup === 'function') {

@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import { streamManager } from '../streams/rtspManager.js';
 import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
-import { serviceRegistry } from '../services/serviceRegistry.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
@@ -28,31 +27,6 @@ router.get('/:cameraId/events', optionalAuth, async (req: Request, res: Response
   } catch (error) {
     console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
     res.status(500).json({ success: false, error: 'Failed to get motion events' });
-  }
-});
-
-router.get('/:cameraId/settings', optionalAuth, (req: Request, res: Response) => {
-  try {
-    const motionDetector = serviceRegistry.getMotionDetector();
-    const settings = motionDetector.getSettings(req.params.cameraId);
-    if (!settings) { res.status(404).json({ success: false, error: 'Settings not found' }); return; }
-    res.json({ success: true, settings });
-  } catch (error) {
-    console.error(`Error getting motion settings for camera ${req.params.cameraId}:`, error);
-    res.status(500).json({ success: false, error: 'Failed to get motion settings' });
-  }
-});
-
-router.put('/:cameraId/settings', requireUser, (req: Request, res: Response) => {
-  try {
-    const { enabled, sensitivity, cooldownPeriod } = req.body;
-    const motionDetector = serviceRegistry.getMotionDetector();
-    const updated = motionDetector.updateSettings(req.params.cameraId, { enabled, sensitivity, cooldownPeriod });
-    if (!updated) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
-    res.json({ success: true });
-  } catch (error) {
-    console.error(`Error updating motion settings for camera ${req.params.cameraId}:`, error);
-    res.status(500).json({ success: false, error: 'Failed to update motion settings' });
   }
 });
 

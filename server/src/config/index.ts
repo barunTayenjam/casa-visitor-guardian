@@ -336,7 +336,7 @@ export const config: AppConfig = {
     defaultResolution: process.env.DEFAULT_RESOLUTION || '640x360'
   },
   pipeline: {
-    mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'legacy',
+    mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'python-only',
     pythonWsUrl: process.env.PYTHON_WS_URL || 'ws://opencv:9090'
   }
 };

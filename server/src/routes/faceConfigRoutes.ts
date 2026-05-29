@@ -135,26 +135,20 @@ router.put('/:key', async (req, res) => {
 // POST /api/face-config/reset - Reset all configuration to defaults
 router.post('/reset', async (req, res) => {
   try {
-    await AppDataSource.query(`
+    const result = await AppDataSource.query(`
       UPDATE face_recognition_config
-      SET config_value = default_values,
+      SET config_value = defaults.default_values,
           updated_at = CURRENT_TIMESTAMP
-      FROM (
-        SELECT '{"value": 0.6, "min": 0.3, "max": 0.8, "step": 0.05}'::jsonb AS default_values
-        WHERE config_key = 'similarity_threshold'
-        UNION ALL
-        SELECT '{"algorithm": "cosine", "fallback": "euclidean"}'::jsonb
-        WHERE config_key = 'comparison_algorithm'
-        UNION ALL
-        SELECT '{"value": 60, "min": 0, "max": 100}'::jsonb
-        WHERE config_key = 'min_face_quality'
-        UNION ALL
-        SELECT '{"value": 10, "min": 1, "max": 50}'::jsonb
-        WHERE config_key = 'max_embeddings_per_visitor'
-      ) AS defaults
+      FROM (VALUES
+        ('similarity_threshold', '{"value": 0.6, "min": 0.3, "max": 0.8, "step": 0.05}'::jsonb),
+        ('comparison_algorithm', '{"algorithm": "cosine", "fallback": "euclidean"}'::jsonb),
+        ('min_face_quality', '{"value": 60, "min": 0, "max": 100}'::jsonb),
+        ('max_embeddings_per_visitor', '{"value": 10, "min": 1, "max": 50}'::jsonb)
+      ) AS defaults(config_key, default_values)
       WHERE face_recognition_config.config_key = defaults.config_key
     `);
 
+    console.log(`Config reset: ${result?.[1] || 'N/A'} rows affected`);
     res.json({ message: 'Configuration reset to defaults' });
   } catch (error) {
     console.error('Error resetting config:', error);

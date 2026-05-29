@@ -50,6 +50,9 @@ export class FaceEmbedding {
   @Column({ name: 'detection_method', type: 'text' })
   detectionMethod!: string;
 
+  @Column({ name: 'embedding_version', type: 'text', default: '128' })
+  embeddingVersion!: string;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

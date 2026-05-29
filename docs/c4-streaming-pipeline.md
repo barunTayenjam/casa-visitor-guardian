@@ -14,8 +14,6 @@ C4Component
 
     System_Ext(frontend, "React Frontend", "Browser-based client\nSocket.io + REST API")
 
-    System_Ext(redis_ext, "Redis / In-Memory\nCache", "Detection result caching\nCircuit breaker state")
-
     System_Ext(postgres_ext, "PostgreSQL", "Events, detections\nface_embeddings table")
 
     %% ─────────────────────────────────────────────────────────────────────
@@ -60,25 +58,17 @@ C4Component
 
         Boundary(streaming_core, "Streaming Core", "Real-time frame relay") {
 
-            Component(stream_mgr, "StreamManager\nrtspManager.ts", "Core Orchestrator\nSpawns FFmpeg per camera\nMJPEG → JPEG frame parsing\nSocket.io room management\nAdaptive FPS throttling\nViewer tracking (socket ID sets)\n5-min inactivity timeout\nFFmpeg reconnect w/ exp. backoff")
+            Component(stream_mgr, "StreamManager\nrtspManager.ts", "Core Orchestrator\nSocket.io frame relay via PythonWsClient\nStores lastFrame per camera\nAdaptive FPS throttling\nViewer tracking (socket ID sets)\n5-min inactivity timeout")
 
             Component(py_ws, "PythonWsClient\npythonWsClient.ts", "WebSocket Client\nws://localhost:9090\nSubscribe/unsubscribe cameras\nBinary JPEG + JSON events\nRe-emits as Node EventEmitter\nAuto-reconnect 1s→30s")
 
-            Component(sio_server, "Socket.io Server\n(index.ts)", "Real-time Relay\nrequestStream / stopStream\nBridges PythonWsClient → rooms\nEmits: frame, detection\nmotionDetected, personDetected\nfaceDetected")
+            Component(sio_server, "Socket.io Server\n(index.ts)", "Real-time Relay\nrequestStream / stopStream\nBridges trackingEvent → rooms\nEmits: detection, motionDetected\npersonDetected, faceDetected")
 
         }
 
         Boundary(rest_api, "REST API Layer", "HTTP Endpoints") {
 
             Component(stream_ctrl, "StreamController", "REST Endpoints\nGET /api/streams/:id/live (MJPEG)\nGET /api/streams/:id/frame (JPEG)\nGET /api/streams/:id/status\nGET /api/streaming/metrics")
-
-        }
-
-        Boundary(detection_pipeline, "Detection Pipeline", "Motion → Analysis Chain") {
-
-            Component(motion_det, "OptimizedMotionDetector\noptimizedMotionDetection.ts", "Adaptive Polling\n3–5s interval timer\nHTTP → OpenCV /detect-motion\nMulti-frame validation (3×)\nTriggers enhanced analysis")
-
-            Component(consolidated, "ConsolidatedDetectionService\nconsolidatedDetectionService.ts", "Detection Gateway\nHTTP → OpenCV:\n  /detect-objects\n  /recognize-faces\nCircuit breaker pattern\nRedis/in-memory cache layer")
 
         }
 
@@ -115,9 +105,8 @@ C4Component
     %% RELATIONSHIPS — BACKEND INTERNAL
     %% ─────────────────────────────────────────────────────────────────────
 
-    Rel(stream_mgr, ffmpeg, "FFmpeg subprocess\n-fflags nobuffer -f rtsp\n-f image2pipe -c:v mjpeg", "stdout pipe (MJPEG)")
-    Rel(stream_mgr, sio_server, "Emit JPEG frames\nto camera rooms\nAdaptive FPS", "Internal event")
-    Rel(py_ws, sio_server, "Bridge events\nframe + detection data", "EventEmitter")
+
+    Rel(py_ws, sio_server, "Room: forward trackingEvent\n→ Socket.io emit detection, personDetected, motionDetected", "EventEmitter")
     Rel(sio_server, stream_mgr, "requestStream / stopStream\nviewer tracking", "Socket.io events")
     Rel(stream_ctrl, stream_mgr, "Read .lastFrame\nfor JPEG snapshot\nRead viewer counts", "Direct access")
     Rel(health_mon, stream_mgr, "Health probes\nstale detection\nrestart triggers", "30s polling")
@@ -127,11 +116,7 @@ C4Component
     %% ─────────────────────────────────────────────────────────────────────
 
     Rel(py_ws, ws_pub, "WebSocket\nws://localhost:9090\nsubscribe/unsubscribe\nrecv: binary JPEG + JSON", "WebSocket")
-    Rel(motion_det, consolidated, "Motion confirmed\n→ enhanced analysis", "Internal call")
-    Rel(consolidated, ws_pub, "HTTP\nPOST /detect-objects\nPOST /recognize-faces", "HTTP :8084")
-    Rel(motion_det, ws_pub, "HTTP\nPOST /detect-motion", "HTTP :8084")
-    Rel(consolidated, redis_ext, "Cache detection results\nCircuit breaker state", "TCP :6379")
-    Rel(consolidated, postgres_ext, "Store events\nQuery face_embeddings", "TCP :5432")
+
 
     %% ─────────────────────────────────────────────────────────────────────
     %% LAYOUT HINTS

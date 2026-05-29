@@ -349,16 +349,6 @@ async function initializeServices() {
       pythonWsClient.connect();
       serviceRegistry.setPythonWsClient(pythonWsClient);
 
-      pythonWsClient.on('frame', (payload: { cameraId: string | null; data: Buffer; timestamp: number }) => {
-        const { cameraId, data, timestamp } = payload;
-        if (!cameraId) return;
-        io.to(`camera-${cameraId}-live`).emit('frame', {
-          cameraId,
-          data,
-          timestamp: new Date(timestamp).toISOString(),
-        });
-      });
-
       pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
         const { cameraId, event: eventType, trackId, class: className, score, bbox, identity, identityConfidence } = ev;
         if (!cameraId) return;

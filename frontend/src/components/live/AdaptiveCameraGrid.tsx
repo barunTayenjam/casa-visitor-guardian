@@ -4,8 +4,56 @@ import { CameraStream } from '@/components/dashboard/CameraStream';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useViewportStream, StreamSlotManager } from '@/hooks/useViewportStream';
 
 export type GridLayout = 'adaptive' | '1x1' | '2x2' | '3x3';
+
+const SLOT_MANAGER_MAX = 4;
+
+const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotManager; onClick: () => void; onKeyDown: (e: React.KeyboardEvent) => void; gridKey: string }> = ({ camera, slotManager, onClick, onKeyDown, gridKey }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { isVisible } = useViewportStream(cardRef);
+  const [slotAcquired, setSlotAcquired] = useState(false);
+  const acquiredRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isVisible) {
+      if (acquiredRef.current) {
+        slotManager.release(camera.id);
+        acquiredRef.current = false;
+        setSlotAcquired(false);
+      }
+      return;
+    }
+    (async () => {
+      await slotManager.acquire(camera.id);
+      if (!cancelled) {
+        acquiredRef.current = true;
+        setSlotAcquired(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (acquiredRef.current) {
+        slotManager.release(camera.id);
+        acquiredRef.current = false;
+      }
+    };
+  }, [camera.id, slotManager, isVisible]);
+
+  const shouldStream = isVisible && slotAcquired;
+
+  return (
+    <div ref={cardRef} className="relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]"
+      onClick={onClick}
+      role="button" tabIndex={0} aria-label={`${camera.name} camera feed`}
+      onKeyDown={onKeyDown}
+    >
+      <CameraStream key={gridKey} camera={camera} autoStart={shouldStream} />
+    </div>
+  );
+};
 
 interface AdaptiveCameraGridProps {
   cameras: Camera[];
@@ -20,10 +68,13 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
   const [switchCameraId, setSwitchCameraId] = useState<string | undefined>(focusedCameraId);
   const isTransitioningRef = useRef(false);
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slotManagerRef = useRef(new StreamSlotManager(SLOT_MANAGER_MAX));
 
   useEffect(() => { if (!isAnimating) setSwitchCameraId(focusedCameraId); }, [focusedCameraId, isAnimating]);
 
   useEffect(() => { return () => { if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current); }; }, []);
+
+  useEffect(() => { return () => { slotManagerRef.current.releaseAll(); }; }, []);
 
   const switchCameraWithAnimation = useCallback((direction: 'left' | 'right', targetCameraId: string) => {
     if (isTransitioningRef.current) return;
@@ -210,13 +261,13 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
         ) : (
           <div className={getGridClasses()} role="group" aria-label="Camera grid">
             {activeCameras.map((camera) => (
-              <div key={camera.id} className="relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]"
+              <ViewportCameraCard key={camera.id}
+                camera={camera}
+                slotManager={slotManagerRef.current}
+                gridKey={`grid-${camera.id}`}
                 onClick={() => handleCameraClick(camera.id)}
-                role="button" tabIndex={0} aria-label={`${camera.name} camera feed`}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCameraClick(camera.id); } }}
-              >
-                <CameraStream key={`grid-${camera.id}`} camera={camera} autoStart={true} />
-              </div>
+              />
             ))}
           </div>
         )}

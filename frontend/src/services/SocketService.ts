@@ -96,12 +96,19 @@ class SocketService {
           console.log('✅ SocketService: Socket connected successfully');
           this.isConnecting = false;
           
-          // Re-register all callbacks when socket connects
+          // Re-register all callbacks when socket connects — remove stale listeners first
+          // to prevent duplicates on reconnect (socket keeps old listeners across reconnects)
           this.callbacks.forEach((listeners, event) => {
-            console.log(`🔄 SocketService: Re-registering ${listeners.size} listeners for event: ${event}`);
             listeners.forEach(callback => {
+              this.socket?.off(event, callback);
               this.socket?.on(event, callback);
             });
+          });
+
+          // Re-request any streams that were active before disconnect
+          this.requestedStreams.forEach(streamKey => {
+            const [cameraId, role] = streamKey.split('-') as [string, 'detect' | 'record' | 'live'];
+            this.socket?.emit('requestStream', { cameraId, role });
           });
           
           resolve();
@@ -124,7 +131,7 @@ class SocketService {
         this.socket.on('disconnect', (reason) => {
           console.log('Socket disconnected:', reason);
           this.isConnecting = false;
-          this.requestedStreams.clear();
+          // Do NOT clear requestedStreams — they will be re-requested on reconnect
         });
 
         this.socket.on('connect_error', (error) => {

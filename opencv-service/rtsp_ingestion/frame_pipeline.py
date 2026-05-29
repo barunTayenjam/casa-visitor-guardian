@@ -2,54 +2,49 @@
 """
 Per-camera frame processing pipeline.
 
-Connects the FFmpegReader (thread-based) → MotionGate (MOG2) →
-frame queues → WebSocketPublisher (async).
-
-Architecture for a single camera:
-
     FFmpegReader thread
-         │  raw BGR24 frame
-         ▼
-    MotionGate (MOG2) ─── no motion ──→ live queue (always, if subscribed)
-         │  motion detected
-         ▼
-    motion queue ──→ (future: YOLO + tracking)
-
-The pipeline thread is independent of the WebSocket asyncio loop.
-Frame data crosses the thread boundary via thread-safe DropOldestQueue.
-
-Usage:
-    pipeline = FramePipeline(camera_config, publisher)
-    pipeline.start()
-    # ...
-    pipeline.stop()
+          │  raw BGR24 frame
+          ▼
+    MotionGate (MOG2) ─── no motion ──→ live queue (always)
+          │  motion detected
+          ▼
+    YOLO Detection (in-process cv2.dnn)
+          ▼
+    ByteTrack Tracking
+          ▼
+    Face Recognition (new tracks only, identity cache TTL=30s)
+          ▼
+    WebSocket Publisher (frames + track-lifecycle events)
 """
 
 import time
+import queue
 import cv2
 import numpy as np
-from typing import Optional
+import os
+import hashlib
+from typing import Optional, Dict, Any, List
 
 from .config import (
     DEFAULT_WIDTH,
     DEFAULT_HEIGHT,
     DEFAULT_FPS,
+    DETECTION_FPS,
     MOG2_HISTORY,
     MOG2_VAR_THRESHOLD,
     MOTION_PIXEL_THRESHOLD,
     JPEG_QUALITY,
+    INFERENCE_BACKEND,
+    INFERENCE_TARGET,
 )
 from .queues import DropOldestQueue, DropIfFullQueue
 from .ffmpeg_reader import FFmpegReader
 from .websocket_publisher import WebSocketPublisher
+from .byte_tracker import ByteTracker
 
 
 class MotionGate:
-    """Per-camera MOG2 background subtractor for motion gating.
-
-    Thread-safe as long as detect() is called from a single thread
-    (which it is — the FFmpegReader callback thread).
-    """
+    """Per-camera MOG2 background subtractor for motion gating."""
 
     def __init__(
         self,
@@ -69,54 +64,249 @@ class MotionGate:
         self._warmup_frames = 10
 
     def detect(self, frame: np.ndarray) -> dict:
-        """Run MOG2 on a frame and return motion metadata.
-
-        Returns:
-            dict with keys:
-                motion_detected (bool)
-                motion_pixels   (int)
-                confidence      (float)  0-100
-        """
         self._frame_count += 1
-
         fg_mask = self._bg_subtractor.apply(frame)
         _, fg_mask = cv2.threshold(fg_mask, 250, 255, cv2.THRESH_BINARY)
-
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel, iterations=1)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-
         motion_pixels = cv2.countNonZero(fg_mask)
         total_pixels = fg_mask.shape[0] * fg_mask.shape[1]
         motion_percentage = (motion_pixels / total_pixels) * 100
-
-        # During warmup, always report no motion (background model is settling)
         if self._frame_count < self._warmup_frames:
-            return {
-                'motion_detected': False,
-                'motion_pixels': motion_pixels,
-                'confidence': 0.0,
-            }
-
+            return {"motion_detected": False, "motion_pixels": motion_pixels, "confidence": 0.0}
         motion_detected = motion_pixels > self._pixel_threshold
         confidence = min(100.0, motion_percentage * 10)
+        return {"motion_detected": motion_detected, "motion_pixels": motion_pixels, "confidence": round(confidence, 2)}
 
+
+class InProcessYOLO:
+    """YOLO object detector running in-process via cv2.dnn.
+
+    Loads YOLOv8n.onnx > YOLOv5n.onnx > yolov4-tiny.
+    Avoids the HTTP self-call overhead of the previous architecture.
+    """
+
+    _COCO_CLASSES: Optional[List[str]] = None
+
+    def __init__(self, models_dir: str):
+        self._models_dir = models_dir
+        self._net = None
+        self._model_type = None
+        self._input_size = 640
+        self._confidence_threshold = 0.40
+        self._nms_threshold = 0.30
+        self._class_thresholds = {
+            "person": 0.45, "car": 0.45, "truck": 0.45, "bus": 0.45,
+            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.35, "cat": 0.35,
+        }
+        self._default_threshold = 0.50
+        self._min_box_area = 1600
+        self._min_box_side = 40
+        self._initialized = False
+        self._class_names = self._load_class_names()
+        self._backend_label = 'CPU'
+        self._last_inference_ms = 0.0
+        self._inference_count = 0
+        self._total_inference_ms = 0.0
+
+    def _load_class_names(self) -> List[str]:
+        for name in ("yolo_classes.txt", "coco.names"):
+            p = os.path.join(self._models_dir, name)
+            if os.path.exists(p):
+                with open(p, "r") as f:
+                    return [l.strip() for l in f if l.strip()]
+        return ["person", "bicycle", "car", "motorcycle", "airplane", "bus",
+                "train", "truck", "boat"]
+
+    def _detect_backend(self) -> tuple:
+        if INFERENCE_BACKEND == 'cpu':
+            return (cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU, 'CPU')
+        try:
+            device_count = cv2.cuda.getCudaEnabledDeviceCount()
+            if device_count > 0:
+                return (cv2.dnn.DNN_BACKEND_CUDA, cv2.dnn.DNN_TARGET_CUDA, 'CUDA')
+        except (AttributeError, cv2.error):
+            pass
+        return (cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU, 'CPU')
+
+    def initialize(self) -> bool:
+        if self._initialized:
+            return True
+        for filename, mtype in [("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
+            path = os.path.join(self._models_dir, filename)
+            if os.path.exists(path):
+                self._net = cv2.dnn.readNet(path)
+                backend, target, label = self._detect_backend()
+                self._net.setPreferableBackend(backend)
+                self._net.setPreferableTarget(target)
+                self._backend_label = label
+                self._model_type = mtype
+                self._initialized = True
+                print(f"[InProcessYOLO] {mtype} initialized with {label} backend")
+                return True
+        weights = os.path.join(self._models_dir, "yolov4-tiny.weights")
+        cfg = os.path.join(self._models_dir, "yolov4-tiny.cfg")
+        if os.path.exists(weights) and os.path.exists(cfg):
+            self._net = cv2.dnn.readNet(weights, cfg)
+            self._model_type = "yolov4"
+            try:
+                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+                self._backend_label = 'CUDA'
+            except Exception:
+                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                self._backend_label = 'CPU'
+            self._initialized = True
+            print(f"[InProcessYOLO] yolov4 initialized with {self._backend_label} backend")
+            return True
+        return False
+
+    def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        if not self._initialized or self._net is None:
+            return []
+        h, w = frame.shape[:2]
+        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
+        self._net.setInput(blob)
+        t_start = time.perf_counter()
+        try:
+            outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+        except cv2.error:
+            self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+            self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+            outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+        elapsed_ms = (time.perf_counter() - t_start) * 1000
+        self._last_inference_ms = elapsed_ms
+        self._inference_count += 1
+        self._total_inference_ms += elapsed_ms
+        if self._inference_count % 100 == 0:
+            avg = self._total_inference_ms / self._inference_count
+            print(f"[InProcessYOLO] inference={elapsed_ms:.1f}ms backend={self._backend_label} model={self._model_type} avg={avg:.1f}ms")
+
+        boxes, confidences, class_ids = [], [], []
+        if self._model_type in ("yolov8", "yolov5"):
+            output = outputs[0]
+            if output.shape[0] not in (1, output.shape[0]):
+                pass
+            if len(output.shape) == 3 and output.shape[0] == 1:
+                output = output[0]
+            num_classes = output.shape[-1] - (4 if self._model_type == "yolov8" else 5)
+            for det in output:
+                if self._model_type == "yolov8":
+                    scores = det[4:]
+                else:
+                    obj_conf = det[4]
+                    scores = det[5:] * obj_conf
+                cid = int(np.argmax(scores))
+                conf = float(scores[cid])
+                cname = self._class_names[cid] if cid < len(self._class_names) else f"obj_{cid}"
+                thresh = self._class_thresholds.get(cname, self._default_threshold)
+                if conf < thresh:
+                    continue
+                cx, cy, bw, bh = det[0], det[1], det[2], det[3]
+                if self._model_type == "yolov5":
+                    sx, sy = w / self._input_size, h / self._input_size
+                    x = int((cx - bw / 2) * sx)
+                    y = int((cy - bh / 2) * sy)
+                    bw = int(bw * sx)
+                    bh = int(bh * sy)
+                else:
+                    x = int((cx - bw / 2) * w)
+                    y = int((cy - bh / 2) * h)
+                    bw = int(bw * w)
+                    bh = int(bh * h)
+                x, y = max(0, x), max(0, y)
+                bw, bh = min(w - x, bw), min(h - y, bh)
+                if bw >= self._min_box_side and bh >= self._min_box_side and bw * bh >= self._min_box_area:
+                    boxes.append([x, y, bw, bh])
+                    confidences.append(float(conf))
+                    class_ids.append(cid)
+        else:
+            for out in outputs:
+                for det in out:
+                    scores = det[5:]
+                    cid = int(np.argmax(scores))
+                    conf = float(scores[cid])
+                    cname = self._class_names[cid] if cid < len(self._class_names) else f"obj_{cid}"
+                    thresh = self._class_thresholds.get(cname, self._default_threshold)
+                    if conf < thresh:
+                        continue
+                    cx = int(det[0] * w)
+                    cy = int(det[1] * h)
+                    bw = int(det[2] * w)
+                    bh = int(det[3] * h)
+                    x = cx - bw // 2
+                    y = cy - bh // 2
+                    x, y = max(0, x), max(0, y)
+                    bw, bh = min(w - x, bw), min(h - y, bh)
+                    if bw >= self._min_box_side and bh >= self._min_box_side and bw * bh >= self._min_box_area:
+                        boxes.append([x, y, bw, bh])
+                        confidences.append(float(conf))
+                        class_ids.append(cid)
+
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, self._confidence_threshold, self._nms_threshold)
+        results = []
+        if len(indices) > 0:
+            for i in indices.flatten():
+                cname = self._class_names[class_ids[i]] if class_ids[i] < len(self._class_names) else f"obj_{class_ids[i]}"
+                results.append({
+                    "bbox": [boxes[i][0], boxes[i][1], boxes[i][2], boxes[i][3]],
+                    "score": round(confidences[i], 4),
+                    "class": cname,
+                    "class_id": class_ids[i],
+                })
+        return results
+
+    def get_metrics(self) -> dict:
         return {
-            'motion_detected': motion_detected,
-            'motion_pixels': motion_pixels,
-            'confidence': round(confidence, 2),
+            'backend': self._backend_label,
+            'model_type': self._model_type,
+            'last_inference_ms': round(self._last_inference_ms, 1),
+            'inference_count': self._inference_count,
+            'avg_inference_ms': round(self._total_inference_ms / max(1, self._inference_count), 1),
         }
 
 
-class FramePipeline:
-    """Per-camera pipeline: FFmpegReader → MotionGate → queues → WebSocket.
+class IdentityCache:
+    """TTL-based cache mapping track_id → identity.
 
-    Usage:
-        pipeline = FramePipeline(camera_config, publisher)
-        pipeline.start()
-        # ...
-        pipeline.stop()
+    Prevents repeated face-recognition work on already-identified tracks.
+    TTL = 30 seconds per ADR-003.
     """
+
+    def __init__(self, ttl: float = 30.0):
+        self._ttl = ttl
+        self._store: Dict[int, tuple] = {}
+
+    def get(self, track_id: int) -> Optional[Dict[str, Any]]:
+        entry = self._store.get(track_id)
+        if entry is None:
+            return None
+        identity, ts = entry
+        if time.time() - ts > self._ttl:
+            del self._store[track_id]
+            return None
+        return identity
+
+    def put(self, track_id: int, identity: Dict[str, Any]) -> None:
+        self._store[track_id] = (identity, time.time())
+
+    def invalidate(self, track_id: int) -> None:
+        self._store.pop(track_id, None)
+
+    def cleanup(self) -> None:
+        now = time.time()
+        expired = [k for k, (_, ts) in self._store.items() if now - ts > self._ttl]
+        for k in expired:
+            del self._store[k]
+
+
+class FramePipeline:
+    """Per-camera pipeline: FFmpegReader → MotionGate → YOLO → ByteTrack → FaceRec → WebSocket."""
+
+    _yolo_detector: Optional[InProcessYOLO] = None
+    _yolo_init_lock = __import__("threading").Lock()
 
     def __init__(
         self,
@@ -128,35 +318,52 @@ class FramePipeline:
         self._publisher = publisher
         self._frame_skip = frame_skip
         self._frame_counter = 0
-
-        self._camera_id: str = camera_config['id']
+        self._camera_id: str = camera_config["id"]
         stream = self._get_primary_stream()
 
-        # Per-camera queues
         self._live_queue: DropOldestQueue = publisher.add_frame_queue(self._camera_id)
-        self._motion_queue = DropIfFullQueue(5)
+        self._event_queue: DropOldestQueue = publisher.add_event_queue(self._camera_id)
 
-        # MOG2 motion gate
-        self._motion_gate = MotionGate(
-            camera_id=self._camera_id,
-            pixel_threshold=MOTION_PIXEL_THRESHOLD,
-        )
+        self._motion_gate = MotionGate(camera_id=self._camera_id, pixel_threshold=MOTION_PIXEL_THRESHOLD)
+        self._tracker = ByteTracker(track_thresh=0.25, match_thresh=0.8, track_buffer=30, frame_rate=DETECTION_FPS)
+        self._identity_cache = IdentityCache(ttl=30.0)
+        self._face_recognition_fn = None
 
-        # FFmpeg reader
+        detect = self._config.get("detect", {})
         self._reader = FFmpegReader(
-            rtsp_url=stream['path'],
+            rtsp_url=stream["path"],
             camera_id=self._camera_id,
-            width=stream.get('width', DEFAULT_WIDTH),
-            height=stream.get('height', DEFAULT_HEIGHT),
-            fps=stream.get('fps', DEFAULT_FPS),
+            width=detect.get("width", DEFAULT_WIDTH),
+            height=detect.get("height", DEFAULT_HEIGHT),
+            fps=detect.get("fps", DETECTION_FPS),
         )
+
+        self._init_yolo()
+
+    @classmethod
+    def _init_yolo(cls):
+        with cls._yolo_init_lock:
+            if cls._yolo_detector is not None:
+                return
+            models_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
+            detector = InProcessYOLO(models_dir)
+            ok = detector.initialize()
+            if ok:
+                cls._yolo_detector = detector
+                print("[FramePipeline] In-process YOLO detector initialized")
+            else:
+                print("[FramePipeline] WARNING: No YOLO model could be loaded")
+
+    def set_face_recognition(self, fn):
+        self._face_recognition_fn = fn
 
     def _get_primary_stream(self) -> dict:
-        """Return the first stream with 'live' role, or the first stream."""
-        streams = self._config.get('streams', [])
+        streams = self._config.get("streams", [])
         for s in streams:
-            roles = s.get('roles', [])
-            if 'live' in roles:
+            if "detect" in s.get("roles", []):
+                return s
+        for s in streams:
+            if "live" in s.get("roles", []):
                 return s
         return streams[0] if streams else {}
 
@@ -165,38 +372,79 @@ class FramePipeline:
         return self._camera_id
 
     def start(self) -> None:
-        """Start the FFmpeg reader which feeds frames into the pipeline."""
         self._reader.start(self._on_frame)
         print(f"[FramePipeline:{self._camera_id}] Started")
 
     def stop(self) -> None:
-        """Stop the FFmpeg reader."""
         self._reader.stop()
         print(f"[FramePipeline:{self._camera_id}] Stopped")
 
     def _on_frame(self, frame_data: dict) -> None:
-        """Callback invoked by FFmpegReader for each decoded frame.
-
-        This runs in the FFmpeg reader thread — it must be fast and
-        non-blocking.  Heavy work (encoding) happens here because it
-        must happen before the frame is replaced.
-        """
         self._frame_counter += 1
-        frame: np.ndarray = frame_data['data']
+        frame: np.ndarray = frame_data["data"]
 
-        # Motion gate (always runs to keep background model updated)
         motion_result = self._motion_gate.detect(frame)
-        if motion_result['motion_detected']:
-            self._motion_queue.put(frame_data)
 
-        # Frame skip for live queue
-        if self._frame_counter % self._frame_skip != 0:
+        if self._frame_counter % self._frame_skip == 0:
+            success, jpeg_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+            if success:
+                self._live_queue.put(jpeg_buf.tobytes())
+
+        if not motion_result["motion_detected"]:
             return
 
-        # JPEG encode and push to live queue (non-blocking drop)
-        success, jpeg_buffer = cv2.imencode(
-            '.jpg', frame,
-            [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY],
-        )
-        if success:
-            self._live_queue.put(jpeg_buffer.tobytes())
+        det_skip = max(1, DEFAULT_FPS // DETECTION_FPS)
+        if self._frame_counter % det_skip != 0:
+            return
+
+        detections = self._run_detection(frame)
+        if not detections:
+            return
+
+        tracked = self._tracker.update(detections)
+        events = self._enrich_with_identity(tracked, frame)
+        for ev in events:
+            self._event_queue.put(ev)
+
+    def _run_detection(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+        if self._yolo_detector is None:
+            return []
+        return self._yolo_detector.detect(frame)
+
+    def get_yolo_metrics(self) -> dict:
+        if self._yolo_detector is None:
+            return {}
+        return self._yolo_detector.get_metrics()
+
+    def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
+        results = []
+        for obj in tracked:
+            if obj.get("event") == "track_ended":
+                self._identity_cache.invalidate(obj["track_id"])
+                results.append(obj)
+                continue
+            tid = obj["track_id"]
+            if obj.get("event") == "track_started" and self._face_recognition_fn and len(obj.get("bbox", [])) == 4:
+                cached = self._identity_cache.get(tid)
+                if cached:
+                    obj["identity"] = cached.get("name")
+                    obj["identity_confidence"] = cached.get("confidence", 0)
+                else:
+                    bbox = obj["bbox"]
+                    x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+                    if w > 20 and h > 20:
+                        try:
+                            face_roi = frame[y : y + h, x : x + w]
+                            name, conf = self._face_recognition_fn(face_roi)
+                            self._identity_cache.put(tid, {"name": name, "confidence": conf})
+                            obj["identity"] = name
+                            obj["identity_confidence"] = conf
+                        except Exception:
+                            pass
+            elif obj.get("identity") is None:
+                cached = self._identity_cache.get(tid)
+                if cached:
+                    obj["identity"] = cached.get("name")
+                    obj["identity_confidence"] = cached.get("confidence", 0)
+            results.append(obj)
+        return results

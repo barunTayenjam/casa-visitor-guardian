@@ -97,6 +97,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typeorm": "^0.3.28",
     "vaul": "^0.9.9",
+    "websockets": "^0.2.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

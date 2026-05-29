@@ -39,9 +39,9 @@ Plans:
 **Plans:** 3 plans in 1 wave
 
 Plans:
-- [ ] 02-01-PLAN.md — GPU-Accelerated YOLO Inference (CUDA detection, CPU fallback, latency metrics) — Wave 1
-- [ ] 02-02-PLAN.md — Binary Frame Delivery (Socket.io binary, Blob URLs, base64 fallback) — Wave 1
-- [ ] 02-03-PLAN.md — Viewport-Based Camera Loading (IntersectionObserver, debounce, max concurrent) — Wave 1
+- [x] 02-01-PLAN.md — GPU-Accelerated YOLO Inference (CUDA detection, CPU fallback, latency metrics) — Wave 1
+- [x] 02-02-PLAN.md — Binary Frame Delivery (Socket.io binary, Blob URLs, base64 fallback) — Wave 1
+- [x] 02-03-PLAN.md — Viewport-Based Camera Loading (IntersectionObserver, debounce, max concurrent) — Wave 1
 
 ### Phase 3: InsightFace ArcFace Upgrade
 

@@ -204,7 +204,7 @@ export class CameraController extends BaseController {
         this.notFound(res, 'Camera not found');
         return;
       }
-      if (camera.isActive) {
+      if (camera.isActive && camera.mainProcess) {
         res.status(400).json({ success: false, error: 'Camera is already streaming', status: 'streaming', cameraId: req.params.id });
         return;
       }

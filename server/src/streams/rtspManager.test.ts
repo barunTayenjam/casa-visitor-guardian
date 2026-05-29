@@ -1,10 +1,12 @@
 import { describe, it, expect, jest, beforeAll, beforeEach, afterEach } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { WebSocketServer } from 'ws';
+import type { AddressInfo } from 'node:net';
+import { PythonWsClient } from '../services/pythonWsClient.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const testDirname = path.resolve(process.cwd(), 'src', 'streams');
 
 /**
  * CLN-03: Verify rtspManager.ts is simplified to Socket.io frame relay
@@ -17,7 +19,7 @@ const __dirname = path.dirname(__filename);
  */
 
 describe('RTSP Manager Simplification (CLN-03)', () => {
-  const srcDir = path.resolve(__dirname);
+  const srcDir = path.resolve(testDirname);
   const rtspManagerPath = path.join(srcDir, 'rtspManager.ts');
 
   describe('Source file does not contain FFmpeg/spawn imports', () => {
@@ -196,6 +198,216 @@ describe('RTSP Manager Simplification (CLN-03)', () => {
 
     it('should NOT import from detection modules', () => {
       expect(source).not.toMatch(/detection\//);
+    });
+  });
+});
+
+/**
+ * DOC-08: E2E integration test for Python WS -> Node.js -> Socket.io frame relay
+ *
+ * Creates a mock WebSocket server (simulating the Python process),
+ * connects a real PythonWsClient, and verifies frames are relayed
+ * through StreamManager.wirePythonWsFrames() to the mock Socket.io
+ * rooms exactly once per camera.
+ *
+ * Dependencies: WebSocketServer (ws), PythonWsClient, serviceRegistry
+ */
+
+function createMockWsServer(): Promise<{ server: WebSocketServer; port: number }> {
+  return new Promise((resolve) => {
+    const server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+    server.on('listening', () => {
+      const address = server.address() as AddressInfo;
+      resolve({ server, port: address.port });
+    });
+  });
+}
+
+describe('Frame Relay E2E (DOC-08)', () => {
+  let mockServer: WebSocketServer;
+  let port: number;
+
+  beforeEach(async () => {
+    const created = await createMockWsServer();
+    mockServer = created.server;
+    port = created.port;
+  });
+
+  afterEach(() => {
+    mockServer?.close();
+    // Clean up serviceRegistry so next test starts fresh
+    (serviceRegistry as any)['services'].delete('pythonWsClient');
+  });
+
+  it('should emit frame to Socket.io room exactly once per camera', async () => {
+    const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    serviceRegistry.setPythonWsClient(pythonWsClient as any);
+
+    const mockIo = {
+      to: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      on: jest.fn(),
+    } as any;
+
+    const { StreamManager } = await import('./rtspManager.js');
+    const streamManager = new StreamManager(mockIo);
+
+    streamManager.addCamera({
+      id: 'cam1',
+      name: 'Test Camera',
+      enabled: true,
+      streams: [],
+      detect: { width: 640, height: 480, fps: 10 },
+      nightMode: false,
+    });
+
+    // Add an active viewer so the live-room emit path is exercised
+    const camera = streamManager.getCamera('cam1')!;
+    camera.activeViewers.add('test-viewer');
+
+    return new Promise<void>((resolve, reject) => {
+      pythonWsClient.on('connected', () => {
+        const clients = [...mockServer.clients];
+        const serverWs = clients[0]!;
+
+        // Send JSON metadata then binary frame data
+        serverWs.send(JSON.stringify({
+          type: 'frame',
+          cameraId: 'cam1',
+          timestamp: Date.now(),
+        }));
+        serverWs.send(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]));
+
+        // Allow event-loop tick for WebSocket message delivery
+        setTimeout(() => {
+          try {
+            // Verify both rooms received exactly one emit each
+            expect(mockIo.to).toHaveBeenCalledTimes(2);
+            expect(mockIo.to).toHaveBeenCalledWith('camera-cam1-live');
+            expect(mockIo.to).toHaveBeenCalledWith('camera-cam1-detect');
+
+            // Verify the live emit payload
+            const liveCall = (mockIo.emit as jest.Mock).mock.calls.find(
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'live'
+            );
+            expect(liveCall).toBeDefined();
+            expect((liveCall[1] as Record<string, unknown>).cameraId).toBe('cam1');
+            expect((liveCall[1] as Record<string, unknown>).role).toBe('live');
+            expect(typeof (liveCall[1] as Record<string, unknown>).timestamp).toBe('string');
+            expect(Buffer.isBuffer((liveCall[1] as Record<string, unknown>).data)).toBe(true);
+
+            // Verify the detect emit payload
+            const detectCall = (mockIo.emit as jest.Mock).mock.calls.find(
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect'
+            );
+            expect(detectCall).toBeDefined();
+            expect((detectCall[1] as Record<string, unknown>).cameraId).toBe('cam1');
+            expect((detectCall[1] as Record<string, unknown>).role).toBe('detect');
+
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        }, 200);
+      });
+
+      pythonWsClient.connect();
+    });
+  });
+
+  it('should not emit frame for unknown camera', async () => {
+    const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    serviceRegistry.setPythonWsClient(pythonWsClient as any);
+
+    const mockIo = {
+      to: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      on: jest.fn(),
+    } as any;
+
+    const { StreamManager } = await import('./rtspManager.js');
+    new StreamManager(mockIo); // No cameras added
+
+    return new Promise<void>((resolve, reject) => {
+      pythonWsClient.on('connected', () => {
+        const clients = [...mockServer.clients];
+        const serverWs = clients[0]!;
+
+        serverWs.send(JSON.stringify({
+          type: 'frame',
+          cameraId: 'nonexistent-camera',
+          timestamp: Date.now(),
+        }));
+        serverWs.send(Buffer.from([0xff, 0xd8, 0xff]));
+
+        setTimeout(() => {
+          try {
+            expect(mockIo.emit).not.toHaveBeenCalled();
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        }, 200);
+      });
+
+      pythonWsClient.connect();
+    });
+  });
+
+  it('should emit frame to detect room as well', async () => {
+    const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    serviceRegistry.setPythonWsClient(pythonWsClient as any);
+
+    const mockIo = {
+      to: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      on: jest.fn(),
+    } as any;
+
+    const { StreamManager } = await import('./rtspManager.js');
+    const streamManager = new StreamManager(mockIo);
+
+    streamManager.addCamera({
+      id: 'cam1',
+      name: 'Test Camera',
+      enabled: true,
+      streams: [],
+      detect: { width: 640, height: 480, fps: 10 },
+      nightMode: false,
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      pythonWsClient.on('connected', () => {
+        const clients = [...mockServer.clients];
+        const serverWs = clients[0]!;
+
+        serverWs.send(JSON.stringify({
+          type: 'frame',
+          cameraId: 'cam1',
+          timestamp: Date.now(),
+        }));
+        serverWs.send(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]));
+
+        setTimeout(() => {
+          try {
+            // Detect room always fires regardless of viewer count
+            expect(mockIo.to).toHaveBeenCalledWith('camera-cam1-detect');
+
+            const detectCalls = (mockIo.emit as jest.Mock).mock.calls.filter(
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect'
+            );
+            expect(detectCalls).toHaveLength(1);
+            expect((detectCalls[0][1] as Record<string, unknown>).cameraId).toBe('cam1');
+            expect((detectCalls[0][1] as Record<string, unknown>).role).toBe('detect');
+
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        }, 200);
+      });
+
+      pythonWsClient.connect();
     });
   });
 });

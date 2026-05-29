@@ -4,6 +4,8 @@
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 
+> **Revision note (2026-05-29):** The Legacy Pipeline (Node.js) section below describes `OptimizedMotionDetector` which was deleted in Phase 5 (CLN-02). The motion gate architecture itself is still valid — the Python `MotionGate` class provides equivalent functionality. The Node.js-specific details are preserved for historical reference.
+
 ---
 
 ## Context
@@ -40,9 +42,12 @@ The insight: only run expensive inference when cheap motion detection confirms s
 
 Use MOG2 background subtraction as a lightweight motion gate. YOLO object detection and face recognition execute only when motion exceeds a configurable pixel threshold. The system operates in two distinct implementations across the legacy and Python pipelines, but follows the same gated design.
 
+<details>
+<summary>Legacy Pipeline Motion Detection (Historical — code removed in v1.3)</summary>
+
 ### Legacy Pipeline (Node.js)
 
-The `OptimizedMotionDetector` (`server/src/detection/optimizedMotionDetection.ts`) is a comprehensive motion detection system with:
+The `OptimizedMotionDetector` (`server/src/detection/optimizedMotionDetection.ts`) was a comprehensive motion detection system with:
 
 - **Adaptive sensitivity**: Per-camera configurable `sensitivity` (0-100), with automatic day/night sensitivity multipliers via `timeZones` configuration.
 - **Night mode**: Enhanced sensitivity during nighttime (22:00-06:00) to handle IR camera noise.
@@ -53,7 +58,9 @@ The `OptimizedMotionDetector` (`server/src/detection/optimizedMotionDetection.ts
 - **Contour filtering**: `minContourArea` (default: 500px²) ignores small motion regions (insects, sensor noise).
 - **Rate limiting**: `maxEventsPerHour` prevents detection storms from overwhelming the system.
 
-When motion is validated, the detector calls the `consolidatedDetectionService` for YOLO inference + face recognition via HTTP to the Python Flask service.
+When motion was validated, the detector called the `consolidatedDetectionService` for YOLO inference + face recognition via HTTP to the Python Flask service.
+
+</details>
 
 ### Python Pipeline (Native)
 
@@ -142,7 +149,7 @@ Final events depend on YOLO detections, not raw motion triggers. This prevents f
 - **Static scene blindness**: If an object is present when the system starts (or during warmup), it becomes part of the background model. A person standing still for ~40 seconds (200 history frames ÷ 5 FPS) will be absorbed into the background. This is a fundamental limitation of background subtraction.
 - **MOG2 sensitivity tuning**: The `var_threshold` and `pixel_threshold` parameters require per-environment tuning. Indoor cameras need different settings than outdoor cameras. Night vision (IR) cameras generate more noise and need lower thresholds, risking more false positives.
 - **Warmup gap**: During the first 10 frames (~2 seconds at 5 FPS), no motion detection occurs. Events during this window are missed.
-- **Dual implementation drift**: The Node.js and Python motion gate implementations have different features (multi-frame validation, night mode, zone detection in Node.js vs simpler MOG2 in Python). This means cameras running on different pipelines will have different false positive/negative profiles.
+- **Dual implementation drift (resolved)**: The Node.js and Python motion gate implementations previously had different features (multi-frame validation, night mode, zone detection in Node.js vs simpler MOG2 in Python). The Node.js implementation was removed in Phase 5 (CLN-02), so only the Python `MotionGate` implementation remains.
 
 ### Risks
 
@@ -218,10 +225,7 @@ Use IP camera built-in motion detection (ONVIF motion events, camera-side analyt
 
 ## References
 
-- `server/src/detection/optimizedMotionDetection.ts` — Legacy motion detection (1103 lines)
-- `server/src/detection/optimizedMotionDetection.ts:28-54` — Motion settings interface
 - `opencv-service/rtsp_ingestion/frame_pipeline.py:44-78` — Python MotionGate class
 - `opencv-service/rtsp_ingestion/config.py:24-27` — MOG2 configuration constants
-- `server/src/detection/consolidatedDetectionService.ts` — Detection service that YOLO results flow through
 - `server/src/config/detectionConfig.ts` — Default detection configuration
 - `docs/architecture/ADR-003-detection-pipeline-redesign.md` — Pipeline redesign that formalized the motion gate architecture

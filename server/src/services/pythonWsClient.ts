@@ -12,6 +12,21 @@ interface FrameMessage {
   timestamp: number;
 }
 
+export interface TrackingEvent {
+  trackId: number;
+  cameraId: string;
+  timestamp: number;
+  event: 'track_started' | 'track_updated' | 'track_ended';
+  bbox: number[];
+  score: number;
+  class: string;
+  classId: number;
+  trackState?: string;
+  trackletLen?: number;
+  identity?: string | null;
+  identityConfidence?: number;
+}
+
 interface SubscriptionMessage {
   type: 'subscribe' | 'unsubscribe';
   cameraId: string;
@@ -25,10 +40,11 @@ export class PythonWsClient extends EventEmitter {
   private url: string;
   private _connected = false;
   private pendingMetadata: FrameMetadata | null = null;
+  private pendingEvent: Record<string, unknown> | null = null;
 
   constructor(url?: string) {
     super();
-    this.url = url || 'ws://opencv:9090';
+    this.url = url || 'ws://localhost:9090';
   }
 
   get connected(): boolean {
@@ -53,7 +69,13 @@ export class PythonWsClient extends EventEmitter {
     this.ws.on('message', (data: WebSocket.Data, isBinary: boolean) => {
       if (isBinary) {
         const metadata = this.pendingMetadata;
+        const event = this.pendingEvent;
         this.pendingMetadata = null;
+        this.pendingEvent = null;
+        if (event) {
+          this.emit('trackingEvent', event as unknown as TrackingEvent);
+          return;
+        }
         if (!metadata) {
           return;
         }
@@ -71,6 +93,23 @@ export class PythonWsClient extends EventEmitter {
               cameraId: parsed.cameraId || null,
               timestamp: parsed.timestamp || Date.now(),
             };
+            this.pendingEvent = null;
+          } else if (parsed.type === 'event') {
+            this.pendingEvent = {
+              trackId: parsed.trackId ?? parsed.track_id,
+              cameraId: parsed.cameraId,
+              timestamp: parsed.timestamp,
+              event: parsed.eventType ?? parsed.event,
+              bbox: parsed.bbox ?? [],
+              score: parsed.score ?? parsed.confidence ?? 0,
+              class: parsed.class ?? '',
+              classId: parsed.classId ?? parsed.class_id ?? 0,
+              trackState: parsed.trackState ?? parsed.track_state,
+              trackletLen: parsed.trackletLen ?? parsed.tracklet_len,
+              identity: parsed.identity ?? null,
+              identityConfidence: parsed.identityConfidence ?? parsed.identity_confidence ?? 0,
+            };
+            this.pendingMetadata = null;
           }
         } catch {
           // ignore malformed messages

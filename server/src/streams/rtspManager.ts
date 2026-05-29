@@ -82,14 +82,9 @@ export class StreamManager {
     });
     this.healthMonitor.setStreamManager(this);
 
-    // Initialize configured cameras
+    // Initialize configured cameras (streams are started by setupRTSPStreams, not here)
     configuredCameras.forEach((cameraConfig) => {
       this.addCamera(cameraConfig);
-    });
-
-    // Auto-start detect role for all cameras (always-on detection)
-    configuredCameras.forEach((cameraConfig) => {
-      this.startStream(cameraConfig.id, 'detect');
     });
 
     // Setup event listeners for motion detection
@@ -429,29 +424,32 @@ export class StreamManager {
           
           camera.streams.forEach((s) => { s.isActive = false; s.process = null; });
           camera.activeRoles.clear();
+          camera.isActive = false;
 
-          if (signal !== 'SIGTERM') {
-            const retryDelay = 5000;
-            console.log(`[StreamManager] FFmpeg exited unexpectedly for ${cameraId}, restarting detect in ${retryDelay}ms...`);
+          if (signal !== 'SIGTERM' && camera.retryCount < 5) {
+            camera.retryCount++;
+            const retryDelay = 5000 * camera.retryCount;
+            console.log(`[StreamManager] FFmpeg exited unexpectedly for ${cameraId}, restarting detect in ${retryDelay}ms (attempt ${camera.retryCount}/5)...`);
             setTimeout(() => {
               if (!camera.activeRoles.has('detect')) {
                 this.startStream(cameraId, 'detect');
               }
             }, retryDelay);
           }
-
-          // Auto-restart on unexpected exit
-          if (code !== 0 && camera.retryCount < 5) {
-            camera.retryCount++;
-            console.log(`Attempting to restart ${cameraId} in ${5000 * camera.retryCount}ms (attempt ${camera.retryCount}/5)`);
-            setTimeout(() => this.startStream(cameraId, role), 5000 * camera.retryCount);
-          }
         });
 
         // Handle output data - shared across all roles
+        const MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4 MB — discard if no frame boundary found
         let buffer = Buffer.alloc(0);
         process.stdout.on("data", (data: Buffer) => {
           buffer = Buffer.concat([buffer, data]);
+
+          // Safety valve: if buffer grows beyond limit without a complete frame, reset it
+          if (buffer.length > MAX_BUFFER_SIZE) {
+            console.warn(`[StreamManager] ${cameraId}: frame buffer exceeded ${MAX_BUFFER_SIZE / 1024}KB, resetting`);
+            const lastSoi = buffer.lastIndexOf(Buffer.from([0xff, 0xd8]));
+            buffer = lastSoi !== -1 ? buffer.slice(lastSoi) : Buffer.alloc(0);
+          }
 
           let startMarkerPos = -1;
           let endMarkerPos = -1;
@@ -465,10 +463,11 @@ export class StreamManager {
             const frameBuffer = buffer.slice(startMarkerPos, endMarkerPos + 2);
             buffer = buffer.slice(endMarkerPos + 2);
 
-            // Update all stream objects with current frame
-            camera.streams.forEach((s) => {
-              s.lastFrame = frameBuffer;
-            });
+            // Only store lastFrame on the detect stream to avoid holding multiple large Buffers
+            const detectStream = camera.streams.get('detect');
+            if (detectStream) {
+              detectStream.lastFrame = frameBuffer;
+            }
 
             // Emit frames to all active roles with adaptive streaming
             camera.activeRoles.forEach((activeRole) => {
@@ -488,12 +487,12 @@ export class StreamManager {
                   roleStream.lastFrameSentTime = now;
 
                   // Emit frame with camera ID to ensure proper routing
-                  // Using base64 for compatibility (binary in object can have Socket.io serialization issues)
+                  // Binary — Socket.io v4 handles Buffer serialization natively
                   this.io.to(roomName).emit("frame", {
                     cameraId,
                     role: activeRole,
                     timestamp: new Date().toISOString(),
-                    data: frameBuffer.toString("base64") // Base64 encoded for reliable transmission
+                    data: frameBuffer
                   });
 
                   // Record frame emission for health monitoring
@@ -603,8 +602,6 @@ export class StreamManager {
 
       return true;
     }
-
-    return false;
   }
 
   // Restart a camera stream - useful for recovering from errors (single-stream architecture)
@@ -633,7 +630,7 @@ export class StreamManager {
 
     setTimeout(() => {
       // Start main process again - first active role will trigger it
-      const rolesToStart: ('detect' | 'record' | 'live')[] = role ? [role] : ['live' as const];
+      const rolesToStart: ('detect' | 'record' | 'live')[] = role ? [role] : ['detect' as const];
       rolesToStart.forEach((r) => this.startStream(cameraId, r));
     }, 1000 + jitter);
 
@@ -675,7 +672,7 @@ export class StreamManager {
         this.io.to(`camera-${cameraId}-${streamRole}`).emit("frame", {
           cameraId,
           role: streamRole,
-          data: testFrame.toString("base64"),
+          data: testFrame,
           timestamp: new Date().toISOString(),
         });
 

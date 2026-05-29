@@ -31,6 +31,8 @@ from .config import (
     JPEG_OPTIMIZE,
     FFMPEG_DEFAULT_ARGS,
     METRICS_WS_LATENCY_BUCKETS,
+    INFERENCE_BACKEND,
+    INFERENCE_TARGET,
 )
 
 # Bounded queues
@@ -43,6 +45,7 @@ from .metrics import MetricsCollector
 from .ffmpeg_reader import FFmpegReader
 from .frame_pipeline import FramePipeline, MotionGate
 from .websocket_publisher import WebSocketPublisher
+from .byte_tracker import ByteTracker
 
 
 class RTSPService:
@@ -126,10 +129,15 @@ class RTSPService:
 
     def get_metrics_snapshot(self) -> dict:
         """Return a snapshot of current metrics."""
+        pipelines_metrics = {
+            cid: pipeline.get_yolo_metrics()
+            for cid, pipeline in self._pipelines.items()
+        }
         return {
             'pipelines': list(self._pipelines.keys()),
             'pipeline_count': len(self._pipelines),
             'publisher_running': self._publisher._running if hasattr(self._publisher, '_running') else False,
+            'inference': pipelines_metrics,
         }
 
     def get_status(self) -> dict:
@@ -165,6 +173,7 @@ __all__ = [
     'MOG2_HISTORY', 'MOG2_VAR_THRESHOLD', 'MOTION_PIXEL_THRESHOLD',
     'JPEG_QUALITY', 'JPEG_OPTIMIZE',
     'FFMPEG_DEFAULT_ARGS', 'METRICS_WS_LATENCY_BUCKETS',
+    'INFERENCE_BACKEND', 'INFERENCE_TARGET',
 
     # Data structures
     'DropOldestQueue', 'DropIfFullQueue',

@@ -162,11 +162,8 @@ server/src/
 │   ├── auth.ts               # JWT verification
 │   ├── validation.ts         # Zod schemas
 │   └── enhancedRateLimit.ts  # Rate limiting
-├── detection/                # Motion detection
-│   ├── optimizedMotionDetection.ts      # Main: adaptive sensitivity, night mode, zones
-│   ├── motionTriggeredDetection.ts      # Triggers YOLO + face recognition on motion
-│   ├── consolidatedDetectionService.ts  # Unified detection pipeline
-│   ├── objectDetection.ts               # YOLO object detection
+├── detection/                # Detection types + cleanup (pipeline runs in Python)
+│   ├── consolidatedDetectionService.ts  # Type definitions only (stubs — pipeline runs in Python)
 │   └── cleanupService.ts                # Event cleanup
 ├── streams/
 │   ├── rtspManager.ts        # RTSP stream orchestration
@@ -190,12 +187,20 @@ server/src/
 
 ## Detection Pipeline
 
-1. `rtspManager.ts` captures frames from RTSP via FFmpeg
-2. `optimizedMotionDetection.ts` runs MOG2 background subtraction (adaptive sensitivity, night mode 22:00-06:00, zone-based, 3s interval, 10s cooldown)
-3. On motion → `motionTriggeredDetection.ts` sends frame to OpenCV service
-4. OpenCV runs YOLOv4-tiny object detection + face recognition
-5. Results stored as `events` in PostgreSQL with image captures
-6. `consolidatedDetectionService.ts` provides unified query interface
+The detection pipeline runs entirely in Python. Node.js receives structured events over WebSocket.
+
+1. Python `FFmpegReader` captures raw BGR24 frames from RTSP via FFmpeg subprocess (640×360 @ 5 FPS)
+2. Python `MotionGate` runs MOG2 background subtraction (pixel threshold: 500, 10-frame warmup)
+3. On motion → Python `InProcessYOLO` runs object detection (YOLOv8n → YOLOv5n → yolov4-tiny fallback chain, OpenCV DNN)
+4. Python `ByteTracker` performs multi-object tracking (Kalman filter, track lifecycle: started/updated/ended)
+5. Python `IdentityEnrichment` runs face recognition on new tracks (InsightFace ArcFace, 30s identity cache)
+6. Python `WebSocketPublisher` sends JPEG frames + JSON tracking events to Node.js via WebSocket (`ws://localhost:9090`)
+7. Node.js `PythonWsClient` receives and re-emits as Node EventEmitter
+8. `rtspManager.wirePythonWsFrames()` relays frames to Socket.io rooms with adaptive FPS by viewer count
+9. Node.js persists tracking events as `events` in PostgreSQL with image captures
+10. `consolidatedDetectionService.ts` provides type definitions and settings stubs (actual detection runs in Python)
+
+For a visual overview, see `docs/c4-streaming-pipeline.md`.
 
 ## Key Configuration
 

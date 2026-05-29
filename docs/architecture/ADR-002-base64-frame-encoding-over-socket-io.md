@@ -1,81 +1,94 @@
-# ADR-002: Base64 Frame Encoding over Socket.io
+# ADR-002: Binary Frame Delivery over Socket.io (Socket.io Binary Mode)
 
 **Status**: Accepted
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 
+> **Revision (2026-05-29):** ADR rewritten to reflect binary frame delivery implemented in Phase 2 (PERF-04). The original base64 encoding approach was fully replaced.
+
 ---
 
 ## Context
 
-SentryVision delivers live camera frames from the backend to the React frontend in real time. The data path is:
+SentryVision delivers live camera frames from the backend to the React frontend in real time. The current data path uses Socket.io binary mode:
 
 ```text
-FFmpeg subprocess (JPEG output, stdout pipe)
-    ↓ JPEG Buffer (~15-40 KB per frame)
-Frame boundary detection (0xFF 0xD8 ... 0xFF 0xD9)
-    ↓ Buffer.toString('base64')
-Socket.io emit (text event, ~20-55 KB base64 string)
-    ↓ WebSocket transport
+Python WebSocket Publisher (asyncio WS server :9090)
+    ↓ Binary JPEG (no base64)
+PythonWsClient (Node.js, binary WS message handler)
+    ↓ Buffer (raw JPEG bytes)
+rtspManager.wirePythonWsFrames()
+    ↓
+Socket.io emit ('frame', { cameraId, role, timestamp, data: Buffer })
+    ↓ WebSocket transport (binary)
 Frontend Socket.io client
-    ↓ "data:image/jpeg;base64,..." data URL
-React <img src={dataUrl} />
+    ↓ Blob URL via URL.createObjectURL(blob)
+React <img /> element
 ```
 
 ### Current Implementation
 
-In the **legacy pipeline** (`server/src/streams/rtspManager.ts:490-495`), frames are JPEG-decoded from the FFmpeg stdout pipe, then base64-encoded for Socket.io transmission:
+Frame relay is handled by `rtspManager.wirePythonWsFrames()` (`server/src/streams/rtspManager.ts:54-91`). Frames arrive from Python as raw JPEG bytes over WebSocket (binary), and are emitted as native Buffer objects through Socket.io's binary mode:
 
 ```typescript
-this.io.to(roomName).emit("frame", {
-    cameraId,
-    role: activeRole,
-    timestamp: new Date().toISOString(),
-    data: frameBuffer.toString("base64")
-});
-```
+private wirePythonWsFrames(): void {
+    const pythonWs = serviceRegistry.getPythonWsClient();
+    if (!pythonWs) return;
 
-In the **Python pipeline** (`server/src/index.ts:358-366`), the same pattern applies — frames arrive as binary over WebSocket from Python, are converted to base64, then re-emitted over Socket.io:
+    pythonWs.on('frame', (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {
+        const { cameraId, data } = message;
+        if (!cameraId) return;
 
-```typescript
-pythonWsClient.on('frame', (payload: { cameraId: string | null; data: Buffer; timestamp: number }) => {
-    const frameData = data.toString('base64');
-    io.to(`camera-${cameraId}-live`).emit('frame', {
-        cameraId,
-        data: frameData,
-        timestamp: new Date(timestamp).toISOString(),
+        const camera = this.cameras.get(cameraId);
+        if (!camera) return;
+
+        camera.lastFrame = data;
+        this.healthMonitor.recordFrameEmitted(cameraId, 'live');
+
+        const roomName = `camera-${cameraId}-live`;
+        const viewerCount = camera.activeViewers.size;
+        const adaptiveFps = this.getOptimalFps(viewerCount);
+        camera.adaptiveFps = adaptiveFps;
+        const frameIntervalMs = 1000 / adaptiveFps;
+
+        if (viewerCount > 0) {
+            this.io.to(roomName).emit("frame", {
+                cameraId,
+                role: 'live',
+                timestamp: new Date().toISOString(),
+                data        // ← raw Buffer, no base64 encoding
+            });
+        }
+
+        const detectRoom = `camera-${cameraId}-detect`;
+        this.io.to(detectRoom).emit("frame", {
+            cameraId,
+            role: 'detect',
+            timestamp: new Date().toISOString(),
+            data
+        });
     });
-});
+}
 ```
 
-The frontend constructs a data URL and sets it as an `<img>` element's `src` attribute.
-
-### Why Not Binary WebSocket?
-
-The code explicitly documents the rationale (`rtspManager.ts:490`):
-
-> Using base64 for compatibility (binary in object can have Socket.io serialization issues)
-
-Socket.io's default transport uses a custom protocol on top of WebSocket. When emitting objects containing `Buffer` or `ArrayBuffer`, Socket.io may serialize them unpredictably across its engine.io layer, especially when mixed with string fields in the same payload.
+The frontend constructs a Blob URL and sets it as an `<img>` element's `src` attribute, properly revoking the previous Blob URL on each frame update and on unmount.
 
 ### Frame Size Characteristics
 
 | Metric | Value |
 |--------|-------|
-| JPEG frame (640x360, quality 5) | ~15-25 KB |
-| JPEG frame (640x360, quality 8, low-resource) | ~10-15 KB |
-| Base64-encoded JPEG | ~20-35 KB |
+| JPEG frame (640x360, quality 60) | ~15-25 KB |
 | Frames per second (3 viewers) | 4 FPS |
-| Per-client bandwidth | ~80-140 KB/s |
+| Per-client bandwidth | ~60-100 KB/s |
 | Socket.io event overhead | ~200-500 bytes (metadata + framing) |
 
-At 4 FPS with 3 viewers on the same camera, the server emits ~120-210 KB/s of Socket.io traffic per camera.
+At 4 FPS with 3 viewers on the same camera, the server emits ~180-300 KB/s of Socket.io traffic per camera (no base64 overhead).
 
 ---
 
 ## Decision
 
-Use base64-encoded JPEG frames carried as `string` fields in Socket.io text events. The frontend reconstructs `data:image/jpeg;base64,...` data URLs for display.
+Use Socket.io binary mode to deliver JPEG frames as native Buffer objects. The frontend constructs Blob URLs with proper memory lifecycle management (revokeObjectURL on replace + unmount). A base64 fallback is preserved for HTTP long-polling transport clients.
 
 ---
 
@@ -83,41 +96,38 @@ Use base64-encoded JPEG frames carried as `string` fields in Socket.io text even
 
 ### Positive
 
-- **Simplicity**: The frontend renders frames with a single `<img src={dataUrl} />` — no custom binary deserialization, no blob URL management, no `MediaSource` API complexity.
-- **Socket.io compatibility**: Avoids engine.io binary serialization edge cases. String payloads are always reliably encoded/decoded across all Socket.io transports (WebSocket, HTTP long-polling).
-- **Automatic reconnection**: Socket.io handles transport-level reconnection transparently. Frames resume when the connection recovers.
-- **Debugging**: Base64 frame data is inspectable in browser DevTools network tab and Socket.io debug logs. Each frame is a self-contained string.
-- **Consistent protocol**: Both legacy and Python pipeline frames use the identical `{ cameraId, data, timestamp }` schema. The frontend cannot distinguish the source.
+- **33% bandwidth reduction**: Eliminating base64 encoding removes the 4/3 size overhead. A 20 KB JPEG frame is transmitted as 20 KB, not ~27 KB.
+- **No encoding/decoding CPU cost**: The server no longer calls `Buffer.toString('base64')` per frame (~0.5-1ms), and the client no longer parses base64 data URLs (~0.2-0.5ms). These savings compound across cameras and viewers.
+- **Single memory copy**: Frames travel from PythonWsClient receive buffer directly to Socket.io emit as the same Buffer object — no string allocation, no intermediate copy.
+- **Blob URL rendering**: The frontend renders frames via `URL.createObjectURL(blob)` which is more memory-efficient than inline data URLs in the DOM. Blob URLs reference binary data in the browser's Blob store rather than embedding it as string content in the element.
+- **Consistent protocol**: Both `live` and `detect` role frames use the identical `{ cameraId, role, timestamp, data: Buffer }` schema.
 
 ### Negative
 
-- **33% size overhead**: Base64 encoding expands binary data by a factor of 4/3. A 20 KB JPEG becomes a ~27 KB string. This overhead is incurred on every frame, for every viewer.
-- **GC pressure**: Each frame creates a ~30 KB JavaScript string in the Node.js heap, which is then serialized and transmitted. At 4 FPS × N cameras × M viewers, this creates sustained allocation pressure on both server and client heaps.
-- **No per-client quality adaptation**: The same base64 string is broadcast to all clients in the Socket.io room. A mobile client on cellular receives the same frame size as a desktop on Ethernet. See ADR-005 for viewer-count-based FPS throttling (which reduces quantity, not per-frame size).
-- **Double encoding in Python pipeline**: Python JPEG-encodes the frame, sends it as binary over WebSocket to Node.js, which then base64-encodes it for Socket.io. The Python→Node.js leg uses binary efficiently, but the Node.js→Frontend leg pays the base64 tax.
-- **Memory copies**: `Buffer.toString('base64')` creates a new string allocation. The Socket.io serialization creates another copy. The network stack creates another. Each frame involves 3-4 copies of ~30 KB.
+- **Blob URL memory lifecycle**: Each frame creates a new Blob URL that must be explicitly revoked via `URL.revokeObjectURL()`. Failure to do so leaks Blob objects in the browser's Blob store. The frontend handles this by revoking the previous frame's Blob URL on each frame update and on component unmount.
+- **Socket.io binary mode requirements**: Socket.io's binary mode requires the `Buffer` or `ArrayBuffer` to be a top-level property of the emitted object. Nested binary in complex object trees may still be serialized unpredictably across engine.io layers. The current schema keeps `data` as a direct property at the emit payload level.
+- **Base64 fallback required**: HTTP long-polling transport (Socket.io fallback) does not support binary mode. The frontend must detect the transport type and fall back to base64-encoded frames if the connection drops to long-polling.
+- **Debugging overhead**: Binary frames are not directly inspectable in browser DevTools network tab or Socket.io debug logs. Frame inspection requires either a `console.log` of the Buffer or a Blob URL with `URL.createObjectURL`.
+- **No per-client quality adaptation**: The same Buffer is broadcast to all clients in the Socket.io room. A mobile client on cellular receives the same frame size as a desktop on Ethernet. See ADR-006 for viewer-count-based FPS throttling (which reduces quantity, not per-frame size).
 
 ### Risks
 
-- **Scalability ceiling**: At 10 cameras × 4 FPS × 5 viewers, the server transmits ~600-1050 KB/s of Socket.io traffic. This is manageable for a home security system but would not scale to hundreds of cameras without protocol changes.
-- **Latency floor**: Base64 encoding/decoding adds ~0.5-1ms per frame on the server and ~0.2-0.5ms on the client. At 4 FPS this is negligible, but at higher frame rates it becomes material.
+- **Socket.io binary compatibility**: Older Socket.io client versions may not handle Binary payloads correctly. The system pins Socket.io v4+ which has stable binary handling.
+- **Blob lifecycle bugs**: If `URL.revokeObjectURL()` is called while the `<img>` element is still loading the Blob, the image may fail to render. The frontend must ensure the Blob URL remains valid until the new frame's Blob has loaded.
 
 ---
 
 ## Alternatives Considered
 
-### 1. Binary WebSocket Frames
+### 1. Base64 String Encoding (Rejected)
 
-Send JPEG buffers as native binary WebSocket frames, without base64 encoding.
+Encode JPEG frames as base64 strings and carry them as string fields in Socket.io text events. This was the original implementation used before the binary mode migration.
 
-**Pros**: 33% bandwidth reduction, no encoding/decoding CPU cost, single memory copy.
+**Pros** (of the original approach): Simple frontend rendering (`data:image/jpeg;base64,...` data URLs). Reliable across all Socket.io transports (WebSocket, HTTP long-polling). Debuggable in DevTools.
 
-**Cons**: Socket.io binary support requires careful handling. Mixed string/binary payloads in a single emit can cause deserialization issues across Socket.io versions. Would require either:
-  - Separate binary channel alongside Socket.io (adds connection management complexity).
-  - Socket.io v4 binary mode with custom packet structure.
-  - Dropping Socket.io entirely for raw WebSocket (losing automatic reconnection, rooms, fallback transport).
+**Cons**: 33% bandwidth overhead. CPU cost for encoding/decoding (~0.5-1ms server-side). Double encoding in the Python pipeline (binary → base64 → string). GC pressure from large string allocations.
 
-**Rejected because**: The compatibility risk and implementation complexity outweigh the bandwidth savings for a system with ≤10 cameras and ≤20 concurrent viewers.
+**Rejected because**: Phase 2 (PERF-04) demonstrated that Socket.io v4 binary mode is stable and reliable. The 33% bandwidth savings and CPU reduction outweigh the long-polling fallback complexity. A base64 fallback is preserved for HTTP long-polling transport.
 
 ### 2. MJPEG over HTTP
 
@@ -167,15 +177,14 @@ If bandwidth becomes a bottleneck at scale, consider:
 
 1. **Simulcast**: Encode frames at multiple quality levels and let clients select based on bandwidth.
 2. **Delta encoding**: Send full keyframes periodically and JPEG-delta frames between them.
-3. **Socket.io v4 binary mode**: Re-evaluate Socket.io's binary handling now that v4 is stable.
-4. **HLS/DASH transcoding**: For historical footage playback (not live streaming).
+3. **HLS/DASH transcoding**: For historical footage playback (not live streaming).
 
 ---
 
 ## References
 
-- `server/src/streams/rtspManager.ts:444-513` — FFmpeg stdout parsing, frame boundary detection, base64 emission
-- `server/src/streams/rtspManager.ts:488-496` — Base64 encoding and Socket.io emit
-- `server/src/index.ts:358-366` — Python pipeline frame relay with base64
-- `opencv-service/rtsp_ingestion/websocket_publisher.py` — Python-side WebSocket frame publishing (uses binary JPEG directly)
-- `frontend/src/contexts/SocketContext.tsx` — Frontend Socket.io client
+- `server/src/streams/rtspManager.ts:54-91` — wirePythonWsFrames binary frame relay (Socket.io binary mode)
+- `server/src/streams/rtspManager.ts:75-80` — Live role frame emission with raw Buffer
+- `opencv-service/rtsp_ingestion/websocket_publisher.py` — Python-side WebSocket frame publishing (binary JPEG, no base64)
+- `frontend/src/contexts/SocketContext.tsx` — Frontend Socket.io client with Blob URL rendering
+- `frontend/src/components/live/StreamPanel.tsx` — Stream panel with Blob URL lifecycle management

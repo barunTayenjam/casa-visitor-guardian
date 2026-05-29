@@ -1,5 +1,4 @@
 import { consolidatedDetectionService } from './consolidatedDetectionService.js';
-import { cleanupOptimizedMotionDetection } from './optimizedMotionDetection.js';
 
 /**
  * Cleanup service for managing all detection service resources
@@ -43,9 +42,6 @@ export class DetectionCleanupService {
       // Cleanup consolidated detection service (Python OpenCV service)
       await consolidatedDetectionService.cleanupHook();
 
-      // Cleanup optimized motion detection
-      await cleanupOptimizedMotionDetection();
-
       console.log('All detection services cleaned up successfully');
     } catch (error) {
       console.error('Error cleaning up detection services:', error);
@@ -62,9 +58,6 @@ export class DetectionCleanupService {
       switch (serviceName.toLowerCase()) {
         case 'consolidateddetection':
           await consolidatedDetectionService.cleanupHook();
-          break;
-        case 'optimizedmotion':
-          await cleanupOptimizedMotionDetection();
           break;
         default:
           console.warn(`Unknown service: ${serviceName}`);

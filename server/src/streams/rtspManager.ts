@@ -8,7 +8,6 @@ import { logger } from "../utils/logger.js";
 import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig, CameraStreamConfig } from "../config/index.js";
 import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
-import { OptimizedMotionDetector } from "../detection/optimizedMotionDetection.js";
 import { StreamHealthMonitor } from "./streamHealthMonitor.js";
 
 // Import ffmpeg-static safely

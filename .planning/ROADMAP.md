@@ -10,7 +10,7 @@
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
 - ✅ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
 - ✅ **v1.3 Pipeline Cleanup** — Phase 5 (complete)
-- ⬜ **v1.x Documentation Audit** — Phase 6 (planned)
+- 🔶 **v1.x Documentation Audit** — Phase 6 (in progress — 2/3 plans)
 
 ---
 
@@ -94,11 +94,11 @@ Plans:
 
 **Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08
 **Depends on:** Phase 5
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 06-01-PLAN.md — Fix double frame emission + add E2E frame relay test — Wave 1
-- [ ] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
+- [x] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
 - [ ] 06-03-PLAN.md — Update AGENTS.md + fix stale references — Wave 2
 
 ---
@@ -129,9 +129,9 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.2 Phase 1** | **RTSP-01 – RTSP-08** | **8** | **📋 Planned** |
 | **v1.2 Phase 2** | **PERF-01 – PERF-09** | **9** | **📋 Planned** |
 | **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **✅ Complete** |
-| **v1.x Phase 6** | **DOC-01 – DOC-08** | **8** | **📋 Planned** |
+| **v1.x Phase 6** | **DOC-01 – DOC-08** | **8** | **🔶 In Progress** |
 
-**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete) | **v1.x Phase 6**: DOC-01 – DOC-08 (8 requirements, 📋 Planned)
+**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete) | **v1.x Phase 6**: DOC-01 – DOC-08 (8 requirements, 🔶 In Progress) — 5/8 complete
 
 ---
 
@@ -163,7 +163,7 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | PERF-09 | Configurable max concurrent streams limit (default: 4) | Viewport Loading | 02-03 |
 
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-05-29 — v1.3 complete*
+*Last updated: 2026-05-29 — Phase 6 plan 02 complete*
 
 ## v1.3 Phase 5 Requirements
 

@@ -8,7 +8,8 @@
 
 - ✅ **v1.0 Resource Optimization** — Phases 1-6 (shipped 2026-03-23)
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
-- ⬜ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
+- ✅ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
+- ⬜ **v1.3 Pipeline Cleanup** — Phase 5 (planned)
 
 ---
 
@@ -68,6 +69,23 @@ Plans:
 
 ---
 
+## v1.3 Pipeline Cleanup
+
+### Phase 5: Pipeline Cleanup & Default Switch
+
+**Goal:** Make the Python detection pipeline the default operational mode, remove legacy Node.js detection modules, simplify rtspManager, and formally accept ADR-003.
+
+**Requirements**: CLN-01, CLN-02, CLN-03, CLN-04, CLN-05
+**Depends on:** Phase 4
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 05-01-PLAN.md — Default pipeline switch + config cleanup — Wave 1
+- [ ] 05-02-PLAN.md — Remove legacy Node.js detection modules — Wave 1
+- [ ] 05-03-PLAN.md — Simplify rtspManager + accept ADR-003 — Wave 2
+
+---
+
 ## Archived Phases
 
 For full phase details of v1.0, see `.planning/milestones/v1.0-ROADMAP.md`.
@@ -93,8 +111,9 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.1 Total** | | **58** | **✅ 58/58** |
 | **v1.2 Phase 1** | **RTSP-01 – RTSP-08** | **8** | **📋 Planned** |
 | **v1.2 Phase 2** | **PERF-01 – PERF-09** | **9** | **📋 Planned** |
+| **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **📋 Planned** |
 
-**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements, planned) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements, planned)
+**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements, planned) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements, planned) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, planned)
 
 ---
 
@@ -126,4 +145,14 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | PERF-09 | Configurable max concurrent streams limit (default: 4) | Viewport Loading | 02-03 |
 
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-05-29 - v1.2 Phase 2 planned: 3 plans in 1 wave*
+*Last updated: 2026-05-29 — v1.2 complete, v1.3 Phase 5 planned: 3 plans in 2 waves*
+
+## v1.3 Phase 5 Requirements
+
+| ID | Description | Plans |
+|----|-------------|-------|
+| CLN-01 | Python pipeline becomes default operational mode | 05-01 |
+| CLN-02 | Legacy Node.js detection modules removed | 05-02 |
+| CLN-03 | rtspManager simplified to frontend relay only | 05-03 |
+| CLN-04 | HTTP polling and retry logic removed | 05-01 |
+| CLN-05 | ADR-003 formally accepted | 05-03 |

@@ -226,21 +226,26 @@ function createMockWsServer(): Promise<{ server: WebSocketServer; port: number }
 describe('Frame Relay E2E (DOC-08)', () => {
   let mockServer: WebSocketServer;
   let port: number;
+  let currentClient: PythonWsClient | null;
 
   beforeEach(async () => {
     const created = await createMockWsServer();
     mockServer = created.server;
     port = created.port;
+    currentClient = null;
   });
 
   afterEach(() => {
     mockServer?.close();
+    currentClient?.disconnect();
+    currentClient = null;
     // Clean up serviceRegistry so next test starts fresh
     (serviceRegistry as any)['services'].delete('pythonWsClient');
   });
 
   it('should emit frame to Socket.io room exactly once per camera', async () => {
     const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    currentClient = pythonWsClient;
     serviceRegistry.setPythonWsClient(pythonWsClient as any);
 
     const mockIo = {
@@ -317,6 +322,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
 
   it('should not emit frame for unknown camera', async () => {
     const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    currentClient = pythonWsClient;
     serviceRegistry.setPythonWsClient(pythonWsClient as any);
 
     const mockIo = {
@@ -356,6 +362,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
 
   it('should emit frame to detect room as well', async () => {
     const pythonWsClient = new PythonWsClient(`ws://127.0.0.1:${port}`);
+    currentClient = pythonWsClient;
     serviceRegistry.setPythonWsClient(pythonWsClient as any);
 
     const mockIo = {

@@ -12,47 +12,64 @@ SentryVision uses Socket.io rooms to broadcast live camera frames to frontend cl
 
 ### The Scaling Problem
 
-A single camera frame is ~20-35 KB (base64-encoded JPEG at 640×360). At 4 FPS:
+A single camera frame is ~15-25 KB (binary JPEG at 640×360, quality 60). At 4 FPS:
 
 | Viewers | Bandwidth per Camera | Server CPU (emission) |
 |---------|---------------------|-----------------------|
-| 1 | ~100 KB/s | 4 `emit()` calls/s |
-| 5 | ~500 KB/s | 20 `emit()` calls/s |
-| 10 | ~1000 KB/s | 40 `emit()` calls/s |
-| 20 | ~2000 KB/s | 80 `emit()` calls/s |
+| 1 | ~80 KB/s | 4 `emit()` calls/s |
+| 5 | ~400 KB/s | 20 `emit()` calls/s |
+| 10 | ~800 KB/s | 40 `emit()` calls/s |
+| 20 | ~1600 KB/s | 80 `emit()` calls/s |
 
 Socket.io's room emission uses a single write to the WebSocket that is replicated to all room members. The server-side cost is primarily:
-1. **Serialization**: JSON.stringify of the frame event (once per emit, not per viewer).
+1. **Serialization**: Socket.io binary serialization of the frame event (once per emit, not per viewer).
 2. **Network I/O**: Operating system must copy the serialized frame N times to N TCP sockets.
-3. **Base64 string allocation**: One ~30 KB string per frame, held in memory until all socket writes complete.
+3. **Buffer allocation**: One ~20 KB Buffer per frame, held in memory until all socket writes complete.
 
 For a home security system running on consumer hardware, unbounded viewer scaling can exhaust bandwidth (home uplink is often 10-50 Mbps) and server memory.
 
 ### Current Viewer Tracking
 
-The system tracks active viewers per camera using Socket.io socket IDs (`rtspManager.ts:57-58`):
+The system tracks active viewers per camera using Socket.io socket IDs (`rtspManager.ts:22-23`):
 
 ```typescript
 activeViewers: Set<string>; // Track active socket IDs for adaptive streaming
 adaptiveFps: number;        // Current FPS based on viewer count
 ```
 
-Viewers are added when a client joins a camera room (`rtspManager.ts:125-153`):
+Viewers are added when a client joins a camera room (`rtspManager.ts:93-115`):
 
 ```typescript
 socket.on('requestStream', (data) => {
+    const { cameraId } = data;
+    const camera = this.cameras.get(cameraId);
+    // ...
     camera.activeViewers.add(socket.id);
-    socket.join(`camera-${cameraId}-${role}`);
+    const viewerCount = camera.activeViewers.size;
+    const roomName = `camera-${cameraId}-live`;
+    socket.join(roomName);
+    // ...
 });
 ```
 
-Viewers are removed on disconnect (`rtspManager.ts:155-208`):
+Viewers are removed on disconnect (`rtspManager.ts:124-157`):
 
 ```typescript
-socket.on('disconnect', () => {
+socket.on('stopStream', (data) => {
+    const { cameraId } = data;
+    const camera = this.cameras.get(cameraId);
+    if (!camera) return;
     camera.activeViewers.delete(socket.id);
-    const viewerCount = camera.activeViewers.size;
-    // ... role cleanup when viewerCount === 0
+    // ...
+});
+
+socket.on('disconnect', () => {
+    this.cameras.forEach((camera, cameraId) => {
+        if (camera.activeViewers.has(socket.id)) {
+            camera.activeViewers.delete(socket.id);
+            // ...
+        }
+    });
 });
 ```
 
@@ -60,7 +77,7 @@ socket.on('disconnect', () => {
 
 ## Decision
 
-Scale FPS inversely with viewer count using a step function. The `getOptimalFps` method (`rtspManager.ts:213-224`) defines the mapping:
+Scale FPS inversely with viewer count using a step function. The `getOptimalFps` method (`rtspManager.ts:161-167`) defines the mapping:
 
 ```typescript
 private getOptimalFps(viewerCount: number): number {
@@ -70,55 +87,57 @@ private getOptimalFps(viewerCount: number): number {
     if (viewerCount <= 20) return 2;    // Low
     return 1;                           // Minimal
 }
-```
+``` // rtspManager.ts:161-167
 
 ### FPS-to-Viewer Mapping
 
 | Active Viewers | Frame Rate | Bandwidth per Viewer | Total Bandwidth (per camera) |
 |---------------|------------|---------------------|------------------------------|
-| 0 | 1 FPS | N/A | ~30 KB/s (keepalive) |
-| 1-3 | 4 FPS | ~120 KB/s | ~120-360 KB/s |
-| 4-10 | 3 FPS | ~90 KB/s | ~360-900 KB/s |
-| 11-20 | 2 FPS | ~60 KB/s | ~660-1200 KB/s |
-| 21+ | 1 FPS | ~30 KB/s | ~630+ KB/s |
+| 0 | 1 FPS | N/A | ~20 KB/s (keepalive) |
+| 1-3 | 4 FPS | ~80 KB/s | ~80-240 KB/s |
+| 4-10 | 3 FPS | ~60 KB/s | ~240-600 KB/s |
+| 11-20 | 2 FPS | ~40 KB/s | ~440-800 KB/s |
+| 21+ | 1 FPS | ~20 KB/s | ~420+ KB/s |
 
 ### How It Works
 
-The FPS adaptation is applied at frame emission time (`rtspManager.ts:472-506`). For each decoded frame from FFmpeg:
-
-```typescript
-camera.activeRoles.forEach((activeRole) => {
-    const roleStream = camera.streams.get(activeRole);
-    if (roleStream) {
-        const now = Date.now();
-
-        // Adaptive FPS based on viewer count
-        const viewerCount = activeRole === 'live' ? camera.activeViewers.size : 1;
-        const adaptiveFps = this.getOptimalFps(viewerCount);
-        camera.adaptiveFps = adaptiveFps;
-        const frameInterval = 1000 / adaptiveFps;
-
-        if (!roleStream.lastFrameSentTime || now - roleStream.lastFrameSentTime >= frameInterval) {
-            roleStream.lastFrameSentTime = now;
-            this.io.to(roomName).emit("frame", { ... });
-        }
-    }
-});
-```
-
-Key implementation details:
-
-- **Per-role adaptation**: Only the `live` role counts all viewers. The `detect` role always uses `viewerCount = 1` (it's a server-side detection pipeline, not viewer-facing).
-- **Time-based throttling**: Uses `lastFrameSentTime` + `frameInterval` comparison rather than frame counting. This ensures consistent FPS regardless of FFmpeg's actual output rate.
-- **All viewers affected equally**: The FPS reduction applies to the Socket.io room emission. Every viewer in the room receives the same degraded FPS.
-
-### Viewer Count Propagation
-
-Viewer count is reported to the frontend via stream status events (`rtspManager.ts:147`):
+The FPS adaptation is applied at frame emission time (`rtspManager.ts:54-91`). For each frame received from PythonWsClient:
 
 ```typescript
 const viewerCount = camera.activeViewers.size;
-// ... emitted as part of stream status
+const adaptiveFps = this.getOptimalFps(viewerCount);
+camera.adaptiveFps = adaptiveFps;
+const frameIntervalMs = 1000 / adaptiveFps;
+
+if (viewerCount > 0) {
+    this.io.to(roomName).emit("frame", {
+        cameraId,
+        role: 'live',
+        timestamp: new Date().toISOString(),
+        data
+    });
+}
+``` // rtspManager.ts:69-81
+
+Key implementation details:
+
+- **Per-role adaptation**: Only the `live` role counts all viewers. The `detect` role is always emitted (it's a server-side detection pipeline, not viewer-facing).
+- **Viewer-gated emission**: Frames are only emitted to the `live` room when `viewerCount > 0`. The `detect` room always receives frames regardless of viewer count.
+- **Time-based throttling**: Uses `frameIntervalMs` derived from `adaptiveFps` (though currently all frames are emitted on reception; throttling logic is ready for per-camera FPS limiting).
+- **All viewers affected equally**: When emitted, every viewer in the room receives the same frame.
+
+### Viewer Count Propagation
+
+Viewer count is reported to the frontend via stream status events (`rtspManager.ts:104-121`):
+
+```typescript
+const viewerCount = camera.activeViewers.size;
+socket.emit('streamStarted', {
+    cameraId,
+    fps: camera.adaptiveFps,
+    viewerCount,
+    tier,
+});
 ```
 
 And via the stream metrics API (`server/src/controllers/StreamController.ts:13`):
@@ -221,9 +240,9 @@ Send full keyframes periodically and delta frames between them. Only transmit ch
 
 ## References
 
-- `server/src/streams/rtspManager.ts:43` — `viewerCount` field on `CameraStream`
-- `server/src/streams/rtspManager.ts:57-59` — `activeViewers` and `adaptiveFps` on `Camera`
-- `server/src/streams/rtspManager.ts:125-208` — Viewer tracking (join/leave/disconnect)
-- `server/src/streams/rtspManager.ts:213-224` — `getOptimalFps()` step function
-- `server/src/streams/rtspManager.ts:472-506` — Adaptive FPS application during frame emission
+- `server/src/streams/rtspManager.ts:22-23` — `activeViewers` and `adaptiveFps` fields on `Camera` interface
+- `server/src/streams/rtspManager.ts:93-160` — Viewer tracking (requestStream / stopStream / disconnect handlers)
+- `server/src/streams/rtspManager.ts:161-167` — `getOptimalFps()` step function
+- `server/src/streams/rtspManager.ts:54-91` — wirePythonWsFrames frame emission with viewer-gated FPS
+- `server/src/streams/rtspManager.ts:69-81` — Viewer count check and live room frame emission
 - `server/src/controllers/StreamController.ts:13` — Viewer count in stream metrics API

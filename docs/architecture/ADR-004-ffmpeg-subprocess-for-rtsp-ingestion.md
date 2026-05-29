@@ -4,15 +4,20 @@
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 
+> **Revision note (2026-05-29):** The Node.js FFmpeg subprocess management sections below describe code deleted in Phase 5 (CLN-03). `rtspManager.ts` no longer spawns or manages FFmpeg processes — all RTSP ingestion is handled by the Python FFmpegReader. The Node.js section is preserved for historical reference but the code it references has been removed.
+
 ---
 
 ## Context
 
 Both the Node.js backend and the Python OpenCV service capture RTSP streams by spawning FFmpeg as a child process and reading video frames from its stdout pipe. This is a foundational architectural choice — every frame in the system passes through an FFmpeg subprocess.
 
+<details>
+<summary>Node.js FFmpeg Subprocess Management (Historical — code removed in v1.3)</summary>
+
 ### Node.js Side (Legacy Pipeline)
 
-The `StreamManager` in `server/src/streams/rtspManager.ts` spawns one FFmpeg process per camera, shared across all roles (detect, live, record):
+The `StreamManager` in `server/src/streams/rtspManager.ts` spawned one FFmpeg process per camera, shared across all roles (detect, live, record):
 
 ```typescript
 const ffmpegArgs = [
@@ -42,9 +47,9 @@ const process = spawn(ffmpegPath, ffmpegArgs, {
 });
 ```
 
-**Output format**: MJPEG over stdout. Node.js parses JPEG frame boundaries (`0xFF 0xD8` start, `0xFF 0xD9` end) from the byte stream.
+**Output format**: MJPEG over stdout. Node.js parsed JPEG frame boundaries (`0xFF 0xD8` start, `0xFF 0xD9` end) from the byte stream.
 
-**FFmpeg path resolution** (`rtspManager.ts:18-26`): Prefers system `ffmpeg` (for Docker/Alpine), falls back to `ffmpeg-static` npm package:
+**FFmpeg path resolution**: Prefers system `ffmpeg` (for Docker/Alpine), falls back to `ffmpeg-static` npm package:
 
 ```typescript
 let ffmpegPath = ffmpegStatic as unknown as string;
@@ -55,6 +60,8 @@ try {
     console.log("Using ffmpeg-static: " + ffmpegPath);
 }
 ```
+
+</details>
 
 ### Python Side (Native Pipeline)
 
@@ -91,23 +98,19 @@ frame = np.frombuffer(raw_bytes, dtype=np.uint8).reshape(
 
 ### Key Differences Between Implementations
 
-| Aspect | Node.js (Legacy) | Python (Native) |
+| Aspect | Node.js (Legacy — removed) | Python (Native) |
 |--------|------------------|-----------------|
-| Output format | MJPEG (JPEG frames) | Raw BGR24 |
-| Frame parsing | JPEG boundary markers | Fixed-size reads |
-| Night mode | FFmpeg `eq` filter (gamma=1.5) | Not in FFmpeg args |
-| Reconnection | Fixed retries (max 5, linear backoff) | Infinite retries, exponential backoff (1s→30s) |
-| Error tolerance | `ignore_err`, `discardcorrupt` | None (fails on error) |
-| Frame size | Variable (~15-40 KB JPEG) | Fixed (691 KB BGR24 at 640×360) |
-| CPU cost | FFmpeg does JPEG encoding | No encoding (raw bytes) |
+| Output format | MJPEG (JPEG frames) — removed | Raw BGR24 |
+| Frame parsing | JPEG boundary markers — removed | Fixed-size reads |
+| Night mode | FFmpeg `eq` filter (gamma=1.5) — removed | Not in FFmpeg args |
+| Reconnection | Fixed retries (max 5, linear backoff) — removed | Infinite retries, exponential backoff (1s→30s) |
+| Error tolerance | `ignore_err`, `discardcorrupt` — removed | None (fails on error) |
+| Frame size | Variable (~15-40 KB JPEG) — removed | Fixed (691 KB BGR24 at 640×360) |
+| CPU cost | FFmpeg does JPEG encoding — removed | No encoding (raw bytes) |
 
 ### Subprocess Lifecycle Management
 
-**Node.js** (`rtspManager.ts:412-438`):
-- Single shared FFmpeg process per camera across all roles (detect, live, record).
-- On unexpected exit: retry up to 5 times with linear backoff (5s × retryCount).
-- Inactivity timeout: kills FFmpeg after configurable period with no viewers.
-- Safety valve: resets stdout buffer if it exceeds 4 MB without a complete JPEG frame.
+**Node.js (removed in v1.3)**: The legacy Node.js implementation managed FFmpeg subprocess lifecycle with retry logic, inactivity timeout, and safety valves. This code was deleted in Phase 5 (CLN-03).
 
 **Python** (`ffmpeg_reader.py:101-113`):
 - Dedicated thread per camera reads frames in a tight loop.
@@ -119,7 +122,7 @@ frame = np.frombuffer(raw_bytes, dtype=np.uint8).reshape(
 
 ## Decision
 
-Use FFmpeg as a child process with `stdout=PIPE` for RTSP ingestion in both Node.js and Python. Each camera gets a dedicated FFmpeg subprocess. The two implementations differ in output format (MJPEG vs raw BGR24) and reconnection strategy, but share the same fundamental approach: FFmpeg handles RTSP negotiation and decoding, the host process reads frames from stdout.
+Use FFmpeg as a child process with `stdout=PIPE` for RTSP ingestion. Each camera gets a dedicated FFmpeg subprocess. The Python FFmpegReader handles all RTSP ingestion (raw BGR24 output); the Node.js legacy FFmpeg management was removed in v1.3.
 
 ---
 
@@ -137,8 +140,8 @@ Use FFmpeg as a child process with `stdout=PIPE` for RTSP ingestion in both Node
 ### Negative
 
 - **Subprocess lifecycle management**: Both implementations must handle spawning, health monitoring, error handling, and graceful shutdown. This is non-trivial:
-  - Node.js: ~100 lines for FFmpeg spawn, error handling, retry logic, inactivity timeout (`rtspManager.ts:347-438`).
   - Python: ~90 lines for thread management, reconnection, clean shutdown (`ffmpeg_reader.py:101-171`).
+  - Note: The Node.js FFmpeg management code was removed in Phase 5 (CLN-03). `rtspManager.ts` no longer manages subprocesses.
 - **JPEG boundary parsing (Node.js)**: MJPEG output requires scanning the byte stream for `0xFF 0xD8` / `0xFF 0xD9` markers (`rtspManager.ts:454-464`). This is a source of subtle bugs:
   - Buffer overflows (mitigated by 4 MB safety valve at line 442).
   - Split markers across `data` chunks (handled by accumulating in a buffer).
@@ -216,10 +219,8 @@ Read decoded frames directly from GPU memory or a shared memory segment, avoidin
 
 ## References
 
-- `server/src/streams/rtspManager.ts:14-26` — FFmpeg path resolution
-- `server/src/streams/rtspManager.ts:360-387` — FFmpeg spawn with argument construction
-- `server/src/streams/rtspManager.ts:442-513` — Frame boundary detection and parsing
-- `server/src/streams/rtspManager.ts:412-438` — Process exit handling and reconnection
+- `server/src/streams/rtspManager.ts:54-91` — wirePythonWsFrames (current frame relay, no FFmpeg management)
+- `server/src/streams/rtspManager.ts:169-` — addCamera / setup methods (no FFmpeg spawn)
 - `opencv-service/rtsp_ingestion/ffmpeg_reader.py` — Python FFmpegReader implementation
 - `opencv-service/rtsp_ingestion/config.py:35-39` — Default FFmpeg arguments
 - `docs/architecture/ADR-003-detection-pipeline-redesign.md` — Detection pipeline redesign (references FFmpeg vs OpenCV decision)

@@ -1,0 +1,2076 @@
+================================================================================
+  SENTRYVISION — OPENCV DETECTION PIPELINE (Full Implementation Reference)
+  For external review / ChatGPT analysis
+================================================================================
+
+TABLE OF CONTENTS
+  1. Architecture Overview
+  2. opencv-service/app.py (Flask Python microservice)
+  3. server/src/config/detectionConfig.ts
+  4. server/src/config/performance.ts
+  5. server/src/config/index.ts (CameraConfig interface)
+  6. server/src/detection/optimizedMotionDetection.ts
+  7. server/src/detection/motionTriggeredDetection.ts
+  8. server/src/detection/consolidatedDetectionService.ts
+  9. server/src/detection/objectDetection.ts
+  10. server/src/services/opencvMicroserviceClient.ts
+  11. server/cameras.json (redacted)
+  12. opencv-service/Dockerfile
+  13. opencv-service/requirements.txt
+  14. Docker Compose (opencv section)
+  15. yolo_classes.txt (80 COCO classes)
+  16. Server types (detection.ts, event.ts)
+  17. Frontend types (security.ts)
+  18. Effective Filtering Chain
+
+
+================================================================================
+1. ARCHITECTURE OVERVIEW
+================================================================================
+
+  RTSP Cameras → FFmpeg → Stream Manager → Frame Buffer
+                                                ↓
+                                      OptimizedMotionDetector
+                                      (every 4.5s, adaptive)
+                                                ↓
+                                      /detect-motion (MOG2)
+                                                ↓
+                                      if motion > 5% confidence
+                                        × 3 consecutive frames:
+                                                ↓
+                                      ConsolidatedDetectionService
+                                                ↓
+                                      /detect-objects (YOLOv8n ONNX)
+                                      /recognize-faces (DNN + face_recognition)
+                                                ↓
+                                      Filter: tracked objects, min confidence
+                                                ↓
+                                      Save to DB + Socket.io events + Frontend
+
+  Layers:
+    Frontend (React 18, Vite, :5173)
+        → API calls (baseClient.ts)
+        → Backend (Express 5, TypeORM, :9753)
+            → ConsolidatedDetectionService
+            → opencvMicroserviceClient (HTTP)
+        → OpenCV Service (Flask, Python, :8084)
+            → YOLOv8n ONNX object detection
+            → MOG2 motion detection
+            → DNN + dlib face recognition
+        → PostgreSQL (events, detections, cache)
+        → Redis (detection cache, TTL 300s)
+
+
+================================================================================
+2. opencv-service/app.py (1923 lines)
+================================================================================
+
+#!/usr/bin/env python3
+"""
+OpenCV Detection Service - Python Implementation
+Uses native OpenCV with YOLO for real object detection
+"""
+
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
+import cv2
+import numpy as np
+import os
+import json
+import hashlib
+import time
+import tempfile
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+import psycopg2
+from psycopg2 import pool
+from psycopg2.extras import RealDictCursor, Json
+import pickle
+import redis
+import threading
+
+app = Flask(__name__)
+CORS(app)
+
+# ==================== CONFIGURATION ====================
+
+MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+CACHE_DIR = os.path.join(os.path.dirname(__file__), 'data', 'cache')
+PORT = 8084
+
+# Load COCO class names
+def load_class_names():
+    try:
+        coco_path = os.path.join(MODELS_DIR, 'yolo_classes.txt')
+        coco_names_path = os.path.join(MODELS_DIR, 'coco.names')
+
+        if os.path.exists(coco_path):
+            with open(coco_path, 'r') as f:
+                return f.read().strip().split('\n')
+        elif os.path.exists(coco_names_path):
+            with open(coco_names_path, 'r') as f:
+                return f.read().strip().split('\n')
+        else:
+            return ['person', 'bicycle', 'car', 'motorcycle', 'airplane',
+                    'bus', 'train', 'truck', 'boat']
+    except Exception as e:
+        return ['person', 'bicycle', 'car', 'motorcycle', 'airplane',
+                'bus', 'train', 'truck', 'boat']
+
+class_names = load_class_names()
+
+
+# ==================== CACHING ====================
+
+class DetectionCache:
+    """PostgreSQL-based detection cache"""
+    def __init__(self):
+        self.db_host = os.getenv('POSTGRES_HOST', 'postgres')
+        self.db_port = os.getenv('POSTGRES_PORT', '5432')
+        self.db_name = os.getenv('POSTGRES_DB', 'sentryvision')
+        self.db_user = os.getenv('POSTGRES_USER', 'sentryvision')
+        self.db_password = os.environ.get('POSTGRES_PASSWORD')
+        self.cache_ttl = 300  # 5 minutes
+        self.connection_pool = None
+        self._initialize_pool()
+        self._cleanup_old_cache()
+
+    def _initialize_pool(self):
+        try:
+            self.connection_pool = pool.SimpleConnectionPool(
+                minconn=1, maxconn=5,
+                host=self.db_host, port=self.db_port,
+                database=self.db_name, user=self.db_user,
+                password=self.db_password
+            )
+        except Exception as e:
+            print(f"DetectionCache: Failed to initialize PostgreSQL pool: {e}")
+
+    def get(self, file_hash: str) -> Optional[Dict]:
+        try:
+            conn = self._get_connection()
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT file_hash, object_detections, face_detections, processing_time
+                        FROM detection_cache
+                        WHERE file_hash = %s AND updated_at > NOW() - INTERVAL %s
+                    """, (file_hash, f'{self.cache_ttl} seconds'))
+                    row = cur.fetchone()
+                    if row:
+                        return {
+                            'file_hash': row['file_hash'],
+                            'object_detections': row['object_detections'],
+                            'face_detections': row['face_detections'],
+                            'processing_time': row['processing_time']
+                        }
+                    return None
+            finally:
+                self._return_connection(conn)
+        except Exception as e:
+            return None
+
+    def set(self, file_hash: str, object_detections: List, face_detections: List,
+            processing_time: float, file_path: str, file_size: int, file_modified: str):
+        try:
+            conn = self._get_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO detection_cache
+                        (file_hash, file_path, file_size, file_modified,
+                         object_detections, face_detections, processing_time)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (file_hash) DO UPDATE
+                        SET object_detections = EXCLUDED.object_detections,
+                            face_detections = EXCLUDED.face_detections,
+                            processing_time = EXCLUDED.processing_time,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (file_hash, file_path, file_size, file_modified,
+                          Json(object_detections), Json(face_detections), processing_time))
+                    conn.commit()
+            finally:
+                self._return_connection(conn)
+        except Exception as e:
+            print(f"DetectionCache: Failed to save cache entry: {e}")
+
+    def cleanup(self):
+        self._cleanup_old_cache()
+
+    def _get_connection(self):
+        if not self.connection_pool or self.connection_pool.closed:
+            self._initialize_pool()
+        if self.connection_pool:
+            return self.connection_pool.getconn()
+        raise Exception("Failed to get database connection")
+
+    def _return_connection(self, conn):
+        if self.connection_pool and not self.connection_pool.closed:
+            self.connection_pool.putconn(conn)
+
+    def _cleanup_old_cache(self):
+        try:
+            conn = self._get_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        DELETE FROM detection_cache
+                        WHERE updated_at < NOW() - INTERVAL %s
+                    """, (f'{self.cache_ttl} seconds',))
+                    deleted = cur.rowcount
+                    conn.commit()
+            finally:
+                self._return_connection(conn)
+        except Exception as e:
+            print(f"DetectionCache: Cleanup error: {e}")
+
+redis_client = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'redis'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=0, decode_responses=True, retry_on_timeout=True
+)
+
+class RedisDetectionCache:
+    def __init__(self):
+        self.ttl = 300  # 5 minutes
+
+    def get(self, file_hash: str) -> Optional[Dict]:
+        try:
+            data = redis_client.get(f'detection:{file_hash}')
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            return None
+
+    def set(self, file_hash: str, object_detections: List, face_detections: List,
+            processing_time: float):
+        try:
+            data = {
+                'file_hash': file_hash,
+                'object_detections': object_detections,
+                'face_detections': face_detections,
+                'processing_time': processing_time,
+                'timestamp': time.time()
+            }
+            redis_client.setex(f'detection:{file_hash}', self.ttl, json.dumps(data))
+        except Exception as e:
+            print(f"Redis cache set error: {e}")
+
+redis_cache = RedisDetectionCache()
+db_cache = DetectionCache()
+cleanup_thread = threading.Thread(target=db_cache.cleanup, daemon=True)
+cleanup_thread.start()
+
+
+# ==================== YOLO OBJECT DETECTOR ====================
+
+class YOLOObjectDetector:
+    """Object detection using YOLO model - Optimized for real-time detection"""
+
+    def __init__(self):
+        self.initialized = False
+        self.net = None
+        self.layer_names = None
+        self.input_size = 640
+        self.confidence_threshold = 0.40   # NMS pre-filter
+        self.nms_threshold = 0.30          # NMS overlap threshold
+        self.model_type = None             # 'yolov8', 'yolov5' or 'yolov4'
+
+        # DNN face detector
+        try:
+            prototxt_path = os.path.join(MODELS_DIR, 'deploy.prototxt')
+            model_path = os.path.join(MODELS_DIR, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
+            if os.path.exists(prototxt_path) and os.path.exists(model_path):
+                self.dnn_face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+        except Exception as e:
+            self.dnn_face_detector = None
+
+        # Per-class confidence thresholds
+        self.class_thresholds = {
+            'person': 0.45,   'car': 0.45,   'truck': 0.45,   'bus': 0.45,
+            'motorcycle': 0.40,  'bicycle': 0.40,
+            'dog': 0.35,     'cat': 0.35,   'bird': 0.30,    'horse': 0.40,
+            'sheep': 0.30,   'cow': 0.30,   'elephant': 0.30, 'bear': 0.30,
+            'zebra': 0.30,   'giraffe': 0.30,
+            'backpack': 0.30, 'umbrella': 0.50, 'handbag': 0.50, 'tie': 0.50,
+            'suitcase': 0.50, 'frisbee': 0.50, 'skis': 0.50, 'snowboard': 0.50,
+            'sports ball': 0.50, 'kite': 0.50, 'baseball bat': 0.50,
+            'baseball glove': 0.50, 'skateboard': 0.50, 'surfboard': 0.50,
+            'tennis racket': 0.50,
+            'bottle': 0.65, 'wine glass': 0.65, 'cup': 0.65,
+            'fork': 0.65, 'knife': 0.65, 'spoon': 0.65, 'bowl': 0.65,
+            'banana': 0.65, 'apple': 0.65, 'sandwich': 0.65, 'orange': 0.65,
+            'broccoli': 0.65, 'carrot': 0.65, 'hot dog': 0.65, 'pizza': 0.65,
+            'donut': 0.65, 'cake': 0.65,
+            'chair': 0.60, 'couch': 0.60, 'potted plant': 0.65,
+            'bed': 0.60, 'dining table': 0.60, 'toilet': 0.60,
+            'tv': 0.60, 'laptop': 0.60, 'mouse': 0.60, 'remote': 0.60,
+            'keyboard': 0.60, 'cell phone': 0.60,
+            'microwave': 0.60, 'oven': 0.60, 'toaster': 0.60,
+            'sink': 0.60, 'refrigerator': 0.60,
+            'book': 0.60, 'clock': 0.60,
+            'vase': 0.45, 'scissors': 0.45, 'teddy bear': 0.45,
+            'hair drier': 0.45, 'toothbrush': 0.45,
+        }
+
+        # Minimum box area/width/height
+        self.min_box_area = 1600    # 40x40 minimum pixels
+        self.min_box_width = 40
+        self.min_box_height = 40
+
+    def initialize(self):
+        """Initialize YOLO detector - prefers YOLOv8, falls back to YOLOv5/YOLOv4"""
+        if self.initialized:
+            return
+
+        try:
+            # Priority 1: YOLOv8n ONNX
+            yolov8_path = os.path.join(MODELS_DIR, 'yolov8n.onnx')
+            if os.path.exists(yolov8_path):
+                self.net = cv2.dnn.readNet(yolov8_path)
+                self.model_type = 'yolov8'
+                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                self.initialized = True
+                return
+
+            # Priority 2: YOLOv5n ONNX
+            yolov5_path = os.path.join(MODELS_DIR, 'yolov5n.onnx')
+            if os.path.exists(yolov5_path):
+                self.net = cv2.dnn.readNet(yolov5_path)
+                self.model_type = 'yolov5'
+                self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                self.initialized = True
+                return
+
+            # Priority 3: YOLOv4-tiny
+            weights_path = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
+            config_path = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
+            if os.path.exists(weights_path) and os.path.exists(config_path):
+                self.net = cv2.dnn.readNet(weights_path, config_path)
+                self.model_type = 'yolov4'
+                try:
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+                except:
+                    self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                    self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                self.layer_names = self.net.getLayerNames()
+                self.layer_names = [self.layer_names[i - 1]
+                                    for i in self.net.getUnconnectedOutLayers()]
+                self.initialized = True
+                return
+
+            # Priority 4: HOG fallback (no model file found)
+            print("YOLO models not found, will use fallback detection")
+            self.initialized = True
+
+        except Exception as e:
+            print(f"OpenCV Service: Failed to initialize YOLO: {e}")
+            self.initialized = True
+
+    def _get_class_threshold(self, class_name: str) -> float:
+        return self.class_thresholds.get(class_name, self.confidence_threshold)
+
+    def _is_valid_box(self, x: int, y: int, w: int, h: int) -> bool:
+        box_area = w * h
+        return (w >= self.min_box_width and
+                h >= self.min_box_height and
+                box_area >= self.min_box_area)
+
+    def detect_objects(self, image_path: str, file_hash: str, file_path: str = '',
+                       file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
+        """Perform object detection using YOLO model"""
+        start_time = time.time()
+
+        try:
+            # Check Redis cache first
+            cached = redis_cache.get(file_hash)
+            if cached:
+                return {
+                    'success': True, 'cached': True,
+                    'detections': cached['object_detections'],
+                    'processingTime': cached['processing_time'],
+                    'fileHash': file_hash
+                }
+
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image not found: {image_path}")
+
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError("Failed to read image")
+
+            detections = self._perform_yolo_detection(image)
+            processing_time = (time.time() - start_time) * 1000
+
+            redis_cache.set(file_hash, detections, [], processing_time)
+
+            return {
+                'success': True, 'cached': False,
+                'detections': detections,
+                'processingTime': processing_time,
+                'fileHash': file_hash
+            }
+
+        except Exception as e:
+            return {
+                'success': False, 'cached': False,
+                'fileHash': file_hash, 'error': str(e)
+            }
+
+    def _perform_yolo_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Perform YOLO detection on raw image"""
+        detections = []
+
+        try:
+            height, width = image.shape[:2]
+
+            if self.net is not None:
+                blob = cv2.dnn.blobFromImage(
+                    image, 1/255.0, (self.input_size, self.input_size),
+                    swapRB=True, crop=False
+                )
+                self.net.setInput(blob)
+
+                try:
+                    outputs = self.net.forward(self.layer_names) if self.layer_names \
+                              else self.net.forward()
+                except cv2.error as e:
+                    if 'CUDA' in str(e) or 'cuda' in str(e):
+                        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                        outputs = self.net.forward(self.layer_names) if self.layer_names \
+                                  else self.net.forward()
+                    else:
+                        raise e
+
+                boxes = []
+                confidences = []
+                class_ids = []
+
+                if self.model_type == 'yolov8':
+                    # YOLOv8 ONNX: [1, 84, 8400] → iterate over 8400 detections
+                    output = outputs[0]
+                    if output.shape[0] != 1 and output.shape[0] != 8400:
+                        output = output.T
+                    if len(output.shape) == 3 and output.shape[0] == 1:
+                        output = output[0]
+
+                    for detection in output:
+                        class_scores = detection[4:]
+                        class_id = int(np.argmax(class_scores))
+                        class_conf = float(class_scores[class_id])
+                        class_name = class_names[class_id] if class_id < len(class_names) \
+                                     else f"object_{class_id}"
+                        class_threshold = self._get_class_threshold(class_name)
+                        confidence = class_conf
+
+                        if confidence > class_threshold:
+                            x_center = float(detection[0])
+                            y_center = float(detection[1])
+                            box_w = float(detection[2])
+                            box_h = float(detection[3])
+                            x = int((x_center - box_w / 2) * width)
+                            y = int((y_center - box_h / 2) * height)
+                            box_w = int(box_w * width)
+                            box_h = int(box_h * height)
+                            x = max(0, x)
+                            y = max(0, y)
+                            box_w = min(width - x, box_w)
+                            box_h = min(height - y, box_h)
+                            if self._is_valid_box(x, y, box_w, box_h):
+                                boxes.append([x, y, box_w, box_h])
+                                confidences.append(float(confidence))
+                                class_ids.append(int(class_id))
+
+                elif self.model_type == 'yolov5':
+                    # YOLOv5 ONNX: [1, 25200, 85]
+                    output = outputs[0]
+                    if output.shape[0] != 25200 and output.shape[0] != 1:
+                        output = output.T
+                    if len(output.shape) == 3 and output.shape[0] == 1:
+                        output = output[0]
+
+                    for detection in output:
+                        x, y, w, h = detection[0:4]
+                        class_scores = detection[5:]
+                        class_id = int(np.argmax(class_scores))
+                        class_conf = float(class_scores[class_id])
+                        confidence = class_conf
+                        class_name = class_names[class_id] if class_id < len(class_names) \
+                                     else f"object_{class_id}"
+                        class_threshold = self._get_class_threshold(class_name)
+
+                        if confidence > class_threshold:
+                            center_x = float(x)
+                            center_y = float(y)
+                            box_w = float(w)
+                            box_h = float(h)
+                            scale_x = width / self.input_size
+                            scale_y = height / self.input_size
+                            x = int((center_x - box_w / 2) * scale_x)
+                            y = int((center_y - box_h / 2) * scale_y)
+                            box_w = int(box_w * scale_x)
+                            box_h = int(box_h * scale_y)
+                            x = max(0, x)
+                            y = max(0, y)
+                            box_w = min(width - x, box_w)
+                            box_h = min(height - y, box_h)
+                            if self._is_valid_box(x, y, box_w, box_h):
+                                boxes.append([x, y, box_w, box_h])
+                                confidences.append(float(confidence))
+                                class_ids.append(int(class_id))
+                else:
+                    # YOLOv4-tiny
+                    for output in outputs:
+                        for detection in output:
+                            scores = detection[5:]
+                            class_id = np.argmax(scores)
+                            confidence = scores[class_id]
+                            class_name = class_names[class_id] if class_id < len(class_names) \
+                                         else f"object_{class_id}"
+                            class_threshold = self._get_class_threshold(class_name)
+                            if confidence > class_threshold:
+                                center_x = int(detection[0] * width)
+                                center_y = int(detection[1] * height)
+                                w = int(detection[2] * width)
+                                h = int(detection[3] * height)
+                                x = int(center_x - w / 2)
+                                y = int(center_y - h / 2)
+                                x = max(0, x)
+                                y = max(0, y)
+                                w = min(width - x, w)
+                                h = min(height - y, h)
+                                if self._is_valid_box(x, y, w, h):
+                                    boxes.append([x, y, w, h])
+                                    confidences.append(float(confidence))
+                                    class_ids.append(int(class_id))
+
+                # Apply non-maximum suppression
+                indices = cv2.dnn.NMSBoxes(
+                    boxes, confidences, self.confidence_threshold, self.nms_threshold
+                )
+
+                if len(indices) > 0:
+                    for i in indices.flatten():
+                        x, y, w, h = boxes[i]
+                        class_id = class_ids[i]
+                        confidence = confidences[i]
+                        class_name = class_names[class_id] if class_id < len(class_names) \
+                                     else f"object_{class_id}"
+                        detections.append({
+                            'class': class_name,
+                            'confidence': round(min(100, confidence * 100), 2),
+                            'bbox': {
+                                'x': max(0, int(x)),
+                                'y': max(0, int(y)),
+                                'width': int(w),
+                                'height': int(h)
+                            }
+                        })
+            else:
+                detections = self._fallback_detection(image)
+
+            return detections
+
+        except Exception as e:
+            return []
+
+    def _fallback_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """HOG person detection + Haar face detection fallback"""
+        detections = []
+        try:
+            hog = cv2.HOGDescriptor()
+            hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+            (rects, weights) = hog.detectMultiScale(
+                image, winStride=(8, 8), padding=(32, 32), scale=1.05
+            )
+            for (x, y, w, h), weight in zip(rects, weights):
+                detections.append({
+                    'class': 'person',
+                    'confidence': round(min(100, max(30, weight * 100)), 2),
+                    'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)}
+                })
+            face_cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            )
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
+            )
+            for (x, y, w, h) in faces:
+                detections.append({
+                    'class': 'face', 'confidence': 80,
+                    'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)}
+                })
+        except Exception as e:
+            print(f"Fallback detection error: {e}")
+        return detections
+
+    def recognize_faces(self, image_path: str, file_hash: str, file_path: str = '',
+                         file_size: int = 0, file_modified: str = '') -> Dict[str, Any]:
+        start_time = time.time()
+        try:
+            cached = redis_cache.get(file_hash)
+            if cached:
+                return {
+                    'success': True, 'cached': True,
+                    'faceDetections': cached['face_detections'],
+                    'processingTime': cached['processing_time'], 'fileHash': file_hash
+                }
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image not found: {image_path}")
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError("Failed to read image")
+            face_detections = self._detect_faces(image)
+            processing_time = (time.time() - start_time) * 1000
+            redis_cache.set(file_hash, [], face_detections, processing_time)
+            return {
+                'success': True, 'cached': False,
+                'faceDetections': face_detections,
+                'processingTime': processing_time, 'fileHash': file_hash
+            }
+        except Exception as e:
+            return {'success': False, 'cached': False, 'fileHash': file_hash, 'error': str(e)}
+
+    def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect and recognize faces using face_recognition library"""
+        face_detections = []
+        try:
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            import face_recognition as fr_lib
+            face_locs = fr_lib.face_locations(rgb_image, model='hog')
+
+            for i, (top, right, bottom, left) in enumerate(face_locs):
+                face_roi = image[top:bottom, left:right]
+                face_roi_rgb = rgb_image[top:bottom, left:right]
+                encodings = fr_lib.face_encodings(face_roi_rgb)
+
+                if encodings:
+                    import face_recognition
+                    matches = fr_lib.compare_faces(
+                        face_recognition.known_encodings, encodings[0], tolerance=0.6
+                    )
+                    distances = fr_lib.face_distance(
+                        face_recognition.known_encodings, encodings[0]
+                    )
+                    if True in matches:
+                        idx = np.argmin(distances)
+                        person_name = face_recognition.known_names[idx]
+                        conf = max(0, min(100, (1 - distances[idx]) * 100))
+                    else:
+                        person_name = "unknown"
+                        conf = 80.0
+                else:
+                    person_name = "unknown"
+                    conf = 80.0
+
+                face_detections.append({
+                    'id': f'face_{i}',
+                    'name': person_name,
+                    'confidence': float(conf),
+                    'isKnown': person_name != 'unknown',
+                    'bbox': {
+                        'x': int(left), 'y': int(top),
+                        'width': int(right - left), 'height': int(bottom - top)
+                    }
+                })
+            return face_detections
+        except Exception as e:
+            return []
+
+
+# ==================== MOTION DETECTOR ====================
+
+class MotionDetector:
+    """Motion detection using background subtraction (MOG2)"""
+
+    def __init__(self):
+        self.initialized = False
+        self.bg_subtractors = {}
+        self.last_frames = {}
+        self.use_mog2 = True
+
+    def initialize(self):
+        if self.initialized:
+            return
+        self.initialized = True
+
+    def _get_bg_subtractor(self, camera_id: str):
+        if camera_id not in self.bg_subtractors:
+            if self.use_mog2:
+                bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+                    history=200, varThreshold=8, detectShadows=False
+                )
+            else:
+                bg_subtractor = cv2.createBackgroundSubtractorKNN(
+                    history=500, dist2Threshold=400, detectShadows=True
+                )
+            self.bg_subtractors[camera_id] = bg_subtractor
+        return self.bg_subtractors[camera_id]
+
+    def detect_motion(self, image: np.ndarray, camera_id: str = "default",
+                      threshold: int = 500) -> Dict[str, Any]:
+        """Motion detection using background subtraction"""
+        if not self.initialized:
+            self.initialize()
+        try:
+            bg_subtractor = self._get_bg_subtractor(camera_id)
+
+            # Resize if needed (max 640px)
+            scale_factor = 1.0
+            if image.shape[0] > 640 or image.shape[1] > 640:
+                scale_factor = 640.0 / max(image.shape[0], image.shape[1])
+                image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
+
+            # MOG2 foreground mask
+            fg_mask = bg_subtractor.apply(image)
+            _, fg_mask = cv2.threshold(fg_mask, 250, 255, cv2.THRESH_BINARY)
+
+            # Morphological cleanup (small kernels for better sensitivity)
+            kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel_open, iterations=1)
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)
+            kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            fg_mask = cv2.dilate(fg_mask, kernel_dilate, iterations=1)
+
+            # Calculate motion statistics
+            motion_pixels = cv2.countNonZero(fg_mask)
+            total_pixels = fg_mask.shape[0] * fg_mask.shape[1]
+            motion_percentage = (motion_pixels / total_pixels) * 100
+
+            # Contour analysis
+            contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            min_contour_area = max(150, int((image.shape[0] * image.shape[1]) * 0.001))
+            significant_contours = [
+                c for c in contours if cv2.contourArea(c) > min_contour_area
+            ]
+            total_contour_area = sum(cv2.contourArea(c) for c in significant_contours)
+            contour_area_percentage = (total_contour_area / total_pixels) * 100
+
+            # Motion decision
+            motion_detected = (motion_percentage > 0.2) or (contour_area_percentage > 0.15)
+            confidence = max(0, min(100, (motion_percentage * 8 + contour_area_percentage * 8)))
+
+            motion_regions = []
+            for contour in significant_contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                if scale_factor != 1.0:
+                    x = int(x / scale_factor)
+                    y = int(y / scale_factor)
+                    w = int(w / scale_factor)
+                    h = int(h / scale_factor)
+                motion_regions.append({
+                    'x': x, 'y': y, 'width': w, 'height': h,
+                    'area': int(cv2.contourArea(contour))
+                })
+            motion_regions.sort(key=lambda r: r['area'], reverse=True)
+
+            return {
+                'motion_detected': motion_detected,
+                'motion_percentage': round(motion_percentage, 2),
+                'contour_area_percentage': round(contour_area_percentage, 2),
+                'motion_pixel_count': int(motion_pixels),
+                'contour_count': len(significant_contours),
+                'motion_regions': motion_regions[:10],
+                'confidence': round(confidence, 2)
+            }
+        except Exception as e:
+            return {'motion_detected': False, 'error': str(e)}
+
+    def detect_motion_with_images(self, frame1: np.ndarray, frame2: np.ndarray) -> Dict[str, Any]:
+        """Compare two frames directly for motion (frame differencing)"""
+        try:
+            if frame1.shape != frame2.shape:
+                frame2 = cv2.resize(frame2, (frame1.shape[1], frame1.shape[0]))
+
+            gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+            gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+            gray1 = cv2.GaussianBlur(gray1, (5, 5), 0)
+            gray2 = cv2.GaussianBlur(gray2, (5, 5), 0)
+
+            diff = cv2.absdiff(gray1, gray2)
+            _, thresh = cv2.threshold(diff, 20, 255, cv2.THRESH_BINARY)
+
+            kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel_open, iterations=2)
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+            kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            thresh = cv2.dilate(thresh, kernel_dilate, iterations=1)
+
+            motion_pixels = cv2.countNonZero(thresh)
+            total_pixels = thresh.shape[0] * thresh.shape[1]
+            motion_percentage = (motion_pixels / total_pixels) * 100
+
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            min_contour_area = max(150, int((thresh.shape[0] * thresh.shape[1]) * 0.001))
+            significant_contours = [
+                c for c in contours if cv2.contourArea(c) > min_contour_area
+            ]
+            total_contour_area = sum(cv2.contourArea(c) for c in significant_contours)
+            contour_area_percentage = (total_contour_area / total_pixels) * 100
+
+            motion_detected = (motion_percentage > 0.3) or (contour_area_percentage > 0.2)
+            confidence = max(0, min(100, (motion_percentage * 5 + contour_area_percentage * 5)))
+
+            return {
+                'motion_detected': motion_detected,
+                'motion_percentage': round(motion_percentage, 2),
+                'contour_area_percentage': round(contour_area_percentage, 2),
+                'motion_pixel_count': int(motion_pixels),
+                'contour_count': len(significant_contours),
+                'confidence': round(confidence, 2)
+            }
+        except Exception as e:
+            return {'motion_detected': False, 'error': str(e)}
+
+
+# ==================== FACE RECOGNITION ====================
+
+class FaceRecognition:
+    """Face recognition using DNN detection + face_recognition library"""
+
+    def __init__(self):
+        self.known_faces_dir = os.path.join(os.path.dirname(__file__), 'known_faces')
+        self.models_dir = os.path.join(os.path.dirname(__file__), 'models')
+        self.model_path = os.path.join(self.models_dir, 'enhanced_face_recognizer.pkl')
+        self.embeddings_path = os.path.join(self.models_dir, 'face_embeddings_improved.pkl')
+        self.labels_path = os.path.join(self.models_dir, 'face_labels_improved.pkl')
+        self.labels = {}
+        self.is_trained = False
+
+        if not os.path.exists(self.known_faces_dir):
+            os.makedirs(self.known_faces_dir)
+        if not os.path.exists(self.models_dir):
+            os.makedirs(self.models_dir)
+
+        self.face_detector = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+        self.dnn_face_detector = self._load_dnn_face_detector()
+        self.face_embeddings_model = self._load_face_embeddings_model()
+        self.known_encodings = []
+        self.known_names = []
+        self._load_trained_model()
+
+    def _load_dnn_face_detector(self):
+        try:
+            prototxt_path = os.path.join(self.models_dir, 'deploy.prototxt')
+            model_path = os.path.join(self.models_dir, 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
+            if os.path.exists(prototxt_path) and os.path.exists(model_path):
+                return cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+            return None
+        except Exception as e:
+            return None
+
+    def _load_face_embeddings_model(self):
+        return None
+
+    def _load_trained_model(self):
+        try:
+            if os.path.exists(self.embeddings_path) and os.path.exists(self.labels_path):
+                with open(self.embeddings_path, 'rb') as f:
+                    self.known_encodings = pickle.load(f)
+                with open(self.labels_path, 'rb') as f:
+                    self.known_names = pickle.load(f)
+                self.is_trained = True
+        except Exception as e:
+            pass
+
+    def extract_face_features(self, face_img):
+        try:
+            import face_recognition
+            rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+            encodings = face_recognition.face_encodings(rgb_face)
+            if encodings:
+                return encodings[0]
+            return None
+        except Exception as e:
+            return None
+
+    def detect_faces_dnn(self, image):
+        if self.dnn_face_detector is None:
+            return self.detect_faces_haar(image)
+        try:
+            h, w = image.shape[:2]
+            blob = cv2.dnn.blobFromImage(
+                cv2.resize(image, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0)
+            )
+            self.dnn_face_detector.setInput(blob)
+            detections = self.dnn_face_detector.forward()
+            faces = []
+            for i in range(detections.shape[2]):
+                confidence = detections[0, 0, i, 2]
+                if confidence > 0.5:
+                    box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                    x, y, x1, y1 = box.astype(int)
+                    x, y = max(0, x), max(0, y)
+                    x1, y1 = min(w, x1), min(h, y1)
+                    faces.append((x, y, x1-x, y1-y))
+            return faces
+        except Exception as e:
+            return self.detect_faces_haar(image)
+
+    def detect_faces_haar(self, image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = self.face_detector.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        return faces
+
+    def recognize_face(self, face_img):
+        if not self.is_trained or len(self.known_encodings) == 0:
+            return "unknown", 0.0
+        try:
+            face_features = self.extract_face_features(face_img)
+            if face_features is None:
+                return "unknown", 0.0
+            distances = [
+                np.linalg.norm(face_features - known)
+                for known in self.known_encodings
+            ]
+            if distances:
+                min_distance_idx = np.argmin(distances)
+                min_distance = distances[min_distance_idx]
+                similarity = max(0, 100 - min_distance * 100)
+                if min_distance < 0.6:
+                    return self.known_names[min_distance_idx], similarity
+                else:
+                    return "unknown", similarity
+            return "unknown", 0.0
+        except Exception as e:
+            return "unknown", 0.0
+
+    def train_recognizer(self):
+        try:
+            faces = []
+            names = []
+            for person_dir in os.listdir(self.known_faces_dir):
+                person_path = os.path.join(self.known_faces_dir, person_dir)
+                if not os.path.isdir(person_path):
+                    continue
+                for image_file in os.listdir(person_path):
+                    if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        image_path = os.path.join(person_path, image_file)
+                        image = cv2.imread(image_path)
+                        if image is not None:
+                            face_features = self.extract_face_features(image)
+                            if face_features is not None:
+                                faces.append(face_features)
+                                names.append(person_dir)
+            if faces:
+                self.known_encodings = faces
+                self.known_names = names
+                self.is_trained = True
+                with open(self.embeddings_path, 'wb') as f:
+                    pickle.dump(self.known_encodings, f)
+                with open(self.labels_path, 'wb') as f:
+                    pickle.dump(self.known_names, f)
+        except Exception as e:
+            pass
+
+    def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        face_detections = []
+        try:
+            faces = self.detect_faces_dnn(image)
+            for i, (x, y, w, h) in enumerate(faces):
+                face_roi = image[y:y+h, x:x+w]
+                person_name, recognition_confidence = self.recognize_face(face_roi)
+                confidence = recognition_confidence if recognition_confidence > 0 else 80.0
+                face_detections.append({
+                    'id': f'face_{i}',
+                    'name': person_name,
+                    'confidence': float(confidence),
+                    'isKnown': person_name != 'unknown',
+                    'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)}
+                })
+            return face_detections
+        except Exception as e:
+            return []
+
+
+# ==================== INITIALIZATION ====================
+
+try:
+    from improved_face_recognition import ImprovedFaceRecognition
+    FaceRecognition = ImprovedFaceRecognition
+except ImportError:
+    pass
+
+face_recognition = FaceRecognition()
+detector = YOLOObjectDetector()
+detector.initialize()
+motion_detector = MotionDetector()
+motion_detector.initialize()
+
+
+# ==================== FLASK ROUTES ====================
+
+@app.route('/detect-motion', methods=['POST'])
+def detect_motion_route():
+    """Motion detection endpoint - MOG2 (1 frame) or frame diff (2 frames)"""
+    try:
+        if 'image1' in request.files and 'image2' in request.files:
+            image_file1 = request.files['image1']
+            image_file2 = request.files['image2']
+            image1 = cv2.imdecode(np.frombuffer(image_file1.read(), np.uint8), cv2.IMREAD_COLOR)
+            image2 = cv2.imdecode(np.frombuffer(image_file2.read(), np.uint8), cv2.IMREAD_COLOR)
+            if image1 is None or image2 is None:
+                return jsonify({'success': False, 'error': 'Failed to decode images'}), 400
+            result = motion_detector.detect_motion_with_images(image1, image2)
+        elif 'image' in request.files:
+            image_file = request.files['image']
+            camera_id = request.form.get('cameraId', 'default')
+            image = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            if image is None:
+                return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+            result = motion_detector.detect_motion(image, camera_id)
+        elif request.data:
+            image = cv2.imdecode(np.frombuffer(request.data, np.uint8), cv2.IMREAD_COLOR)
+            camera_id = request.form.get('cameraId', 'default')
+            if image is None:
+                return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+            result = motion_detector.detect_motion(image, camera_id)
+        else:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        return jsonify({
+            'success': True,
+            'motion_detected': result.get('motion_detected', False),
+            'confidence': result.get('confidence', 0),
+            'motion_percentage': result.get('motion_percentage', 0),
+            'motion_regions': result.get('motion_regions', []),
+            'contour_count': result.get('contour_count', 0),
+            'motion_pixel_count': result.get('motion_pixel_count', 0)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/detect-objects', methods=['POST'])
+def detect_objects_route():
+    """Object detection endpoint - YOLO"""
+    try:
+        if 'image' not in request.files and not request.data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        if request.files.get('image'):
+            image_file = request.files['image']
+            file_hash = request.form.get('fileHash', hashlib.md5(image_file.read()).hexdigest())
+            image_file.seek(0)
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        else:
+            image_data = np.frombuffer(request.data, np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+            file_hash = request.form.get('fileHash', hashlib.md5(request.data).hexdigest())
+
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        detections = detector._perform_yolo_detection(image)
+
+        return jsonify({
+            'success': True,
+            'detections': detections,
+            'fileHash': file_hash
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/detect-and-draw', methods=['POST'])
+def detect_and_draw_route():
+    """Detection with annotated image response"""
+    try:
+        if request.files.get('image'):
+            image_file = request.files['image']
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        else:
+            image_data = np.frombuffer(request.data, np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        detections = detector._perform_yolo_detection(image)
+        annotated_image = draw_detections(image, detections)
+        _, buffer = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        return Response(
+            buffer.tobytes(),
+            mimetype='image/jpeg',
+            headers={'X-Detection-Count': str(len(detections))}
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/annotate-by-path', methods=['POST'])
+def annotate_by_path_route():
+    """Annotate image by file path"""
+    try:
+        data = request.get_json(force=True)
+        if not data or 'path' not in data:
+            return jsonify({'success': False, 'error': 'No path provided'}), 400
+        filepath = data['path']
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'error': f'File not found: {filepath}'}), 404
+        image = cv2.imread(filepath)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to read image'}), 400
+        detections = detector._perform_yolo_detection(image)
+        annotated_image = draw_detections(image, detections)
+        _, buffer = cv2.imencode('.jpg', annotated_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        return Response(buffer.tobytes(), mimetype='image/jpeg')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/recognize-faces', methods=['POST'])
+def recognize_faces_route():
+    """Face recognition endpoint"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+        image_file = request.files['image']
+        file_hash = request.form.get('fileHash', '')
+        file_size = request.form.get('fileSize', 0, type=int)
+        file_modified = request.form.get('fileModified', '')
+        temp_image_path = os.path.join(tempfile.gettempdir(), f'face_{file_hash}.jpg')
+        image_file.save(temp_image_path)
+        result = detector.recognize_faces(temp_image_path, file_hash, '', file_size, file_modified)
+        if os.path.exists(temp_image_path):
+            os.unlink(temp_image_path)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'service': 'opencv-detection',
+        'version': os.getenv('SERVICE_VERSION', '1.0.0'),
+        'detectionMode': 'yolo',
+        'model': {
+            'type': 'YOLO',
+            'initialized': detector.initialized,
+            'classCount': len(class_names)
+        },
+        'cache': {
+            'type': 'redis',
+            'connected': redis_client.ping() if redis_client else False
+        }
+    })
+
+
+@app.route('/status')
+def status():
+    """Status endpoint"""
+    return jsonify({
+        'status': 'ready',
+        'initialized': detector.initialized,
+        'service': 'opencv-detection',
+        'detectionMode': 'yolo',
+        'classNames': len(class_names)
+    })
+
+
+@app.route('/detect-batch', methods=['POST'])
+def detect_batch():
+    """Batch detection - multiple images uploaded"""
+    start_time = time.time()
+    try:
+        if 'images' not in request.files:
+            return jsonify({'success': False, 'error': 'No images provided'}), 400
+        images = request.files.getlist('images')
+        batch_hash = request.form.get('batchHash', '')
+        results = []
+        total_processing_time = 0
+
+        for image_file in images:
+            file_hash = hashlib.md5(image_file.read()).hexdigest()
+            image_file.seek(0)
+            temp_image_path = os.path.join(tempfile.gettempdir(), f'batch_{file_hash}.jpg')
+            image_file.save(temp_image_path)
+            try:
+                result = detector.detect_objects(temp_image_path, file_hash, '', 0, '')
+                results.append({
+                    'fileHash': file_hash,
+                    'success': result.get('success', False),
+                    'cached': result.get('cached', False),
+                    'detections': result.get('detections', []),
+                    'processingTime': result.get('processingTime', 0)
+                })
+                total_processing_time += result.get('processingTime', 0)
+            except Exception as e:
+                results.append({'fileHash': file_hash, 'success': False, 'error': str(e)})
+            finally:
+                if os.path.exists(temp_image_path):
+                    os.unlink(temp_image_path)
+
+        total_time = (time.time() - start_time) * 1000
+        return jsonify({
+            'success': True, 'batchHash': batch_hash,
+            'totalImages': len(images), 'results': results,
+            'totalProcessingTime': total_time,
+            'averageProcessingTime': total_processing_time / len(images) if images else 0
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/detect-batch-paths', methods=['POST'])
+def detect_batch_paths():
+    """Batch detection - file paths"""
+    start_time = time.time()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        image_paths = data.get('imagePaths', [])
+        batch_hash = data.get('batchHash', f'batch_{int(time.time())}')
+        if not image_paths:
+            return jsonify({'success': False, 'error': 'No image paths provided'}), 400
+
+        results = []
+        total_processing_time = 0
+        successful = 0
+        failed = 0
+
+        for image_path in image_paths:
+            file_hash = hashlib.md5(image_path.encode()).hexdigest()
+            if not os.path.exists(image_path):
+                results.append({
+                    'imagePath': image_path, 'fileHash': file_hash,
+                    'success': False, 'error': 'File not found'
+                })
+                failed += 1
+                continue
+            try:
+                result = detector.detect_objects(image_path, file_hash, '', 0, '')
+                results.append({
+                    'imagePath': image_path, 'fileHash': file_hash,
+                    'success': result.get('success', False),
+                    'cached': result.get('cached', False),
+                    'detections': result.get('detections', []),
+                    'processingTime': result.get('processingTime', 0)
+                })
+                total_processing_time += result.get('processingTime', 0)
+                if result.get('success'):
+                    successful += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                results.append({
+                    'imagePath': image_path, 'fileHash': file_hash,
+                    'success': False, 'error': str(e)
+                })
+                failed += 1
+
+        total_time = (time.time() - start_time) * 1000
+        return jsonify({
+            'success': True, 'batchHash': batch_hash,
+            'totalImages': len(image_paths),
+            'successful': successful, 'failed': failed,
+            'results': results,
+            'totalProcessingTime': total_time,
+            'averageProcessingTime': total_processing_time / len(image_paths) if image_paths else 0
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/train-face', methods=['POST'])
+def train_face():
+    """Add a known face for training"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+        image_file = request.files['image']
+        person_name = request.form.get('personName')
+        if not person_name:
+            return jsonify({'success': False, 'error': 'personName is required'}), 400
+        person_dir = os.path.join(face_recognition.known_faces_dir, person_name)
+        if not os.path.exists(person_dir):
+            os.makedirs(person_dir)
+        timestamp = int(time.time() * 1000)
+        filename = f"{timestamp}_{image_file.filename}" if image_file.filename else f"{timestamp}.jpg"
+        dest_path = os.path.join(person_dir, filename)
+        image_file.save(dest_path)
+        face_recognition.train_recognizer()
+        return jsonify({
+            'success': True,
+            'message': f'Face for {person_name} added and model retrained'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/retrain-model', methods=['POST'])
+def retrain_model():
+    """Retrain the face recognition model"""
+    try:
+        face_recognition.train_recognizer()
+        return jsonify({
+            'success': True,
+            'message': 'Face recognition model retrained successfully'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/known-faces', methods=['GET'])
+def get_known_faces():
+    """List known faces"""
+    try:
+        faces = []
+        if face_recognition.is_trained:
+            unique_names = set(face_recognition.known_names)
+            for idx, name in enumerate(unique_names):
+                faces.append({'id': str(idx), 'name': name})
+        return jsonify({'success': True, 'faces': faces, 'count': len(faces)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def draw_detections(image: np.ndarray, detections: List[Dict]) -> np.ndarray:
+    """Draw bounding boxes and labels on image"""
+    try:
+        result = image.copy()
+        colors = {
+            'person': (0, 255, 0), 'car': (255, 0, 0), 'truck': (200, 0, 0),
+            'motorcycle': (0, 128, 255), 'bicycle': (255, 165, 0),
+            'dog': (0, 165, 255), 'cat': (128, 0, 128), 'face': (255, 0, 255),
+        }
+        for detection in detections:
+            bbox = detection.get('bbox', {})
+            x, y, w, h = bbox.get('x', 0), bbox.get('y', 0), bbox.get('width', 0), bbox.get('height', 0)
+            class_name = detection.get('class', 'object')
+            confidence = detection.get('confidence', 0)
+            color = colors.get(class_name.lower(), (0, 255, 255))
+            cv2.rectangle(result, (x, y), (x + w, y + h), color, 2)
+            label = f"{class_name}: {confidence}%"
+            (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(result, (x, y - label_height - 10), (x + label_width, y), color, -1)
+            cv2.putText(result, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        return result
+    except Exception as e:
+        return image
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=PORT, threaded=True)
+
+
+================================================================================
+3. server/src/config/detectionConfig.ts
+================================================================================
+
+export interface DetectionConfig {
+  enabled: boolean;
+  sensitivity: number;           // 0-100
+  cooldownPeriod: number;        // ms between events
+  detectionInterval: number;     // ms between checks (adaptive, min 3000)
+  minConfidence: number;         // motion confidence threshold %
+  maxEventsPerHour: number;
+  adaptiveMode: boolean;
+  nightModeSensitivity: number;
+  quietHours: { start: string; end: string };
+  requiredConsecutiveFrames: number;  // 3 frames before trigger
+  maxConsecutiveResetTime: number;    // ms to reset consecutive count
+  minContourArea: number;
+  useGaussianBlur: boolean;
+  blurKernelSize: number;
+  timeZones: {
+    day:   { start: string; end: string; sensitivityMultiplier: number };
+    night: { start: string; end: string; sensitivityMultiplier: number };
+  };
+}
+
+export const defaultDetectionConfig: DetectionConfig = {
+  enabled: true,
+  sensitivity: 90,
+  cooldownPeriod: 10000,
+  detectionInterval: 3000,
+  minConfidence: 5,
+  maxEventsPerHour: 100,
+  adaptiveMode: true,
+  nightModeSensitivity: 90,
+  quietHours: { start: '22:00', end: '06:00' },
+  requiredConsecutiveFrames: 3,
+  maxConsecutiveResetTime: 3000,
+  minContourArea: 500,
+  useGaussianBlur: true,
+  blurKernelSize: 5,
+  timeZones: {
+    day:   { start: '06:00', end: '22:00', sensitivityMultiplier: 1.0 },
+    night: { start: '22:00', end: '06:00', sensitivityMultiplier: 1.2 }
+  }
+};
+
+export const lowResourceDetectionConfig: DetectionConfig = {
+  ...defaultDetectionConfig,
+  sensitivity: 75,
+  cooldownPeriod: 15000,
+  detectionInterval: 5000,
+  maxEventsPerHour: 50,
+  nightModeSensitivity: 75,
+  timeZones: {
+    day:   { start: '06:00', end: '22:00', sensitivityMultiplier: 1.0 },
+    night: { start: '22:00', end: '06:00', sensitivityMultiplier: 1.1 }
+  }
+};
+
+export function loadDetectionConfig(): DetectionConfig {
+  const lowResourceMode = process.env.LOW_RESOURCE_MODE === 'true'
+                          || process.env.LOW_RESOURCE_MODE === '1';
+  return lowResourceMode ? lowResourceDetectionConfig : defaultDetectionConfig;
+}
+
+
+================================================================================
+4. server/src/config/performance.ts
+================================================================================
+
+export const performanceConfig = {
+  maxConnections: parseInt(process.env.MAX_CONNECTIONS || '100'),
+  maxConcurrentStreams: parseInt(process.env.MAX_CONCURRENT_STREAMS || '50'),
+  maxDetectionRequests: parseInt(process.env.MAX_DETECTION_REQUESTS || '20'),
+
+  apiRateLimit:    { windowMs: 900000, max: 1000 },
+  authRateLimit:   { windowMs: 900000, max: 10 },
+  streamRateLimit: { windowMs: 60000, max: 30 },
+  detectionRateLimit: { windowMs: 60000, max: 20 },
+
+  memoryThresholdMB: 500,
+  cleanupInterval: 300000,  // 5 min
+
+  enableCache: process.env.ENABLE_CACHE !== 'false',
+  cacheTTL: 3600,
+
+  streaming: {
+    maxFrameBuffer: 3,
+    maxFrameSize: 1048576,    // 1MB
+    adaptiveQuality: true,
+    defaultResolution: '854x480'
+  },
+
+  detection: {
+    maxBatchSize: parseInt(process.env.DETECTION_BATCH_SIZE || '3'),
+    processingTimeout: parseInt(process.env.DETECTION_TIMEOUT || '30000'),
+    maxQueueSize: parseInt(process.env.DETECTION_QUEUE_MAX || '100'),
+    adaptiveScheduling: process.env.ADAPTIVE_SCHEDULING !== 'false'
+  },
+
+  monitoring: {
+    enableMetrics: true,
+    metricsInterval: 60000,
+    alertThresholds: {
+      memoryUsage: 0.8,
+      cpuUsage: 0.8,
+      errorRate: 0.1,
+      responseTime: 5000
+    }
+  }
+};
+
+
+================================================================================
+5. server/src/config/index.ts (CameraConfig interface)
+================================================================================
+
+export interface CameraStreamConfig {
+  path: string;
+  roles: ('detect' | 'record' | 'live')[];
+  width?: number;
+  height?: number;
+  fps?: number;
+}
+
+export interface ZoneConfig {
+  id: string;
+  name: string;
+  coordinates: number[][];    // Polygon [x,y] normalized 0-1
+  objects?: string[];
+  inertia?: number;            // Consecutive frames required
+  loiteringTime?: number;      // Seconds before considered "in zone"
+}
+
+export interface ObjectFilterConfig {
+  minArea?: number;
+  maxArea?: number;
+  minRatio?: number;
+  maxRatio?: number;
+  minScore?: number;
+  threshold?: number;
+  mask?: string;
+}
+
+export interface DetectConfig {
+  width: number;
+  height: number;
+  fps: number;
+  minInitialized?: number;
+  maxDisappeared?: number;
+}
+
+export interface RecordConfig {
+  enabled: boolean;
+  retainDays?: number;
+  mode?: 'all' | 'motion' | 'active_objects';
+  alerts?: {
+    preCapture?: number;
+    postCapture?: number;
+    retainDays?: number;
+  };
+}
+
+export interface CameraConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  streams: CameraStreamConfig[];
+  detect: DetectConfig;
+  live?: LiveConfig;
+  record?: RecordConfig;
+  zones?: ZoneConfig[];
+  objects?: {
+    track?: string[];
+    filters?: Record<string, ObjectFilterConfig>;
+  };
+  motion?: {
+    enabled?: boolean;
+    threshold?: number;
+    contourArea?: number;
+    mask?: string;
+  };
+  nightMode: boolean;
+  credentialId?: string;
+}
+
+
+================================================================================
+6. server/src/detection/optimizedMotionDetection.ts (1103 lines)
+================================================================================
+
+--- DEFAULT_TRACKED_OBJECTS (global fallback) ---
+const DEFAULT_TRACKED_OBJECTS = new Set([
+  'person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle',
+  'dog', 'cat', 'bird', 'horse',
+  'backpack', 'handbag', 'suitcase', 'umbrella',
+  'bottle', 'cup', 'chair', 'couch', 'bed',
+  'dining table', 'tv', 'laptop', 'cell phone',
+  'box',
+]);
+
+--- Main Detection Cycle ---
+- detectMotionOnAllCameras():
+  - Processes cameras in batches of 3 (parallel)
+  - For each camera:
+    1. Check cooldown (respect cooldownPeriod)
+    2. Check hourly event limit (maxEventsPerHour)
+    3. Get latest frame from stream manager
+    4. Maintain 3-frame buffer
+    5. Compare frames via POST /detect-motion (MOG2)
+    6. Consecutive frame validation (default 3 frames within 3s)
+    7. On sufficient motion → handleMotionDetected()
+
+--- handleMotionDetected() ---
+  1. performEnhancedAnalysis() → object detection + face detection
+  2. saveMotionFrameAsync() → save to DB, emit Socket.io events
+  3. Filter: shouldSaveEvent() checks for ['person','car','truck',
+     'bus','motorcycle','bicycle','dog','cat']
+
+--- shouldSaveEvent() ---
+  const relevantClasses = ['person', 'car', 'truck', 'bus',
+                           'motorcycle', 'bicycle', 'dog', 'cat'];
+  return analysisResult.allDetections.some((d) => relevantClasses.includes(d.class));
+
+--- Adaptive Interval ---
+  - Base interval from config (default 3000ms)
+  - During quiet hours (22:00-06:00): interval × 2
+  - After 5min no activity: interval × 1.5 (slower checks)
+  - After recent activity (<60s): interval × 0.9 (min 3000ms)
+  - Hard minimum: 3000ms
+
+--- Adaptive Sensitivity ---
+  - Day (06:00-22:00): sensitivity × 1.0
+  - Night (22:00-06:00): sensitivity × 1.2
+
+--- getTrackedObjects(cameraId) ---
+  - Returns camera's objects.track list from cameras.json
+  - Falls back to DEFAULT_TRACKED_OBJECTS if not configured
+
+--- performEnhancedAnalysis ---
+  1. Get tracked objects for camera
+  2. Call consolidatedDetectionService.detectObjects(cameraId, frame)
+  3. Filter detections by tracked objects set
+  4. Count persons
+  5. Call consolidatedDetectionService.detectFaces(cameraId, frame)
+  6. Emit Socket.io: personDetected, faceDetected
+  7. Emit timeline events via serviceRegistry.getTimelineService()
+
+
+================================================================================
+7. server/src/detection/motionTriggeredDetection.ts (660 lines)
+================================================================================
+
+--- MotionDetectionSettings ---
+interface MotionDetectionSettings {
+  enabled: boolean;
+  sensitivity: number;           // 0.1-1.0 (lower = more sensitive)
+  minArea: number;               // minimum motion area (pixels)
+  maxDetectionInterval: number;  // max seconds between detections
+  motionCooldown: number;        // cooldown after motion (ms)
+  enableBatchTrigger: boolean;
+}
+
+--- Defaults ---
+{
+  enabled: true,
+  sensitivity: 0.2,        // Very sensitive
+  minArea: 300,
+  maxDetectionInterval: 30,
+  motionCooldown: 2000,    // 2s cooldown
+  enableBatchTrigger: true
+}
+
+--- Lightweight Motion Check ---
+  1. Maintain background frame per camera
+  2. Resize to 160px width via Sharp
+  3. Raw pixel differencing (RGB channels)
+  4. Motion if avgDiff/255 > (1 - sensitivity)
+
+--- triggerFullDetection() ---
+  1. POST raw JPEG to /detect-objects (OpenCV)
+  2. Filter by relevantClasses:
+     ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat']
+  3. Save motion frame
+  4. Save to events + detection_files tables
+  5. Emit 'motionDetected' event
+  6. Trigger batch processing if enabled
+
+--- Periodic Detection ---
+  - Runs every 5 seconds regardless of motion
+  - POST to /detect-objects for each camera
+  - Emits detection events
+
+--- validateDetections() ---
+  - Validates bounding box geometry
+  - BBox x,y ≥ 0, width/height > 0
+  - Aspect ratio 0.1-10
+  - Min size 5x5, max 3000x2000
+  - Confidence 0-100 range
+  - Rounds coordinates to integers
+
+
+================================================================================
+8. server/src/detection/consolidatedDetectionService.ts (431 lines)
+================================================================================
+
+--- Default ObjectDetectionSettings ---
+{
+  enabled: true,
+  sensitivity: 50,
+  cooldownPeriod: 1000,
+  minConfidence: 0.55,         // compared against YOLO's 0-100 confidence
+  maxDetections: 10,
+  targetClasses: [
+    'person', 'car', 'truck', 'bus', 'motorcycle',
+    'bicycle', 'dog', 'cat', 'bird', 'horse'
+  ]
+}
+
+--- FacialRecognitionSettings ---
+{
+  enabled: true,
+  minConfidence: 0.5,
+  recognitionThreshold: 0.55
+}
+
+--- detectObjects(cameraId, imageBuffer) ---
+  1. Compute MD5 hash of image buffer
+  2. Check Redis cache (5 min TTL)
+  3. POST FormData (image blob + metadata) to /detect-objects
+  4. Filter results:
+     - d.confidence >= settings.minConfidence (0.55 vs 0-100 scale)
+     - d.class in settings.targetClasses
+  5. Slice to settings.maxDetections
+  6. Cache in Redis
+  7. Circuit breaker + retry (max 3, exponential backoff + jitter)
+
+--- detectFaces(cameraId, imageBuffer) ---
+  - Same caching mechanism
+  - POST to /recognize-faces
+  - Separates into known/unknown faces
+
+--- Service Status ---
+  - GET /health endpoint
+  - Returns available, url, responseTime
+
+
+================================================================================
+9. server/src/detection/objectDetection.ts (86 lines)
+================================================================================
+
+--- Wrapper around ConsolidatedDetectionService ---
+
+--- Default Settings ---
+{
+  enabled: true,
+  sensitivity: 0.5,
+  cooldownPeriod: 1000,
+  minConfidence: 0.3,         // 30% (more permissive, overridden by consolidated)
+  maxDetections: 20,
+  targetClasses: [
+    'person', 'car', 'truck', 'bus', 'motorcycle',
+    'bicycle', 'dog', 'cat'
+  ]
+}
+
+--- detectObjects(imageBuffer, cameraId) ---
+  1. Calls consolidatedDetectionService.detectObjects()
+  2. Additional filtering:
+     - settings.minConfidence
+     - settings.targetClasses
+     - settings.maxDetections
+
+
+================================================================================
+10. server/src/services/opencvMicroserviceClient.ts (259 lines)
+================================================================================
+
+--- HTTP Client for file-based OpenCV API ---
+
+serviceUrl = process.env.OPENCV_SERVICE_URL || 'http://localhost:8084'
+timeout = 30000ms
+
+Methods:
+  checkHealth()       → GET /health (cached 30s)
+  getStatus()         → GET /status
+  detectObjects(path) → POST /detect-objects (image buffer)
+  recognizeFaces(path)→ POST /recognize-faces (image buffer)
+  waitForReady(120s)  → polls /health + /status
+
+--- Caching Strategy ---
+  MD5(filePath + fileSize + mtime) → hash used as cache key
+
+
+================================================================================
+11. server/cameras.json (Redacted)
+================================================================================
+
+Camera 1 — "Front Door" (cam1):
+  Stream: rtsp://<REDACTED>@192.168.31.62:554/stream1
+      1080p @ 2fps (live/record), detect: 1280x720 @ 5fps
+  Track:  ['person', 'car', 'dog', 'cat']
+  Filters:
+    person: minArea=3000, maxArea=100000, threshold=0.65
+    car:    minArea=5000, maxArea=200000, threshold=0.65
+    dog:    minArea=2000, maxArea=80000,  threshold=0.60
+    cat:    minArea=1500, maxArea=60000,  threshold=0.60
+  Zones:
+    front_steps: person, package (inertia=3)
+    driveway:    car, person (inertia=5, loiteringTime=10s)
+    street:      car (inertia=10)
+  Motion:
+    threshold=50, contourArea=80, consecutiveFrames=3,
+    minContourArea=800, gaussianBlur=kernel7,
+    dayMultiplier=1.0, nightMultiplier=1.2
+
+Camera 2 — "Back Door" (cam2):
+  Stream: rtsp://<REDACTED>@192.168.31.61:554/stream1
+      Same resolution/detect settings
+  Track:  ['person', 'car', 'dog', 'cat']
+  Zones:
+    back_patio: person, dog, cat (inertia=3)
+    gate:       person (inertia=5)
+  Motion: same as cam1
+
+
+================================================================================
+12. opencv-service/Dockerfile
+================================================================================
+
+FROM python:3.11-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl cmake g++ make libgl1-mesa-dri libglx-mesa0 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 8084
+
+CMD ["python", "-u", "-m", "flask", "--app", "app", "run",
+     "--host", "0.0.0.0", "--port", "8084", "--debug", "--reload"]
+
+
+================================================================================
+13. opencv-service/requirements.txt
+================================================================================
+
+flask==3.0.0
+flask-cors==4.0.0
+flask-limiter==3.5.0
+redis>=5.0.0
+opencv-contrib-python-headless>=4.8.0
+numpy>=1.24.0
+psycopg2-binary>=2.9.9
+face-recognition>=1.3.0
+Pillow>=10.0.0
+
+
+================================================================================
+14. Docker Compose (OpenCV service section)
+================================================================================
+
+  opencv:
+    build:
+      context: ./opencv-service
+      dockerfile: Dockerfile
+    container_name: sentryvision-opencv
+    ports:
+      - "0.0.0.0:8084:8084"
+    environment:
+      - PORT=8084
+      - FLASK_ENV=development
+      - TZ=Asia/Kolkata
+      - FLASK_DEBUG=1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=sentryvision
+      - POSTGRES_USER=sentryvision
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DETECTIONS_DIR=/app/data/detections
+    volumes:
+      - ./opencv-service:/app
+      - ./opencv-service/models:/app/models
+      - ./opencv-service/data:/app/data
+      - ./opencv-service/known_faces:/app/known_faces
+      - ./data/detections:/app/data/detections
+      - ./data/events:/app/data/events
+      - ./data/snapshots:/app/data/snapshots
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    restart: always
+    networks:
+      - sentryvision_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: ${OPENCV_CPU_LIMIT:-0.5}
+          memory: ${OPENCV_MEM_LIMIT:-768M}
+        reservations:
+          cpus: ${OPENCV_CPU_RESERVE:-0.1}
+          memory: ${OPENCV_MEM_RESERVE:-256M}
+
+
+================================================================================
+15. yolo_classes.txt (80 COCO Classes)
+================================================================================
+
+ 0: person        1: bicycle       2: car           3: motorcycle
+ 4: airplane      5: bus           6: train         7: truck
+ 8: boat          9: traffic light 10: fire hydrant 11: stop sign
+12: parking meter 13: bench         14: bird         15: cat
+16: dog           17: horse         18: sheep        19: cow
+20: elephant      21: bear          22: zebra        23: giraffe
+24: backpack      25: umbrella      26: handbag      27: tie
+28: suitcase      29: frisbee       30: skis         31: snowboard
+32: sports ball   33: kite          34: baseball bat 35: baseball glove
+36: skateboard    37: surfboard     38: tennis racket 39: bottle
+40: wine glass    41: cup           42: fork         43: knife
+44: spoon         45: bowl          46: banana       47: apple
+48: sandwich      49: orange        50: broccoli     51: carrot
+52: hot dog       53: pizza         54: donut        55: cake
+56: chair         57: couch         58: potted plant 59: bed
+60: dining table  61: toilet        62: tv           63: laptop
+64: mouse         65: remote        66: keyboard     67: cell phone
+68: microwave     69: oven          70: toaster      71: sink
+72: refrigerator  73: book          74: clock        75: vase
+76: scissors      77: teddy bear    78: hair drier   79: toothbrush
+
+
+================================================================================
+16. Server Types
+================================================================================
+
+--- server/src/types/detection.ts ---
+interface DetectionResult {
+  class: string;
+  confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+  label?: string;
+}
+interface FaceDetection {
+  id: string; name: string; confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+interface MotionSettings {
+  sensitivity: number;
+  requiredConsecutiveFrames: number;
+  minContourArea: number;
+  useGaussianBlur: boolean;
+  blurKernelSize: number;
+}
+interface PersonDetectionSettings {
+  enabled: boolean; sensitivity: number; cooldownPeriod: number;
+  minConfidence?: number; maxDetections?: number; targetClasses?: string[];
+}
+interface FaceRecognitionSettings {
+  enabled: boolean; minConfidence: number;
+  recognitionThreshold?: number; minFaceSize?: number;
+}
+
+--- server/src/types/event.ts ---
+interface EventRow {
+  id: string;
+  event_type: string;
+  timestamp: string;
+  camera_id: string;
+  confidence: number;
+  file_path: string | null;
+  metadata: unknown;          // JSON with lightLevel, motionArea, hasPersons, etc.
+  persons_detected: number;
+  faces_detected: number;
+  known_faces_count: number;
+  object_detections: unknown;  // JSONB
+  face_detections: unknown;    // JSONB
+  label: string | null;
+  is_read: boolean | null;
+}
+interface EventListFilters {
+  page?: string; pageSize?: string; event_type?: string;
+  camera_id?: string; start_date?: string; end_date?: string;
+  searchQuery?: string; sortBy?: string;
+  min_confidence?: string; max_confidence?: string;
+  face_status?: string;
+}
+
+
+================================================================================
+17. Frontend Types (frontend/src/types/security.ts)
+================================================================================
+
+interface Camera {
+  id: string;
+  name: string;
+  status: 'online' | 'offline' | 'warning';
+  detectionEnabled: boolean;
+  sensitivity: number;
+  config?: {
+    detect: { width: number; height: number; fps: number };
+    objects?: {
+      track: string[];
+      filters?: Record<string, {
+        minArea?: number; maxArea?: number; threshold?: number;
+      }>;
+    };
+    zones?: Array<{
+      id: string; name: string;
+      coordinates: number[][];  // polygon normalized 0-1
+      objects?: string[];
+      inertia?: number;
+      loiteringTime?: number;
+    }>;
+  };
+}
+
+interface MotionEvent {
+  id: string;
+  cameraId: string;
+  timestamp: Date;
+  imageUrl: string | null;
+  confidence: number;
+  labels: string[];
+  detections?: Array<{
+    type: 'person' | 'face' | 'object';
+    confidence: number;
+    name?: string;
+    isKnown?: boolean;
+    boundingBox: { x: number; y: number; width: number; height: number };
+  }>;
+  personCount?: number;
+  faceCount?: number;
+  knownFaces?: number;
+  unknownFaces?: number;
+}
+
+interface DetectionResult {
+  class: string;
+  confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
+interface FaceDetection {
+  id: string;
+  bbox: { x: number; y: number; width: number; height: number };
+  confidence: number;
+  embedding?: number[];
+  landmark?: { leftEye, rightEye, nose, mouth };
+  isKnown?: boolean;
+}
+
+
+================================================================================
+18. EFFECTIVE FILTERING CHAIN (per detection)
+================================================================================
+
+RTSP Frame (1280x720)
+    ↓
+FFmpeg → JPEG buffer (~55-62 KB)
+    ↓
+compareFramesAsync → POST /detect-motion (MOG2 background subtraction)
+    ↓
+Motion confidence > 5% × 3 consecutive frames within 3s window?
+    ↓ YES
+handleMotionDetected()
+    ↓
+performEnhancedAnalysis()
+    ↓
+consolidatedDetectionService.detectObjects()
+    ↓
+POST /detect-objects (YOLOv8n ONNX @ 640×640 input)
+    ↓
+  Step 1: Per-class confidence threshold  (person ≥ 0.45, dog ≥ 0.35, …)
+  Step 2: Min box size check              (w ≥ 40, h ≥ 40, area ≥ 1600)
+  Step 3: NMS confidence_threshold        (0.40 global minimum)
+  Step 4: NMS overlap threshold           (0.30)
+  Step 5: Confidence rescaling            0–1 → 0–100 (×100, cap at 100)
+    ↓  ← HTTP response to backend
+  Step 6: Consolidated class filter       (targetClasses list)
+  Step 7: Camera tracked objects filter   (cameras.json objects.track)
+  Step 8: shouldSaveEvent filter          (relevantClasses list)
+    ↓
+Save to PostgreSQL events table
+    ↓
+Emit Socket.io events to frontend
+    ↓
+Frontend renders in EventDetailPanel / StreamDashboard
+
+================================================================================
+END OF DOCUMENT
+================================================================================

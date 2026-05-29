@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Detection Pipeline Redesign
 status: executing
-last_updated: "2026-05-28T11:25:37.955Z"
+last_updated: "2026-05-29T08:07:03.849Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 8
-  completed_plans: 8
-  percent: 50
+  completed_plans: 9
+  percent: 56
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 02 — Streaming Performance Overhaul
+**Current focus:** Phase 03 — InsightFace ArcFace Upgrade (1/2 plans)
 
 ---
 
@@ -103,7 +103,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 |-------|------|--------|-------|------------|
 | 1 | RTSP Ownership Transfer | ✅ Complete | 5/5 | 100% |
 | 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
-| 3 | InsightFace ArcFace Upgrade | ⬜ Not planned | 0/0 | 0% |
+| 3 | InsightFace ArcFace Upgrade | 🔄 Executing | 1/2 | 50% |
 | 4 | Legacy Cleanup | ⬜ Not planned | 0/0 | 0% |
 
 ---
@@ -130,7 +130,7 @@ Phase 2 complete! Ready for Phase 3:
 
 **Last Session:** 2026-05-29T15:55:00+05:30
 
-- **Status:** Phase 2 complete (3/3 plans, 100%)
+- **Status:** executing
 - **Next:** Plan Phase 3: `/gsd-plan-phase 3`
 - **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 

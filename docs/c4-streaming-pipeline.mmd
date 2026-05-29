@@ -1,0 +1,90 @@
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Inter, system-ui, sans-serif', 'fontSize': '12px', 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#6366f1', 'lineColor': '#94a3b8', 'secondaryColor': '#0f172a', 'tertiaryColor': '#1e293b', 'background': '#0f172a', 'mainBkg': '#1e293b', 'nodeBorder': '#6366f1', 'clusterBkg': '#0f172a', 'clusterBorder': '#475569', 'titleColor': '#e2e8f0', 'edgeLabelBackground': '#1e293b'}}}%%
+C4Component
+    title SentryVision Streaming Pipeline — C4 Component Diagram (Level 3)
+
+    System_Ext(ip_cam, "IP Cameras", "RTSP / H.264 video streams\ntsps://camera.local:554/stream1")
+    System_Ext(ffmpeg_cli, "FFmpeg Binary", "System or static binary\nVideo transcoding engine")
+    System_Ext(browser, "React Frontend", "Browser client\nSocket.io + REST consumer")
+    SystemDb(redis, "Redis Cache", "Detection result cache\nCircuit breaker state")
+    SystemDb(postgres, "PostgreSQL 15", "events, face_embeddings\nvisitor_timeline tables")
+
+    Boundary(backend, "Express Backend  :9753  (Node.js / TypeScript)", "Container") {
+
+        Boundary(stream_core, "Streaming Core", "Sub-system") {
+            Component(stream_mgr, "StreamManager", "TypeScript — rtspManager.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Spawns FFmpeg child process per camera\n• Parses MJPEG byte stream → JPEG frames\n• Socket.io room mgmt per camera-role\n• Adaptive FPS throttling by viewer count\n• Viewer tracking (socket ID sets)\n• 5-min inactivity timeout\n• FFmpeg reconnect w/ exponential backoff")
+            Component(py_ws, "PythonWsClient", "TypeScript — pythonWsClient.ts\n━━━━━━━━━━━━━━━━━━━━━\n• WebSocket client → ws://localhost:9090\n• Subscribe / unsubscribe per camera\n• Receives binary JPEG + JSON events\n• Re-emits as Node EventEmitter\n• Auto-reconnect 1s → 30s exp. backoff")
+            Component(sio, "Socket.io Server", "TypeScript — index.ts\n━━━━━━━━━━━━━━━━━━━━━\n• Handlers: requestStream, stopStream, disconnect\n• Bridges PythonWsClient events → rooms\n• Emits: frame, detection, motionDetected\n         personDetected, faceDetected")
+        }
+
+        Boundary(rest_layer, "REST API", "Interface") {
+            Component(stream_ctrl, "StreamController", "TypeScript — StreamController.ts\n━━━━━━━━━━━━━━━━━━━━━\n• GET  /api/streams/:id/live   (MJPEG)\n• GET  /api/streams/:id/frame  (JPEG)\n• GET  /api/streams/:id/status\n• GET  /api/streaming/metrics")
+        }
+
+        Boundary(detect_pipe, "Detection Pipeline", "Sub-system") {
+            Component(motion_det, "OptimizedMotionDetector", "TypeScript — optimizedMotionDetection.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Adaptive polling timer (3–5 s)\n• HTTP → OpenCV /detect-motion\n• Multi-frame validation (3 consecutive)\n• Triggers enhanced analysis on confirm")
+            Component(consolidated, "ConsolidatedDetectionService", "TypeScript — consolidatedDetectionService.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• HTTP client → OpenCV\n    POST /detect-objects\n    POST /recognize-faces\n• Circuit breaker pattern\n• Redis / in-memory cache layer")
+        }
+
+        Component(health_mon, "StreamHealthMonitor", "TypeScript — streamHealthMonitor.ts\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• 30-second health check cycle\n• Stale detection (no frames 5 min)\n• Auto-restart (max 3/hr/camera)\n• Severity: info → warning → critical")
+    }
+
+    Boundary(python_svc, "Python OpenCV Service  :8084 / :9090  (Flask)", "Container") {
+
+        Boundary(rtsp_pkg, "rtsp_ingestion/ Package", "Python Package") {
+            Component(config_py, "config.py", "Module-level constants\n━━━━━━━━━━━━━━━━━━━\n• Resolution: 640×360, FPS: 5\n• JPEG quality: 60\n• MOG2 history: 200, var_thresh: 16\n• Motion pixel threshold: 500\n• Queue sizes: live=2, event=100")
+            Component(rtsp_svc, "RTSPService", "__init__.py — Orchestrator\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Loads cameras.json\n• Creates per-camera FramePipeline\n• Manages lifecycle (start / stop)\n• Embeds in Flask (non-blocking)")
+
+            Boundary(ingest, "Per-Camera Pipeline (Threaded)", "Frame Processing Chain") {
+                Component(ffmpeg_rdr, "FFmpegReader", "ffmpeg_reader.py — Thread\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• FFmpeg subprocess: RTSP → raw BGR24\n• 640×360 @ 5 FPS\n• Reads _frame_size bytes from stdout\n• Reshapes to numpy array\n• Reconnect 1s → 30s exp. backoff")
+                Component(motion_gate, "MotionGate", "frame_pipeline.py — Stage 1\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• MOG2 background subtraction\n• Warmup: 10 frames\n• Threshold: 500 changed pixels\n• Morphological open + close\n• Filters static frames → skip YOLO")
+                Component(yolo, "InProcessYOLO", "frame_pipeline.py — Stage 2\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• YOLOv8n.onnx → YOLOv5n → yolov4-tiny\n• OpenCV DNN backend (CPU)\n• 640×640 blob input\n• Class-specific confidence thresholds\n• NMS 0.30, min box area 1600 px²")
+                Component(tracker, "ByteTracker", "byte_tracker.py — Stage 3\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Kalman filter per track (8-dim state)\n• Two-round matching: high/low conf\n• Track lifecycle: new → tracked → lost → removed\n• Events: track_started, track_updated, track_ended")
+                Component(identity, "IdentityCache + Face Recog", "frame_pipeline.py — Stage 4\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Face recognition on new tracks only\n• TTL cache: 30 s per track\n• Enriches events with identity label")
+                Component(live_q, "live_queue", "DropOldestQueue\nmaxsize=2\nAlways receives JPEG frame")
+                Component(event_q, "event_queue", "DropOldestQueue\nmaxsize=100\nJSON metadata + optional snapshot")
+            }
+
+            Component(ws_pub, "WebSocketPublisher", "websocket_publisher.py — asyncio\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• asyncio WebSocket server on :9090\n• Subscribe / unsubscribe per camera\n• Two-part message: JSON metadata → Binary JPEG\n• Multi-client fan-out\n• Dead client cleanup")
+        }
+    }
+
+    %% ── External wiring ──────────────────────────────────────────────
+    Rel(ip_cam, ffmpeg_cli, "RTSP / H.264 stream", "TCP :554")
+    Rel(browser, sio, "requestStream / stopStream\nReceives: frame, detection, motionDetected", "Socket.io (WebSocket)")
+    Rel(browser, stream_ctrl, "MJPEG stream, JPEG snapshot\nStatus, metrics", "HTTP REST")
+
+    %% ── Backend internal ─────────────────────────────────────────────
+    Rel(stream_mgr, ffmpeg_cli, "Spawns FFmpeg child process\n-f rtsp → -f image2pipe -c:v mjpeg\n-fflags nobuffer", "stdout pipe (MJPEG)")
+    Rel(stream_mgr, sio, "Emit JPEG frames to camera rooms\nAdaptive FPS by viewer count", "Internal")
+    Rel(py_ws, sio, "Bridge frame + trackingEvent\n→ Socket.io room emits", "EventEmitter")
+    Rel(sio, stream_mgr, "requestStream / stopStream\nviewer socket ID tracking", "Socket.io events")
+    Rel(stream_ctrl, stream_mgr, "Read .lastFrame for JPEG snapshot\nRead viewer counts for metrics", "Direct access")
+    Rel(health_mon, stream_mgr, "30 s health probes\nStale detection → auto-restart", "Polling")
+
+    %% ── Detection pipeline ───────────────────────────────────────────
+    Rel(stream_mgr, motion_det, "stream_mgr.lastFrame\n→ periodic sampling", "Buffer reference")
+    Rel(motion_det, consolidated, "Motion confirmed (3×)\n→ enhanced analysis", "Internal call")
+    Rel(consolidated, redis, "Cache detection results\nCircuit breaker state", "TCP :6379")
+    Rel(consolidated, postgres, "Store events\nQuery face_embeddings", "TCP :5432")
+
+    %% ── Cross-container: Backend ↔ Python ────────────────────────────
+    Rel(py_ws, ws_pub, "WebSocket connect\nsubscribe / unsubscribe\nrecv binary JPEG + JSON events", "ws://localhost:9090")
+    Rel(motion_det, python_svc, "POST /detect-motion", "HTTP :8084")
+    Rel(consolidated, python_svc, "POST /detect-objects\nPOST /recognize-faces", "HTTP :8084")
+
+    %% ── Python internal ──────────────────────────────────────────────
+    Rel(rtsp_svc, config_py, "Read thresholds, FPS\nresolution, queue sizes")
+    Rel(rtsp_svc, ffmpeg_rdr, "Create per-camera\nFFmpegReader instance", "Thread spawn")
+    Rel(ffmpeg_rdr, ffmpeg_cli, "FFmpeg subprocess\n-rtsp_transport tcp\n-s 640x360 -r 5\n-f rawvideo pix_fmt=bgr24", "stdout pipe (raw BGR24)")
+    Rel(ffmpeg_rdr, motion_gate, "Raw BGR frame\nnumpy array 640×360×3", "Thread queue")
+    Rel(motion_gate, yolo, "Frame with motion\n(≥ 500 pixels changed)", "Conditional pass")
+    Rel(yolo, tracker, "YOLO detections\n[ class, score, bbox ]", "Detection list")
+    Rel(tracker, identity, "Tracked objects\nwith track IDs + lifecycle events", "Track updates")
+    Rel(ffmpeg_rdr, live_q, "JPEG-encoded frame\n(cv2.imencode q=60)", "Always enqueue")
+    Rel(identity, event_q, "Enriched tracking events\nJSON + optional snapshot", "Enqueue")
+    Rel(live_q, ws_pub, "Dequeue JPEG frame", "asyncio consumer")
+    Rel(event_q, ws_pub, "Dequeue event JSON\n+ binary snapshot", "asyncio consumer")
+
+    LAYOUT_WITH_LEGEND()
+```

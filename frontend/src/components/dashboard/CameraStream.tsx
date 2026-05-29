@@ -68,6 +68,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeDetectionRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
   const frameErrorRef = useRef(false);
+  const blobUrlRef = useRef<string | null>(null);
 
   // === Anti-flicker: Cooldown and throttling ===
   const lastRestartTimeRef = useRef<number>(0);
@@ -354,6 +355,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     // Set up stream freeze detection with REDUCED frequency
     if (isStreaming && socketConnected) {
       streamFreezeTimeoutRef.current = setInterval(() => {
+        if (!lastFrameTimeRef.current) return; // not yet initialized
         const timeSinceLastFrame = Date.now() - lastFrameTimeRef.current;
         const STREAM_FREEZE_TIMEOUT = 8000; // Increased to 8 seconds (less aggressive)
         const MIN_TIME_BEFORE_CHECK = 10000; // Don't check until at least 10 seconds have passed since start
@@ -430,7 +432,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       cameraId: string;
       role: string;
       timestamp: string;
-      data: string;
+      data: ArrayBuffer | string;
     }) => {
       if (data.cameraId !== camera.id) return;
 
@@ -439,19 +441,33 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         lastFrameUpdate = now;
 
         if (imgRef.current) {
-          const frameDataUrl = `data:image/jpeg;base64,${data.data}`;
+          if (blobUrlRef.current) {
+            URL.revokeObjectURL(blobUrlRef.current);
+            blobUrlRef.current = null;
+          }
+
+          let frameSize = 0;
+          if (data.data instanceof ArrayBuffer) {
+            const blob = new Blob([data.data], { type: 'image/jpeg' });
+            const imgSrc = URL.createObjectURL(blob);
+            blobUrlRef.current = imgSrc;
+            imgRef.current.src = imgSrc;
+            frameSize = data.data.byteLength;
+          } else {
+            const imgSrc = `data:image/jpeg;base64,${data.data}`;
+            imgRef.current.src = imgSrc;
+            frameSize = data.data.length * 0.75;
+          }
           frameErrorRef.current = false;
-          imgRef.current.src = frameDataUrl;
 
           if (now - lastStateUpdate >= STATE_UPDATE_INTERVAL) {
             lastStateUpdate = now;
-            setLastFrame(frameDataUrl);
+            setLastFrame(imgRef.current.src);
           }
 
-          const base64Size = data.data.length * 0.75;
           setMetrics(prev => ({
             ...prev,
-            bandwidth: prev.bandwidth * 0.7 + (base64Size * 4) * 0.3,
+            bandwidth: prev.bandwidth * 0.7 + (frameSize * 4) * 0.3,
           }));
         }
 
@@ -509,6 +525,15 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       errorUnsubscribe();
     };
   }, [camera.id]);
+
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const isLoading = connectionState === 'connecting' || connectionState === 'reconnecting';
 

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Detection Pipeline Redesign
 status: executing
-last_updated: "2026-05-28T11:25:00.000Z"
+last_updated: "2026-05-28T11:25:37.955Z"
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 25
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 8
+  percent: 50
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 01 — RTSP Ownership Transfer ✅ Complete
+**Current focus:** Phase 02 — Streaming Performance Overhaul
 
 ---
 
@@ -49,7 +49,15 @@ Phase 1 moved RTSP stream ingestion from Node.js FFmpeg to the Python OpenCV ser
 - **RTSPService orchestrator**: Starts per-camera pipelines + publisher, embeddable in Flask via `start_non_blocking()`
 - **Dual-run mode**: `config.pipeline.mode` supports `legacy | dual | python-only` with per-camera override
 
-### Accumulated Context
+### Phase 2 Complete — Streaming Performance Overhaul
+
+Phase 2 delivered three targeted streaming optimizations:
+
+- **GPU-accelerated YOLO inference** (02-01): CUDA runtime detection with graceful CPU fallback in both InProcessYOLO (frame_pipeline.py) and YOLOObjectDetector (app.py). Inference latency logged every 100 detections and exposed via metrics endpoint. Config-driven backend selection via `INFERENCE_BACKEND` and `INFERENCE_TARGET` env vars.
+
+- **Binary frame delivery** (02-02): Eliminated the 33% base64 overhead on Socket.io by emitting raw Buffer objects (Socket.io v4 serializes natively). Frontend renders via Blob URLs with proper memory lifecycle (revokeObjectURL on replace + unmount). Base64 fallback preserved for long-polling transport.
+
+- **Viewport-based camera loading** (02-03): New `useViewportStream` hook with IntersectionObserver (300ms debounce, 100px preload margin). `StreamSlotManager` semaphore limits concurrent streams to 4 with async queuing. Focused camera streams unconditionally. Grid cameras only stream when visible in viewport and a slot is acquired.
 
 #### Roadmap Evolution
 
@@ -94,7 +102,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 | Phase | Name | Status | Plans | Completion |
 |-------|------|--------|-------|------------|
 | 1 | RTSP Ownership Transfer | ✅ Complete | 5/5 | 100% |
-| 2 | YOLOv8n + ByteTrack Integration | ⬜ Not planned | 0/0 | 0% |
+| 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
 | 3 | InsightFace ArcFace Upgrade | ⬜ Not planned | 0/0 | 0% |
 | 4 | Legacy Cleanup | ⬜ Not planned | 0/0 | 0% |
 
@@ -102,10 +110,10 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 
 ## Next Steps
 
-Phase 1 complete! Ready for Phase 2:
+Phase 2 complete! Ready for Phase 3:
 
-1. Plan Phase 2: `/gsd-plan-phase 2`
-2. Execute Phase 2: `/gsd-execute-phase 2`
+1. Plan Phase 3: `/gsd-plan-phase 3`
+2. Execute Phase 3: `/gsd-execute-phase 3`
 
 ---
 
@@ -120,12 +128,12 @@ Phase 1 complete! Ready for Phase 2:
 
 ## Session Context
 
-**Last Session:** 2026-05-28T16:50:00+05:30
+**Last Session:** 2026-05-29T15:55:00+05:30
 
-- **Status:** Phase 01 complete. 5/5 plans executed.
-- **Next:** Plan Phase 2: `/gsd-plan-phase 2`
+- **Status:** Phase 2 complete (3/3 plans, 100%)
+- **Next:** Plan Phase 3: `/gsd-plan-phase 3`
 - **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-28 — Phase 1 complete, ready for Phase 2 planning*
+*State updated: 2026-05-29 — Phase 2 complete (Streaming Performance Overhaul), ready for Phase 3*

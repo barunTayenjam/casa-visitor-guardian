@@ -34,7 +34,7 @@ import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
-import { PythonWsClient } from './services/pythonWsClient.js';
+import { PythonWsClient, TrackingEvent } from './services/pythonWsClient.js';
 
 dotenv.config({ path: './.env' });
 
@@ -358,12 +358,72 @@ async function initializeServices() {
       pythonWsClient.on('frame', (payload: { cameraId: string | null; data: Buffer; timestamp: number }) => {
         const { cameraId, data, timestamp } = payload;
         if (!cameraId) return;
-        const frameData = data.toString('base64');
         io.to(`camera-${cameraId}-live`).emit('frame', {
           cameraId,
-          data: frameData,
+          data,
           timestamp: new Date(timestamp).toISOString(),
         });
+      });
+
+      pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
+        const { cameraId, event: eventType, trackId, class: className, score, bbox, identity, identityConfidence } = ev;
+        if (!cameraId) return;
+
+        if (eventType === 'track_started' || eventType === 'track_updated') {
+          const detection = {
+            class: className,
+            confidence: Math.round(score * 100),
+            bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
+            trackId,
+            identity,
+            identityConfidence,
+          };
+
+          if (className === 'person') {
+            io.emit('personDetected', {
+              cameraId,
+              timestamp: new Date(ev.timestamp).toISOString(),
+              persons: [detection],
+              trackId,
+            });
+          }
+
+          if (identity && identity !== 'unknown') {
+            io.emit('faceDetected', {
+              cameraId,
+              timestamp: new Date(ev.timestamp).toISOString(),
+              faces: [{
+                id: `track_${trackId}`,
+                name: identity,
+                confidence: identityConfidence ?? 0,
+                bbox: detection.bbox,
+              }],
+            });
+          }
+
+          io.to(`camera-${cameraId}-live`).emit('detection', {
+            cameraId,
+            detections: [detection],
+            timestamp: new Date(ev.timestamp).toISOString(),
+          });
+        }
+
+        if (eventType === 'track_started') {
+          io.emit('motionDetected', {
+            id: `track_${trackId}_${Date.now()}`,
+            cameraId,
+            timestamp: new Date(ev.timestamp).toISOString(),
+            confidence: Math.round(score * 100),
+            labels: [className],
+            detections: [{
+              class: className,
+              confidence: Math.round(score * 100),
+              bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
+              trackId,
+            }],
+            trackId,
+          });
+        }
       });
 
       pythonWsClient.on('connected', () => {

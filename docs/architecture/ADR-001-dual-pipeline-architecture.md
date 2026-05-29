@@ -4,29 +4,31 @@
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 
+> **Revision (2026-05-29):** Default mode changed from `'legacy'` to `'python-only'` in Phase 5. See CLN-01.
+
 ---
 
 ## Context
 
 SentryVision evolved through two distinct architectural eras:
 
-### Legacy Pipeline (Node.js-Driven)
+### Legacy Pipeline (Node.js-Driven) — Historical
 
-```text
-RTSP Camera
-    ↓
-Node.js FFmpeg subprocess (rtspManager.ts)
-    ↓ JPEG stdout pipe
-JPEG boundary detection in Node.js
-    ↓ Buffer
-OptimizedMotionDetector (Node.js)
-    ↓ motion-gated frames via HTTP POST
-Python Flask service (port 8084)
-    ↓ YOLO + face_recognition
-HTTP response → Node.js persistence
-```
-
-Node.js owned RTSP ingestion, frame timing, and detection orchestration. Python was a stateless inference endpoint called over HTTP.
+> **Historical reference (pre-v1.3):** The diagram below describes the legacy dual-pipeline architecture that was removed in Phase 5. Node.js no longer owns RTSP ingestion, frame timing, or detection orchestration — all pixel processing is now handled by the Python-native pipeline.
+>
+> ```text
+> RTSP Camera
+>     ↓
+> Node.js FFmpeg subprocess (rtspManager.ts)
+>     ↓ JPEG stdout pipe
+> JPEG boundary detection in Node.js
+>     ↓ Buffer
+> OptimizedMotionDetector (Node.js)
+>     ↓ motion-gated frames via HTTP POST
+> Python Flask service (port 8084)
+>     ↓ YOLO + face_recognition
+> HTTP response → Node.js persistence
+> ```
 
 ### Python-Native Pipeline
 
@@ -62,9 +64,9 @@ The system supports three pipeline modes via `config.pipeline.mode` (`server/src
 
 | Mode | Behavior |
 |------|----------|
-| `legacy` | Node.js owns all RTSP, Python is HTTP inference only |
-| `dual` | Default — both pipelines available, per-camera selection |
-| `python-only` | Python owns all RTSP, Node.js never spawns FFmpeg |
+| `legacy` | DEPRECATED — Node.js owned all RTSP, Python was HTTP inference only |
+| `dual` | Both pipelines available, per-camera selection |
+| `python-only` | **Default** — Python owns all RTSP, Node.js never spawns FFmpeg |
 
 Per-camera override via `pythonEnabled` flag (`server/src/config/index.ts:188`):
 
@@ -72,17 +74,9 @@ Per-camera override via `pythonEnabled` flag (`server/src/config/index.ts:188`):
 const pythonEnabled = cameraConfig?.pythonEnabled ?? (config.pipeline.mode === 'python-only');
 ```
 
-When `pythonEnabled` is true, `startStream()` in `rtspManager.ts:341-344` skips FFmpeg spawn entirely:
+When `pythonEnabled` is true, `startStream()` in `rtspManager.ts` returns immediately — FFmpeg is never spawned from `rtspManager.ts`. The full `FramePipeline` runs in Python. The `startStream()` method no longer has a `pythonEnabled` early-return; instead, `rtspManager.ts` acts purely as a Socket.io frame relay via `wirePythonWsFrames()`.
 
-```typescript
-if (pythonEnabled) {
-    console.log(`[StreamManager] ${cameraId}: Python manages RTSP (pipeline=${config.pipeline.mode})`);
-    camera.isActive = true;
-    return true;
-}
-```
-
-The Node.js gateway connects to Python via `PythonWsClient` (`server/src/index.ts:354-356`), subscribing to cameras based on the same `pythonEnabled` filter:
+The Node.js gateway connects to Python via `PythonWsClient` (`server/src/services/serviceRegistry.ts`), subscribing to cameras based on the same `pythonEnabled` filter:
 
 ```typescript
 const cameras = config.cameras.filter(c => {
@@ -108,7 +102,7 @@ interface PipelineConfig {
 Mode is determined by `PIPELINE_MODE` environment variable, defaulting to `legacy`:
 
 ```typescript
-mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'legacy',
+mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'python-only',
 ```
 
 ---
@@ -120,20 +114,15 @@ mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'legacy',
 - **Zero-downtime migration**: Cameras can be migrated one at a time by flipping `pythonEnabled` in `cameras.json` without restarting other cameras.
 - **Risk isolation**: A failure in the Python pipeline does not affect legacy cameras, and vice versa.
 - **A/B validation**: Operators can run the same camera through both pipelines and compare detection quality.
-- **Backward compatibility**: Existing deployments that don't set `PIPELINE_MODE` continue operating in legacy mode.
+- **Backward compatibility**: Existing deployments that don't set `PIPELINE_MODE` use the Python-native pipeline (`python-only`).
 
 ### Negative
 
-- **Doubled frame relay paths**: Node.js receives frames from two sources — its own FFmpeg stdout pipe and the Python WebSocket client. Both converge on the same Socket.io emission path (`io.to(room).emit('frame', ...)`) but through different code paths (`rtspManager.ts:491` vs `index.ts:362`).
-- **Duplicated reconnection logic**: FFmpeg reconnection in Node.js (`rtspManager.ts:429-437`, exponential backoff, max 5 retries) is separate from Python's FFmpegReader (`ffmpeg_reader.py:157-163`, exponential backoff 1s→30s, infinite retries). Operators must monitor and tune both.
-- **Doubled detection flows**: The legacy pipeline uses `OptimizedMotionDetector` + HTTP calls to Python Flask. The Python pipeline uses `MotionGate` + `InProcessYOLO` + `ByteTracker` entirely in-process. Event schemas are similar but not identical.
-- **Configuration complexity**: Operators must understand the `mode` / `pythonEnabled` matrix and ensure consistency. A camera with `pythonEnabled: true` in `legacy` mode creates ambiguity (resolved by the `??` operator, but not obvious).
-- **Testing burden**: Changes to streaming, detection, or frame relay must be validated against both pipelines.
+- **Configuration complexity**: Operators must understand the `mode` / `pythonEnabled` matrix and ensure consistency. A camera with `pythonEnabled: true` in `legacy` mode creates ambiguity (resolved by the `??` operator, but not obvious). With the default now `python-only`, this is simpler — most deployments never need to touch the `mode` setting.
 
 ### Risks
 
-- **State divergence**: If both pipelines run for the same camera simultaneously (misconfiguration), duplicate detection events and frames could be emitted. The current code does not explicitly prevent this.
-- **Monitoring complexity**: Health checks, metrics, and alerting must cover two different process models (Node.js child processes vs Python threads).
+- **Monitoring complexity**: Health checks, metrics, and alerting must cover two different process models (Node.js child processes vs Python threads). With the legacy pipeline removed, this is now primarily focused on the Python container.
 
 ---
 
@@ -161,8 +150,8 @@ Keep Node.js as the RTSP owner and have Python only handle inference (current le
 
 ## References
 
-- `server/src/streams/rtspManager.ts` — Legacy FFmpeg management and pipeline mode check
-- `server/src/config/index.ts:188-212` — `PipelineConfig`, `pythonEnabled`, mode resolution
-- `server/src/index.ts:352-446` — `PythonWsClient` initialization and event relay
+- `server/src/streams/rtspManager.ts` — Socket.io frame relay and viewer tracking
+- `server/src/config/index.ts:338-341` — `PipelineConfig`, `pythonEnabled`, mode resolution
+- `server/src/services/serviceRegistry.ts` — `PythonWsClient` initialization and event relay
 - `opencv-service/rtsp_ingestion/frame_pipeline.py` — Python-native pipeline
 - `docs/architecture/ADR-003-detection-pipeline-redesign.md` — Detection pipeline redesign rationale

@@ -6,10 +6,10 @@ status: executing
 last_updated: "2026-05-29T08:24:09.007Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 100
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 05 — Pipeline Cleanup & Default Switch
+**Current focus:** Phase 05 — Pipeline Cleanup & Default Switch (✅ Complete)
 
 ---
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Milestone v1.0 | ✅ Shipped | 6/6 phases complete, 2026-03-23 |
 | Milestone v1.1 | ✅ Shipped | 11/11 phases, 58/58 reqs, 2026-05-18 |
 | Milestone v1.2 | ✅ Complete | 4/4 phases, 11/11 plans, 100% |
-| Milestone v1.3 | 📋 Planning | 0/1 phases, 0/3 plans, 0% |
+| Milestone v1.3 | ✅ Complete | 1/1 phases, 3/3 plans, 100% |
 
 ## Accumulated Context
 
@@ -119,7 +119,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 | 2 | Streaming Performance Overhaul | ✅ Complete | 3/3 | 100% |
 | 3 | InsightFace ArcFace Upgrade | ✅ Complete | 2/2 | 100% |
 | 4 | Legacy Cleanup | ✅ Complete | 1/1 | 100% |
-| 5 | Pipeline Cleanup & Default Switch | 📋 Planned | 0/3 | 0% |
+| 5 | Pipeline Cleanup & Default Switch | ✅ Complete | 3/3 | 100% |
 
 ---
 
@@ -127,9 +127,15 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 
 Phase 4 complete — Milestone v1.2 fully delivered.
 
-Phase 5 (Pipeline Cleanup & Default Switch) planned: 3 plans in 2 waves.
+Phase 5 (Pipeline Cleanup & Default Switch) complete: 3/3 plans in 2 waves.
 
-1. Execute Phase 5: `/gsd-execute-phase 5`
+## Milestone v1.3 Summary
+- **PIPELINE_MODE** defaults to `python-only` (05-01)
+- Legacy Node.js detection modules removed (05-02): `optimizedMotionDetection.ts`, `motionTriggeredDetection.ts`, `objectDetection.ts`
+- `consolidatedDetectionService.ts` stripped to settings/types stubs
+- `rtspManager.ts` simplified to Socket.io frame relay via PythonWsClient (05-03): FFmpeg subprocess spawning, MJPEG parsing, dual-pipeline orchestration removed
+- All motion detector registry entries and routes cleaned up
+- ADR-003 accepted
 
 ---
 
@@ -144,12 +150,12 @@ Phase 5 (Pipeline Cleanup & Default Switch) planned: 3 plans in 2 waves.
 
 ## Session Context
 
-**Last Session:** 2026-05-29T14:30:00+05:30
+**Last Session:** 2026-05-29T15:30:00+05:30
 
-- **Status:** Executing Phase 05
-- **Next:** Execute Phase 5: `/gsd-execute-phase 5`
-- **Reference:** ADR-003 in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
+- **Status:** Phase 05 complete (3/3 plans, 100%)
+- **Next:** Milestone v1.3 shipped. Next milestone planning pending.
+- **Reference:** ADR-003 accepted in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 5 planned (Pipeline Cleanup & Default Switch), 3 plans, ready to execute*
+*State updated: 2026-05-29 — Phase 5 (Pipeline Cleanup & Default Switch) complete. Milestone v1.3 fully delivered.*

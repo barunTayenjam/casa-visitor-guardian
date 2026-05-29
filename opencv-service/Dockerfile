@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download ArcFace model for faster startup
+RUN python3 -c "import insightface; insightface.model_zoo.get_model('buffalo_s', download=True, download_zip=True)" 2>/dev/null || echo "Model will download at first inference"
+
 # Copy source code
 COPY . .
 

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Pipeline Cleanup
 status: completed
-last_updated: "2026-05-29T10:26:39.196Z"
+last_updated: "2026-05-29T10:28:35.536Z"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 50
+  completed_plans: 6
+  percent: 100
 ---
 
 # State: SentryVision Home Security System
@@ -128,6 +128,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 - **Removed redundant frame handler from index.ts** — The index.ts `pythonWsClient.on('frame')` handler was a duplicate of `rtspManager.wirePythonWsFrames()`. Only the rtspManager handler remained because it includes `role: 'live'`, health monitoring, and adaptive FPS throttling.
 - **E2E test uses real WebSocket connections** — Tests create an actual `WebSocketServer` (on random port) and connect a real `PythonWsClient`, providing realistic end-to-end verification of the frame relay path.
 - **Replaced `import.meta.url` with `process.cwd()`-based path resolution** — Ts-jest ESM module wrapper is incompatible with `import.meta.url` at module scope on Node.js v26. Used `path.resolve(process.cwd(), 'src', 'streams')` instead.
+- **Detection pipeline description rewritten to Python-native flow** — AGENTS.md detection pipeline section replaced with 10-step Python-native architecture (FFmpegReader → MotionGate → InProcessYOLO → ByteTracker → IdentityEnrichment → WebSocketPublisher → PythonWsClient → rtspManager → Socket.io → PostgreSQL). `consolidatedDetectionService.ts` explicitly marked as type definitions/settings stubs.
 
 ## Next Steps
 
@@ -135,7 +136,7 @@ Phase 4 complete — Milestone v1.2 fully delivered.
 
 Phase 5 (Pipeline Cleanup & Default Switch) complete: 3/3 plans in 2 waves.
 
-Phase 6 (Documentation Audit & Fix): 2/3 plans complete.
+Phase 6 (Documentation Audit & Fix): 3/3 plans complete ✅.
 
 ## Milestone v1.3 Summary
 
@@ -161,11 +162,11 @@ Phase 6 (Documentation Audit & Fix): 2/3 plans complete.
 
 **Last Session:** 2026-05-29T15:54:10+05:30
 
-- **Status:** Phase 6 (Documentation Audit & Fix) — 2/3 plans complete
-- **Completed:** Plan 02 — Refresh stale architecture documentation (ADR-001 through ADR-006, both C4 diagrams)
-- **Next:** Plan 03 — API layer consistency + README hygiene + Postman collection
+- **Status:** Phase 6 (Documentation Audit & Fix) — 3/3 plans complete ✅
+- **Completed:** Plan 03 — Update AGENTS.md detection pipeline section and file listing for current Python-native architecture
+- **Next:** Phase 6 complete — ready for next phase
 - **Reference:** ADR-003 accepted in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 6 plan 02 complete. 2/3 plans in Phase 6 done.*
+*State updated: 2026-05-29 — Phase 6 plan 03 complete. 3/3 plans in Phase 6 done.*

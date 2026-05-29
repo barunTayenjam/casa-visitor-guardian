@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Pipeline Cleanup
-status: executing
-last_updated: "2026-05-29T08:24:09.007Z"
+status: completed
+last_updated: "2026-05-29T10:19:08.602Z"
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 6
+  completed_plans: 4
+  percent: 50
 ---
 
 # State: SentryVision Home Security System
@@ -123,13 +123,22 @@ See `.planning/milestones/v1.1-ROADMAP.md` for details. 48/48 plans complete (10
 
 ---
 
+## Decisions Made
+
+- **Removed redundant frame handler from index.ts** — The index.ts `pythonWsClient.on('frame')` handler was a duplicate of `rtspManager.wirePythonWsFrames()`. Only the rtspManager handler remained because it includes `role: 'live'`, health monitoring, and adaptive FPS throttling.
+- **E2E test uses real WebSocket connections** — Tests create an actual `WebSocketServer` (on random port) and connect a real `PythonWsClient`, providing realistic end-to-end verification of the frame relay path.
+- **Replaced `import.meta.url` with `process.cwd()`-based path resolution** — Ts-jest ESM module wrapper is incompatible with `import.meta.url` at module scope on Node.js v26. Used `path.resolve(process.cwd(), 'src', 'streams')` instead.
+
 ## Next Steps
 
 Phase 4 complete — Milestone v1.2 fully delivered.
 
 Phase 5 (Pipeline Cleanup & Default Switch) complete: 3/3 plans in 2 waves.
 
+Phase 6 (Documentation Audit & Fix): 1/3 plans complete.
+
 ## Milestone v1.3 Summary
+
 - **PIPELINE_MODE** defaults to `python-only` (05-01)
 - Legacy Node.js detection modules removed (05-02): `optimizedMotionDetection.ts`, `motionTriggeredDetection.ts`, `objectDetection.ts`
 - `consolidatedDetectionService.ts` stripped to settings/types stubs
@@ -150,12 +159,13 @@ Phase 5 (Pipeline Cleanup & Default Switch) complete: 3/3 plans in 2 waves.
 
 ## Session Context
 
-**Last Session:** 2026-05-29T15:30:00+05:30
+**Last Session:** 2026-05-29T15:48:00+05:30
 
-- **Status:** Phase 05 complete (3/3 plans, 100%)
-- **Next:** Milestone v1.3 shipped. Next milestone planning pending.
+- **Status:** Phase 6 (Documentation Audit & Fix) — 1/3 plans complete
+- **Completed:** Plan 01 — Fix double frame emission (DOC-01) + E2E integration test (DOC-08)
+- **Next:** Proceed to remaining Phase 6 plans (02, 03)
 - **Reference:** ADR-003 accepted in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
 
 ---
 
-*State updated: 2026-05-29 — Phase 5 (Pipeline Cleanup & Default Switch) complete. Milestone v1.3 fully delivered.*
+*State updated: 2026-05-29 — Phase 6 plan 01 complete. 1/3 plans in Phase 6 done.*

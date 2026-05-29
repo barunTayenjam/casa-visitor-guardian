@@ -10,6 +10,7 @@
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
 - ✅ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
 - ✅ **v1.3 Pipeline Cleanup** — Phase 5 (complete)
+- ⬜ **v1.x Documentation Audit** — Phase 6 (planned)
 
 ---
 
@@ -87,6 +88,21 @@ Plans:
 
 ---
 
+### Phase 6: Documentation Audit & Fix
+
+**Goal:** Fix all architecture documentation drift identified in the Phase 5 Nyquist architecture audit. 8 bugs found: 4 critical (double frame emission, stale C4 diagrams, ADR-001/ADR-002 out of date), 2 high (ADR-004/ADR-005 reference deleted code, AGENTS.md stale), 2 medium (ADR-006 stale line refs, no E2E frame relay test).
+
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08
+**Depends on:** Phase 5
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 06-01-PLAN.md — Fix double frame emission + add E2E frame relay test — Wave 1
+- [ ] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
+- [ ] 06-03-PLAN.md — Update AGENTS.md + fix stale references — Wave 2
+
+---
+
 ## Archived Phases
 
 For full phase details of v1.0, see `.planning/milestones/v1.0-ROADMAP.md`.
@@ -113,8 +129,9 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.2 Phase 1** | **RTSP-01 – RTSP-08** | **8** | **📋 Planned** |
 | **v1.2 Phase 2** | **PERF-01 – PERF-09** | **9** | **📋 Planned** |
 | **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **✅ Complete** |
+| **v1.x Phase 6** | **DOC-01 – DOC-08** | **8** | **📋 Planned** |
 
-**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete)
+**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete) | **v1.x Phase 6**: DOC-01 – DOC-08 (8 requirements, 📋 Planned)
 
 ---
 

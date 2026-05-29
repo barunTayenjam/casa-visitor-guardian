@@ -8,13 +8,15 @@
 
 - ✅ **v1.0 Resource Optimization** — Phases 1-6 (shipped 2026-03-23)
 - ✅ **v1.1 Full System Overhaul** — Phases 1-11 (shipped 2026-05-18)
-- ⬜ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (in planning)
+- ⬜ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
 
 ---
 
 ## Active / Future Phases
 
-v1.2 Detection Pipeline Redesign — 4 phases (in planning)
+v1.2 Detection Pipeline Redesign — 4 phases (complete)
+
+*Last updated: 2026-05-29 - v1.2 fully delivered*
 
 ### Phase 1: RTSP Ownership Transfer
 
@@ -45,23 +47,24 @@ Plans:
 
 ### Phase 3: InsightFace ArcFace Upgrade
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Replace dlib-based face_recognition with InsightFace ArcFace for improved accuracy and GPU support.
+**Requirements**: FACE-01 – FACE-05
 **Depends on:** Phase 2
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 3 to break down)
+- [x] 03-01-PLAN.md — ArcFaceRecognizer class in Python (RetinaFace detection + ArcFace 512-dim embeddings, GPU/CPU auto-detect, dual-mode 128/512 storage) — Wave 1
+- [x] 03-02-PLAN.md — Backend integration (YOLOObjectDetector cleanup, fallback chain, CRITICAL fixes, FaceEmbedding model) — Wave 1
 
 ### Phase 4: Legacy Cleanup
 
-**Goal:** [To be planned]
+**Goal:** Remove legacy FaceRecognition class and simplify fallback chain to 2-tier.
 **Requirements**: TBD
 **Depends on:** Phase 3
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 4 to break down)
+- [x] 04-01-PLAN.md — Remove legacy FaceRecognition class from app.py, simplify fallback chain, add None-safety guards — Wave 1
 
 ---
 

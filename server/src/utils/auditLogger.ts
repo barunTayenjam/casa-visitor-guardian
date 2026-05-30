@@ -112,25 +112,21 @@ class AuditLogger {
 
   // Helper methods to extract request information
   public getClientIP(req: Request): string {
-    return req.ip || 
-           (req as any).connection.remoteAddress || 
-           (req as any).socket.remoteAddress || 
-           (req as any).connection.socket.remoteAddress || 
+    return req.ip ||
+           req.socket?.remoteAddress ||
            'unknown';
   }
 
   public getUserId(req: Request): string | undefined {
-    // Try to get user ID from JWT token
-    return (req as any).user?.sub || (req as any).user?.id;
+    return req.user?.userId;
   }
 
   public getUsername(req: Request): string | undefined {
-    // Try to get username from JWT token
-    return (req as any).user?.username || (req as any).user?.name;
+    return req.user?.username;
   }
 
-  public getSessionId(req: Request): string | undefined {
-    return (req as any).sessionID || (req as any).session?.id;
+  public getSessionId(_req: Request): string | undefined {
+    return undefined;
   }
 
   public getRequestId(req: Request): string | undefined {
@@ -163,7 +159,7 @@ class AuditLogger {
       
       // Generate request ID if not present
       const requestId = req.get('x-request-id') || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      (req as any).headers['x-request-id'] = requestId;
+      req.headers['x-request-id'] = requestId as string;
       
       const originalSend = res.send;
       

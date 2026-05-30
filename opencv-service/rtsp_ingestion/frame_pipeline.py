@@ -2,19 +2,27 @@
 """
 Per-camera frame processing pipeline.
 
-    FFmpegReader thread
-          │  raw BGR24 frame
-          ▼
-    MotionGate (MOG2) ─── no motion ──→ live queue (always)
-          │  motion detected
-          ▼
-    YOLO Detection (in-process cv2.dnn)
-          ▼
-    ByteTrack Tracking
-          ▼
-    Face Recognition (new tracks only, identity cache TTL=30s)
-          ▼
-    WebSocket Publisher (frames + track-lifecycle events)
+    FFmpegReader (HD 1280x720)
+          │
+          ├─→ JPEG encode → live_queue → WebSocket (always, zero-delay)
+          │
+          └─→ cv2.resize(640x360) → detection_queue
+                                             │
+                                       DetectionThread:
+                                             │
+                                       MotionGate (MOG2)
+                                             │  motion
+                                             ▼
+                                       YOLO Detection (in-process cv2.dnn)
+                                             ▼
+                                       ByteTrack Tracking
+                                             ▼
+                                       Face Recognition (new tracks, identity cache TTL=30s)
+                                             ▼
+                                       WebSocket Publisher (frames + track-lifecycle events)
+
+Live streaming is fully decoupled from detection — YOLO inference (1-4s on CPU)
+never blocks the live frame path, eliminating stream latency.
 """
 
 import time
@@ -23,6 +31,7 @@ import cv2
 import numpy as np
 import os
 import hashlib
+import threading
 from typing import Optional, Dict, Any, List
 
 from .config import (
@@ -30,6 +39,10 @@ from .config import (
     DEFAULT_HEIGHT,
     DEFAULT_FPS,
     DETECTION_FPS,
+    DETECT_WIDTH,
+    DETECT_HEIGHT,
+    LIVE_WIDTH,
+    LIVE_HEIGHT,
     MOG2_HISTORY,
     MOG2_VAR_THRESHOLD,
     MOTION_PIXEL_THRESHOLD,
@@ -163,19 +176,24 @@ class InProcessYOLO:
             return True
         return False
 
+    _inference_lock = __import__("threading").Lock()
+
     def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         if not self._initialized or self._net is None:
             return []
-        h, w = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
-        self._net.setInput(blob)
-        t_start = time.perf_counter()
-        try:
-            outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
-        except cv2.error:
-            self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-            self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-            outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+        
+        with self._inference_lock:
+            h, w = frame.shape[:2]
+            blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
+            self._net.setInput(blob)
+            t_start = time.perf_counter()
+            try:
+                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+            except cv2.error:
+                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+        
         elapsed_ms = (time.perf_counter() - t_start) * 1000
         self._last_inference_ms = elapsed_ms
         self._inference_count += 1
@@ -303,7 +321,28 @@ class IdentityCache:
 
 
 class FramePipeline:
-    """Per-camera pipeline: FFmpegReader → MotionGate → YOLO → ByteTrack → FaceRec → WebSocket."""
+    """Per-camera pipeline with decoupled live streaming and detection.
+
+    Architecture:
+        FFmpegReader (HD 1280x720)
+              │
+              ├─→ JPEG encode → live_queue → WebSocket (always, zero-delay)
+              │
+              └─→ cv2.resize(640x360) → detection_queue
+                                                 │
+                                           DetectionThread:
+                                                 │
+                                           MotionGate (MOG2)
+                                                 │  motion
+                                                 ▼
+                                           YOLO Detection
+                                                 ▼
+                                           ByteTrack
+                                                 ▼
+                                           Face Recognition
+                                                 ▼
+                                           event_queue → WebSocket
+    """
 
     _yolo_detector: Optional[InProcessYOLO] = None
     _yolo_init_lock = __import__("threading").Lock()
@@ -319,24 +358,57 @@ class FramePipeline:
         self._frame_skip = frame_skip
         self._frame_counter = 0
         self._camera_id: str = camera_config["id"]
-        stream = self._get_primary_stream()
 
         self._live_queue: DropOldestQueue = publisher.add_frame_queue(self._camera_id)
         self._event_queue: DropOldestQueue = publisher.add_event_queue(self._camera_id)
+        self._detection_queue: queue.Queue = queue.Queue(maxsize=2)
 
         self._motion_gate = MotionGate(camera_id=self._camera_id, pixel_threshold=MOTION_PIXEL_THRESHOLD)
         self._tracker = ByteTracker(track_thresh=0.25, match_thresh=0.8, track_buffer=30, frame_rate=DETECTION_FPS)
         self._identity_cache = IdentityCache(ttl=30.0)
         self._face_recognition_fn = None
 
-        detect = self._config.get("detect", {})
-        self._reader = FFmpegReader(
-            rtsp_url=stream["path"],
-            camera_id=self._camera_id,
-            width=detect.get("width", DEFAULT_WIDTH),
-            height=detect.get("height", DEFAULT_HEIGHT),
-            fps=detect.get("fps", DETECTION_FPS),
-        )
+        live_cfg = self._config.get("live", {})
+        self._live_width = live_cfg.get("width", LIVE_WIDTH)
+        self._live_height = live_cfg.get("height", LIVE_HEIGHT)
+
+        detect_cfg = self._config.get("detect", {})
+        self._detect_width = detect_cfg.get("width", DETECT_WIDTH)
+        self._detect_height = detect_cfg.get("height", DETECT_HEIGHT)
+
+        live_stream = self._get_stream_by_role("live")
+        detect_stream = self._get_stream_by_role("detect")
+
+        self._live_reader: Optional[FFmpegReader] = None
+        self._detect_reader: Optional[FFmpegReader] = None
+
+        if live_stream and detect_stream and live_stream["path"] != detect_stream["path"]:
+            self._live_reader = FFmpegReader(
+                rtsp_url=live_stream["path"],
+                camera_id=f"{self._camera_id}-live",
+                width=self._live_width,
+                height=self._live_height,
+                fps=live_cfg.get("fps", DEFAULT_FPS),
+            )
+            self._detect_reader = FFmpegReader(
+                rtsp_url=detect_stream["path"],
+                camera_id=f"{self._camera_id}-detect",
+                width=self._detect_width,
+                height=self._detect_height,
+                fps=detect_cfg.get("fps", DEFAULT_FPS),
+            )
+        else:
+            fallback = live_stream or detect_stream or self._get_primary_stream()
+            self._live_reader = FFmpegReader(
+                rtsp_url=fallback["path"],
+                camera_id=self._camera_id,
+                width=self._live_width,
+                height=self._live_height,
+                fps=live_cfg.get("fps", DEFAULT_FPS),
+            )
+
+        self._detection_thread: Optional[threading.Thread] = None
+        self._running = False
 
         self._init_yolo()
 
@@ -367,34 +439,80 @@ class FramePipeline:
                 return s
         return streams[0] if streams else {}
 
+    def _get_stream_by_role(self, role: str) -> Optional[dict]:
+        streams = self._config.get("streams", [])
+        for s in streams:
+            if role in s.get("roles", []):
+                return s
+        return None
+
     @property
     def camera_id(self) -> str:
         return self._camera_id
 
     def start(self) -> None:
-        self._reader.start(self._on_frame)
-        print(f"[FramePipeline:{self._camera_id}] Started")
+        self._running = True
+        self._detection_thread = threading.Thread(
+            target=self._detection_loop,
+            name=f"detect-{self._camera_id}",
+            daemon=True,
+        )
+        self._detection_thread.start()
+        self._live_reader.start(self._on_live_frame)
+        if self._detect_reader:
+            self._detect_reader.start(self._on_detect_frame)
+        mode = "dual" if self._detect_reader else "single"
+        print(f"[FramePipeline:{self._camera_id}] Started ({mode}, live={self._live_width}x{self._live_height}, detect={self._detect_width}x{self._detect_height})")
 
     def stop(self) -> None:
-        self._reader.stop()
+        self._running = False
+        self._live_reader.stop()
+        if self._detect_reader:
+            self._detect_reader.stop()
+        if self._detection_thread:
+            self._detection_thread.join(timeout=5)
         print(f"[FramePipeline:{self._camera_id}] Stopped")
 
-    def _on_frame(self, frame_data: dict) -> None:
+    def _on_live_frame(self, frame_data: dict) -> None:
         self._frame_counter += 1
         frame: np.ndarray = frame_data["data"]
-
-        motion_result = self._motion_gate.detect(frame)
 
         if self._frame_counter % self._frame_skip == 0:
             success, jpeg_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
             if success:
                 self._live_queue.put(jpeg_buf.tobytes())
 
-        if not motion_result["motion_detected"]:
-            return
+        if not self._detect_reader:
+            small = cv2.resize(frame, (self._detect_width, self._detect_height), interpolation=cv2.INTER_AREA)
+            try:
+                self._detection_queue.put_nowait(small)
+            except queue.Full:
+                pass
 
-        det_skip = max(1, DEFAULT_FPS // DETECTION_FPS)
-        if self._frame_counter % det_skip != 0:
+    def _on_detect_frame(self, frame_data: dict) -> None:
+        frame: np.ndarray = frame_data["data"]
+        try:
+            self._detection_queue.put_nowait(frame)
+        except queue.Full:
+            pass
+
+    def _detection_loop(self) -> None:
+        print(f"[FramePipeline:{self._camera_id}] Detection thread started")
+        while self._running:
+            try:
+                frame = self._detection_queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+
+            try:
+                self._process_detection(frame)
+            except Exception as e:
+                print(f"[FramePipeline:{self._camera_id}] Detection error: {e}")
+
+    def _process_detection(self, frame: np.ndarray) -> None:
+        motion_result = self._motion_gate.detect(frame)
+
+        if not motion_result["motion_detected"]:
             return
 
         detections = self._run_detection(frame)
@@ -403,6 +521,8 @@ class FramePipeline:
 
         tracked = self._tracker.update(detections)
         events = self._enrich_with_identity(tracked, frame)
+        if events:
+            print(f"[FramePipeline:{self._camera_id}] {len(detections)} detections → {len(tracked)} tracked → {len(events)} events")
         for ev in events:
             self._event_queue.put(ev)
 

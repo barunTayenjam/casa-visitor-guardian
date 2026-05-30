@@ -214,47 +214,28 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Start streaming from a camera
   const startCameraStream = useCallback(async (id: string) => {
-    console.log('[STREAM] CameraContext.startCameraStream called:', id);
-    try {
-      if (streamingCamerasRef.current.has(id)) {
-        console.log('[STREAM] Camera', id, 'already streaming, skipping');
-        return;
-      }
-
-      const socketConnected = socketService.isConnected();
-      console.log('[STREAM] Socket connected before connect():', socketConnected);
-      if (!socketConnected) {
-        console.log('[STREAM] Calling socketService.connect() for camera:', id);
-        await socketService.connect();
-        console.log('[STREAM] socketService.connect() resolved for camera:', id, 'connected:', socketService.isConnected());
-      }
-
-      console.log('[STREAM] Calling socketService.requestStream for:', id);
-      socketService.requestStream(id);
-      setStreamingCameras(prev => new Set(prev).add(id));
-      updateCamera(id, { status: 'online' });
-      console.log('[STREAM] CameraContext.startCameraStream complete for:', id);
-    } catch (err) {
-      console.error('[STREAM] ❌ Failed to start stream for camera:', id, err);
-      throw err;
+    if (streamingCamerasRef.current.has(id)) {
+      return;
     }
+
+    const socketConnected = socketService.isConnected();
+    if (!socketConnected) {
+      await socketService.connect();
+    }
+
+    socketService.requestStream(id);
+    setStreamingCameras(prev => new Set(prev).add(id));
+    updateCamera(id, { status: 'online' });
   }, [updateCamera]);
 
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
-    console.log('[STREAM] CameraContext.stopCameraStream called:', id);
-    try {
-      socketService.stopStream(id);
-      setStreamingCameras(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      console.log('[STREAM] CameraContext.stopCameraStream complete for:', id);
-    } catch (err) {
-      console.error('[STREAM] ❌ Failed to stop stream for camera:', id, err);
-      throw err;
-    }
+    socketService.stopStream(id);
+    setStreamingCameras(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }, []);
 
   // Take a snapshot from a camera

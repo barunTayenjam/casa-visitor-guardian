@@ -127,4 +127,62 @@ router.put('/face/settings', requireUser, validate({
   }
 });
 
+// ==================== MOTION SETTINGS ====================
+
+interface MotionSettings {
+  sensitivity: number;
+  requiredConsecutiveFrames: number;
+  minContourArea: number;
+  useGaussianBlur: boolean;
+  blurKernelSize: number;
+  timeZones: Record<string, { start: string; end: string; sensitivityMultiplier: number }>;
+}
+
+const defaultMotionSettings: MotionSettings = {
+  sensitivity: 90,
+  requiredConsecutiveFrames: 3,
+  minContourArea: 500,
+  useGaussianBlur: true,
+  blurKernelSize: 5,
+  timeZones: {},
+};
+
+const motionSettingsStore = new Map<string, MotionSettings>();
+
+router.get('/motion/settings', optionalAuth, validate({
+  query: {
+    cameraId: { type: 'string' as const, required: true, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
+  try {
+    const cameraId = req.query.cameraId as string;
+    const settings = motionSettingsStore.get(cameraId) || { ...defaultMotionSettings };
+    res.json({ settings });
+  } catch (error) {
+    logger.error('Error getting motion settings', 'Detection', error);
+    res.status(500).json({ success: false, error: 'Failed to get motion settings' });
+  }
+});
+
+router.put('/motion/settings', requireUser, validate({
+  body: {
+    cameraId: { type: 'string' as const, required: true, maxLength: 100 },
+    sensitivity: { type: 'number' as const, required: false, min: 1, max: 100 },
+    requiredConsecutiveFrames: { type: 'number' as const, required: false, min: 1, max: 20 },
+    minContourArea: { type: 'number' as const, required: false, min: 50, max: 10000 },
+    useGaussianBlur: { type: 'boolean' as const, required: false },
+    blurKernelSize: { type: 'number' as const, required: false, min: 1, max: 31 },
+  }
+}), async (req: Request, res: Response) => {
+  try {
+    const { cameraId, ...settings } = req.body;
+    const current = motionSettingsStore.get(cameraId) || { ...defaultMotionSettings };
+    motionSettingsStore.set(cameraId, { ...current, ...settings });
+    res.json({ success: true, message: 'Motion settings updated' });
+  } catch (error) {
+    logger.error('Error updating motion settings', 'Detection', error);
+    res.status(500).json({ success: false, error: 'Failed to update motion settings' });
+  }
+});
+
 export default router;

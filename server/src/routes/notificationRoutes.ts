@@ -5,14 +5,20 @@ import { NotificationLog } from '../models/NotificationLog.js';
 import { NotificationPreferences } from '../models/NotificationPreferences.js';
 import NotificationService from '../services/notificationService.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
 router.use(authenticate());
 
-router.post('/subscribe', async (req: Request, res: Response) => {
+router.post('/subscribe', validate({
+  body: {
+    endpoint: { type: 'url' as const, required: true, maxLength: 500 },
+    keys: { type: 'object' as const, required: true }
+  }
+}), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { endpoint, keys } = req.body;
 
     if (!endpoint || !keys || !keys.p256h || !keys.auth) {
@@ -37,9 +43,13 @@ router.post('/subscribe', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/unsubscribe', async (req: Request, res: Response) => {
+router.delete('/unsubscribe', validate({
+  body: {
+    endpoint: { type: 'url' as const, required: true, maxLength: 500 }
+  }
+}), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { endpoint } = req.body;
 
     if (!endpoint) {
@@ -55,9 +65,14 @@ router.delete('/unsubscribe', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/resubscribe', async (req: Request, res: Response) => {
+router.post('/resubscribe', validate({
+  body: {
+    endpoint: { type: 'url' as const, required: true, maxLength: 500 },
+    keys: { type: 'object' as const, required: true }
+  }
+}), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { endpoint, keys } = req.body;
 
     if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
@@ -81,7 +96,7 @@ router.post('/resubscribe', async (req: Request, res: Response) => {
 
 router.get('/subscription', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     const subscription = await NotificationService.getSubscription(userId);
 
@@ -115,9 +130,13 @@ router.get('/vapid-public-key', (req: Request, res: Response) => {
   res.json({ publicKey: vapidPublicKey });
 });
 
-router.get('/logs', async (req: Request, res: Response) => {
+router.get('/logs', validate({
+  query: {
+    limit: { type: 'number' as const, required: false, min: 1, max: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const limit = parseInt(req.query.limit as string) || 50;
 
     const logs = await NotificationService.getNotificationLogs(userId, limit);
@@ -142,7 +161,7 @@ router.get('/logs', async (req: Request, res: Response) => {
 
 router.post('/test', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     await NotificationService.sendNotificationToUser(
       userId,
@@ -164,7 +183,7 @@ router.post('/test', async (req: Request, res: Response) => {
 
 router.get('/preferences', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const preferencesRepository = AppDataSource.getRepository(NotificationPreferences);
 
     let preferences = await preferencesRepository.findOne({ where: { userId } });
@@ -178,7 +197,7 @@ router.get('/preferences', async (req: Request, res: Response) => {
         quietHoursEnabled: false,
         quietHoursStart: '22:00',
         quietHoursEnd: '06:00',
-        quietHoursTimezone: 'Asia/Kolkata',
+        quietHoursTimezone: process.env.TZ || 'UTC',
       });
       await preferencesRepository.save(preferences);
     }
@@ -198,9 +217,19 @@ router.get('/preferences', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/preferences', async (req: Request, res: Response) => {
+router.put('/preferences', validate({
+  body: {
+    motion_enabled: { type: 'boolean' as const, required: false },
+    face_enabled: { type: 'boolean' as const, required: false },
+    object_enabled: { type: 'boolean' as const, required: false },
+    quiet_hours_enabled: { type: 'boolean' as const, required: false },
+    quiet_hours_start: { type: 'string' as const, required: false, pattern: /^\d{2}:\d{2}$/ },
+    quiet_hours_end: { type: 'string' as const, required: false, pattern: /^\d{2}:\d{2}$/ },
+    quiet_hours_timezone: { type: 'string' as const, required: false, maxLength: 50 }
+  }
+}), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const preferencesRepository = AppDataSource.getRepository(NotificationPreferences);
 
     let preferences = await preferencesRepository.findOne({ where: { userId } });
@@ -239,7 +268,7 @@ router.put('/preferences', async (req: Request, res: Response) => {
 
 router.post('/preferences/reset', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const preferencesRepository = AppDataSource.getRepository(NotificationPreferences);
 
     let preferences = await preferencesRepository.findOne({ where: { userId } });
@@ -254,7 +283,7 @@ router.post('/preferences/reset', async (req: Request, res: Response) => {
     preferences.quietHoursEnabled = false;
     preferences.quietHoursStart = '22:00';
     preferences.quietHoursEnd = '06:00';
-    preferences.quietHoursTimezone = 'Asia/Kolkata';
+    preferences.quietHoursTimezone = process.env.TZ || 'UTC';
 
     await preferencesRepository.save(preferences);
 

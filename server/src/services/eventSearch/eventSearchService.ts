@@ -95,7 +95,7 @@ export class EventSearchService {
     const size = Math.min(500, Math.max(1, parseInt(pageSize)));
     const offset = (currentPage - 1) * size;
 
-    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"];
+    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'event_motion', 'event_face')", "e.file_path IS NOT NULL AND e.file_path != ''"];
     const queryParams: unknown[] = [];
     let paramIndex = 1;
 

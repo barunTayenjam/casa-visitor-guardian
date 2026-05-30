@@ -227,15 +227,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   }, [isStreaming, camera.id]);
 
   const handleStreamStart = useCallback(async () => {
-    console.log('[STREAM] CameraStream.handleStreamStart:', camera.id, 'socketConnected:', socketConnected);
     if (!socketConnected) {
-      console.log('[STREAM] ❌ handleStreamStart — socket not connected for', camera.id);
       setError("Socket not connected. Cannot start stream.");
       setConnectionState('error');
       return;
     }
     if (streamActionRef.current === "start") {
-      console.log('[STREAM] handleStreamStart — already starting, skip:', camera.id);
       return;
     }
 
@@ -252,7 +249,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       clearTimeout(connectionTimeoutRef.current);
     }
     connectionTimeoutRef.current = setTimeout(() => {
-      console.log('[STREAM] ⏱ handleStreamStart timeout fired for', camera.id);
       streamActionRef.current = null;
       hasAutoStartedRef.current = false;
       setConnectionState('error');
@@ -262,7 +258,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     try {
       const startTime = Date.now();
-      console.log('[STREAM] Calling startCameraStream for', camera.id);
       await startCameraStream(camera.id);
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
@@ -270,12 +265,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       }
       const elapsed = Date.now() - startTime;
       setMetrics(prev => ({ ...prev, latency: elapsed }));
-      console.log('[STREAM] ✅ startCameraStream resolved for', camera.id, 'in', elapsed, 'ms');
       failureCountRef.current = 0;
       connectionAttemptsRef.current = 0;
       setConnectionState('connected');
     } catch (err) {
-      console.log('[STREAM] ❌ startCameraStream failed for', camera.id, err);
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
@@ -289,7 +282,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   }, [camera.id, startCameraStream, socketConnected]);
 
   const handleStreamStop = useCallback(() => {
-    console.log('[STREAM] CameraStream.handleStreamStop:', camera.id);
     if (streamActionRef.current === "stop") return;
 
     if (connectionTimeoutRef.current) {
@@ -369,10 +361,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         const STREAM_FREEZE_TIMEOUT = 8000;
         const MIN_TIME_BEFORE_CHECK = 10000;
 
-        console.log('[STREAM] ⏱', camera.id, 'time since last frame:', timeSinceLastFrame, 'ms');
-
         if (timeSinceLastFrame > MIN_TIME_BEFORE_CHECK && timeSinceLastFrame > STREAM_FREEZE_TIMEOUT && autoStart) {
-          console.log('[STREAM] ❄️ FREEZE DETECTED for', camera.id, '— no frame for', timeSinceLastFrame, 'ms. Restarting...');
           failureCountRef.current++;
           handleStreamRestart();
         }
@@ -446,7 +435,6 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       data: ArrayBuffer | string;
     }) => {
       if (data.cameraId !== camera.id) return;
-      console.log('[STREAM] 🖼 CameraStream handleFrame:', camera.id, 'type:', typeof data.data, 'ts:', data.timestamp, data.data);
 
       const now = Date.now();
       if (now - lastFrameUpdate >= FRAME_UPDATE_INTERVAL) {

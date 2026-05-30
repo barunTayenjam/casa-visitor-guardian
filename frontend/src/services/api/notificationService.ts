@@ -68,12 +68,9 @@ export const notificationService = {
 
   async getSubscriptionStatus(): Promise<PushSubscriptionStatus> {
     try {
-      const response = await apiClient.get<{ id: string; endpoint: string }>('/notifications/subscription');
-      return { subscribed: true, endpoint: response.endpoint };
+      const response = await apiClient.get<{ subscribed: boolean; id?: string; endpoint?: string }>('/notifications/subscription');
+      return { subscribed: response.subscribed, endpoint: response.endpoint };
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        return { subscribed: false };
-      }
       if (error instanceof ApiError) throw error;
       return { subscribed: false };
     }

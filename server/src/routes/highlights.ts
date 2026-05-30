@@ -2,10 +2,19 @@ import { Router, Request, Response } from 'express';
 import path from 'node:path';
 import { AppDataSource } from '../database.js';
 import { optionalAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
-router.get('/:date', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:date', optionalAuth, validate({
+  params: {
+    date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ }
+  },
+  query: {
+    sort: { type: 'string' as const, required: false, enum: ['recent', 'persons', 'faces', 'unknown', 'confidence'] },
+    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { date } = req.params;
     const { sort = 'recent', limit } = req.query;
@@ -39,7 +48,11 @@ router.get('/:date', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:date/summary', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:date/summary', optionalAuth, validate({
+  params: {
+    date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { date } = req.params;
     const startDate = new Date(`${date}T00:00:00+05:30`);

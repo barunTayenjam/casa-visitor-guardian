@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 import visitorService from '../services/visitorService.js';
 
 const router = Router();
@@ -24,7 +25,11 @@ router.get('/timeline', optionalAuth, async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:id', optionalAuth, validate({
+  params: {
+    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const persons = await visitorService.getKnownPersons();
     const person = persons.find((p: any) => p.id === req.params.id || p.person_id === req.params.id);
@@ -39,7 +44,14 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', requireUser, async (req: Request, res: Response) => {
+router.put('/:id', requireUser, validate({
+  params: {
+    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
+  },
+  body: {
+    name: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
     if (!name) {
@@ -54,7 +66,11 @@ router.put('/:id', requireUser, async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', requireUser, async (req: Request, res: Response) => {
+router.delete('/:id', requireUser, validate({
+  params: {
+    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const deleted = await visitorService.deleteFace(req.params.id);
     if (!deleted) {

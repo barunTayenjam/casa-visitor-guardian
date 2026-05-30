@@ -192,16 +192,16 @@ Plans:
 
 ### Phase 9: Code Quality & Test Coverage
 
-**Goal:** Decompose monolithic files (index.ts 623L, app.py 1693L, nvidiaAnalysis 1063L), standardize logging, add frontend tests, establish CI pipeline.
+**Goal:** Decompose monolithic files (index.ts 623L, app.py 1693L, nvidiaAnalysis 1063L, eventSearchService 673L), standardize logging, add critical-path tests.
 
-**Requirements**: CQ-01–CQ-08, TEST-01–TEST-03, CI-01
+**Requirements**: CQ-01–CQ-05, CQ-07, TEST-01–TEST-03 (CQ-06, CQ-08 already done in Phase 7; CI-01 deferred)
 **Depends on:** Phase 8
-**Plans:** 3 plans
+**Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 09-01-PLAN.md — Backend decomposition (CQ-01, CQ-02, CQ-03, CQ-04)
-- [ ] 09-02-PLAN.md — Code quality cleanup (CQ-05, CQ-06, CQ-07, CQ-08)
-- [ ] 09-03-PLAN.md — Test coverage + CI (TEST-01, TEST-02, TEST-03, CI-01)
+- [ ] 09-01-PLAN.md — Backend decomposition: index.ts + nvidiaAnalysisService + eventSearchService + app.py (CQ-01, CQ-02, CQ-03, CQ-04) — Wave 1
+- [ ] 09-02-PLAN.md — Code quality cleanup: console→logger migration + hardcoded Docker path fix (CQ-05, CQ-07) — Wave 1
+- [ ] 09-03-PLAN.md — Test coverage: frontend jest setup + baseClient/AuthContext tests + AuthController/CameraController/cacheService tests (TEST-01, TEST-02, TEST-03) — Wave 2
 
 ---
 

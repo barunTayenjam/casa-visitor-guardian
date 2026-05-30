@@ -1,6 +1,7 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
-import { streamManager } from '../streams/rtspManager.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import eventSearchService from '../services/eventSearchService.js';
@@ -19,7 +20,7 @@ router.get('/events', optionalAuth, validate({
     const events = await eventSearchService.getMotionEvents(limit);
     res.json({ success: true, events });
   } catch (error) {
-    console.error('Error getting motion events:', error);
+     logger.error('Error getting motion events', 'Motion', error);
     res.status(500).json({ success: false, error: 'Failed to get motion events' });
   }
 });
@@ -37,7 +38,7 @@ router.get('/:cameraId/events', optionalAuth, validate({
     const events = await eventSearchService.getCameraMotionEvents(req.params.cameraId, limit);
     res.json({ success: true, events });
   } catch (error) {
-    console.error(`Error getting motion events for camera ${req.params.cameraId}:`, error);
+     logger.error(`Error getting motion events for camera ${req.params.cameraId}`, 'Motion', error);
     res.status(500).json({ success: false, error: 'Failed to get motion events' });
   }
 });
@@ -48,12 +49,13 @@ router.post('/:cameraId/simulate', requireAdmin, validate({
   }
 }), (req: Request, res: Response) => {
   try {
+    const streamManager = serviceRegistry.getStreamManager();
     const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.cameraId);
     if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
     streamManager.simulateMotionDetection(req.params.cameraId);
     res.json({ success: true, message: 'Motion simulation triggered' });
   } catch (error) {
-    console.error(`Error simulating motion for camera ${req.params.cameraId}:`, error);
+     logger.error(`Error simulating motion for camera ${req.params.cameraId}`, 'Motion', error);
     res.status(500).json({ success: false, error: 'Failed to simulate motion' });
   }
 });
@@ -68,6 +70,7 @@ router.post('/:cameraId/analyze', requireUser, validate({
   }
 }), async (req: Request, res: Response) => {
   try {
+    const streamManager = serviceRegistry.getStreamManager();
     const cameraId = req.params.cameraId;
     const { enablePersonDetection, enableFaceDetection } = req.body;
     const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
@@ -98,7 +101,7 @@ router.post('/:cameraId/analyze', requireUser, validate({
     });
     res.json({ success: true, analysis: analysisResults });
   } catch (error) {
-    console.error(`Error analyzing motion for camera ${req.params.cameraId}:`, error);
+     logger.error(`Error analyzing motion for camera ${req.params.cameraId}`, 'Motion', error);
     res.status(500).json({ success: false, error: 'Failed to analyze motion' });
   }
 });

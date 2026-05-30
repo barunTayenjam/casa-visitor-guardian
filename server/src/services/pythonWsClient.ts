@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import WebSocket from 'ws';
 import { EventEmitter } from 'node:events';
 
@@ -40,7 +41,6 @@ export class PythonWsClient extends EventEmitter {
   private url: string;
   private _connected = false;
   private pendingMetadata: FrameMetadata | null = null;
-  private pendingEvent: Record<string, unknown> | null = null;
 
   constructor(url?: string) {
     super();
@@ -53,14 +53,14 @@ export class PythonWsClient extends EventEmitter {
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('[PythonWsClient] Already connected or connecting, skipping');
+      logger.info('[PythonWsClient] Already connected or connecting, skipping', 'PythonWsClient');
       return;
     }
 
     this.ws = new WebSocket(this.url);
 
     this.ws.on('open', () => {
-      console.log('[PythonWsClient] Connected');
+      logger.info('[PythonWsClient] Connected', 'PythonWsClient');
       this.reconnectDelay = 1000;
       this._connected = true;
       this.emit('connected');
@@ -69,13 +69,7 @@ export class PythonWsClient extends EventEmitter {
     this.ws.on('message', (data: WebSocket.Data, isBinary: boolean) => {
       if (isBinary) {
         const metadata = this.pendingMetadata;
-        const event = this.pendingEvent;
         this.pendingMetadata = null;
-        this.pendingEvent = null;
-        if (event) {
-          this.emit('trackingEvent', event as unknown as TrackingEvent);
-          return;
-        }
         if (!metadata) {
           return;
         }
@@ -93,9 +87,8 @@ export class PythonWsClient extends EventEmitter {
               cameraId: parsed.cameraId || null,
               timestamp: parsed.timestamp || Date.now(),
             };
-            this.pendingEvent = null;
           } else if (parsed.type === 'event') {
-            this.pendingEvent = {
+            this.emit('trackingEvent', {
               trackId: parsed.trackId ?? parsed.track_id,
               cameraId: parsed.cameraId,
               timestamp: parsed.timestamp,
@@ -108,8 +101,7 @@ export class PythonWsClient extends EventEmitter {
               trackletLen: parsed.trackletLen ?? parsed.tracklet_len,
               identity: parsed.identity ?? null,
               identityConfidence: parsed.identityConfidence ?? parsed.identity_confidence ?? 0,
-            };
-            this.pendingMetadata = null;
+            } as TrackingEvent);
           }
         } catch {
           // ignore malformed messages
@@ -127,7 +119,7 @@ export class PythonWsClient extends EventEmitter {
     });
 
     this.ws.on('error', (err: Error) => {
-      console.error(`[PythonWsClient] Error: ${err.message}`);
+      logger.error(`[PythonWsClient] Error: ${err.message}`, 'PythonWsClient', err);
     });
   }
 

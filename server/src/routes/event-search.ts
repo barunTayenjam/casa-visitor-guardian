@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -36,8 +37,8 @@ router.get('/search', optionalAuth, validate({
     const result = await eventSearchService.searchEvents(filters);
     res.json({ success: true, ...result });
   } catch (error: any) {
-    console.error('Error searching events:', error);
-    res.status(500).json({ success: false, error: error.message || 'Failed to search events' });
+     logger.error('Error searching events', 'EventSearch', error);
+     res.status(500).json({ success: false, error: error.message || 'Failed to search events' });
   }
 });
 
@@ -64,8 +65,8 @@ router.get('/search/legacy', optionalAuth, validate({
     });
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Error searching events:', error);
-    res.status(500).json({ success: false, error: 'Failed to search events' });
+     logger.error('Error searching events', 'EventSearch', error);
+     res.status(500).json({ success: false, error: 'Failed to search events' });
   }
 });
 
@@ -74,7 +75,7 @@ router.get('/stats/today', optionalAuth, async (req: Request, res: Response) => 
     const count = await eventSearchService.getTodayEventCount();
     res.json({ success: true, count });
   } catch (error) {
-    console.error('Error fetching daily stats:', error);
+     logger.error('Error fetching daily stats', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to fetch daily stats' });
   }
 });
@@ -93,7 +94,7 @@ router.get('/stats/calendar', optionalAuth, validate({
     const result = await eventSearchService.getCalendarStats(currentYear, currentMonth, camera_id as string);
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Error fetching calendar stats:', error);
+     logger.error('Error fetching calendar stats', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to fetch calendar stats' });
   }
 });
@@ -111,7 +112,7 @@ router.get('/stats/range', optionalAuth, validate({
     const stats = await eventSearchService.getRangeStats(start_date as string, end_date as string, camera_id as string);
     res.json({ success: true, stats });
   } catch (error) {
-    console.error('Error fetching range stats:', error);
+     logger.error('Error fetching range stats', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to fetch range stats' });
   }
 });
@@ -121,7 +122,7 @@ router.get('/list', optionalAuth, async (req: Request, res: Response) => {
     const files = await eventSearchService.listEventFiles();
     res.json({ success: true, files });
   } catch (error) {
-    console.error('Error listing events:', error);
+     logger.error('Error listing events', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to list events' });
   }
 });
@@ -136,7 +137,7 @@ router.get('/:id/details', optionalAuth, validate({
     if (!event) { res.status(404).json({ success: false, error: 'Event not found' }); return; }
     res.json({ success: true, event });
   } catch (error) {
-    console.error('Failed to fetch event details:', error);
+     logger.error('Failed to fetch event details', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to fetch event details' });
   }
 });
@@ -181,7 +182,7 @@ router.get('/image/:filename', optionalAuth, validate({
     for (const imagePath of paths) { if (fs.existsSync(imagePath)) return res.sendFile(imagePath); }
     res.status(404).json({ success: false, error: 'Image file not found on disk' });
   } catch (error) {
-    console.error('Error serving event image:', error);
+     logger.error('Error serving event image', 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to serve image' });
   }
 });
@@ -198,7 +199,7 @@ router.post('/:id/archive', requireUser, validate({
     if (eventIndex === -1) return res.status(404).json({ success: false, error: 'Event not found or already archived' });
     res.json({ success: true, message: 'Event archived successfully' });
   } catch (error) {
-    console.error(`Error archiving event ${req.params.id}:`, error);
+     logger.error(`Error archiving event ${req.params.id}`, 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to archive event' });
   }
 });

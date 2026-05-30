@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
 import { Repository, DataSource } from 'typeorm';
 
@@ -123,7 +124,7 @@ export class BatchProcessingDatabasePostgres {
         await this.dataSource.initialize();
       }
       this.isInitialized = true;
-      console.log('Batch processing PostgreSQL database initialized');
+      logger.info('Batch processing PostgreSQL database initialized', 'BatchWorker');
     }
   }
 

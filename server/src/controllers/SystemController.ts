@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -72,7 +73,7 @@ export class SystemController extends BaseController {
         return;
       }
 
-      console.log(`Admin triggered image cleanup with ${retentionDays} days retention`);
+      logger.info(`Admin triggered image cleanup with ${retentionDays} days retention`, 'System');
       const cleanupService = AutomatedCleanupService.getInstance();
       const result = await cleanupService.cleanupOldImages(retentionDays);
 
@@ -92,7 +93,7 @@ export class SystemController extends BaseController {
 
   async runFullCleanup(_req: Request, res: Response): Promise<void> {
     try {
-      console.log('Admin triggered full retention cleanup');
+      logger.info('Admin triggered full retention cleanup', 'System');
       const cleanupService = AutomatedCleanupService.getInstance();
       await cleanupService.runAutomaticCleanup();
       res.json({ success: true, message: 'Full cleanup completed' });

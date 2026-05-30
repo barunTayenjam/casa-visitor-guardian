@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger.js';
 import { Repository } from 'typeorm';
 import { ReviewSegment } from '../../models/ReviewSegment.js';
 import { UserReviewStatus } from '../../models/UserReviewStatus.js';
@@ -144,7 +145,7 @@ export class ReviewService {
       await this.reviewSegmentRepo.save(segment);
 
       this.previewService.generatePreview(segmentId, camera).catch(err => {
-        console.error(`Failed to generate preview for ${segmentId}: ${err.message}`);
+        logger.error(`Failed to generate preview for ${segmentId}: ${err.message}`, 'ReviewService');
       });
     }
 

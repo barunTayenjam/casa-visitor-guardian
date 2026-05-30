@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Pipeline Cleanup
-status: completed
-last_updated: "2026-05-29T10:28:35.536Z"
+milestone: v1.4
+milestone_name: Security & Quality
+status: complete
+last_updated: "2026-05-30T18:00:00.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
   percent: 100
 ---
 
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 05 — Pipeline Cleanup & Default Switch (✅ Complete)
+**Current focus:** Phase 8 — Reliability & Type Safety (✅ Complete)
 
 ---
 
@@ -37,6 +37,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Milestone v1.1 | ✅ Shipped | 11/11 phases, 58/58 reqs, 2026-05-18 |
 | Milestone v1.2 | ✅ Complete | 4/4 phases, 11/11 plans, 100% |
 | Milestone v1.3 | ✅ Complete | 1/1 phases, 3/3 plans, 100% |
+| Milestone v1.4 | ✅ Complete | 3 phases, 8 plans, 100% |
 
 ## Accumulated Context
 
@@ -160,13 +161,29 @@ Phase 6 (Documentation Audit & Fix): 3/3 plans complete ✅.
 
 ## Session Context
 
-**Last Session:** 2026-05-29T15:54:10+05:30
+**Last Session:** 2026-05-30T14:00:00+05:30
 
-- **Status:** Phase 6 (Documentation Audit & Fix) — 3/3 plans complete ✅
-- **Completed:** Plan 03 — Update AGENTS.md detection pipeline section and file listing for current Python-native architecture
-- **Next:** Phase 6 complete — ready for next phase
-- **Reference:** ADR-003 accepted in `docs/architecture/ADR-003-detection-pipeline-redesign.md`
+- **Status:** Phase 8 (Reliability & Type Safety) — 3/3 plans complete ✅
+- **Completed:** Wave 1 (fail-fast startup + health/readiness endpoints) + Wave 2 (async fs + Socket.io consolidation + directory cache + registry migration + noImplicitAny + typed JSONB + safe EventBus)
+- **Next:** Phase 9 (Code Quality & Test Coverage) — 3 plans
+- **Reference:** Phase 8 research + plans in `.planning/phases/08-phase-8-reliability-type-safety/`
 
 ---
 
-*State updated: 2026-05-29 — Phase 6 plan 03 complete. 3/3 plans in Phase 6 done.*
+## v1.4 Milestone Plan
+
+Architecture review (2026-05-30) identified 6 critical/high issues and 12 medium concerns.
+
+| Phase | Name | Priority | Plans | Status |
+|-------|------|----------|-------|--------|
+| 7 | Security Hardening | Critical | 2 | ✅ Complete |
+| 8 | Reliability & Type Safety | High | 3 | ✅ Complete |
+| 9 | Code Quality & Test Coverage | Medium | 3 | 📋 Planned |
+
+**Critical fixes (Phase 7):** JWT refresh bypass, default seed passwords, Helmet, route validation
+**Reliability fixes (Phase 8):** Partial startup, async I/O, Socket.io consolidation, strict TypeScript
+**Quality improvements (Phase 9):** File decomposition, logging, frontend tests, CI
+
+---
+
+*State updated: 2026-05-30 — Phase 8 Reliability & Type Safety complete (3/3 plans). Phase 9 remaining.*

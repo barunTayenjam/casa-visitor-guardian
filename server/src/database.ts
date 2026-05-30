@@ -1,3 +1,4 @@
+import { logger } from './utils/logger.js';
 
 import { DataSource } from 'typeorm';
 import { config } from './config/index.js';
@@ -34,13 +35,13 @@ export const AppDataSource = new DataSource({
 export async function initializeDatabase() {
   try {
     if (AppDataSource.isInitialized) {
-      console.log('Database already initialized, skipping...');
+      logger.info('Database already initialized, skipping...', 'Database');
       return;
     }
     await AppDataSource.initialize();
-    console.log('Database connection has been established successfully.');
+    logger.info('Database connection has been established successfully.', 'Database');
   } catch (error) {
-    console.error('Error during database initialization:', error);
+    logger.error('Error during database initialization', 'Database', error);
     throw error;
   }
 }

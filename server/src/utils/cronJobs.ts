@@ -1,3 +1,4 @@
+import { logger } from './logger.js';
 import cron from 'node-cron';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'node:path';
@@ -141,7 +142,7 @@ async function cleanupOldFiles() {
     const db = await getBatchProcessingDatabase();
 
     if (!db) {
-      console.warn('Database not available for cleanup');
+       logger.warn('Database not available for cleanup', 'Cron');
       return;
     }
 
@@ -183,15 +184,15 @@ async function cleanupOldFiles() {
           [archivePath, file.file_uuid]
         );
       } catch (err) {
-        console.error(`Error archiving file ${file.file_uuid}:`, err);
+         logger.error(`Error archiving file ${file.file_uuid}`, 'Cron', err);
       }
     }
 
     // Cleanup completion log disabled
-    console.log(`Archived ${archivedFiles.length} files`);
+     logger.info(`Archived ${archivedFiles.length} files`, 'Cron');
   } catch (error) {
     // Cleanup error log disabled
-    console.error('Error cleaning up old files:', error);
+     logger.error('Error cleaning up old files', 'Cron', error);
   }
 }
 

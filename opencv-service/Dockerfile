@@ -4,9 +4,13 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install runtime system dependencies
+# Install runtime system dependencies and a C++ compiler needed for building the
+# `insightface` wheel (which provides optional face‑recognition functionality).
+# The application can operate without `insightface`, but the build must succeed.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    g++ \
     libgl1-mesa-dri \
     libglx-mesa0 \
     libglib2.0-0 \
@@ -27,4 +31,4 @@ EXPOSE 8084
 EXPOSE 9090
 
 # Start Flask development server with debug and auto-reload
-CMD ["python", "-u", "-m", "flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "8084", "--debug", "--reload"]
+CMD ["python", "-u", "-m", "flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "8084"]

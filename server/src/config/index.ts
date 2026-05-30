@@ -311,7 +311,7 @@ export const config: AppConfig = {
 
       return cameras;
     } catch (error) {
-      console.error('Failed to load camera configuration:', error);
+      logger.error('Failed to load camera configuration', 'Config', error);
       logger.warn('Camera configuration failed to load. Server starting with no cameras. Verify cameras.json exists and contains valid JSON.', 'Config');
       return [];
     }

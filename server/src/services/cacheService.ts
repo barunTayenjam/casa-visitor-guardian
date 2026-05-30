@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { createClient, RedisClientType } from 'redis';
 
 interface CacheConfig {
@@ -36,7 +37,7 @@ class CacheService {
     
     // Check if Redis is disabled via environment variable
     if (process.env.REDIS_DISABLED === 'true') {
-      console.log('Redis explicitly disabled, using memory cache only');
+       logger.info('Redis explicitly disabled, using memory cache only', 'CacheService');
       this.isConnected = false;
       this.client = null;
       return;
@@ -55,13 +56,13 @@ class CacheService {
       this.client.on('error', (err) => {
         // Suppress repeated error messages - only log once
         if (this.isConnected) {
-          console.warn('Redis connection lost, switching to memory cache');
+           logger.warn('Redis connection lost, switching to memory cache', 'CacheService');
         }
         this.isConnected = false;
       });
 
       this.client.on('connect', () => {
-        console.log('Redis Client Connected');
+         logger.info('Redis Client Connected', 'CacheService');
         this.isConnected = true;
         this.redisAvailable = true;
       });
@@ -72,9 +73,9 @@ class CacheService {
 
       await this.client.connect();
     } catch (error) {
-      console.log('Redis not available, using memory cache for this session');
-      console.log('Tip: To enable Redis caching, start Redis server or set REDIS_HOST/PORT');
-      console.log('To disable Redis completely, set REDIS_DISABLED=true');
+       logger.info('Redis not available, using memory cache for this session', 'CacheService');
+       logger.info('Tip: To enable Redis caching, start Redis server or set REDIS_HOST/PORT', 'CacheService');
+       logger.info('To disable Redis completely, set REDIS_DISABLED=true', 'CacheService');
       this.isConnected = false;
       this.client = null;
     }
@@ -108,7 +109,7 @@ class CacheService {
       const value = await this.client.get(key) as string | null;
       return value ?? null;
     } catch (error) {
-      console.warn('Redis get error, falling back to memory:', error);
+      logger.warn('Redis get error, falling back to memory', 'CacheService');
       return this.getMemoryCacheString(key);
     }
   }
@@ -123,7 +124,7 @@ class CacheService {
       const value = await this.client.get(key) as string | null;
       return value ? JSON.parse(value) : null;
     } catch (error) {
-      console.warn('Redis get error, falling back to memory:', error);
+      logger.warn('Redis get error, falling back to memory', 'CacheService');
       return this.getMemoryCache(key);
     }
   }
@@ -154,7 +155,7 @@ class CacheService {
       // Also set memory cache as backup
       this.setMemoryCache(key, value, ttl);
     } catch (error) {
-      console.warn('Redis set error, using memory cache only:', error);
+       logger.warn('Redis set error, using memory cache only', 'CacheService');
       this.setMemoryCache(key, value, ttl);
     }
   }
@@ -170,7 +171,7 @@ class CacheService {
       await this.client.del(key);
       this.delMemoryCache(key);
     } catch (error) {
-      console.warn('Redis delete error:', error);
+       logger.warn('Redis delete error', 'CacheService');
       this.delMemoryCache(key);
     }
   }
@@ -185,7 +186,7 @@ class CacheService {
       const result = await this.client.exists(key);
       return result === 1;
     } catch (error) {
-      console.warn('Redis exists error:', error);
+       logger.warn('Redis exists error', 'CacheService');
       return this.memoryCache.has(key);
     }
   }
@@ -203,7 +204,7 @@ class CacheService {
       }
       return result;
     } catch (error) {
-      console.warn('Redis incr error, using memory:', error);
+       logger.warn('Redis incr error, using memory', 'CacheService');
       return this.incrMemoryCache(key, ttl);
     }
   }
@@ -293,5 +294,6 @@ class CacheService {
 }
 
 // Singleton instance
+export { CacheService };
 export const cacheService = new CacheService();
 export default cacheService;

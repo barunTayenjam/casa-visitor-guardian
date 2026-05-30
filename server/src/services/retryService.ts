@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger.js';
+
 export interface RetryConfig {
   maxRetries: number;
   initialDelay: number;
@@ -28,10 +30,10 @@ export class RetryService {
         return await operation();
       } catch (error) {
         lastError = error as Error;
-        console.warn(`${context}: Attempt ${attempt}/${maxRetries} failed`, error.message);
+        logger.warn(`${context}: Attempt ${attempt}/${maxRetries} failed`, 'RetryService');
 
         if (attempt === maxRetries) {
-          console.error(`${context}: All retries exhausted`);
+          logger.error(`${context}: All retries exhausted`, 'RetryService');
           throw lastError;
         }
 
@@ -41,7 +43,7 @@ export class RetryService {
           delay = delay * (0.5 + Math.random() * 0.5);
         }
 
-        console.log(`${context}: Retrying after ${Math.round(delay)}ms...`);
+        logger.info(`${context}: Retrying after ${Math.round(delay)}ms...`, 'RetryService');
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

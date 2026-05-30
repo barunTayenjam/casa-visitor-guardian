@@ -2,6 +2,7 @@ import express from 'express';
 import { AppDataSource } from '../database.js';
 import { FaceEmbedding } from '../models/FaceEmbedding.js';
 import { requireUser, optionalAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 const router = express.Router();
 router.use(optionalAuth);
 router.post('/', requireUser);
@@ -9,7 +10,15 @@ router.delete('/:id', requireUser);
 const faceEmbeddingRepository = AppDataSource.getRepository(FaceEmbedding);
 
 // POST /api/face-embeddings - Store new embedding with quality metadata
-router.post('/', async (req, res) => {
+router.post('/', validate({
+  body: {
+    visitorId: { type: 'string' as const, required: true },
+    embeddingVector: { type: 'array' as const, required: true },
+    qualityScore: { type: 'number' as const, required: false },
+    cameraId: { type: 'string' as const, required: false },
+    embeddingVersion: { type: 'string' as const, required: false, enum: ['128', '512'] }
+  }
+}), async (req, res) => {
   try {
     const {
       visitorId,
@@ -64,7 +73,15 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/face-embeddings/visitor/:visitorId - Get all embeddings for a visitor
-router.get('/visitor/:visitorId', async (req, res) => {
+router.get('/visitor/:visitorId', validate({
+  params: {
+    visitorId: { type: 'string' as const, required: true, minLength: 1 }
+  },
+  query: {
+    minQuality: { type: 'number' as const, required: false, min: 0, max: 100 },
+    version: { type: 'string' as const, required: false, enum: ['128', '512'] }
+  }
+}), async (req, res) => {
   try {
     const { visitorId } = req.params;
     const { minQuality = 50, version } = req.query;
@@ -111,7 +128,13 @@ router.get('/visitor/:visitorId', async (req, res) => {
 });
 
 // GET /api/face-embeddings/high-quality - Get high-quality embeddings for recognition
-router.get('/high-quality', async (req, res) => {
+router.get('/high-quality', validate({
+  query: {
+    visitorId: { type: 'string' as const, required: false },
+    minQuality: { type: 'number' as const, required: false, min: 0, max: 100 },
+    limit: { type: 'number' as const, required: false, min: 1, max: 50 }
+  }
+}), async (req, res) => {
   try {
     const { visitorId, minQuality = 70, limit = 10 } = req.query;
 
@@ -144,7 +167,11 @@ router.get('/high-quality', async (req, res) => {
 });
 
 // DELETE /api/face-embeddings/:id - Soft delete an embedding
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', validate({
+  params: {
+    id: { type: 'string' as const, required: true, minLength: 1 }
+  }
+}), async (req, res) => {
   try {
     const { id } = req.params;
 

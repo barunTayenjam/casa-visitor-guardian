@@ -1,6 +1,7 @@
 import express from 'express';
 import { AppDataSource } from '../database.js';
 import { requireUser } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const router = express.Router();
 router.use(requireUser);
@@ -34,7 +35,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/face-config/:key - Get specific configuration value
-router.get('/:key', async (req, res) => {
+router.get('/:key', validate({
+  params: {
+    key: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
+  }
+}), async (req, res) => {
   try {
     const { key } = req.params;
 
@@ -65,7 +70,14 @@ router.get('/:key', async (req, res) => {
 });
 
 // PUT /api/face-config/:key - Update configuration value
-router.put('/:key', async (req, res) => {
+router.put('/:key', validate({
+  params: {
+    key: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
+  },
+  body: {
+    value: { type: 'number' as const, required: true }
+  }
+}), async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;

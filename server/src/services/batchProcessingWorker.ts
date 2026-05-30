@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { parentPort, workerData } from 'worker_threads';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -94,7 +95,7 @@ class SimpleOpenCVClient {
         batchHash: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       };
 
-      console.log(`OpenCV Client: Sending batch request for ${imagePaths.length} images`);
+       logger.info(`OpenCV Client: Sending batch request for ${imagePaths.length} images`, 'BatchWorker');
 
       const response = await fetch(`${this.serviceUrl}/detect-batch-paths`, {
         method: 'POST',
@@ -106,15 +107,15 @@ class SimpleOpenCVClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`OpenCV Client: HTTP ${response.status}: ${errorText}`);
+         logger.error(`OpenCV Client: HTTP ${response.status}: ${errorText}`, 'BatchWorker');
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log(`OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`);
+       logger.info(`OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`, 'BatchWorker');
       return result;
     } catch (error: any) {
-      console.error('OpenCV batch detection failed:', error);
+       logger.error('OpenCV batch detection failed', 'BatchWorker', error);
       return {
         success: false,
         batchHash: '',
@@ -144,7 +145,7 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
-      console.log('Created output directory:', outputDir);
+       logger.info(`Created output directory: ${outputDir}`, 'BatchWorker');
     }
     if (options.outputFormat === 'json') {
       const outputData = {
@@ -181,7 +182,7 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
 
     // Database saving is handled by metadata updates
   } catch (error) {
-    console.error('Error saving results:', error);
+       logger.error('Error saving results', 'BatchWorker', error);
     throw error;
   }
 }
@@ -251,13 +252,13 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
           ]
         );
       } catch (error) {
-        console.error('Error updating processed_images for ' + result.filename + ':', error);
+         logger.error('Error updating processed_images for ' + result.filename, 'BatchWorker', error);
       }
     }
 
-    console.log('Updated processed_images table for ' + results.length + ' images');
+     logger.info('Updated processed_images table for ' + results.length + ' images', 'BatchWorker');
   } catch (error) {
-    console.error('Error updating processed_images table:', error);
+     logger.error('Error updating processed_images table', 'BatchWorker', error);
   } finally {
     if (client) {
       await client.end();
@@ -336,7 +337,7 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
         }
       } else {
         // Batch failed entirely, add empty results for all events in this batch
-        console.error('Batch detection failed:', batchResult.error);
+         logger.error('Batch detection failed', 'BatchWorker');
         for (const event of batch) {
           results.push({
             filename: event.filename,
@@ -348,7 +349,7 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
         }
       }
     } catch (error) {
-      console.error('Error processing batch starting at index ' + i + ':', error);
+       logger.error('Error processing batch starting at index ' + i, 'BatchWorker', error);
       for (const event of batch) {
         results.push({
           filename: event.filename,
@@ -424,7 +425,7 @@ async function main() {
     }
 
   } catch (error) {
-    console.error('Worker error:', error);
+     logger.error('Worker error', 'BatchWorker', error);
     if (parentPort) {
       parentPort.postMessage({
         type: 'error',
@@ -435,7 +436,7 @@ async function main() {
 }
 
 main().catch(error => {
-  console.error('Worker startup error:', error);
+   logger.error('Worker startup error', 'BatchWorker', error);
   if (parentPort) {
     parentPort.postMessage({
       type: 'error',

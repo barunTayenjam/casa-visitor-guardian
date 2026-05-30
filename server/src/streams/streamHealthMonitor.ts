@@ -117,8 +117,8 @@ export class StreamHealthMonitor {
 
         if (timeSinceLastFrame > this.config.staleThresholdMs) {
           this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
-        } else if (!camera.activeRoles.has(role) && wasActive && (role === 'detect' || role === 'record')) {
-          console.log(`[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`);
+        } else if (camera.activeRoles && !camera.activeRoles.has(role) && wasActive && (role === 'detect' || role === 'record')) {
+          logger.info(`[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`, 'STREAM');
           this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
         }
       });

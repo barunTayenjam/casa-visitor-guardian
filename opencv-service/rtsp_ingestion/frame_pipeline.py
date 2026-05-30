@@ -498,27 +498,40 @@ class FramePipeline:
 
     def _detection_loop(self) -> None:
         print(f"[FramePipeline:{self._camera_id}] Detection thread started")
+        frame_count = 0
         while self._running:
             try:
                 frame = self._detection_queue.get(timeout=1.0)
             except queue.Empty:
                 continue
 
+            frame_count += 1
+            if frame_count <= 5 or frame_count % 100 == 0:
+                print(f"[FramePipeline:{self._camera_id}] Detection frame #{frame_count}, queue={self._detection_queue.qsize()}")
+
             try:
                 self._process_detection(frame)
             except Exception as e:
                 print(f"[FramePipeline:{self._camera_id}] Detection error: {e}")
+                import traceback
+                traceback.print_exc()
 
     def _process_detection(self, frame: np.ndarray) -> None:
         motion_result = self._motion_gate.detect(frame)
+        self._detect_frame_count = getattr(self, '_detect_frame_count', 0) + 1
+        if self._detect_frame_count <= 10 or self._detect_frame_count % 100 == 0:
+            print(f"[FramePipeline:{self._camera_id}] MOG2 check #{self._detect_frame_count}: motion={motion_result['motion_detected']} pixels={motion_result['motion_pixels']} confidence={motion_result['confidence']}")
 
         if not motion_result["motion_detected"]:
             return
 
+        print(f"[FramePipeline:{self._camera_id}] MOTION DETECTED — running YOLO")
         detections = self._run_detection(frame)
         if not detections:
+            print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections")
             return
 
+        print(f"[FramePipeline:{self._camera_id}] YOLO: {len(detections)} detections: {[d['class'] for d in detections]}")
         tracked = self._tracker.update(detections)
         events = self._enrich_with_identity(tracked, frame)
         if events:

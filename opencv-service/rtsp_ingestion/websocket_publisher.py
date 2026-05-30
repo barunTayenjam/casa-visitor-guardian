@@ -132,6 +132,7 @@ class WebSocketPublisher:
         if frame_q is None:
             return
         print(f"[WebSocketPublisher] Started publish loop for {camera_id}")
+        event_count = 0
         while self._running:
             # Drain event queue first (high priority)
             if event_q is not None:
@@ -140,6 +141,9 @@ class WebSocketPublisher:
                         ev = event_q.get_nowait()
                     except Exception:
                         break
+                    event_count += 1
+                    if event_count <= 3 or event_count % 50 == 0:
+                        print(f"[WebSocketPublisher] Broadcasting event #{event_count} for {camera_id}: type={ev.get('event', '?')} class={ev.get('class', '?')}")
                     await self._broadcast(camera_id, {
                         "type": "event",
                         "cameraId": camera_id,

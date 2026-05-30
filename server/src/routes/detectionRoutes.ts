@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth.js';
@@ -51,7 +52,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
     res.json({ success: true, data: config });
   } catch (err) {
-    console.error('Get detection config error:', err);
+     logger.error('Get detection config error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to get detection config' });
   }
 });
@@ -71,7 +72,7 @@ router.put('/', authenticate, async (req: Request, res: Response) => {
 
     res.json({ success: true, message: 'Detection configuration updated' });
   } catch (err) {
-    console.error('Update detection config error:', err);
+     logger.error('Update detection config error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to update detection config' });
   }
 });
@@ -92,7 +93,7 @@ router.post('/filter', authenticate, async (req: Request, res: Response) => {
 
     res.json({ success: true, data: { filtered, config } });
   } catch (err) {
-    console.error('Filter detections error:', err);
+     logger.error('Filter detections error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to filter detections' });
   }
 });
@@ -120,7 +121,7 @@ router.get('/stats', authenticate, async (req: Request, res: Response) => {
       stats,
     });
   } catch (error) {
-    console.error('Get detection stats error:', error);
+     logger.error('Get detection stats error', 'Detection', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get detection stats',

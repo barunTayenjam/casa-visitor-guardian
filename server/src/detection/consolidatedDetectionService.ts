@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger.js';
+
 export interface DetectionResult {
   class: string;
   confidence: number;
@@ -64,17 +66,17 @@ export class ConsolidatedDetectionService {
   }
 
   async detectObjects(cameraId: string, imageBuffer: Buffer): Promise<{ detections: DetectionResult[] }> {
-    console.warn('ConsolidatedDetectionService: detectObjects() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.');
+    logger.warn('ConsolidatedDetectionService: detectObjects() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.', 'Detection');
     return { detections: [] };
   }
 
   async detectFaces(cameraId: string, imageBuffer: Buffer): Promise<{ faces: FaceDetection[], knownFaces: FaceDetection[], unknownFaces: FaceDetection[] }> {
-    console.warn('ConsolidatedDetectionService: detectFaces() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.');
+    logger.warn('ConsolidatedDetectionService: detectFaces() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.', 'Detection');
     return { faces: [], knownFaces: [], unknownFaces: [] };
   }
 
   async getServiceStatus(): Promise<{ available: boolean; url: string; responseTime?: number }> {
-    console.warn('ConsolidatedDetectionService: getServiceStatus() called but HTTP health check path is removed.');
+    logger.warn('ConsolidatedDetectionService: getServiceStatus() called but HTTP health check path is removed.', 'Detection');
     return { available: true, url: 'python-ws://internal' };
   }
 
@@ -102,9 +104,9 @@ export class ConsolidatedDetectionService {
    */
   async cleanup(): Promise<void> {
     try {
-      console.log('Consolidated detection service resources cleaned up');
+      logger.info('Consolidated detection service resources cleaned up', 'Detection');
     } catch (error) {
-      console.error('Error cleaning consolidated detection service resources:', error);
+      logger.error('Error cleaning consolidated detection service resources', 'Detection', error);
     }
   }
 
@@ -112,7 +114,7 @@ export class ConsolidatedDetectionService {
    * Cleanup hook for graceful shutdown
    */
   async cleanupHook(): Promise<void> {
-    console.log('Consolidated detection service cleanup hook triggered');
+    logger.info('Consolidated detection service cleanup hook triggered', 'Detection');
     await this.cleanup();
   }
 

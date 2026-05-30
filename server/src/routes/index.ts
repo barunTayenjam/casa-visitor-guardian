@@ -161,7 +161,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
       res.json({ success: true, imageUrl: `/events/${detection.original_filename}`, imagePath: detection.storage_path, metadata: detection.metadata ? JSON.parse(detection.metadata) : null, overlaysEnabled: overlays === 'true' });
     } catch (error) {
-      console.error('Error getting detection image:', error);
+      logger.error('Error getting detection image', 'API', error);
       res.status(500).json({ success: false, error: 'Failed to get detection image' });
     }
   });
@@ -173,7 +173,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
         `SELECT COALESCE(df.storage_path, e.file_path) as file_path, COALESCE(df.capture_timestamp, e.timestamp) as timestamp FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename WHERE COALESCE(df.file_type, e.event_type) = 'snapshot' ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT 1000`);
       res.json({ success: true, files: results.map((row: any) => row.file_path) });
     } catch (error) {
-      console.error('Error listing snapshots:', error);
+      logger.error('Error listing snapshots', 'API', error);
       res.status(500).json({ success: false, error: 'Failed to list snapshots' });
     }
   });

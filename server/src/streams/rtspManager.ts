@@ -1,6 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import path from "path";
-import fs from "fs";
+import { promises as fsp } from "fs";
 import { fileURLToPath } from "url";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
@@ -30,6 +30,8 @@ export class StreamManager {
   io: SocketIOServer;
   frameInterval: number;
   healthMonitor: StreamHealthMonitor;
+  private unsubscribeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private readonly UNSUBSCRIBE_GRACE_MS = 30000;
 
   constructor(io: SocketIOServer) {
     this.cameras = new Map();
@@ -51,11 +53,45 @@ export class StreamManager {
     this.wirePythonWsFrames();
   }
 
+  private debouncedUnsubscribe(cameraId: string): void {
+    const existing = this.unsubscribeTimers.get(cameraId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.unsubscribeTimers.delete(cameraId);
+      const camera = this.cameras.get(cameraId);
+      if (camera && camera.activeViewers.size === 0) {
+        const pythonWs = serviceRegistry.getPythonWsClient();
+        if (pythonWs && pythonWs.connected) {
+          pythonWs.unsubscribe(cameraId);
+        }
+      }
+    }, this.UNSUBSCRIBE_GRACE_MS);
+    this.unsubscribeTimers.set(cameraId, timer);
+  }
+
+  private cancelDebouncedUnsubscribe(cameraId: string): void {
+    const existing = this.unsubscribeTimers.get(cameraId);
+    if (existing) {
+      clearTimeout(existing);
+      this.unsubscribeTimers.delete(cameraId);
+    }
+  }
+
   private wirePythonWsFrames(): void {
     const pythonWs = serviceRegistry.getPythonWsClient();
+    if (pythonWs) {
+      // When the Python WebSocket client connects, subscribe to all cameras to keep streams always on.
+      pythonWs.on('connected', () => {
+        this.cameras.forEach((_, camId) => {
+          pythonWs.subscribe(camId);
+        });
+      });
+    }
     if (!pythonWs) return;
 
     pythonWs.on('frame', (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {
+         logger.info(`[rtspManager] Received frame from Python for camera ${message.cameraId}`, 'STREAM');
       const { cameraId, data } = message;
       if (!cameraId) return;
 
@@ -92,8 +128,9 @@ export class StreamManager {
 
   private setupConnectionTracking(): void {
     this.io.on('connection', (socket) => {
-      socket.on('requestStream', (data: { cameraId: string; tier?: 'HIGH' | 'MEDIUM' | 'LOW' }) => {
-        const { cameraId, tier = 'MEDIUM' } = data;
+      socket.on('requestStream', (data: { cameraId: string; role?: 'live' | 'detect' | 'record'; tier?: 'HIGH' | 'MEDIUM' | 'LOW' }) => {
+        const { cameraId, role = 'live', tier = 'MEDIUM' } = data;
+         logger.info(`Received requestStream for camera ${cameraId} role ${role} tier ${tier}`, 'STREAM');
         const camera = this.cameras.get(cameraId);
         if (!camera) {
           socket.emit('streamError', { cameraId, error: 'Camera not found' });
@@ -108,6 +145,8 @@ export class StreamManager {
 
         camera.isActive = true;
 
+        this.cancelDebouncedUnsubscribe(cameraId);
+
         const pythonWs = serviceRegistry.getPythonWsClient();
         if (pythonWs && pythonWs.connected) {
           pythonWs.subscribe(cameraId);
@@ -115,29 +154,28 @@ export class StreamManager {
 
         socket.emit('streamStarted', {
           cameraId,
+          role,
           fps: camera.adaptiveFps,
           viewerCount,
           tier,
         });
       });
 
-      socket.on('stopStream', (data: { cameraId: string }) => {
-        const { cameraId } = data;
+      socket.on('stopStream', (data: { cameraId: string; role?: 'live' | 'detect' | 'record' }) => {
+        const { cameraId, role = 'live' } = data;
         const camera = this.cameras.get(cameraId);
         if (!camera) return;
 
         camera.activeViewers.delete(socket.id);
-        socket.leave(`camera-${cameraId}-live`);
+        socket.leave(`camera-${cameraId}-${role}`);
 
         if (camera.activeViewers.size === 0) {
-          const pythonWs = serviceRegistry.getPythonWsClient();
-          if (pythonWs && pythonWs.connected) {
-            pythonWs.unsubscribe(cameraId);
-          }
+          this.debouncedUnsubscribe(cameraId);
         }
 
         socket.emit('streamStopped', {
           cameraId,
+          role,
           viewerCount: camera.activeViewers.size
         });
       });
@@ -147,10 +185,7 @@ export class StreamManager {
           if (camera.activeViewers.has(socket.id)) {
             camera.activeViewers.delete(socket.id);
             if (camera.activeViewers.size === 0) {
-              const pythonWs = serviceRegistry.getPythonWsClient();
-              if (pythonWs && pythonWs.connected) {
-                pythonWs.unsubscribe(cameraId);
-              }
+              this.debouncedUnsubscribe(cameraId);
             }
           }
         });
@@ -293,7 +328,7 @@ export class StreamManager {
 
     const frame = camera.lastFrame;
     if (!frame) {
-      console.warn(`No frame available for snapshot for camera ${cameraId}`);
+       logger.warn(`No frame available for snapshot for camera ${cameraId}`, 'STREAM');
       return null;
     }
 
@@ -304,14 +339,12 @@ export class StreamManager {
       const snapshotsPath = getDetectionsPath('snapshots', snapshotDate);
       const filepath = path.join(snapshotsPath, filename);
 
-      if (!fs.existsSync(snapshotsPath)) {
-        fs.mkdirSync(snapshotsPath, { recursive: true });
-      }
+      await fsp.mkdir(snapshotsPath, { recursive: true });
 
-      fs.writeFileSync(filepath, frame);
+      await fsp.writeFile(filepath, frame);
       return filename;
     } catch (error: any) {
-      console.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`);
+       logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'STREAM');
       return null;
     }
   }
@@ -344,7 +377,7 @@ export class StreamManager {
 
     const filename = await this.takeSnapshot(cameraId);
     if (!filename) {
-      console.error(`[StreamManager] Failed to take snapshot for simulation on ${cameraId}`);
+       logger.error(`[StreamManager] Failed to take snapshot for simulation on ${cameraId}`, 'STREAM');
       return;
     }
 
@@ -383,7 +416,7 @@ export class StreamManager {
       event.camera_id = cameraId;
       const snapshotDate = new Date();
       const yearMonth = `${snapshotDate.getFullYear()}-${String(snapshotDate.getMonth() + 1).padStart(2, '0')}`;
-      event.file_path = `/app/data/detections/${yearMonth}/snapshots/${filename}`;
+       event.file_path = path.join(config.storage.detectionsDir, yearMonth, 'snapshots', filename);
       event.timestamp = new Date(timestamp);
       event.confidence = 0.85;
       event.persons_detected = 1;
@@ -403,7 +436,7 @@ export class StreamManager {
 
       await AppDataSource.getRepository(Event).save(event);
     } catch (error) {
-      console.error(`[StreamManager] Failed to save simulation event to database:`, error);
+       logger.error('[StreamManager] Failed to save simulation event to database', 'STREAM', error);
     }
   }
 
@@ -419,6 +452,9 @@ export class StreamManager {
 
   shutdown(): void {
     this.healthMonitor.stop();
+
+    this.unsubscribeTimers.forEach((timer) => clearTimeout(timer));
+    this.unsubscribeTimers.clear();
 
     this.cameras.forEach((camera) => {
       if ((camera as any)._testInterval) {
@@ -440,15 +476,15 @@ let streamManager: StreamManager;
 export async function setupRTSPStreams(
   io: SocketIOServer,
 ): Promise<StreamManager> {
-  console.log("Setting up RTSP stream manager");
+   logger.info("Setting up RTSP stream manager", 'STREAM');
   streamManager = new StreamManager(io);
 
   streamManager.healthMonitor.start();
-  console.log("Stream health monitor started");
+   logger.info("Stream health monitor started", 'STREAM');
 
   setTimeout(() => {
     streamManager.getAllCameras().forEach((camera) => {
-      console.log(`Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`);
+       logger.info(`Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`, 'STREAM');
       streamManager.startStream(camera.id, 'live');
     });
   }, 2000);

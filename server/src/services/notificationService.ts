@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import webPush from 'web-push';
 import { AppDataSource } from '../database.js';
 import { NotificationSubscription } from '../models/NotificationSubscription.js';
@@ -37,13 +38,13 @@ export class NotificationService {
     this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
 
     if (!this.vapidPublicKey || !this.vapidPrivateKey) {
-      console.log('VAPID keys not found, generating new keys...');
+       logger.info('VAPID keys not found, generating new keys...', 'NotificationService');
       const keys = webPush.generateVAPIDKeys();
       this.vapidPublicKey = keys.publicKey;
       this.vapidPrivateKey = keys.privateKey;
-      console.log('VAPID keys generated. Add these to .env for persistence:');
-      console.log(`VAPID_PUBLIC_KEY=${this.vapidPublicKey}`);
-      console.log(`VAPID_PRIVATE_KEY=${this.vapidPrivateKey}`);
+       logger.info('VAPID keys generated. Add these to .env for persistence:', 'NotificationService');
+       logger.info(`VAPID_PUBLIC_KEY=${this.vapidPublicKey}`, 'NotificationService');
+       logger.info(`VAPID_PRIVATE_KEY=${this.vapidPrivateKey}`, 'NotificationService');
     }
 
     webPush.setVapidDetails(
@@ -52,7 +53,7 @@ export class NotificationService {
       this.vapidPrivateKey
     );
 
-    console.log('Notification service initialized with VAPID keys');
+     logger.info('Notification service initialized with VAPID keys', 'NotificationService');
   }
 
   static generateVAPIDKeys() {
@@ -73,10 +74,10 @@ export class NotificationService {
       });
 
       await notificationSubscriptionRepository.save(newSubscription);
-      console.log(`User ${userId} subscribed to notifications`);
+       logger.info(`User ${userId} subscribed to notifications`, 'NotificationService');
       return newSubscription;
     } catch (error) {
-      console.error('Failed to save subscription:', error);
+       logger.error('Failed to save subscription', 'NotificationService', error);
       throw error;
     }
   }
@@ -87,9 +88,9 @@ export class NotificationService {
         userId,
         endpoint,
       });
-      console.log(`User ${userId} unsubscribed from notifications`);
+       logger.info(`User ${userId} unsubscribed from notifications`, 'NotificationService');
     } catch (error) {
-      console.error('Failed to unsubscribe:', error);
+       logger.error('Failed to unsubscribe', 'NotificationService', error);
       throw error;
     }
   }
@@ -100,7 +101,7 @@ export class NotificationService {
         where: { userId, isActive: true },
       });
     } catch (error) {
-      console.error('Failed to get subscription:', error);
+       logger.error('Failed to get subscription', 'NotificationService', error);
       throw error;
     }
   }
@@ -112,7 +113,7 @@ export class NotificationService {
     const pushSubscription = {
       endpoint: subscription.endpoint,
       keys: {
-        p256h: subscription.keysP256h,
+        p256dh: subscription.keysP256h,
         auth: subscription.keysAuth,
       },
     };
@@ -133,9 +134,9 @@ export class NotificationService {
         await notificationSubscriptionRepository.update(subscription.id, {
           isActive: false,
         });
-        console.log('Subscription expired, marked as inactive');
+         logger.info('Subscription expired, marked as inactive', 'NotificationService');
       } else {
-        console.error('Failed to send push notification:', error);
+         logger.error('Failed to send push notification', 'NotificationService', error);
       }
       return false;
     }
@@ -165,14 +166,14 @@ export class NotificationService {
         );
 
         if (isQuietHours) {
-          console.log(`Quiet hours active for user ${userId}, skipping notification`);
+           logger.info(`Quiet hours active for user ${userId}, skipping notification`, 'NotificationService');
           return false;
         }
       }
 
       return true;
     } catch (error) {
-      console.error('Error checking notification preferences:', error);
+       logger.error('Error checking notification preferences', 'NotificationService', error);
       return true;
     }
   }
@@ -200,7 +201,7 @@ export class NotificationService {
     });
 
     if (subscriptions.length === 0) {
-      console.log(`No active subscriptions found for user ${userId}`);
+       logger.info(`No active subscriptions found for user ${userId}`, 'NotificationService');
       return;
     }
 
@@ -229,9 +230,10 @@ export class NotificationService {
       }
     }
 
-    console.log(
-      `Notification sent to user ${userId}: ${successCount} success, ${failCount} failed`
-    );
+     logger.info(
+       `Notification sent to user ${userId}: ${successCount} success, ${failCount} failed`,
+       'NotificationService'
+     );
   }
 
   static async notifyMotionEvent(event: Event): Promise<void> {
@@ -348,7 +350,7 @@ export class NotificationService {
       if (shouldNotify) {
         await this.sendNotificationToUser(user.id, payload, eventType, eventId);
       } else {
-        console.log(`Notification for ${eventType} suppressed for user ${user.id} due to preferences`);
+         logger.info(`Notification for ${eventType} suppressed for user ${user.id} due to preferences`, 'NotificationService');
       }
     }
   }
@@ -364,7 +366,7 @@ export class NotificationService {
       .orWhere('is_active = :isActive', { isActive: false })
       .execute();
 
-    console.log(`Cleaned up ${result.affected || 0} expired subscriptions`);
+     logger.info(`Cleaned up ${result.affected || 0} expired subscriptions`, 'NotificationService');
     return result.affected || 0;
   }
 

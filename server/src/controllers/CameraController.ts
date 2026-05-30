@@ -27,13 +27,12 @@ export class CameraController extends BaseController {
       logger.info('Fetched cameras from stream manager', 'API', { cameraCount: cameras.length });
 
       const optimizedCameras = cameras.map((camera: Camera) => {
-        const status = camera.isActive ? 'online' : 'offline';
         return {
           id: camera.id,
           name: camera.name,
           isActive: camera.isActive,
           nightMode: camera.config.nightMode || false,
-          status,
+          status: camera.config.enabled ? 'online' : 'offline',
           config: {
             streams: camera.config.streams,
             objects: camera.config.objects,

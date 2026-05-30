@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import path from 'node:path';
 import { AppDataSource } from '../database.js';
@@ -41,9 +42,9 @@ router.get('/:date', optionalAuth, validate({
       return { id: row.id, filename, cameraId: row.camera_id, timestamp: row.timestamp, eventType: row.event_type, confidence: row.confidence, personsDetected: row.persons_detected || 0, facesDetected: row.faces_detected || 0, knownFacesCount: row.known_faces_count || 0, unknownFacesCount: row.unknown_faces_count || 0, objectDetections: row.object_detections || [], faceDetections: row.face_detections || [], imageUrl: filename ? `/api/events/image/${filename}` : null, metadata };
     });
 
-    res.json({ success: true, date, sort, highlights, summary: { total: highlights.length, totalPersons: highlights.reduce((s, h) => s + h.personsDetected, 0), totalFaces: highlights.reduce((s, h) => s + h.facesDetected, 0), knownFaces: highlights.reduce((s, h) => s + h.knownFacesCount, 0) } });
+    res.json({ success: true, date, sort, highlights, summary: { total: highlights.length, totalPersons: highlights.reduce((s: number, h: { personsDetected: number }) => s + h.personsDetected, 0), totalFaces: highlights.reduce((s: number, h: { facesDetected: number }) => s + h.facesDetected, 0), knownFaces: highlights.reduce((s: number, h: { knownFacesCount: number }) => s + h.knownFacesCount, 0) } });
   } catch (error: any) {
-    console.error('Error fetching highlights:', error);
+    logger.error('Error fetching highlights', 'Highlights', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -66,7 +67,7 @@ router.get('/:date/summary', optionalAuth, validate({
     const hourly = Array.from({ length: 24 }, (_, i) => { const f = hourlyData.find((h: any) => parseInt(h.hour) === i); return { hour: i, count: f ? parseInt(f.count) : 0 }; });
     res.json({ success: true, date, summary: { totalEvents: parseInt(categoryResult[0].total), totalPersons: parseInt(categoryResult[0].total_persons) || 0, totalFaces: parseInt(categoryResult[0].total_faces) || 0, knownFaces: parseInt(categoryResult[0].total_known_faces) || 0, nightEvents: parseInt(categoryResult[0].night_events) || 0 }, hourly });
   } catch (error: any) {
-    console.error('Error fetching highlights summary:', error);
+    logger.error('Error fetching highlights summary', 'Highlights', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { consolidatedDetectionService } from './consolidatedDetectionService.js';
 
 /**
@@ -8,7 +9,7 @@ export class DetectionCleanupService {
   private initialized = false;
 
   private constructor() {
-    console.log('DetectionCleanupService: Initializing');
+     logger.info('DetectionCleanupService: Initializing', 'Detection');
   }
 
   static getInstance(): DetectionCleanupService {
@@ -26,9 +27,9 @@ export class DetectionCleanupService {
 
     try {
       this.initialized = true;
-      console.log('DetectionCleanupService initialized');
+       logger.info('DetectionCleanupService initialized', 'Detection');
     } catch (error) {
-      console.error('Failed to initialize DetectionCleanupService:', error);
+       logger.error('Failed to initialize DetectionCleanupService', 'Detection', error);
     }
   }
 
@@ -36,15 +37,15 @@ export class DetectionCleanupService {
    * Cleanup all detection services
    */
   async cleanupAll(): Promise<void> {
-    console.log('Starting cleanup of all detection services...');
+     logger.info('Starting cleanup of all detection services...', 'Detection');
 
     try {
       // Cleanup consolidated detection service (Python OpenCV service)
       await consolidatedDetectionService.cleanupHook();
 
-      console.log('All detection services cleaned up successfully');
+       logger.info('All detection services cleaned up successfully', 'Detection');
     } catch (error) {
-      console.error('Error cleaning up detection services:', error);
+       logger.error('Error cleaning up detection services', 'Detection', error);
     }
   }
 
@@ -52,7 +53,7 @@ export class DetectionCleanupService {
    * Cleanup specific service
    */
   async cleanupService(serviceName: string): Promise<void> {
-    console.log(`Cleaning up ${serviceName}...`);
+     logger.info(`Cleaning up ${serviceName}...`, 'Detection');
 
     try {
       switch (serviceName.toLowerCase()) {
@@ -60,10 +61,10 @@ export class DetectionCleanupService {
           await consolidatedDetectionService.cleanupHook();
           break;
         default:
-          console.warn(`Unknown service: ${serviceName}`);
+           logger.warn(`Unknown service: ${serviceName}`, 'Detection');
       }
     } catch (error) {
-      console.error(`Error cleaning up ${serviceName}:`, error);
+       logger.error(`Error cleaning up ${serviceName}`, 'Detection', error);
     }
   }
 

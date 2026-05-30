@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
@@ -10,7 +11,7 @@ router.get('/list', optionalAuth, async (_req: Request, res: Response) => {
     const persons = await visitorService.getKnownPersons();
     res.json({ success: true, visitors: persons });
   } catch (error) {
-    console.error('Error listing visitors:', error);
+     logger.error('Error listing visitors', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to list visitors' });
   }
 });
@@ -20,7 +21,7 @@ router.get('/timeline', optionalAuth, async (_req: Request, res: Response) => {
     const faces = await visitorService.getKnownFaces();
     res.json({ success: true, timeline: faces });
   } catch (error) {
-    console.error('Error getting visitor timeline:', error);
+     logger.error('Error getting visitor timeline', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to get visitor timeline' });
   }
 });
@@ -39,7 +40,7 @@ router.get('/:id', optionalAuth, validate({
     }
     res.json({ success: true, visitor: person });
   } catch (error) {
-    console.error('Error getting visitor details:', error);
+     logger.error('Error getting visitor details', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to get visitor details' });
   }
 });
@@ -61,7 +62,7 @@ router.put('/:id', requireUser, validate({
     const personId = await visitorService.createPerson(name);
     res.json({ success: true, personId, message: `Visitor updated successfully` });
   } catch (error) {
-    console.error('Error updating visitor:', error);
+     logger.error('Error updating visitor', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to update visitor' });
   }
 });
@@ -79,7 +80,7 @@ router.delete('/:id', requireUser, validate({
     }
     res.json({ success: true, message: 'Visitor deleted successfully' });
   } catch (error) {
-    console.error('Error deleting visitor:', error);
+     logger.error('Error deleting visitor', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to delete visitor' });
   }
 });

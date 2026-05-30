@@ -77,8 +77,16 @@ async function seedDefaultUsers() {
       });
     }
 
-    const adminPasswordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'changeme', 12);
-    const userPasswordHash = await bcrypt.hash(process.env.SEED_USER_PASSWORD || 'changeme', 12);
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    const userPassword = process.env.SEED_USER_PASSWORD;
+
+    if (!adminPassword || !userPassword) {
+      logger.warn('SEED_ADMIN_PASSWORD and/or SEED_USER_PASSWORD not set — skipping seed', 'AuthService');
+      return;
+    }
+
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+    const userPasswordHash = await bcrypt.hash(userPassword, 12);
 
     await userRepository.save({
       username: 'admin',

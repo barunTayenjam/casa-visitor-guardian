@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { BaseController } from './BaseController.js';
@@ -154,26 +153,11 @@ export class AuthController extends BaseController {
         return;
       }
 
-      let payload = this.authService.verifyToken(token);
+      const payload = this.authService.verifyToken(token);
 
       if (!payload) {
-        try {
-          const decoded = jwt.decode(token) as { userId?: string; username?: string; role?: string; exp?: number } | null;
-
-          if (!decoded || !decoded.userId) {
-            res.status(401).json({ success: false, error: 'Invalid token' });
-            return;
-          }
-
-          payload = {
-            userId: decoded.userId,
-            username: decoded.username || '',
-            role: decoded.role || 'user'
-          };
-        } catch {
-          res.status(401).json({ success: false, error: 'Invalid token' });
-          return;
-        }
+        res.status(401).json({ success: false, error: 'Invalid or expired token' });
+        return;
       }
 
       const user = await this.authService.getUserById(payload.userId);

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
@@ -178,7 +179,7 @@ router.post('/rerun-detection', authenticate, validate({
         }
       });
     } catch (detectionError) {
-      console.error('Error in re-detection:', detectionError);
+      logger.error('Error in re-detection', 'DetectionRedo', detectionError);
       res.status(500).json({
         success: false,
         error: 'Detection service error',
@@ -186,7 +187,7 @@ router.post('/rerun-detection', authenticate, validate({
       });
     }
   } catch (error) {
-    console.error('Error re-running detection:', error);
+    logger.error('Error re-running detection', 'DetectionRedo', error);
     res.status(500).json({
       success: false,
       error: 'Failed to re-run detection',
@@ -305,7 +306,7 @@ router.post('/rerun-event-detection', authenticate, validate({
       }
     });
   } catch (error) {
-    console.error('Error re-running event detection:', error);
+    logger.error('Error re-running event detection', 'DetectionRedo', error);
     res.status(500).json({
       success: false,
       error: 'Failed to re-run detection',

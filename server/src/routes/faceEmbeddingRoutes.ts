@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import express from 'express';
 import { AppDataSource } from '../database.js';
 import { FaceEmbedding } from '../models/FaceEmbedding.js';
@@ -67,7 +68,7 @@ router.post('/', validate({
       qualityScore: embedding.qualityScore
     });
   } catch (error) {
-    console.error('Error storing embedding:', error);
+     logger.error('Error storing embedding', 'Face', error);
     res.status(500).json({ error: 'Failed to store embedding' });
   }
 });
@@ -122,7 +123,7 @@ router.get('/visitor/:visitorId', validate({
       }))
     });
   } catch (error) {
-    console.error('Error fetching embeddings:', error);
+     logger.error('Error fetching embeddings', 'Face', error);
     res.status(500).json({ error: 'Failed to fetch embeddings' });
   }
 });
@@ -161,7 +162,7 @@ router.get('/high-quality', validate({
       }))
     });
   } catch (error) {
-    console.error('Error fetching high-quality embeddings:', error);
+     logger.error('Error fetching high-quality embeddings', 'Face', error);
     res.status(500).json({ error: 'Failed to fetch embeddings' });
   }
 });
@@ -185,7 +186,7 @@ router.delete('/:id', validate({
 
     res.json({ message: 'Embedding deactivated successfully' });
   } catch (error) {
-    console.error('Error deactivating embedding:', error);
+     logger.error('Error deactivating embedding', 'Face', error);
     res.status(500).json({ error: 'Failed to deactivate embedding' });
   }
 });
@@ -204,7 +205,7 @@ router.get('/stats', async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching stats:', error);
+     logger.error('Error fetching stats', 'Face', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });

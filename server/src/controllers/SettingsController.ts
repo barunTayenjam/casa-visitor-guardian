@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
@@ -28,7 +29,7 @@ async function loadSystemSettings(): Promise<SystemSettings> {
       return settings;
     }
   } catch (error) {
-    console.error('Error loading system settings from database:', error);
+    logger.error('Error loading system settings from database', 'Settings', error);
   }
   return defaultSystemSettings;
 }
@@ -43,7 +44,7 @@ async function saveSystemSettings(settings: SystemSettings): Promise<boolean> {
     inMemoryState.setSystemSettings(settings);
     return true;
   } catch (error) {
-    console.error('Error saving system settings to database:', error);
+    logger.error('Error saving system settings to database', 'Settings', error);
     return false;
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -41,8 +42,8 @@ export class NvidiaController extends BaseController {
            ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, analyzed_at = NOW()`,
           [eventIdentifier, imgPath?.split('/').pop() || null, cameraName || cameraId || null, result.sceneDescription || null, result.threatAssessment?.level || 'low', result.threatAssessment?.confidence || 0, JSON.stringify(entities.people || []), JSON.stringify(entities.vehicles || []), JSON.stringify(entities.objects || []), '[]', JSON.stringify(result.recommendedActions || []), result.additionalObservations || null, result.modelUsed, totalTime]
         );
-      } catch (saveError) {
-        console.error('[NVIDIA Controller] Failed to save analysis:', saveError);
+       } catch (saveError) {
+        logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);
       }
 
       res.json({
@@ -242,7 +243,7 @@ export class NvidiaController extends BaseController {
         cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
         triggerReason: 'event analysis',
         eventType: event.event_type,
-        detectedObjects: event.object_detections as string[] || [],
+        detectedObjects: event.object_detections.map(d => d.class),
         confidence: event.confidence,
         timestamp: event.timestamp.toString()
       };
@@ -307,7 +308,7 @@ export class NvidiaController extends BaseController {
            result.model || result.modelUsed || 'unknown', result.processing_time_ms || result.processingTime || (Date.now() - startTime)]
         );
       } catch (saveError) {
-        console.error('[NVIDIA Controller] Failed to persist analysis:', saveError);
+        logger.error('[NVIDIA Controller] Failed to persist analysis', 'NVIDIA', saveError);
       }
 
       res.json({
@@ -455,7 +456,7 @@ export class NvidiaController extends BaseController {
           [eventIdentifier, imgPath?.split('/').pop() || null, cameraId || cameraName || null, result.sceneDescription || null, 'low', result.people?.length > 0 ? 70 : 30, JSON.stringify(result.people || []), '[]', '[]', JSON.stringify(result.people?.map((p: any) => p.position) || []), JSON.stringify(['Review if person detected']), result.modelUsed, totalTime]
         );
       } catch (saveError) {
-        console.error('[NVIDIA Controller] Failed to save analysis:', saveError);
+        logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);
       }
 
       res.json({
@@ -517,7 +518,7 @@ export class NvidiaController extends BaseController {
         cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
         triggerReason: 'event bbox analysis',
         eventType: event.event_type,
-        detectedObjects: event.object_detections as string[] || [],
+        detectedObjects: event.object_detections.map(d => d.class),
         confidence: event.confidence,
         timestamp: event.timestamp.toString()
       };

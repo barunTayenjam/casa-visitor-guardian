@@ -1,5 +1,6 @@
 
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { NormalizedDetection, NormalizedFaceDetection } from '../utils/detectionDataNormalizer.js';
 
 @Entity('events')
 @Index(['event_type'])
@@ -87,18 +88,18 @@ export class Event {
   @Column({
     type: 'jsonb',
     nullable: true,
-    default: {},
+    default: () => "'[]'",
     comment: 'JSONB array of object detection results'
   })
-  object_detections!: any;
+  object_detections!: NormalizedDetection[];
 
   @Column({
     type: 'jsonb',
     nullable: true,
-    default: [],
+    default: () => "'[]'",
     comment: 'JSONB array of face detection results'
   })
-  face_detections!: any;
+  face_detections!: NormalizedFaceDetection[];
 
   @CreateDateColumn({ name: 'created_at' })
   created_at!: Date;

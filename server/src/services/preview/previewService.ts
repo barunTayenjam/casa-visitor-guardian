@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { spawn } from 'child_process';
@@ -54,7 +55,7 @@ export class PreviewService {
 
       ffmpeg.on('close', (code: number) => {
         if (code === 0) {
-          console.log(`Preview generated: ${outputPath}`);
+           logger.info(`Preview generated: ${outputPath}`, 'PreviewService');
           resolve(outputPath);
         } else {
           if (errorOutput.includes('404') || errorOutput.includes('Invalid')) {
@@ -90,7 +91,7 @@ export class PreviewService {
       await fs.rename(tempPath, outputPath);
       return outputPath;
     } catch (err) {
-      console.error(`Fallback preview failed: ${err}`);
+       logger.error(`Fallback preview failed: ${err}`, 'PreviewService');
       await fs.writeFile(outputPath, Buffer.from([]));
       return outputPath;
     }
@@ -134,7 +135,7 @@ export class PreviewService {
       await cacheService.set(cacheKey, content.toString('base64'), CACHE_TTL);
       return content;
     } catch (err) {
-      console.error(`Preview stream error: ${err}`);
+       logger.error(`Preview stream error: ${err}`, 'PreviewService');
       return null;
     }
   }
@@ -155,7 +156,7 @@ export class PreviewService {
       await this.extractThumbnailFromVideo(previewPath, thumbPath);
       return thumbPath;
     } catch (err) {
-      console.error(`Thumbnail path error: ${err}`);
+       logger.error(`Thumbnail path error: ${err}`, 'PreviewService');
       return null;
     }
   }
@@ -195,7 +196,7 @@ export class PreviewService {
         }
       }
     } catch (err) {
-      console.error(`Preview cleanup error: ${err}`);
+       logger.error(`Preview cleanup error: ${err}`, 'PreviewService');
     }
 
     return count;

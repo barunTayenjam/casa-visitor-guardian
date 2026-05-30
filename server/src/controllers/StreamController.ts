@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
@@ -68,7 +69,7 @@ export class StreamController extends BaseController {
       });
       res.end(camera.lastFrame);
     } catch (error) {
-      console.error(`Error getting snapshot for camera ${cameraId}:`, error);
+       logger.error(`Error getting snapshot for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get snapshot' });
     }
   }
@@ -111,7 +112,7 @@ export class StreamController extends BaseController {
       req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
       req.on('aborted', () => { isActive = false; clearInterval(interval); });
     } catch (error) {
-      console.error(`Error serving stream for camera ${cameraId}:`, error);
+       logger.error(`Error serving stream for camera ${cameraId}`, 'Stream', error);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve stream' });
     }
   }
@@ -155,7 +156,7 @@ export class StreamController extends BaseController {
       req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
       req.on('aborted', () => { isActive = false; clearInterval(interval); });
     } catch (error) {
-      console.error(`Error serving detect stream for camera ${cameraId}:`, error);
+       logger.error(`Error serving detect stream for camera ${cameraId}`, 'Stream', error);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve detect stream' });
     }
   }
@@ -199,7 +200,7 @@ export class StreamController extends BaseController {
       req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
       req.on('aborted', () => { isActive = false; clearInterval(interval); });
     } catch (error) {
-      console.error(`Error serving live stream for camera ${cameraId}:`, error);
+       logger.error(`Error serving live stream for camera ${cameraId}`, 'Stream', error);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve live stream' });
     }
   }
@@ -226,7 +227,7 @@ export class StreamController extends BaseController {
       });
       res.end(camera.lastFrame);
     } catch (error) {
-      console.error(`Error getting frame for camera ${cameraId}:`, error);
+       logger.error(`Error getting frame for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get frame' });
     }
   }
@@ -261,7 +262,7 @@ export class StreamController extends BaseController {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error(`Error getting stream status for camera ${cameraId}:`, error);
+       logger.error(`Error getting stream status for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get stream status' });
     }
   }

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { AppDataSource } from '../database.js';
 import { NotificationSubscription } from '../models/NotificationSubscription.js';
@@ -38,7 +39,7 @@ router.post('/subscribe', validate({
       message: 'Subscribed to notifications successfully',
     });
   } catch (error) {
-    console.error('Subscribe error:', error);
+    logger.error('Subscribe error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to subscribe to notifications' });
   }
 });
@@ -60,7 +61,7 @@ router.delete('/unsubscribe', validate({
 
     res.json({ message: 'Unsubscribed successfully' });
   } catch (error) {
-    console.error('Unsubscribe error:', error);
+    logger.error('Unsubscribe error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to unsubscribe' });
   }
 });
@@ -89,7 +90,7 @@ router.post('/resubscribe', validate({
 
     res.json({ message: 'Resubscribed successfully' });
   } catch (error) {
-    console.error('Resubscribe error:', error);
+    logger.error('Resubscribe error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to resubscribe' });
   }
 });
@@ -115,7 +116,7 @@ router.get('/subscription', async (req: Request, res: Response) => {
       lastUsed: subscription.lastUsed,
     });
   } catch (error) {
-    console.error('Get subscription error:', error);
+    logger.error('Get subscription error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to get subscription' });
   }
 });
@@ -154,7 +155,7 @@ router.get('/logs', validate({
       })),
     });
   } catch (error) {
-    console.error('Get logs error:', error);
+    logger.error('Get logs error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to get notification logs' });
   }
 });
@@ -176,7 +177,7 @@ router.post('/test', async (req: Request, res: Response) => {
 
     res.json({ message: 'Test notification sent' });
   } catch (error) {
-    console.error('Test notification error:', error);
+    logger.error('Test notification error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to send test notification' });
   }
 });
@@ -212,7 +213,7 @@ router.get('/preferences', async (req: Request, res: Response) => {
       quiet_hours_timezone: preferences.quietHoursTimezone,
     });
   } catch (error) {
-    console.error('Get preferences error:', error);
+    logger.error('Get preferences error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to get preferences' });
   }
 });
@@ -261,7 +262,7 @@ router.put('/preferences', validate({
       },
     });
   } catch (error) {
-    console.error('Update preferences error:', error);
+    logger.error('Update preferences error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to update preferences' });
   }
 });
@@ -300,7 +301,7 @@ router.post('/preferences/reset', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Reset preferences error:', error);
+    logger.error('Reset preferences error', 'Notifications', error);
     res.status(500).json({ error: 'Failed to reset preferences' });
   }
 });

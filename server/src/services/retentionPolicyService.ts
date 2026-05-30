@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
 import { RetentionPolicy } from '../models/RetentionPolicy.js';
 import { promises as fs } from 'fs';
@@ -30,7 +31,7 @@ export class RetentionPolicyService extends EventEmitter {
 
   private constructor() {
     super();
-    console.log('RetentionPolicyService: Initializing');
+     logger.info('RetentionPolicyService: Initializing', 'RetentionPolicyService');
   }
 
   static getInstance(): RetentionPolicyService {
@@ -54,9 +55,9 @@ export class RetentionPolicyService extends EventEmitter {
       }
 
       this.initialized = true;
-      console.log('RetentionPolicyService initialized');
+       logger.info('RetentionPolicyService initialized', 'RetentionPolicyService');
     } catch (error) {
-      console.error('Failed to initialize RetentionPolicyService:', error);
+       logger.error('Failed to initialize RetentionPolicyService', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -75,7 +76,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return await AppDataSource.getRepository(RetentionPolicy).save(policy);
     } catch (error) {
-      console.error('Error creating global retention policy:', error);
+       logger.error('Error creating global retention policy', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -108,7 +109,7 @@ export class RetentionPolicyService extends EventEmitter {
       this.policyCache.set(cacheKey, { policy, timestamp: Date.now() });
       return policy;
     } catch (error) {
-      console.error(`Error retrieving retention policy for ${camera || 'global'}:`, error);
+       logger.error(`Error retrieving retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -120,7 +121,7 @@ export class RetentionPolicyService extends EventEmitter {
         .orderBy('rp.camera', 'ASC')
         .getMany();
     } catch (error) {
-      console.error('Error retrieving all retention policies:', error);
+       logger.error('Error retrieving all retention policies', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -158,7 +159,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return await AppDataSource.getRepository(RetentionPolicy).save(policy);
     } catch (error) {
-      console.error(`Error creating retention policy for ${camera || 'global'}:`, error);
+       logger.error(`Error creating retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -180,7 +181,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return updatedPolicy;
     } catch (error) {
-      console.error(`Error updating retention policy for ${camera || 'global'}:`, error);
+       logger.error(`Error updating retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -195,7 +196,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       this.emit('policyDeleted', { camera });
     } catch (error) {
-      console.error(`Error deleting retention policy for ${camera}:`, error);
+       logger.error(`Error deleting retention policy for ${camera}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -236,7 +237,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return expiredFiles;
     } catch (error) {
-      console.error(`Error finding expired files for ${camera || 'global'}/${category || 'all'}:`, error);
+       logger.error(`Error finding expired files for ${camera || 'global'}/${category || 'all'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -283,7 +284,7 @@ export class RetentionPolicyService extends EventEmitter {
           }
         }
       } catch (error) {
-        console.warn(`Error scanning ${category} directory for ${camera || 'global'}:`, error);
+         logger.warn(`Error scanning ${category} directory for ${camera || 'global'}`, 'RetentionPolicyService');
       }
       return expiredFiles;
     }
@@ -309,7 +310,7 @@ export class RetentionPolicyService extends EventEmitter {
         }
       }
     } catch (error) {
-      console.warn(`Error scanning detections for ${camera || 'global'}:`, error);
+       logger.warn(`Error scanning detections for ${camera || 'global'}`, 'RetentionPolicyService');
     }
 
     return expiredFiles;
@@ -351,12 +352,12 @@ export class RetentionPolicyService extends EventEmitter {
               mtime: stats.mtime,
             });
           } catch (error) {
-            console.warn(`Error reading file stats for ${fullPath}:`, error);
+             logger.warn(`Error reading file stats for ${fullPath}`, 'RetentionPolicyService');
           }
         }
       }
     } catch (error) {
-      console.warn(`Error scanning directory ${dirPath}:`, error);
+       logger.warn(`Error scanning directory ${dirPath}`, 'RetentionPolicyService');
     }
 
     return files;
@@ -387,7 +388,7 @@ export class RetentionPolicyService extends EventEmitter {
         totalExpiredFiles,
       };
     } catch (error) {
-      console.error(`Error getting retention summary for ${camera || 'global'}:`, error);
+       logger.error(`Error getting retention summary for ${camera || 'global'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -402,7 +403,7 @@ export class RetentionPolicyService extends EventEmitter {
           await fs.unlink(filePath);
           deletedCount++;
         } catch (error) {
-          console.warn(`Error deleting expired file ${filePath}:`, error);
+           logger.warn(`Error deleting expired file ${filePath}`, 'RetentionPolicyService');
         }
       }
 
@@ -412,7 +413,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return deletedCount;
     } catch (error) {
-      console.error(`Error applying retention policy for ${camera || 'global'}/${category || 'all'}:`, error);
+       logger.error(`Error applying retention policy for ${camera || 'global'}/${category || 'all'}`, 'RetentionPolicyService', error);
       throw error;
     }
   }

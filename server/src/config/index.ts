@@ -305,9 +305,14 @@ export const config: AppConfig = {
         }))
       }));
 
+      if (cameras.length === 0) {
+        logger.warn('Camera configuration loaded but resulted in 0 cameras. Check cameras.json format or CAMERAS env var. Server will start but no cameras will be active.', 'Config');
+      }
+
       return cameras;
     } catch (error) {
       console.error('Failed to load camera configuration:', error);
+      logger.warn('Camera configuration failed to load. Server starting with no cameras. Verify cameras.json exists and contains valid JSON.', 'Config');
       return [];
     }
   })(),

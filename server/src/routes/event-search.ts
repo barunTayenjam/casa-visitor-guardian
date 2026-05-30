@@ -4,10 +4,22 @@ import fs from 'node:fs';
 import eventSearchService from '../services/eventSearchService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
-router.get('/search', optionalAuth, async (req: Request, res: Response) => {
+router.get('/search', optionalAuth, validate({
+  query: {
+    startDate: { type: 'string' as const, required: false, pattern: /^\d{4}-\d{2}-\d{2}/ },
+    endDate: { type: 'string' as const, required: false, pattern: /^\d{4}-\d{2}-\d{2}/ },
+    cameraId: { type: 'string' as const, required: false, pattern: /^[a-zA-Z0-9_-]+$/ },
+    eventType: { type: 'string' as const, required: false },
+    page: { type: 'number' as const, required: false, min: 1 },
+    pageSize: { type: 'number' as const, required: false, min: 1, max: 100 },
+    sortBy: { type: 'string' as const, required: false },
+    sortOrder: { type: 'string' as const, required: false, enum: ['ASC', 'DESC', 'asc', 'desc'] }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const filters = {
       startDate: req.query.startDate as string,
@@ -29,7 +41,16 @@ router.get('/search', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/search/legacy', optionalAuth, async (req: Request, res: Response) => {
+router.get('/search/legacy', optionalAuth, validate({
+  query: {
+    page: { type: 'number' as const, required: false, min: 1 },
+    pageSize: { type: 'number' as const, required: false, min: 1, max: 100 },
+    cameraId: { type: 'string' as const, required: false },
+    searchQuery: { type: 'string' as const, required: false, maxLength: 200 },
+    startDate: { type: 'string' as const, required: false },
+    endDate: { type: 'string' as const, required: false }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
@@ -58,7 +79,13 @@ router.get('/stats/today', optionalAuth, async (req: Request, res: Response) => 
   }
 });
 
-router.get('/stats/calendar', optionalAuth, async (req: Request, res: Response) => {
+router.get('/stats/calendar', optionalAuth, validate({
+  query: {
+    year: { type: 'number' as const, required: false, min: 2020, max: 2100 },
+    month: { type: 'number' as const, required: false, min: 1, max: 12 },
+    camera_id: { type: 'string' as const, required: false, pattern: /^[a-zA-Z0-9_-]+$/ }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { year, month, camera_id } = req.query;
     const currentYear = year ? parseInt(year as string) : new Date().getFullYear();
@@ -71,7 +98,13 @@ router.get('/stats/calendar', optionalAuth, async (req: Request, res: Response) 
   }
 });
 
-router.get('/stats/range', optionalAuth, async (req: Request, res: Response) => {
+router.get('/stats/range', optionalAuth, validate({
+  query: {
+    start_date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}/ },
+    end_date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}/ },
+    camera_id: { type: 'string' as const, required: false }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { start_date, end_date, camera_id } = req.query;
     if (!start_date || !end_date) { res.status(400).json({ success: false, error: 'Start and end dates required' }); return; }
@@ -93,7 +126,11 @@ router.get('/list', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:id/details', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:id/details', optionalAuth, validate({
+  params: {
+    id: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const event = await eventSearchService.getEventDetails(req.params.id);
     if (!event) { res.status(404).json({ success: false, error: 'Event not found' }); return; }
@@ -104,7 +141,11 @@ router.get('/:id/details', optionalAuth, async (req: Request, res: Response) => 
   }
 });
 
-router.get('/image/:filename', optionalAuth, async (req: Request, res: Response) => {
+router.get('/image/:filename', optionalAuth, validate({
+  params: {
+    filename: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9._-]+$/ }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { filename } = req.params;
     if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
@@ -145,7 +186,11 @@ router.get('/image/:filename', optionalAuth, async (req: Request, res: Response)
   }
 });
 
-router.post('/:id/archive', requireUser, (req: Request, res: Response) => {
+router.post('/:id/archive', requireUser, validate({
+  params: {
+    id: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
+  }
+}), (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
     const events = inMemoryState.getRecentEvents();

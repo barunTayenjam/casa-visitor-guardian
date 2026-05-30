@@ -16,14 +16,10 @@ const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotMana
   const [slotAcquired, setSlotAcquired] = useState(false);
   const acquiredRef = useRef(false);
 
-  console.log('[STREAM] ViewportCameraCard render:', camera.id, 'isVisible:', isVisible, 'slotAcquired:', slotAcquired);
-
   useEffect(() => {
-    console.log('[STREAM] ViewportCameraCard visibility effect:', camera.id, 'isVisible:', isVisible);
     let cancelled = false;
     if (!isVisible) {
       if (acquiredRef.current) {
-        console.log('[STREAM] Releasing slot for:', camera.id);
         slotManager.release(camera.id);
         acquiredRef.current = false;
         setSlotAcquired(false);
@@ -31,20 +27,15 @@ const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotMana
       return;
     }
     (async () => {
-      console.log('[STREAM] Acquiring slot for:', camera.id);
       await slotManager.acquire(camera.id);
       if (!cancelled) {
-        console.log('[STREAM] Slot acquired for:', camera.id);
         acquiredRef.current = true;
         setSlotAcquired(true);
-      } else {
-        console.log('[STREAM] Slot acquisition cancelled for:', camera.id);
       }
     })();
     return () => {
       cancelled = true;
       if (acquiredRef.current) {
-        console.log('[STREAM] Cleanup releasing slot for:', camera.id);
         slotManager.release(camera.id);
         acquiredRef.current = false;
       }
@@ -52,7 +43,6 @@ const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotMana
   }, [camera.id, slotManager, isVisible]);
 
   const shouldStream = isVisible && slotAcquired;
-  console.log('[STREAM] ViewportCameraCard shouldStream:', camera.id, '=', shouldStream, '(visible:', isVisible, 'slot:', slotAcquired, ')');
 
   return (
     <div ref={cardRef} className="relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]"

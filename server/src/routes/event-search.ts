@@ -160,26 +160,27 @@ router.get('/image/:filename', optionalAuth, validate({
       const storagePath = await eventSearchService.lookupEventImagePath(filename);
       if (storagePath) {
         let actualImagePath = storagePath;
-        if (actualImagePath.includes('/data/detections/'))
-          actualImagePath = actualImagePath.replace(/.*\/data\/detections\//, '/app/data/detections/');
-        const allowedPaths = [path.join(process.cwd(), 'public'), path.join(process.cwd(), '..', 'public'), '/app/data/detections', '/app/public', '/data/detections'];
-        const isAllowed = allowedPaths.some(p => actualImagePath.startsWith(p));
-        if (!isAllowed) return res.status(403).json({ success: false, error: 'Unauthorized file access' });
+        if (!path.isAbsolute(actualImagePath)) {
+          actualImagePath = path.join(process.cwd(), 'data', 'detections', actualImagePath);
+        }
         if (fs.existsSync(actualImagePath)) return res.sendFile(actualImagePath);
       }
     } catch {}
 
-    const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0');
-    const ym = `${year}-${month}`;
-    const paths = [
-      path.join(process.cwd(), 'data', 'detections', ym, 'events', 'motion', filename),
-      path.join(process.cwd(), 'data', 'detections', ym, 'events', 'faces', filename),
-      path.join(process.cwd(), '..', 'data', 'detections', ym, 'events', 'motion', filename),
-      path.join(process.cwd(), '..', 'data', 'detections', ym, 'events', 'faces', filename),
-      `/app/data/detections/${ym}/events/motion/${filename}`,
-      `/app/data/detections/${ym}/events/faces/${filename}`
-    ];
-    for (const imagePath of paths) { if (fs.existsSync(imagePath)) return res.sendFile(imagePath); }
+    const now = new Date();
+    for (let y = now.getFullYear(); y >= now.getFullYear() - 4; y--) {
+      const startMonth = y === now.getFullYear() ? now.getMonth() + 1 : 12;
+      for (let m = startMonth; m >= 1; m--) {
+        const ym = `${y}-${String(m).padStart(2, '0')}`;
+        const candidates = [
+          path.join(process.cwd(), 'data', 'detections', ym, 'events', 'motion', filename),
+          path.join(process.cwd(), 'data', 'detections', ym, 'events', 'faces', filename),
+        ];
+        for (const imagePath of candidates) {
+          if (fs.existsSync(imagePath)) return res.sendFile(imagePath);
+        }
+      }
+    }
     res.status(404).json({ success: false, error: 'Image file not found on disk' });
   } catch (error) {
      logger.error('Error serving event image', 'EventSearch', error);

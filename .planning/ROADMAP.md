@@ -11,6 +11,7 @@
 - ✅ **v1.2 Detection Pipeline Redesign** — Phases 1-4 (complete)
 - ✅ **v1.3 Pipeline Cleanup** — Phase 5 (complete)
 - ✅ **v1.x Documentation Audit** — Phase 6 (complete — 3/3 plans)
+- 📋 **v1.4 Security & Quality** — Phases 7-9 (planned)
 
 ---
 
@@ -162,8 +163,50 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | PERF-08 | Auto start/stop streams based on viewport visibility with configurable debounce | Viewport Loading | 02-03 |
 | PERF-09 | Configurable max concurrent streams limit (default: 4) | Viewport Loading | 02-03 |
 
+## v1.4 Security & Quality
+
+### Phase 7: Security Hardening
+
+**Goal:** Fix all critical and high-severity security issues — JWT refresh token bypass, default seed passwords, missing Helmet headers, unvalidated route inputs, untyped auth access. Precondition for all further feature work.
+
+**Requirements**: SEC2-01, SEC2-02, SEC2-03, SEC2-04, SEC2-05, SEC2-06
+**Depends on:** Phase 6
+**Plans:** 2 plans in 2 waves
+
+Plans:
+- [ ] 07-01-PLAN.md — Auth & startup security: JWT refresh bypass fix, seed password fail-fast, Helmet headers (SEC2-01, SEC2-02, SEC2-03) — Wave 1
+- [ ] 07-02-PLAN.md — Route validation & code hardening: input validation audit, (req as any) fix, camera config warning, timezone, env consolidation (SEC2-04, SEC2-05, SEC2-06) — Wave 2
+
+### Phase 8: Reliability & Type Safety
+
+**Goal:** Fix partial startup, event loop blocking, dual Socket.io handlers, dual service access. Begin TypeScript strict mode migration. Type detection pipeline contract at Python→Node.js boundary.
+
+**Requirements**: REL-01, REL-02, REL-03, REL-04, REL-05, REL-06, TYP-01, TYP-02, TYP-03
+**Depends on:** Phase 7
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Startup reliability + health endpoints (REL-01, REL-06)
+- [ ] 08-02-PLAN.md — Async file I/O + Socket.io consolidation (REL-02, REL-03, REL-04, REL-05)
+- [ ] 08-03-PLAN.md — Type safety migration phase 1 (TYP-01, TYP-02, TYP-03)
+
+### Phase 9: Code Quality & Test Coverage
+
+**Goal:** Decompose monolithic files (index.ts 623L, app.py 1693L, nvidiaAnalysis 1063L), standardize logging, add frontend tests, establish CI pipeline.
+
+**Requirements**: CQ-01–CQ-08, TEST-01–TEST-03, CI-01
+**Depends on:** Phase 8
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Backend decomposition (CQ-01, CQ-02, CQ-03, CQ-04)
+- [ ] 09-02-PLAN.md — Code quality cleanup (CQ-05, CQ-06, CQ-07, CQ-08)
+- [ ] 09-03-PLAN.md — Test coverage + CI (TEST-01, TEST-02, TEST-03, CI-01)
+
+---
+
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-05-29 — Phase 6 plan 03 complete (all 3/3 plans done)*
+*Last updated: 2026-05-30 — v1.4 Security & Quality milestone planned (Phases 7-9)*
 
 ## v1.3 Phase 5 Requirements
 

@@ -115,11 +115,11 @@ class WebSocketPublisher:
         subs = self._subscriptions.get(camera_id)
         if not subs:
             return
-        metadata_bytes = json.dumps(metadata).encode("utf-8")
+        metadata_text = json.dumps(metadata)
         dead: set = set()
         for ws in list(subs):
             try:
-                await ws.send(metadata_bytes)
+                await ws.send(metadata_text)
                 if binary:
                     await ws.send(binary)
             except websockets.exceptions.ConnectionClosed:

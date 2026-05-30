@@ -125,7 +125,7 @@ services:
       - "0.0.0.0:5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_BACKEND_URL=http://172.17.0.1:9753
+      - VITE_BACKEND_URL=http://backend:9753
       - TZ=Asia/Kolkata
     volumes:
       - ./frontend:/app
@@ -192,7 +192,7 @@ services:
       - PORT=8084
       - FLASK_ENV=development
       - TZ=Asia/Kolkata
-      - FLASK_DEBUG=1
+      - FLASK_DEBUG=0
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=sentryvision
@@ -226,11 +226,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${OPENCV_CPU_LIMIT:-0.5}
-          memory: ${OPENCV_MEM_LIMIT:-1024M}
+          cpus: ${OPENCV_CPU_LIMIT:-2.0}
+          memory: ${OPENCV_MEM_LIMIT:-2048M}
         reservations:
-          cpus: ${OPENCV_CPU_RESERVE:-0.1}
-          memory: ${OPENCV_MEM_RESERVE:-256M}
+          cpus: ${OPENCV_CPU_RESERVE:-0.5}
+          memory: ${OPENCV_MEM_RESERVE:-512M}
 
 networks:
   sentryvision_network:

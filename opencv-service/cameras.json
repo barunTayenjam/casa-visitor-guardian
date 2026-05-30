@@ -7,24 +7,26 @@
             {
                 "path": "rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.62:554/stream1",
                 "roles": ["live", "record"],
-                "width": 1920,
-                "height": 1080,
+                "width": 2304,
+                "height": 1296,
                 "fps": 2
             },
             {
                 "path": "rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.62:554/stream2",
                 "roles": ["detect"],
                 "width": 640,
-                "height": 480,
-                "fps": 5
+                "height": 360,
+                "fps": 2
             }
         ],
         "detect": {
             "width": 640,
-            "height": 480,
-            "fps": 5
+            "height": 360,
+            "fps": 2
         },
         "live": {
+            "width": 1280,
+            "height": 720,
             "fps": 2
         },
         "record": {
@@ -123,24 +125,26 @@
             {
                 "path": "rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.61:554/stream1",
                 "roles": ["live", "record"],
-                "width": 1920,
-                "height": 1080,
+                "width": 2304,
+                "height": 1296,
                 "fps": 2
             },
             {
                 "path": "rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.61:554/stream2",
                 "roles": ["detect"],
                 "width": 640,
-                "height": 480,
-                "fps": 5
+                "height": 360,
+                "fps": 2
             }
         ],
         "detect": {
             "width": 640,
-            "height": 480,
-            "fps": 5
+            "height": 360,
+            "fps": 2
         },
         "live": {
+            "width": 1280,
+            "height": 720,
             "fps": 2
         },
         "record": {

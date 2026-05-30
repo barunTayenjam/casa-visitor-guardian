@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import express from 'express';
 import { AppDataSource } from '../database.js';
 import { requireUser } from '../middleware/auth.js';
@@ -29,7 +30,7 @@ router.get('/', async (req, res) => {
 
     res.json(config);
   } catch (error) {
-    console.error('Error fetching face config:', error);
+     logger.error('Error fetching face config', 'Face', error);
     res.status(500).json({ error: 'Failed to fetch configuration' });
   }
 });
@@ -64,7 +65,7 @@ router.get('/:key', validate({
       updatedAt: row.updated_at
     });
   } catch (error) {
-    console.error('Error fetching config key:', error);
+     logger.error('Error fetching config key', 'Face', error);
     res.status(500).json({ error: 'Failed to fetch configuration' });
   }
 });
@@ -139,7 +140,7 @@ router.put('/:key', validate({
       message: 'Configuration updated successfully'
     });
   } catch (error) {
-    console.error('Error updating config:', error);
+     logger.error('Error updating config', 'Face', error);
     res.status(500).json({ error: 'Failed to update configuration' });
   }
 });
@@ -160,10 +161,10 @@ router.post('/reset', async (req, res) => {
       WHERE face_recognition_config.config_key = defaults.config_key
     `);
 
-    console.log(`Config reset: ${result?.[1] || 'N/A'} rows affected`);
+     logger.info(`Config reset: ${result?.[1] || 'N/A'} rows affected`, 'Face');
     res.json({ message: 'Configuration reset to defaults' });
   } catch (error) {
-    console.error('Error resetting config:', error);
+     logger.error('Error resetting config', 'Face', error);
     res.status(500).json({ error: 'Failed to reset configuration' });
   }
 });

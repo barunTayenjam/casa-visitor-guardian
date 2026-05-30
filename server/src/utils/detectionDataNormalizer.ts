@@ -1,3 +1,4 @@
+import { logger } from './logger.js';
 import { DetectionResult, FaceDetection } from '../detection/consolidatedDetectionService.js';
 
 export interface NormalizedDetection {
@@ -61,7 +62,7 @@ export class DetectionDataNormalizer {
     const bbox = detection.bbox || detection.boundingBox;
     
     if (!bbox) {
-      console.warn('Detection missing bounding box:', detection);
+       logger.warn('Detection missing bounding box', 'DataNormalizer');
       return null;
     }
 
@@ -83,7 +84,7 @@ export class DetectionDataNormalizer {
     const bbox = detection.bbox || detection.boundingBox;
     
     if (!bbox) {
-      console.warn('Face detection missing bounding box:', detection);
+       logger.warn('Face detection missing bounding box', 'DataNormalizer');
       return null;
     }
 
@@ -111,7 +112,7 @@ export class DetectionDataNormalizer {
     type: 'object' | 'face'
   ): NormalizedDetection[] | NormalizedFaceDetection[] {
     if (!Array.isArray(detections)) {
-      console.warn(`Expected array for ${type} detections, got:`, typeof detections);
+       logger.warn(`Expected array for ${type} detections, got: ${typeof detections}`, 'DataNormalizer');
       return [];
     }
 
@@ -121,7 +122,7 @@ export class DetectionDataNormalizer {
           ? this.normalizeFaceDetection(d as RawFaceDetection)
           : this.normalizeDetection(d as RawDetection);
       } catch (error) {
-        console.error(`Error normalizing ${type} detection at index ${index}:`, error);
+         logger.error(`Error normalizing ${type} detection at index ${index}`, 'DataNormalizer', error);
         return null;
       }
     }).filter((d): d is NormalizedDetection => d !== null);
@@ -180,7 +181,7 @@ export class DetectionDataNormalizer {
         unknown_faces_count: data.unknown_faces_count
       });
     } catch (error) {
-      console.error('Error sanitizing detection data for storage:', error);
+       logger.error('Error sanitizing detection data for storage', 'DataNormalizer', error);
       return JSON.stringify({
         object_detections: [],
         face_detections: [],
@@ -216,7 +217,7 @@ export class DetectionDataNormalizer {
         unknown_faces_count: Math.max(0, Number((parsed as Record<string, unknown>).unknown_faces_count) || 0)
       };
     } catch (error) {
-      console.error('Error parsing detection data from storage:', error);
+       logger.error('Error parsing detection data from storage', 'DataNormalizer', error);
       return {
         object_detections: [],
         face_detections: [],

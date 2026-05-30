@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response, NextFunction } from 'express';
 import cacheService from '../services/cacheService.js';
 
@@ -73,7 +74,7 @@ export class EnhancedRateLimit {
 
         next();
       } catch (error) {
-        console.error('Rate limit middleware error:', error);
+        logger.error('Rate limit middleware error', 'RateLimit', error);
         // Allow request to proceed if rate limiting fails
         next();
       }
@@ -136,7 +137,7 @@ export const getRateLimitStats = async () => {
       uptime: process.uptime()
     };
   } catch (error) {
-    console.error('Error getting rate limit stats:', error);
+    logger.error('Error getting rate limit stats', 'RateLimit', error);
     return null;
   }
 };

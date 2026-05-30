@@ -124,9 +124,9 @@ def _tlwh_to_tlbr(tlwh: np.ndarray) -> np.ndarray:
 def _iou_cost_matrix(
     dets: List[np.ndarray], tracks: List[np.ndarray]
 ) -> np.ndarray:
-    if not dets or not tracks:
-        return np.empty((0, 0), dtype=np.float64)
     M, N = len(dets), len(tracks)
+    if M == 0 or N == 0:
+        return np.full((M, N), float("inf"), dtype=np.float64)
     cost = np.zeros((M, N), dtype=np.float64)
     for i in range(M):
         for j in range(N):
@@ -137,7 +137,13 @@ def _iou_cost_matrix(
 def _linear_assignment(cost: np.ndarray, thresh: float):
     """Greedy nearest-neighbor assignment (no scipy dependency)."""
     if cost.size == 0:
-        return np.empty((0, 2), dtype=int), np.array([], dtype=int), np.array([], dtype=int)
+        n_dets = cost.shape[0]
+        n_trks = cost.shape[1]
+        return (
+            np.empty((0, 2), dtype=int),
+            np.arange(n_dets, dtype=int),
+            np.arange(n_trks, dtype=int),
+        )
     matched = []
     used_rows = set()
     used_cols = set()

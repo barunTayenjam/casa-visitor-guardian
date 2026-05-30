@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger.js';
+
 export interface CircuitBreakerConfig {
   failureThreshold: number;
   resetTimeout: number;
@@ -22,7 +24,7 @@ export class CircuitBreaker {
     if (this.state === CircuitState.OPEN) {
       if (Date.now() - this.lastFailureTime >= this.config.resetTimeout) {
         this.state = CircuitState.HALF_OPEN;
-        console.log(`CircuitBreaker[${this.name}]: Entering HALF_OPEN state`);
+                logger.info(`CircuitBreaker[${this.name}]: Entering HALF_OPEN state`, 'CircuitBreaker');
       } else {
         throw new Error(`CircuitBreaker[${this.name}]: Circuit is OPEN`);
       }
@@ -46,7 +48,7 @@ export class CircuitBreaker {
         this.state = CircuitState.CLOSED;
         this.successCount = 0;
         this.failureCount = 0;
-        console.log(`CircuitBreaker[${this.name}]: Circuit CLOSED (recovered)`);
+        logger.info(`CircuitBreaker[${this.name}]: Circuit CLOSED (recovered)`, 'CircuitBreaker');
       }
     } else {
       this.failureCount = 0;
@@ -59,7 +61,7 @@ export class CircuitBreaker {
 
     if (this.failureCount >= this.config.failureThreshold) {
       this.state = CircuitState.OPEN;
-      console.error(`CircuitBreaker[${this.name}]: Circuit OPEN (too many failures)`);
+      logger.error(`CircuitBreaker[${this.name}]: Circuit OPEN (too many failures)`, 'CircuitBreaker');
     }
   }
 

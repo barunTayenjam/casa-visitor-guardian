@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import axios, { AxiosInstance } from 'axios';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -49,11 +50,11 @@ export class OpenCVMicroserviceClient {
     // Request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
-        console.log(`OpenCV Microservice: ${config.method?.toUpperCase()} ${config.url}`);
+         logger.info(`OpenCV Microservice: ${config.method?.toUpperCase()} ${config.url}`, 'OpenCVClient');
         return config;
       },
       (error) => {
-        console.error('OpenCV Microservice: Request error:', error);
+         logger.error('OpenCV Microservice: Request error', 'OpenCVClient', error);
         return Promise.reject(error);
       }
     );
@@ -61,11 +62,11 @@ export class OpenCVMicroserviceClient {
     // Response interceptor for logging
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`OpenCV Microservice: Response ${response.status} from ${response.config.url}`);
+         logger.info(`OpenCV Microservice: Response ${response.status} from ${response.config.url}`, 'OpenCVClient');
         return response;
       },
       (error) => {
-        console.error('OpenCV Microservice: Response error:', error.message);
+         logger.error(`OpenCV Microservice: Response error: ${error.message}`, 'OpenCVClient');
         return Promise.reject(error);
       }
     );
@@ -89,16 +90,16 @@ export class OpenCVMicroserviceClient {
       if (isHealthy) {
         this.isHealthy = true;
         this.lastHealthCheck = now;
-        console.log('OpenCV Microservice: Health check passed');
+         logger.info('OpenCV Microservice: Health check passed', 'OpenCVClient');
       } else {
         this.isHealthy = false;
-        console.warn('OpenCV Microservice: Health check failed - service not healthy');
+         logger.warn('OpenCV Microservice: Health check failed - service not healthy', 'OpenCVClient');
       }
       
       return isHealthy;
     } catch (error) {
       this.isHealthy = false;
-      console.error('OpenCV Microservice: Health check failed:', error);
+       logger.error('OpenCV Microservice: Health check failed', 'OpenCVClient', error);
       return false;
     }
   }
@@ -111,7 +112,7 @@ export class OpenCVMicroserviceClient {
       const response = await this.client.get('/status');
       return response.data;
     } catch (error) {
-      console.error('OpenCV Microservice: Failed to get status:', error);
+       logger.error('OpenCV Microservice: Failed to get status', 'OpenCVClient', error);
       return null;
     }
   }
@@ -129,7 +130,7 @@ export class OpenCVMicroserviceClient {
       const stats = fs.statSync(imagePath);
       const fileHash = this.generateFileHash(imagePath, stats);
 
-      console.log(`OpenCV Microservice: Detecting objects in ${imagePath}`);
+       logger.info(`OpenCV Microservice: Detecting objects in ${imagePath}`, 'OpenCVClient');
 
       const response = await this.client.post('/detect-objects', imageBuffer, {
         headers: { 'Content-Type': 'image/jpeg' },
@@ -137,7 +138,7 @@ export class OpenCVMicroserviceClient {
       });
       return { ...response.data, fileHash };
     } catch (error) {
-      console.error(`OpenCV Microservice: Object detection failed for ${imagePath}:`, error);
+       logger.error(`OpenCV Microservice: Object detection failed for ${imagePath}`, 'OpenCVClient', error);
 
       if (axios.isAxiosError(error)) {
         throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
@@ -160,7 +161,7 @@ export class OpenCVMicroserviceClient {
       const stats = fs.statSync(imagePath);
       const fileHash = this.generateFileHash(imagePath, stats);
 
-      console.log(`OpenCV Microservice: Recognizing faces in ${imagePath}`);
+       logger.info(`OpenCV Microservice: Recognizing faces in ${imagePath}`, 'OpenCVClient');
 
       const response = await this.client.post('/recognize-faces', imageBuffer, {
         headers: { 'Content-Type': 'image/jpeg' },
@@ -168,7 +169,7 @@ export class OpenCVMicroserviceClient {
       });
       return { ...response.data, fileHash };
     } catch (error) {
-      console.error(`OpenCV Microservice: Face recognition failed for ${imagePath}:`, error);
+       logger.error(`OpenCV Microservice: Face recognition failed for ${imagePath}`, 'OpenCVClient', error);
 
       if (axios.isAxiosError(error)) {
         throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
@@ -199,7 +200,7 @@ export class OpenCVMicroserviceClient {
     const startTime = Date.now();
     const checkInterval = 2000; // Check every 2 seconds
 
-    console.log(`OpenCV Microservice: Waiting for service to be ready (timeout: ${timeoutMs}ms)`);
+     logger.info(`OpenCV Microservice: Waiting for service to be ready (timeout: ${timeoutMs}ms)`, 'OpenCVClient');
 
     while (Date.now() - startTime < timeoutMs) {
       try {
@@ -209,21 +210,21 @@ export class OpenCVMicroserviceClient {
         // Consider service ready if it's healthy, even if not fully initialized
         // This allows mock detection to work while real OpenCV initialization continues
         if (isHealthy && status && status.status === 'ready') {
-          console.log('OpenCV Microservice: Service is ready and healthy');
+           logger.info('OpenCV Microservice: Service is ready and healthy', 'OpenCVClient');
           this.isHealthy = true;
           this.lastHealthCheck = Date.now();
           return true;
         }
 
-        console.log(`OpenCV Microservice: Service status: ${status?.status || 'unknown'}, healthy: ${isHealthy}, waiting...`);
+         logger.info(`OpenCV Microservice: Service status: ${status?.status || 'unknown'}, healthy: ${isHealthy}, waiting...`, 'OpenCVClient');
       } catch (error) {
-        console.log('OpenCV Microservice: Service not ready yet, waiting...');
+         logger.info('OpenCV Microservice: Service not ready yet, waiting...', 'OpenCVClient');
       }
 
       await new Promise(resolve => setTimeout(resolve, checkInterval));
     }
 
-    console.error('OpenCV Microservice: Timeout waiting for service to be ready');
+     logger.error('OpenCV Microservice: Timeout waiting for service to be ready', 'OpenCVClient');
     return false;
   }
 

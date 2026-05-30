@@ -5,10 +5,15 @@ import { consolidatedDetectionService } from '../detection/consolidatedDetection
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
-router.get('/events', optionalAuth, async (req: Request, res: Response) => {
+router.get('/events', optionalAuth, validate({
+  query: {
+    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
     const events = await eventSearchService.getMotionEvents(limit);
@@ -19,7 +24,14 @@ router.get('/events', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:cameraId/events', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:cameraId/events', optionalAuth, validate({
+  params: {
+    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
+  },
+  query: {
+    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 1000);
     const events = await eventSearchService.getCameraMotionEvents(req.params.cameraId, limit);
@@ -30,7 +42,11 @@ router.get('/:cameraId/events', optionalAuth, async (req: Request, res: Response
   }
 });
 
-router.post('/:cameraId/simulate', requireAdmin, (req: Request, res: Response) => {
+router.post('/:cameraId/simulate', requireAdmin, validate({
+  params: {
+    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
+  }
+}), (req: Request, res: Response) => {
   try {
     const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.cameraId);
     if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
@@ -42,7 +58,15 @@ router.post('/:cameraId/simulate', requireAdmin, (req: Request, res: Response) =
   }
 });
 
-router.post('/:cameraId/analyze', requireUser, async (req: Request, res: Response) => {
+router.post('/:cameraId/analyze', requireUser, validate({
+  params: {
+    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
+  },
+  body: {
+    enablePersonDetection: { type: 'boolean' as const, required: false },
+    enableFaceDetection: { type: 'boolean' as const, required: false }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const cameraId = req.params.cameraId;
     const { enablePersonDetection, enableFaceDetection } = req.body;
@@ -61,7 +85,7 @@ router.post('/:cameraId/analyze', requireUser, async (req: Request, res: Respons
       analysisResults.faces = faceResult.faces;
     }
 
-    const io: SocketIOServer = (req as any).app.get('io');
+    const io: SocketIOServer = (req.app as any).get('io');
     io.emit('enhancedMotionDetected', {
       cameraId, timestamp: new Date().toISOString(),
       hasPersons: analysisResults.persons.length > 0,

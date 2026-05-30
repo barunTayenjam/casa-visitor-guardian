@@ -6,13 +6,18 @@ import { inMemoryState } from '../services/inMemoryStateService.js';
 import eventSearchService from '../services/eventSearchService.js';
 import visitorService from '../services/visitorService.js';
 import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
 
 const CAMERA_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 function validateCameraId(cameraId: string): boolean { return CAMERA_ID_PATTERN.test(cameraId) && cameraId.length <= 100; }
 
 const router = Router();
 
-router.post('/person/:cameraId/trigger', requireUser, async (req: Request, res: Response) => {
+router.post('/person/:cameraId/trigger', requireUser, validate({
+  params: {
+    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const cameraId = req.params.cameraId;
     if (!cameraId || !validateCameraId(cameraId)) { res.status(400).json({ success: false, error: 'Invalid camera ID format' }); return; }
@@ -24,7 +29,7 @@ router.post('/person/:cameraId/trigger', requireUser, async (req: Request, res: 
     const { detections } = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
     const persons = detections.filter((d: any) => d.class === 'person') || [];
     if (persons.length > 0) {
-      const io: SocketIOServer = (req as any).app.get('io');
+      const io: SocketIOServer = (req.app as any).get('io');
       io.emit('personDetected', { cameraId, timestamp: new Date().toISOString(), persons: persons.map((p: any) => ({ confidence: p.confidence, boundingBox: p.bbox, timestamp: new Date().toISOString() })), imagePath: currentFrame });
       inMemoryState.addAlert({ type: 'motion', severity: 'warning', message: `Person detected on camera ${camera.name || cameraId}`, cameraId });
     }
@@ -35,7 +40,11 @@ router.post('/person/:cameraId/trigger', requireUser, async (req: Request, res: 
   }
 });
 
-router.post('/face/:cameraId/trigger', requireUser, async (req: Request, res: Response) => {
+router.post('/face/:cameraId/trigger', requireUser, validate({
+  params: {
+    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const cameraId = req.params.cameraId;
     const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
@@ -45,7 +54,7 @@ router.post('/face/:cameraId/trigger', requireUser, async (req: Request, res: Re
     if (!currentFrame) { res.status(400).json({ success: false, error: 'No frame available from camera' }); return; }
     const { faces } = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
     if (faces && faces.length > 0) {
-      const io: SocketIOServer = (req as any).app.get('io');
+      const io: SocketIOServer = (req.app as any).get('io');
       io.emit('faceDetected', { cameraId, timestamp: new Date().toISOString(), faces: faces.map((f: any) => ({ confidence: f.confidence, boundingBox: f.bbox, personId: f.id, personName: f.name, isKnown: f.name !== 'Unknown', timestamp: new Date().toISOString() })), imagePath: currentFrame });
       const unknownFaces = faces.filter((f: any) => f.name === 'Unknown');
       if (unknownFaces.length > 0) inMemoryState.addAlert({ type: 'motion', severity: 'warning', message: `Unknown face detected on camera ${camera.name || cameraId}`, cameraId });
@@ -57,7 +66,11 @@ router.post('/face/:cameraId/trigger', requireUser, async (req: Request, res: Re
   }
 });
 
-router.get('/person/settings', optionalAuth, async (req: Request, res: Response) => {
+router.get('/person/settings', optionalAuth, validate({
+  query: {
+    camera: { type: 'string' as const, required: false, maxLength: 100 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const cameraId = (req.query.camera as string) || 'default';
     const settings = consolidatedDetectionService.getObjectDetectionSettings(cameraId);
@@ -68,7 +81,13 @@ router.get('/person/settings', optionalAuth, async (req: Request, res: Response)
   }
 });
 
-router.put('/person/settings', requireUser, async (req: Request, res: Response) => {
+router.put('/person/settings', requireUser, validate({
+  body: {
+    minConfidence: { type: 'number' as const, required: false, min: 0, max: 1 },
+    maxDetections: { type: 'number' as const, required: false, min: 1, max: 100 },
+    targetClasses: { type: 'array' as const, required: false }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { minConfidence, maxDetections, targetClasses } = req.body;
     const updated = consolidatedDetectionService.updateObjectDetectionSettings('default', { minConfidence: minConfidence || 0.5, maxDetections: maxDetections || 10, targetClasses: targetClasses || ['person', 'dog', 'cat'] });
@@ -89,7 +108,12 @@ router.get('/face/settings', optionalAuth, async (req: Request, res: Response) =
   }
 });
 
-router.put('/face/settings', requireUser, async (req: Request, res: Response) => {
+router.put('/face/settings', requireUser, validate({
+  body: {
+    recognitionThreshold: { type: 'number' as const, required: false, min: 0, max: 1 },
+    minFaceSize: { type: 'number' as const, required: false, min: 16, max: 500 }
+  }
+}), async (req: Request, res: Response) => {
   try {
     const { recognitionThreshold, minFaceSize } = req.body;
     const updated = consolidatedDetectionService.updateFacialRecognitionSettings({ recognitionThreshold: recognitionThreshold || 0.6, minFaceSize: minFaceSize || 48 });

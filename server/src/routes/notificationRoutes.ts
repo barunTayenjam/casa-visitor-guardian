@@ -102,10 +102,11 @@ router.get('/subscription', async (req: Request, res: Response) => {
     const subscription = await NotificationService.getSubscription(userId);
 
     if (!subscription) {
-      return res.status(404).json({ error: 'No active subscription found' });
+      return res.json({ subscribed: false });
     }
 
     res.json({
+      subscribed: true,
       id: subscription.id,
       endpoint: subscription.endpoint,
       keys: {

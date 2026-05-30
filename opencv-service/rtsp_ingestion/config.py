@@ -27,7 +27,7 @@ MOG2_VAR_THRESHOLD = 16
 MOTION_PIXEL_THRESHOLD = 500
 
 # JPEG encoding
-JPEG_QUALITY = 60
+JPEG_QUALITY = 80
 JPEG_OPTIMIZE = 1
 
 # FFmpeg default arguments for RTSP ingestion
@@ -36,7 +36,17 @@ FFMPEG_DEFAULT_ARGS = [
     '-rtsp_transport', 'tcp',
     '-timeout', '5000000',
     '-loglevel', 'error',
+    '-fflags', 'nobuffer',
+    '-flags', 'low_delay',
+    '-probesize', '32768',
+    '-analyzeduration', '0',
+    '-max_delay', '0',
 ]
+
+LIVE_WIDTH = 1280
+LIVE_HEIGHT = 720
+DETECT_WIDTH = 640
+DETECT_HEIGHT = 360
 
 # Metrics latency buckets (milliseconds)
 METRICS_WS_LATENCY_BUCKETS = [10, 25, 50, 100, 200, 500]

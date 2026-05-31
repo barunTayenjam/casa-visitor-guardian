@@ -1,6 +1,12 @@
 import { logger } from '../utils/logger.js';
 import webPush from 'web-push';
 import { AppDataSource } from '../database.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const VAPID_KEYS_DIR = process.env.VAPID_KEYS_DIR || '/data/vapid';
+const VAPID_PUB_KEY_FILE = path.join(VAPID_KEYS_DIR, 'public_key.pem');
+const VAPID_PRIV_KEY_FILE = path.join(VAPID_KEYS_DIR, 'private_key.pem');
 import { NotificationSubscription } from '../models/NotificationSubscription.js';
 import { NotificationLog } from '../models/NotificationLog.js';
 import { NotificationPreferences } from '../models/NotificationPreferences.js';
@@ -32,19 +38,41 @@ export class NotificationService {
   private static vapidPrivateKey: string;
   private static vapidSubject: string;
 
-  static initialize() {
+  static async initialize(): Promise<void> {
+    this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
     this.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
     this.vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
-    this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
 
     if (!this.vapidPublicKey || !this.vapidPrivateKey) {
-       logger.info('VAPID keys not found, generating new keys...', 'NotificationService');
+      try {
+        if (fs.existsSync(VAPID_PUB_KEY_FILE)) {
+          this.vapidPublicKey = fs.readFileSync(VAPID_PUB_KEY_FILE, 'utf-8').trim();
+          this.vapidPrivateKey = fs.readFileSync(VAPID_PRIV_KEY_FILE, 'utf-8').trim();
+           logger.info('VAPID keys loaded from filesystem', 'NotificationService');
+        }
+      } catch (err) {
+         logger.warn('Could not load VAPID keys from filesystem', 'NotificationService');
+      }
+    }
+
+    if (!this.vapidPublicKey || !this.vapidPrivateKey) {
+       logger.info('Generating new VAPID keys...', 'NotificationService');
       const keys = webPush.generateVAPIDKeys();
       this.vapidPublicKey = keys.publicKey;
       this.vapidPrivateKey = keys.privateKey;
-       logger.info('VAPID keys generated. Add these to .env for persistence:', 'NotificationService');
-       logger.info(`VAPID_PUBLIC_KEY=${this.vapidPublicKey}`, 'NotificationService');
-       logger.info(`VAPID_PRIVATE_KEY=${this.vapidPrivateKey}`, 'NotificationService');
+
+      try {
+        if (!fs.existsSync(VAPID_KEYS_DIR)) {
+          fs.mkdirSync(VAPID_KEYS_DIR, { recursive: true });
+        }
+        fs.writeFileSync(VAPID_PUB_KEY_FILE, this.vapidPublicKey, 'utf-8');
+        fs.writeFileSync(VAPID_PRIV_KEY_FILE, this.vapidPrivateKey, 'utf-8');
+        fs.chmodSync(VAPID_PUB_KEY_FILE, 0o600);
+        fs.chmodSync(VAPID_PRIV_KEY_FILE, 0o600);
+         logger.info('VAPID keys persisted to filesystem', 'NotificationService');
+      } catch (err) {
+         logger.warn('Could not persist VAPID keys to filesystem — will regenerate on next restart', 'NotificationService');
+      }
     }
 
     webPush.setVapidDetails(

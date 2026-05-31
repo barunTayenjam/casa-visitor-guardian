@@ -24,6 +24,8 @@ const DetectionConfigSchema = z.object({
   thresholds: z.record(z.string(), ThresholdSchema).optional(),
   labelmap: z.record(z.string(), z.string()).optional(),
   score_history_length: z.number().min(1).max(20).optional(),
+  lowResourceMode: z.boolean().optional(),
+  ffmpegThreads: z.number().int().min(1).max(16).optional(),
 });
 
 const CameraDetectionConfigSchema = DetectionConfigSchema.extend({

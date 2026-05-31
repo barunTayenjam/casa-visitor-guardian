@@ -19,11 +19,18 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
 
   const groupedEvents = useMemo(() => {
     const groups: Record<string, MotionEvent[]> = {};
+    const firstDate = events.length > 0 ? format(events[0].timestamp, 'yyyy-MM-dd') : '';
     events.forEach(event => {
       const key = format(event.timestamp, zoom === 'hour' ? 'yyyy-MM-dd HH:00' : 'yyyy-MM-dd');
       if (!groups[key]) groups[key] = [];
       groups[key].push(event);
     });
+    if (zoom === 'hour' && firstDate) {
+      for (let h = 0; h < 24; h++) {
+        const hourKey = `${firstDate} ${String(h).padStart(2, '0')}:00`;
+        if (!groups[hourKey]) groups[hourKey] = [];
+      }
+    }
     return groups;
   }, [events, zoom]);
 
@@ -35,7 +42,18 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
 
   const handleMouseDown = (e: React.MouseEvent) => { setIsDragging(true); setDragStart(e.clientX - scrollPosition); };
   const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging) return; setScrollPosition(e.clientX - dragStart); };
-  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    if (timelineRef.current) {
+      const maxScroll = 0;
+      const minScroll = -(timelineRef.current.scrollWidth - timelineRef.current.clientWidth);
+      setScrollPosition(prev => Math.max(minScroll, Math.min(maxScroll, prev)));
+    }
+  };
+
+  const now = new Date();
+  const nowHours = now.getHours() + now.getMinutes() / 60;
+  const nowLeftPercent = (nowHours / 24) * 100;
 
   const getEventDensity = (events: MotionEvent[]) => {
     if (events.length === 0) return 0;
@@ -91,7 +109,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, selectedEv
             })}
           </div>
 
-          <div className="absolute top-0 bottom-0 w-px bg-red-500/30">
+          <div className="absolute top-0 bottom-0 w-px bg-red-500/30" style={{ left: `${nowLeftPercent}%` }}>
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0 border-l-3 border-r-3 border-t-3 border-l-transparent border-r-transparent border-t-red-500" />
           </div>
         </div>

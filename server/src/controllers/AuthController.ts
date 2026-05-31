@@ -287,8 +287,8 @@ export class AuthController extends BaseController {
       const qrCode = await QRCode.toDataURL(secret.otpauth_url || '');
 
       this.ok(res, {
-        secret: secret.base32,
         qrCode,
+        secretPreview: `...${secret.base32.slice(-4)}`,
       });
     } catch (error) {
       this.serverError(res, error, 'setupMfa');

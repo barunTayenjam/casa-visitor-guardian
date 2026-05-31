@@ -302,6 +302,11 @@ export class AuthService {
         );
       }
 
+      await AppDataSource.query(
+        'UPDATE users SET last_login = NOW() WHERE id = $1',
+        [dbUser.id]
+      );
+
       const user: User = {
         id: dbUser.id,
         username: dbUser.username,

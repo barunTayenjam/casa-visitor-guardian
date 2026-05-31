@@ -38,6 +38,7 @@ interface AnalyticsEvent {
   id: string;
   timestamp: string;
   cameraId: string;
+  event_type: string;
   persons_detected: number;
   object_detections?: { class?: string }[] | null;
 }
@@ -154,7 +155,7 @@ const AnalyticsPage = () => {
           packages: counts.packages,
         }));
 
-         // Count detection types
+          // Count detection types
         const detectionCounts = { person: 0, vehicle: 0, package: 0, motion: 0 };
         events.forEach((event: AnalyticsEvent) => {
           if (event.persons_detected > 0) detectionCounts.person += event.persons_detected;
@@ -165,7 +166,9 @@ const AnalyticsPage = () => {
               if (obj.class === 'package') detectionCounts.package++;
             });
           }
-          detectionCounts.motion++;
+          if (event.event_type === 'motion' || event.event_type === 'event_motion') {
+            detectionCounts.motion++;
+          }
         });
         
         const detectionTypes = [

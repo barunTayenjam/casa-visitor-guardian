@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { AppDataSource } from '../database.js';
 import { logger } from '../utils/logger.js';
 
@@ -118,7 +119,7 @@ export class InMemoryStateService {
 
   async addAlert(alert: Omit<Alert, 'id' | 'timestamp' | 'acknowledged'>): Promise<void> {
     const newAlert: Alert = {
-      id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       timestamp: new Date(),
       acknowledged: false,
       ...alert,

@@ -77,8 +77,10 @@ export class CameraController extends BaseController {
       const streamManager = serviceRegistry.getStreamManager();
       const { name, rtspUrl, username, password, frameRate, resolution, nightMode } = req.body;
 
-      const cameraId = streamManager.addCamera({
-        id: '',
+      const cameraId = `cam${Date.now()}`;
+
+      streamManager.addCamera({
+        id: cameraId,
         name,
         enabled: true,
         streams: [
@@ -95,7 +97,11 @@ export class CameraController extends BaseController {
         nightMode: nightMode || false
       } as CameraConfig);
 
-      this.created(res, { cameraId });
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist new camera: ${err}`, 'CameraController');
+      });
+
+      this.created(res, { camera: { id: cameraId, name } });
     } catch (error) {
       this.serverError(res, error, 'createCamera');
     }
@@ -121,6 +127,10 @@ export class CameraController extends BaseController {
         return;
       }
 
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist camera update: ${err}`, 'CameraController');
+      });
+
       const updatedCamera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       this.ok(res, {
         camera: { ...updatedCamera, status: updatedCamera?.isActive ? 'online' : 'offline' },
@@ -139,6 +149,11 @@ export class CameraController extends BaseController {
         this.notFound(res, 'Camera not found');
         return;
       }
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist camera removal: ${err}`, 'CameraController');
+      });
+
       this.ok(res, {});
     } catch (error) {
       this.serverError(res, error, 'removeCamera');
@@ -236,6 +251,11 @@ export class CameraController extends BaseController {
         this.notFound(res, 'Camera not found');
         return;
       }
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist night mode toggle: ${err}`, 'CameraController');
+      });
+
       this.ok(res, {});
     } catch (error) {
       this.serverError(res, error, 'toggleNightMode');
@@ -289,6 +309,10 @@ export class CameraController extends BaseController {
         camera.config.zones.push(newZone);
       }
 
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist zone add: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: existingIndex >= 0 ? 'Zone updated' : 'Zone added', zone: newZone });
     } catch (error) {
       this.serverError(res, error, 'addZone');
@@ -312,6 +336,10 @@ export class CameraController extends BaseController {
       if (inertia !== undefined) camera.config.zones[zoneIndex].inertia = inertia;
       if (loiteringTime !== undefined) camera.config.zones[zoneIndex].loiteringTime = loiteringTime;
 
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist zone update: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: 'Zone updated', zone: camera.config.zones[zoneIndex] });
     } catch (error) {
       this.serverError(res, error, 'updateZone');
@@ -329,6 +357,11 @@ export class CameraController extends BaseController {
       if (zoneIndex < 0) { this.notFound(res, 'Zone not found'); return; }
 
       camera.config.zones.splice(zoneIndex, 1);
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist zone delete: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: 'Zone deleted' });
     } catch (error) {
       this.serverError(res, error, 'deleteZone');
@@ -361,6 +394,11 @@ export class CameraController extends BaseController {
 
       if (!camera.config.objects) camera.config.objects = { track: [], filters: {} };
       camera.config.objects.track = track;
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist track list update: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: 'Track list updated', track });
     } catch (error) {
       this.serverError(res, error, 'updateTrackList');
@@ -386,6 +424,11 @@ export class CameraController extends BaseController {
         threshold: threshold || 0.7,
         mask: mask || ''
       };
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist filter update: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: `Filter for ${req.params.label} updated`, filter: camera.config.objects.filters[req.params.label] });
     } catch (error) {
       this.serverError(res, error, 'updateFilter');
@@ -401,6 +444,11 @@ export class CameraController extends BaseController {
       if (camera.config.objects?.filters?.[req.params.label]) {
         delete camera.config.objects.filters[req.params.label];
       }
+
+      streamManager.persistCameras().catch((err) => {
+        logger.error(`Failed to persist filter delete: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: `Filter for ${req.params.label} deleted` });
     } catch (error) {
       this.serverError(res, error, 'deleteFilter');

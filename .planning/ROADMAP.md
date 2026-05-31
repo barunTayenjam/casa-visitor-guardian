@@ -1,7 +1,7 @@
 # Roadmap: SentryVision Home Security System
 
 **Created:** 2026-03-18
-**Updated:** 2026-05-29
+**Updated:** 2026-05-31
 **Granularity:** Coarse
 
 ## Milestones
@@ -12,6 +12,7 @@
 - ✅ **v1.3 Pipeline Cleanup** — Phase 5 (complete)
 - ✅ **v1.x Documentation Audit** — Phase 6 (complete — 3/3 plans)
 - 📋 **v1.4 Security & Quality** — Phases 7-9 (planned)
+- 📋 **v1.5 Audit Bug Fixes** — Phases 10-13 (from AUDIT-REPORT.md — 61 bugs)
 
 ---
 
@@ -102,9 +103,68 @@ Plans:
 - [x] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
 - [x] 06-03-PLAN.md — Update AGENTS.md + fix stale references — Wave 2
 
----
+## v1.5 Audit Bug Fixes
 
-## Archived Phases
+### Phase 10: Critical Bug Fixes
+
+**Goal:** Fix all 7 P0 critical bugs from comprehensive audit — event deletion no-op, camera config persistence, camera create broken end-to-end, account lockout unimplemented, MFA setup secret never persisted, MFA verify protocol mismatch, SQL injection in batch processing.
+
+**Requirements**: FIX-001, FIX-002, FIX-003, FIX-004, FIX-005, FIX-006, FIX-007
+**Depends on:** Phase 6
+**Plans:** 4 plans in 1 wave
+
+Plans:
+- [ ] 10-01-PLAN.md — Event deletion implementation (FIX-001) — Wave 1
+- [ ] 10-02-PLAN.md — Camera CRUD + config persistence with credential re-encryption (FIX-002, FIX-003) — Wave 1
+- [ ] 10-03-PLAN.md — Auth security: lockout + MFA setup/verify fix (FIX-004, FIX-005, FIX-006) — Wave 1
+- [ ] 10-04-PLAN.md — SQL injection parameterization (FIX-007) — Wave 1
+
+### Phase 11: High Priority Fixes
+
+**Goal:** Fix 22 P1 high-priority bugs — visitor PUT duplicate, night events SQL, highlights sort/nav, analytics vehicles zero, notifications not wired, VAPID keys, detection trigger endpoints, bounding boxes, motion filter, camera update/filter/zone issues, settings retention/fresh-install, token invalidation, password history, alert UUID, visitor deleteFace, CSV newline.
+
+**Requirements**: FIX-008 through FIX-029
+**Depends on:** Phase 10
+
+Plans:
+- [ ] 11-01-PLAN.md — Visitor + alerts fixes (FIX-008, FIX-027, FIX-028)
+- [ ] 11-02-PLAN.md — Day highlights fixes (FIX-009, FIX-010, FIX-011)
+- [ ] 11-03-PLAN.md — Analytics + events fixes (FIX-012, FIX-018, FIX-019)
+- [ ] 11-04-PLAN.md — Detection pipeline fixes (FIX-014, FIX-015, FIX-016)
+- [ ] 11-05-PLAN.md — Camera management P1 fixes (FIX-020, FIX-021, FIX-022)
+- [ ] 11-06-PLAN.md — Settings fixes (FIX-023, FIX-024)
+- [ ] 11-07-PLAN.md — Auth P1 fixes: token invalidation + password history (FIX-025, FIX-026)
+- [ ] 11-08-PLAN.md — Notifications: wire to pipeline + VAPID persistence (FIX-013, FIX-014)
+- [ ] 11-09-PLAN.md — Batch CSV fix (FIX-029)
+
+### Phase 12: Medium Priority Fixes
+
+**Goal:** Fix 23 P2 medium-priority bugs — camera leaks/snapshot/night-mode/test-stream, event share/performance/timezone, analytics storage/hourly/response-time, settings theme/auto-save/hardcoded/optimization, notifications camera-names/key-name/timezone, system cleanup-status/storage-stats/sync-io/db-health, visitor embedding-count.
+
+**Requirements**: FIX-030 through FIX-052
+**Depends on:** Phase 11
+
+Plans:
+- [ ] 12-01-PLAN.md — Camera P2 fixes (FIX-030, FIX-031, FIX-032, FIX-033)
+- [ ] 12-02-PLAN.md — Events P2 fixes (FIX-034, FIX-035, FIX-036)
+- [ ] 12-03-PLAN.md — Analytics P2 fixes (FIX-037, FIX-038, FIX-039)
+- [ ] 12-04-PLAN.md — Settings P2 fixes (FIX-040, FIX-041, FIX-042, FIX-043, FIX-044)
+- [ ] 12-05-PLAN.md — Notifications P2 fixes (FIX-045, FIX-046, FIX-047)
+- [ ] 12-06-PLAN.md — System health P2 fixes (FIX-048, FIX-049, FIX-050, FIX-051)
+- [ ] 12-07-PLAN.md — Visitor P2 fix (FIX-052)
+
+### Phase 13: Low Priority Cleanup
+
+**Goal:** Fix 9 P3 low-priority items — lastLogin update, password complexity, UserSession implementation, auth log level, salt column removal, register tab visibility, writeSettingsToDb await, unused analytics endpoints, highlights shortcuts.
+
+**Requirements**: FIX-053 through FIX-061
+**Depends on:** Phase 12
+
+Plans:
+- [ ] 13-01-PLAN.md — Auth P3 cleanup (FIX-053, FIX-054, FIX-055, FIX-056, FIX-057, FIX-058)
+- [ ] 13-02-PLAN.md — Detection + analytics + highlights P3 (FIX-059, FIX-060, FIX-061)
+
+---
 
 For full phase details of v1.0, see `.planning/milestones/v1.0-ROADMAP.md`.
 For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
@@ -131,8 +191,12 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.2 Phase 2** | **PERF-01 – PERF-09** | **9** | **📋 Planned** |
 | **v1.3 Phase 5** | **CLN-01 – CLN-05** | **5** | **✅ Complete** |
 | **v1.x Phase 6** | **DOC-01 – DOC-08** | **8** | **✅ Complete** |
+| **v1.5 Phase 10** | **FIX-001 – FIX-007** | **7** | **📋 Planned** |
+| **v1.5 Phase 11** | **FIX-008 – FIX-029** | **22** | **📋 Planned** |
+| **v1.5 Phase 12** | **FIX-030 – FIX-052** | **23** | **📋 Planned** |
+| **v1.5 Phase 13** | **FIX-053 – FIX-061** | **9** | **📋 Planned** |
 
-**Coverage:** 58 v1.1 requirements ✓ | **v1.2 Phase 1**: RTSP-01 – RTSP-08 (8 requirements) | **v1.2 Phase 2**: PERF-01 – PERF-09 (9 requirements) | **v1.3 Phase 5**: CLN-01 – CLN-05 (5 requirements, ✅ Complete) | **v1.x Phase 6**: DOC-01 – DOC-08 (8 requirements, ✅ Complete) — 8/8 complete
+**Coverage:** 58 v1.1 requirements ✓ | v1.2: RTSP-01–08 + PERF-01–09 | v1.3: CLN-01–05 | v1.x: DOC-01–08 | v1.5: FIX-001–061 (61 audit bugs across Phases 10-13)
 
 ---
 
@@ -206,7 +270,7 @@ Plans:
 ---
 
 *Roadmap created: 2026-03-18*
-*Last updated: 2026-05-30 — v1.4 Security & Quality milestone planned (Phases 7-9)*
+*Last updated: 2026-05-31 — v1.5 Audit Bug Fixes milestone added (Phases 10-13, 61 bugs from AUDIT-REPORT.md)*
 
 ## v1.3 Phase 5 Requirements
 

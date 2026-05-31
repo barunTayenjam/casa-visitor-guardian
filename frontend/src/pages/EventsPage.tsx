@@ -444,11 +444,18 @@ const EventsPage = () => {
 
       <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
 
-      <div className="px-5 py-2">
-        <p className="text-xs text-muted-foreground">
-          Showing <span className="font-medium text-foreground">{filteredEvents.length}</span> of <span className="font-medium text-foreground">{totalEvents}</span> events
-        </p>
-      </div>
+      {(() => {
+        const pageSize = 100;
+        const showingStart = totalEvents === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+        const showingEnd = Math.min(currentPage * pageSize, totalEvents);
+        return (
+          <div className="px-5 py-2">
+            <p className="text-xs text-muted-foreground">
+              Showing <span className="font-medium text-foreground">{showingStart}-{showingEnd}</span> of <span className="font-medium text-foreground">{totalEvents}</span> events
+            </p>
+          </div>
+        );
+      })()}
 
       {viewMode === 'grid' && (
         <EventTimeline events={filteredEvents} selectedEventId={selectedEventId || undefined} onEventSelect={handleEventSelect} />

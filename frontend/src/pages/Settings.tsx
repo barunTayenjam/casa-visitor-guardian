@@ -121,7 +121,7 @@ const SettingsPage = () => {
           });
           setRetentionSettings({
             imageRetentionDays: sysSettings.storage?.retentionDays || 7,
-            eventRetentionDays: sysSettings.storage?.maxStorageGB || 30,
+            eventRetentionDays: sysSettings.storage?.retentionDays || 30,
             cleanupEnabled: sysSettings.storage?.autoCleanup !== false,
           });
           setNotificationPrefs(prev => ({
@@ -180,8 +180,8 @@ const SettingsPage = () => {
           backupFrequency: 'daily',
         },
         storage: {
-          retentionDays: retentionSettings.imageRetentionDays,
-          maxStorageGB: retentionSettings.eventRetentionDays,
+          retentionDays: retentionSettings.eventRetentionDays,
+          maxStorageGB: retentionSettings.imageRetentionDays,
           autoCleanup: retentionSettings.cleanupEnabled,
           compressionEnabled: true,
           compressionQuality: 80,

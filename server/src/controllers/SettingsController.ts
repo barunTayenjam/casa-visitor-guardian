@@ -38,7 +38,18 @@ async function saveSystemSettings(settings: SystemSettings): Promise<boolean> {
   try {
     if (!AppDataSource.isInitialized) return false;
     await AppDataSource.query(
-      `UPDATE system_settings SET system_name = $1, timezone = $2, language = $3, theme = $4, auto_backup = $5, backup_frequency = $6, retention_days = $7, max_storage_gb = $8, auto_cleanup = $9, compression_enabled = $10, compression_quality = $11, email_enabled = $12, email_address = $13, push_enabled = $14, push_sound_enabled = $15, quiet_hours_enabled = $16, quiet_hours_start = $17, quiet_hours_end = $18, updated_at = NOW() WHERE id = (SELECT id FROM system_settings LIMIT 1)`,
+      `INSERT INTO system_settings (id, system_name, timezone, language, theme, auto_backup, backup_frequency, retention_days, max_storage_gb, auto_cleanup, compression_enabled, compression_quality, email_enabled, email_address, push_enabled, push_sound_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         system_name = EXCLUDED.system_name, timezone = EXCLUDED.timezone, language = EXCLUDED.language,
+         theme = EXCLUDED.theme, auto_backup = EXCLUDED.auto_backup, backup_frequency = EXCLUDED.backup_frequency,
+         retention_days = EXCLUDED.retention_days, max_storage_gb = EXCLUDED.max_storage_gb,
+         auto_cleanup = EXCLUDED.auto_cleanup, compression_enabled = EXCLUDED.compression_enabled,
+         compression_quality = EXCLUDED.compression_quality, email_enabled = EXCLUDED.email_enabled,
+         email_address = EXCLUDED.email_address, push_enabled = EXCLUDED.push_enabled,
+         push_sound_enabled = EXCLUDED.push_sound_enabled, quiet_hours_enabled = EXCLUDED.quiet_hours_enabled,
+         quiet_hours_start = EXCLUDED.quiet_hours_start, quiet_hours_end = EXCLUDED.quiet_hours_end,
+         updated_at = NOW()`,
       [settings.general.systemName, settings.general.timezone, settings.general.language, settings.general.theme, settings.general.autoBackup, settings.general.backupFrequency, settings.storage.retentionDays, settings.storage.maxStorageGB, settings.storage.autoCleanup, settings.storage.compressionEnabled, settings.storage.compressionQuality, settings.notifications.emailEnabled, settings.notifications.emailAddress, settings.notifications.pushEnabled, settings.notifications.pushSoundEnabled, settings.notifications.quietHoursEnabled, settings.notifications.quietHoursStart, settings.notifications.quietHoursEnd]
     );
     inMemoryState.setSystemSettings(settings);

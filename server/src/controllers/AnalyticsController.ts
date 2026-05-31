@@ -106,27 +106,6 @@ export class AnalyticsController extends BaseController {
     }
   }
 
-  getResponseTime(req: Request, res: Response): void {
-    try {
-      const memoryUsage = process.memoryUsage();
-      const memoryFactor = memoryUsage.heapUsed / memoryUsage.heapTotal;
-      const baseResponseTime = 1.5;
-      const responseTime = baseResponseTime + (memoryFactor * 2);
-      const recentEvents = inMemoryState.getRecentEvents();
-
-      this.ok(res, {
-        responseTime: {
-          average: Math.round(responseTime * 100) / 100,
-          recent: recentEvents.slice(0, 10).map((_, index) => ({
-            timestamp: new Date(Date.now() - index * 60000).toISOString(),
-            responseTime: Math.round((responseTime + (Math.random() - 0.5) * 0.5) * 100) / 100
-          })).reverse()
-        }
-      });
-    } catch (error) {
-      this.serverError(res, error, 'getResponseTime');
-    }
-  }
 }
 
 export const analyticsController = new AnalyticsController();

@@ -150,21 +150,6 @@ export const systemService = {
     }
   },
 
-  async getResponseTimeAnalytics(): Promise<{ average: number; recent: { timestamp: string; responseTime: number }[] }> {
-    try {
-      const response = await fetchWithRetry(`${API_URL}/analytics/response-time`);
-      const data = await response.json();
-      if (!data.success || !data.responseTime) {
-        throw new ApiError(data.error || 'Failed to fetch response time analytics', response.status, 'GET_RESPONSE_TIME_ERROR', data);
-      }
-      return data.responseTime;
-    } catch (error) {
-      console.error('Error fetching response time analytics:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to fetch response time analytics', 500, 'GET_RESPONSE_TIME_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
-    }
-  },
-
   async getOpenCVStatus(): Promise<{
     status: string; version: string; modelsLoaded: boolean; gpuAvailable: boolean;
   }> {

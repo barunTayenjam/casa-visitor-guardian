@@ -73,7 +73,7 @@ staticRoutes.use('/events', express.static(path.join(process.cwd(), 'data/detect
   setHeaders: imageHeaders,
 }));
 
-staticRoutes.use('/snapshots', express.static(path.join(process.cwd(), 'public/snapshots'), {
+staticRoutes.use('/snapshots', express.static(path.join(process.cwd(), 'data', 'detections'), {
   maxAge: '1d',
   setHeaders: imageHeaders,
 }));

@@ -253,7 +253,7 @@ export class CameraController extends BaseController {
           this.serverError(res, 'Failed to take snapshot');
           return;
         }
-        this.ok(res, { snapshotPath });
+        this.ok(res, { url: '/snapshots/' + snapshotPath });
       }).catch((error: unknown) => {
         this.serverError(res, error, 'takeSnapshot');
       });

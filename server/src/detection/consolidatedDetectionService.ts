@@ -137,19 +137,27 @@ export class ConsolidatedDetectionService {
          DO UPDATE SET settings = $2::jsonb`,
         [cameraId, JSON.stringify(settings)]
       );
+
+      try {
+        const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
+        const opencvClient = getOpenCVClient();
+        if (opencvClient) {
+          await opencvClient.pushDetectionConfig(cameraId, settings);
+        }
+      } catch (pushError) {
+        logger.warn(`Failed to push config to Python: ${pushError}`, 'Detection');
+      }
     } catch (error: any) {
       logger.error(`Failed to save settings for camera ${cameraId}: ${error.message}`, 'Detection');
     }
   }
 
   async detectObjects(cameraId: string, imageBuffer: Buffer): Promise<{ detections: DetectionResult[] }> {
-    logger.warn('ConsolidatedDetectionService: detectObjects() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.', 'Detection');
-    return { detections: [] };
+    throw new Error('HTTP detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).');
   }
 
   async detectFaces(cameraId: string, imageBuffer: Buffer): Promise<{ faces: FaceDetection[], knownFaces: FaceDetection[], unknownFaces: FaceDetection[] }> {
-    logger.warn('ConsolidatedDetectionService: detectFaces() called but HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline.', 'Detection');
-    return { faces: [], knownFaces: [], unknownFaces: [] };
+    throw new Error('HTTP face detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).');
   }
 
   async getServiceStatus(): Promise<{ available: boolean; url: string; responseTime?: number }> {

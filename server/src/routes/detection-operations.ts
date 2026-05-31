@@ -28,7 +28,18 @@ router.post('/person/:cameraId/trigger', requireUser, validate({
     if (!camera.isActive) { res.status(400).json({ success: false, error: 'Camera is not active' }); return; }
     const currentFrame = streamManager.getCurrentFrame(cameraId);
     if (!currentFrame) { res.status(400).json({ success: false, error: 'No frame available from camera' }); return; }
-    const { detections } = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
+    let detections: any[] = [];
+    try {
+      const result = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
+      detections = result.detections;
+    } catch (error) {
+      res.status(501).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Detection endpoint disabled',
+        details: 'Detection runs via Python WebSocket pipeline. This HTTP endpoint is no longer supported.'
+      });
+      return;
+    }
     const persons = detections.filter((d: any) => d.class === 'person') || [];
     if (persons.length > 0) {
       const io: SocketIOServer = (req.app as any).get('io');
@@ -55,7 +66,18 @@ router.post('/face/:cameraId/trigger', requireUser, validate({
     if (!camera.isActive) { res.status(400).json({ success: false, error: 'Camera is not active' }); return; }
     const currentFrame = streamManager.getCurrentFrame(cameraId);
     if (!currentFrame) { res.status(400).json({ success: false, error: 'No frame available from camera' }); return; }
-    const { faces } = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
+    let faces: any[] = [];
+    try {
+      const result = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
+      faces = result.faces;
+    } catch (error) {
+      res.status(501).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Face detection endpoint disabled',
+        details: 'Detection runs via Python WebSocket pipeline. This HTTP endpoint is no longer supported.'
+      });
+      return;
+    }
     if (faces && faces.length > 0) {
       const io: SocketIOServer = (req.app as any).get('io');
       io.emit('faceDetected', { cameraId, timestamp: new Date().toISOString(), faces: faces.map((f: any) => ({ confidence: f.confidence, boundingBox: f.bbox, personId: f.id, personName: f.name, isKnown: f.name !== 'Unknown', timestamp: new Date().toISOString() })), imagePath: currentFrame });

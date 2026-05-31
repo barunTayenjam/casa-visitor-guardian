@@ -182,7 +182,7 @@ const SettingsPage = () => {
           systemName: settings.systemName,
           timezone: settings.timezone,
           language: settings.language,
-          theme: 'system',
+          theme: theme,
           autoBackup: true,
           backupFrequency: 'daily',
         },
@@ -693,6 +693,18 @@ const SettingsPage = () => {
                       <SelectValue placeholder="Select theme" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="system">
+                        <span className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4" />
+                          System
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="light">
+                        <span className="flex items-center gap-2">
+                          <Sun className="h-4 w-4" />
+                          Light
+                        </span>
+                      </SelectItem>
                       <SelectItem value="dark">
                         <span className="flex items-center gap-2">
                           <Moon className="h-4 w-4" />

@@ -456,13 +456,19 @@ export class StreamManager {
 
   async persistCameras(): Promise<void> {
     try {
+      const encryptionKeyMissing = !process.env.CREDENTIAL_ENCRYPTION_KEY;
+      if (encryptionKeyMissing && !this.encryptionWarningLogged) {
+        this.encryptionWarningLogged = true;
+        logger.warn('CREDENTIAL_ENCRYPTION_KEY not configured — camera credentials will be stored in plaintext. Set this environment variable to encrypt credentials at rest.', 'StreamManager');
+      }
+
       const serializable = Array.from(this.cameras.values()).map(camera => {
         const cfg = camera.config;
         return {
           ...cfg,
           streams: cfg.streams.map(stream => ({
             ...stream,
-            path: encryptCredential(stream.path)
+            path: encryptionKeyMissing ? stream.path : encryptCredential(stream.path)
           }))
         };
       });

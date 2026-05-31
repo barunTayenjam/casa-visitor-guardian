@@ -31,6 +31,7 @@ v1.3 Pipeline Cleanup — Phase 5 (complete)
 **Plans:** 5 plans in 3 waves
 
 Plans:
+
 - [ ] 01-01-PLAN.md — Python Core Infrastructure (queues, config, metrics, tests, Docker) — Wave 1
 - [ ] 01-02-PLAN.md — Node.js WebSocket Client Foundation (config, PythonWsClient class, ServiceRegistry, tests) — Wave 1
 - [ ] 01-03-PLAN.md — Python FFmpeg + MOG2 Pipeline (FFmpegReader, FramePipeline, tests) — Wave 2
@@ -46,6 +47,7 @@ Plans:
 **Plans:** 3 plans in 1 wave
 
 Plans:
+
 - [x] 02-01-PLAN.md — GPU-Accelerated YOLO Inference (CUDA detection, CPU fallback, latency metrics) — Wave 1
 - [x] 02-02-PLAN.md — Binary Frame Delivery (Socket.io binary, Blob URLs, base64 fallback) — Wave 1
 - [x] 02-03-PLAN.md — Viewport-Based Camera Loading (IntersectionObserver, debounce, max concurrent) — Wave 1
@@ -58,6 +60,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
+
 - [x] 03-01-PLAN.md — ArcFaceRecognizer class in Python (RetinaFace detection + ArcFace 512-dim embeddings, GPU/CPU auto-detect, dual-mode 128/512 storage) — Wave 1
 - [x] 03-02-PLAN.md — Backend integration (YOLOObjectDetector cleanup, fallback chain, CRITICAL fixes, FaceEmbedding model) — Wave 1
 
@@ -69,6 +72,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
+
 - [x] 04-01-PLAN.md — Remove legacy FaceRecognition class from app.py, simplify fallback chain, add None-safety guards — Wave 1
 
 ---
@@ -84,6 +88,7 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
+
 - [x] 05-01-PLAN.md — Default pipeline switch + config cleanup — Wave 1
 - [x] 05-02-PLAN.md — Remove legacy Node.js detection modules — Wave 1
 - [x] 05-03-PLAN.md — Simplify rtspManager + accept ADR-003 — Wave 2
@@ -99,6 +104,7 @@ Plans:
 **Plans:** 3/3 plans executed ✅
 
 Plans:
+
 - [x] 06-01-PLAN.md — Fix double frame emission + add E2E frame relay test — Wave 1
 - [x] 06-02-PLAN.md — Refresh architecture docs (ADRs 1-6, C4 diagrams) — Wave 2
 - [x] 06-03-PLAN.md — Update AGENTS.md + fix stale references — Wave 2
@@ -114,6 +120,7 @@ Plans:
 **Plans:** 4/4 plans complete
 
 Plans:
+
 - [x] 10-01-PLAN.md — Event deletion implementation (FIX-001) — Wave 1
 - [x] 10-02-PLAN.md — Camera CRUD + config persistence with credential re-encryption (FIX-002, FIX-003) — Wave 1
 - [x] 10-03-PLAN.md — Auth security: lockout + MFA setup/verify fix (FIX-004, FIX-005, FIX-006) — Wave 1
@@ -128,31 +135,55 @@ Plans:
 **Plans:** 9 plans in 5 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 11-01-PLAN.md — Visitor + alerts fixes (FIX-008, FIX-027, FIX-028) — Wave 1
 - [ ] 11-02-PLAN.md — Day highlights fixes (FIX-009, FIX-010, FIX-011) — Wave 1
-- [ ] 11-03-PLAN.md — Analytics + events fixes (FIX-012, FIX-018, FIX-019) — Wave 2
-- [ ] 11-04-PLAN.md — Detection pipeline: stubs, repository, settings→Python (FIX-015, FIX-016, FIX-017) — Wave 4
-- [ ] 11-05-PLAN.md — Camera management: update fields, filter body, zone→Python (FIX-020, FIX-021, FIX-022) — Wave 5
-- [ ] 11-06-PLAN.md — Settings fixes: retention mapping, fresh-install upsert (FIX-023, FIX-024) — Wave 2
-- [ ] 11-07-PLAN.md — Auth P1 fixes: token invalidation + password history (FIX-025, FIX-026) — Wave 3
-- [ ] 11-08-PLAN.md — Notifications: wire to pipeline + VAPID persistence (FIX-013, FIX-014) — Wave 4
 - [ ] 11-09-PLAN.md — Batch CSV newline fix (FIX-029) — Wave 1
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 11-03-PLAN.md — Analytics + events fixes (FIX-012, FIX-018, FIX-019) — Wave 2
+- [ ] 11-06-PLAN.md — Settings fixes: retention mapping, fresh-install upsert (FIX-023, FIX-024) — Wave 2
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 11-07-PLAN.md — Auth P1 fixes: token invalidation + password history (FIX-025, FIX-026) — Wave 3
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 11-04-PLAN.md — Detection pipeline: stubs, repository, settings→Python (FIX-015, FIX-016, FIX-017) — Wave 4
+- [ ] 11-08-PLAN.md — Notifications: wire to pipeline + VAPID persistence (FIX-013, FIX-014) — Wave 4
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 11-05-PLAN.md — Camera management: update fields, filter body, zone→Python (FIX-020, FIX-021, FIX-022) — Wave 5
 
 ### Phase 12: Medium Priority Fixes
 
-**Goal:** Fix 23 P2 medium-priority bugs — camera leaks/snapshot/night-mode/test-stream, event share/performance/timezone, analytics storage/hourly/response-time, settings theme/auto-save/hardcoded/optimization, notifications camera-names/key-name/timezone, system cleanup-status/storage-stats/sync-io/db-health, visitor embedding-count.
+**Goal:** Fix 61 P2 medium-priority bugs from revised AUDIT-REPORT.md — auth hardening (lastLogin, password complexity, log level, register tab, MFA UI, type safety, timing attack, rate limiting), camera fixes (snapshot, night mode, zone push, test streams, snapshots DB, static dir, dupe subscriptions, init overhead, reconnect, encryption check), event fixes (share, image perf, timezone, ProgressiveImage, timeline UI, URL sync, query perf, confidence badge, count display, file path), analytics fixes (storage, response time, motion chart, hourly chart, empty state), settings fixes (theme, auto-save, hardcoded cameras, optimization, load feedback, slider debounce), notification fixes (camera names, quiet hours, cleanup), system health (cleanup status, storage stats, sync I/O, DB health), visitor duplicate/delete, and Python Flask init crash.
 
-**Requirements**: FIX-030 through FIX-052
+**Requirements**: AUDIT-P2-001 through AUDIT-P2-061
 **Depends on:** Phase 11
 
 Plans:
-- [ ] 12-01-PLAN.md — Camera P2 fixes (FIX-030, FIX-031, FIX-032, FIX-033)
-- [ ] 12-02-PLAN.md — Events P2 fixes (FIX-034, FIX-035, FIX-036)
-- [ ] 12-03-PLAN.md — Analytics P2 fixes (FIX-037, FIX-038, FIX-039)
-- [ ] 12-04-PLAN.md — Settings P2 fixes (FIX-040, FIX-041, FIX-042, FIX-043, FIX-044)
-- [ ] 12-05-PLAN.md — Notifications P2 fixes (FIX-045, FIX-046, FIX-047)
-- [ ] 12-06-PLAN.md — System health P2 fixes (FIX-048, FIX-049, FIX-050, FIX-051)
-- [ ] 12-07-PLAN.md — Visitor P2 fix (FIX-052)
+
+**Wave 1**
+- [ ] 12-01-PLAN.md — Auth P2 fixes (AUTH-005, AUTH-007, AUTH-009, AUTH-011, AUTH-015, AUTH-016, AUTH-017, AUTH-018, AUTH-019, AUTH-020, AUTH-022)
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 12-02-PLAN.md — Camera P2 fixes (CAM-005, CAM-006, CAM-007, CAM-009, CAM-013, CAM-014, CAM-015, CAM-016, CAM-017, CAM-019, CAM-020, CAM-021)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 12-03-PLAN.md — Events P2 fixes (EVT-003, EVT-005, EVT-006, EVT-011, EVT-012, EVT-013, EVT-014, EVT-015, EVT-016, EVT-019, EVT-020, EVT-024, EVT-025, EVT-026)
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 12-04-PLAN.md — Analytics + Highlights P2 fixes (ANA-002, ANA-004, ANA-006, ANA-007, ANA-008, HL-004)
+- [ ] 12-05-PLAN.md — Settings P2 fixes (SET-001, SET-002, SET-004, SET-005, SET-006, SET-009, SET-010, SET-011)
+
+**Wave 5** *(blocked on Wave 4)*
+- [ ] 12-06-PLAN.md — Notifications P2 fixes (NOT-003, NOT-005, NOT-008)
+- [ ] 12-07-PLAN.md — System health + Visitor + Python P2 fixes (SYS-001, SYS-002, SYS-003, SYS-004, VIS-001, VIS-002, PIP-004)
 
 ### Phase 13: Low Priority Cleanup
 
@@ -162,6 +193,7 @@ Plans:
 **Depends on:** Phase 12
 
 Plans:
+
 - [ ] 13-01-PLAN.md — Auth P3 cleanup (FIX-053, FIX-054, FIX-055, FIX-056, FIX-057, FIX-058)
 - [ ] 13-02-PLAN.md — Detection + analytics + highlights P3 (FIX-059, FIX-060, FIX-061)
 
@@ -194,10 +226,10 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 | **v1.x Phase 6** | **DOC-01 – DOC-08** | **8** | **✅ Complete** |
 | **v1.5 Phase 10** | **FIX-001 – FIX-007** | **7** | **📋 Planned** |
 | **v1.5 Phase 11** | **FIX-008 – FIX-029** | **22** | **📋 Planned** |
-| **v1.5 Phase 12** | **FIX-030 – FIX-052** | **23** | **📋 Planned** |
+| **v1.5 Phase 12** | **AUDIT-P2-001 – AUDIT-P2-061** | **61** | **📋 Planned** |
 | **v1.5 Phase 13** | **FIX-053 – FIX-061** | **9** | **📋 Planned** |
 
-**Coverage:** 58 v1.1 requirements ✓ | v1.2: RTSP-01–08 + PERF-01–09 | v1.3: CLN-01–05 | v1.x: DOC-01–08 | v1.5: FIX-001–061 (61 audit bugs across Phases 10-13)
+**Coverage:** 58 v1.1 requirements ✓ | v1.2: RTSP-01–08 + PERF-01–09 | v1.3: CLN-01–05 | v1.x: DOC-01–08 | v1.5: FIX-001–029 (Phase 10-11) + AUDIT-P2-001–061 (Phase 12) + FIX-053–061 (Phase 13) — 108 audit bugs across Phases 10-13
 
 ---
 
@@ -239,6 +271,7 @@ For full phase details of v1.1, see `.planning/milestones/v1.1-ROADMAP.md`.
 **Plans:** 2 plans in 2 waves
 
 Plans:
+
 - [ ] 07-01-PLAN.md — Auth & startup security: JWT refresh bypass fix, seed password fail-fast, Helmet headers (SEC2-01, SEC2-02, SEC2-03) — Wave 1
 - [ ] 07-02-PLAN.md — Route validation & code hardening: input validation audit, (req as any) fix, camera config warning, timezone, env consolidation (SEC2-04, SEC2-05, SEC2-06) — Wave 2
 
@@ -251,6 +284,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
+
 - [ ] 08-01-PLAN.md — Startup reliability + health endpoints (REL-01, REL-06)
 - [ ] 08-02-PLAN.md — Async file I/O + Socket.io consolidation (REL-02, REL-03, REL-04, REL-05)
 - [ ] 08-03-PLAN.md — Type safety migration phase 1 (TYP-01, TYP-02, TYP-03)
@@ -264,6 +298,7 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
+
 - [ ] 09-01-PLAN.md — Backend decomposition: index.ts + nvidiaAnalysisService + eventSearchService + app.py (CQ-01, CQ-02, CQ-03, CQ-04) — Wave 1
 - [ ] 09-02-PLAN.md — Code quality cleanup: console→logger migration + hardcoded Docker path fix (CQ-05, CQ-07) — Wave 1
 - [ ] 09-03-PLAN.md — Test coverage: frontend jest setup + baseClient/AuthContext tests + AuthController/CameraController/cacheService tests (TEST-01, TEST-02, TEST-03) — Wave 2

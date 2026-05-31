@@ -37,6 +37,12 @@ const getLabelColor = (label: string): string => {
   return colorMap[label] || colorMap.motion;
 };
 
+function formatConfidence(value: number): string {
+  if (value <= 0) return '0%';
+  if (value < 0.5) return '< 1%';
+  return `${Math.round(value)}%`;
+}
+
 interface ApiEvent {
   id: string; cameraId: string; cameraName?: string; timestamp: string;
   imageUrl?: string; filename?: string; confidence: number; event_type: string;
@@ -511,7 +517,7 @@ const EventsPage = () => {
                       {event.confidence > 0 && (
                         <div className="absolute top-2 right-2 z-10">
                           <div className="px-2 py-1 rounded-full text-[10px] font-semibold bg-black/70 backdrop-blur-md text-white">
-                            {Math.round(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}%
+                            {formatConfidence(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}
                           </div>
                         </div>
                       )}
@@ -619,7 +625,7 @@ const EventsPage = () => {
                             )}
                             {event.confidence > 0 && (
                               <div className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.08] text-muted-foreground">
-                                {Math.round(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}%
+                            {formatConfidence(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}
                               </div>
                             )}
                           </div>

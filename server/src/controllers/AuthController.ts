@@ -3,6 +3,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { BaseController } from './BaseController.js';
 import authService, { AuthService } from '../auth/index.js';
+import { AppDataSource } from '../database.js';
 import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
 
@@ -222,6 +223,11 @@ export class AuthController extends BaseController {
         length: 20,
       });
 
+      await AppDataSource.query(
+        'UPDATE users SET mfa_secret = $1, updated_at = NOW() WHERE id = $2',
+        [secret.base32, userId]
+      );
+
       const qrCode = await QRCode.toDataURL(secret.otpauth_url || '');
 
       this.ok(res, {
@@ -235,20 +241,43 @@ export class AuthController extends BaseController {
 
   async verifyMfa(req: Request, res: Response): Promise<void> {
     try {
-      const { code, secret } = req.body;
-      if (!code || !secret) {
-        this.badRequest(res, 'Code and secret are required');
+      const { code } = req.body;
+      if (!code) {
+        this.badRequest(res, 'MFA code is required');
+        return;
+      }
+
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const [user] = await AppDataSource.query(
+        'SELECT mfa_secret, mfa_enabled FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (!user || !user.mfa_secret) {
+        this.badRequest(res, 'MFA not set up. Call setup first.');
         return;
       }
 
       const verified = speakeasy.totp.verify({
-        secret,
+        secret: user.mfa_secret,
         encoding: 'base32',
         token: code,
         window: 2,
       });
 
       if (verified) {
+        if (!user.mfa_enabled) {
+          await AppDataSource.query(
+            'UPDATE users SET mfa_enabled = true, updated_at = NOW() WHERE id = $1',
+            [userId]
+          );
+        }
+
         auditLogger.log({
           level: 'INFO',
           category: 'AUTH',

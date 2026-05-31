@@ -8,5 +8,6 @@ router.get('/hourly', optionalAuth, (req, res) => analyticsController.getHourly(
 router.get('/weekly', optionalAuth, (req, res) => analyticsController.getWeekly(req, res));
 router.get('/monthly', optionalAuth, (req, res) => analyticsController.getMonthly(req, res));
 router.get('/response-time', optionalAuth, (req, res) => analyticsController.getResponseTime(req, res));
+router.get('/storage', optionalAuth, async (req, res) => analyticsController.getStorageStats(req, res));
 
 export default router;

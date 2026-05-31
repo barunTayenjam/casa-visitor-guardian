@@ -3,6 +3,31 @@ import { BaseController } from './BaseController.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 
 export class AnalyticsController extends BaseController {
+  async getStorageStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { AppDataSource } = await import('../database.js');
+      const dbResult = await AppDataSource.query(
+        `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`
+      );
+      const storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
+
+      const { config } = await import('../config/index.js');
+      let storageTotal = 0;
+      try {
+        const fs = await import('node:fs');
+        const detectionsPath = config.storage.detectionsDir;
+        if (fs.existsSync(detectionsPath)) {
+          const stat = fs.statfsSync(detectionsPath);
+          storageTotal = stat.blocks * stat.bsize;
+        }
+      } catch {}
+
+      this.ok(res, { storageUsed, storageTotal });
+    } catch (error) {
+      this.serverError(res, error, 'getStorageStats');
+    }
+  }
+
   getHourly(req: Request, res: Response): void {
     try {
       const today = new Date();

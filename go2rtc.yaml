@@ -1,0 +1,21 @@
+streams:
+  cam1:
+    - rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.62:554/stream1
+    - ffmpeg:cam1#video=h264
+  cam2:
+    - rtsp://barun.2009.tam@gmail.com:mezmu2-xewwyn-geJtiv@192.168.31.61:554/stream1
+    - ffmpeg:cam2#video=h264
+
+api:
+  listen: ":1984"
+  origin: "*"
+
+webrtc:
+  listen: ":8555"
+  candidates:
+    - 192.168.31.99:8555
+    - stun:8555
+
+log:
+  level: "info"
+  format: "text"

@@ -16,6 +16,7 @@ export interface StreamPanelProps {
   motionDetected: boolean; motionConfidence: number; objectCount: number;
   onScreenshot?: () => void; onFullscreen?: () => void;
   imgRef?: React.RefObject<HTMLImageElement>;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const connectionConfig: Record<ConnectionState, { icon: React.ElementType; label: string; color: string }> = {
@@ -26,7 +27,7 @@ const connectionConfig: Record<ConnectionState, { icon: React.ElementType; label
   reconnecting: { icon: Loader2, label: 'Reconnecting', color: 'text-yellow-400' },
 };
 
-export const StreamPanel: React.FC<StreamPanelProps> = ({ open, onOpenChange, camera, connectionState, displayFps, bandwidth, latency, motionDetected, motionConfidence, objectCount, onFullscreen, imgRef }) => {
+export const StreamPanel: React.FC<StreamPanelProps> = ({ open, onOpenChange, camera, connectionState, displayFps, bandwidth, latency, motionDetected, motionConfidence, objectCount, onFullscreen, imgRef, videoRef }) => {
   const conn = connectionConfig[connectionState];
   const ConnIcon = conn.icon;
   const resolution = camera.config?.detect ? `${camera.config.detect.width}x${camera.config.detect.height}` : camera.resolution || '720p';
@@ -68,7 +69,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({ open, onOpenChange, ca
                 <RecentDetectionsSection cameraId={camera.id} />
               </div>
               <div className="flex items-center justify-center gap-3 pt-1">
-                {imgRef && <ScreenshotButton camera={camera} imgRef={imgRef} className="h-10 w-10 rounded-full bg-white/[0.08] hover:bg-white/[0.08] text-foreground" />}
+                {(imgRef || videoRef) && <ScreenshotButton camera={camera} imgRef={imgRef} videoRef={videoRef} className="h-10 w-10 rounded-full bg-white/[0.08] hover:bg-white/[0.08] text-foreground" />}
                 {onFullscreen && (
                   <Button variant="ghost" size="icon-sm" className="h-10 w-10 rounded-full bg-white/[0.08] hover:bg-white/[0.08]" onClick={onFullscreen} title="Fullscreen" aria-label="Enter fullscreen">
                     <Maximize2 className="h-4 w-4" />

@@ -136,6 +136,10 @@ const AnalyticsPage = () => {
             const objects = Array.isArray(event.object_detections) ? event.object_detections : [];
             objects.forEach((obj) => {
               if (obj.class === 'package') current.packages++;
+              if (obj.class === 'car' || obj.class === 'truck' || obj.class === 'motorcycle' ||
+                  obj.class === 'bus' || obj.class === 'vehicle') {
+                current.vehicles++;
+              }
             });
           }
 

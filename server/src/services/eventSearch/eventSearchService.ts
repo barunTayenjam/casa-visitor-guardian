@@ -120,6 +120,7 @@ export class EventSearchService {
       if (event_type === 'face') conditions.push(`COALESCE(e.faces_detected, 0) > 0`);
       else if (event_type === 'person') conditions.push(`COALESCE(e.persons_detected, 0) > 0`);
       else if (event_type === 'vehicle') conditions.push(`e.object_detections IS NOT NULL AND e.object_detections::jsonb @> ANY(ARRAY['[{"class":"car"}]','[{"class":"truck"}]','[{"class":"motorcycle"}]','[{"class":"bicycle"}]','[{"class":"bus"}]','[{"class":"van"}]','[{"class":"suv"}]']::jsonb[])`);
+      else if (event_type === 'motion') conditions.push(`e.event_type IN ('motion', 'event_motion')`);
     }
     if (min_confidence) {
       conditions.push(`(COALESCE(e.confidence, 0) >= $${paramIndex++})`);

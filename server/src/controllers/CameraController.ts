@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { logger } from '../utils/logger.js';
+import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
 import type { Camera } from '../streams/rtspManager.js';
 import type { CameraConfig } from '../config/index.js';
 
@@ -110,10 +111,25 @@ export class CameraController extends BaseController {
   update(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
-      const { name, nightMode } = req.body;
+      const { name, nightMode, rtspUrl, frameRate, resolution } = req.body;
       const updates: Partial<CameraConfig> = {};
       if (name !== undefined) updates.name = name;
       if (nightMode !== undefined) updates.nightMode = nightMode;
+      if (rtspUrl !== undefined) {
+        updates.streams = [{ path: rtspUrl, roles: ['detect', 'record', 'live'] }];
+      }
+      if (frameRate !== undefined) {
+        if (!updates.streams) updates.streams = [];
+        if (updates.streams[0]) updates.streams[0].fps = frameRate;
+      }
+      if (resolution !== undefined) {
+        if (!updates.streams) updates.streams = [];
+        const [w, h] = resolution.split('x').map(Number);
+        if (updates.streams[0]) {
+          updates.streams[0].width = w || 1920;
+          updates.streams[0].height = h || 1080;
+        }
+      }
 
       const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       if (!camera) {
@@ -313,6 +329,10 @@ export class CameraController extends BaseController {
         logger.error(`Failed to persist zone add: ${err}`, 'CameraController');
       });
 
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push zone config to Python: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: existingIndex >= 0 ? 'Zone updated' : 'Zone added', zone: newZone });
     } catch (error) {
       this.serverError(res, error, 'addZone');
@@ -340,6 +360,10 @@ export class CameraController extends BaseController {
         logger.error(`Failed to persist zone update: ${err}`, 'CameraController');
       });
 
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push zone config to Python: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: 'Zone updated', zone: camera.config.zones[zoneIndex] });
     } catch (error) {
       this.serverError(res, error, 'updateZone');
@@ -360,6 +384,10 @@ export class CameraController extends BaseController {
 
       streamManager.persistCameras().catch((err) => {
         logger.error(`Failed to persist zone delete: ${err}`, 'CameraController');
+      });
+
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push zone config to Python: ${err}`, 'CameraController');
       });
 
       this.ok(res, { message: 'Zone deleted' });
@@ -399,6 +427,10 @@ export class CameraController extends BaseController {
         logger.error(`Failed to persist track list update: ${err}`, 'CameraController');
       });
 
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push track config to Python: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: 'Track list updated', track });
     } catch (error) {
       this.serverError(res, error, 'updateTrackList');
@@ -411,7 +443,8 @@ export class CameraController extends BaseController {
       const camera = streamManager.getCamera(req.params.cameraId);
       if (!camera) { this.notFound(res, 'Camera not found'); return; }
 
-      const { minArea, maxArea, minRatio, maxRatio, minScore, threshold, mask } = req.body;
+      const filterData = req.body.filter || req.body;
+      const { minArea, maxArea, minRatio, maxRatio, minScore, threshold, mask } = filterData;
       if (!camera.config.objects) camera.config.objects = { track: [], filters: {} };
       if (!camera.config.objects.filters) camera.config.objects.filters = {};
 
@@ -427,6 +460,10 @@ export class CameraController extends BaseController {
 
       streamManager.persistCameras().catch((err) => {
         logger.error(`Failed to persist filter update: ${err}`, 'CameraController');
+      });
+
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push filter config to Python: ${err}`, 'CameraController');
       });
 
       this.ok(res, { message: `Filter for ${req.params.label} updated`, filter: camera.config.objects.filters[req.params.label] });
@@ -449,9 +486,28 @@ export class CameraController extends BaseController {
         logger.error(`Failed to persist filter delete: ${err}`, 'CameraController');
       });
 
+      this.pushConfigToPython(req.params.cameraId).catch((err) => {
+        logger.error(`Failed to push filter config to Python: ${err}`, 'CameraController');
+      });
+
       this.ok(res, { message: `Filter for ${req.params.label} deleted` });
     } catch (error) {
       this.serverError(res, error, 'deleteFilter');
+    }
+  }
+
+  private async pushConfigToPython(cameraId: string): Promise<void> {
+    try {
+      const opencvClient = getOpenCVClient();
+      if (opencvClient && typeof opencvClient.pushDetectionConfig === 'function') {
+        const streamManager = serviceRegistry.getStreamManager();
+        const camera = streamManager.getCamera(cameraId);
+        if (camera) {
+          await opencvClient.pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>);
+        }
+      }
+    } catch (error) {
+      logger.warn(`Failed to push camera config to Python service: ${error}`, 'CameraController');
     }
   }
 }

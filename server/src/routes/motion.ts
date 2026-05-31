@@ -80,12 +80,20 @@ router.post('/:cameraId/analyze', requireUser, validate({
 
     const analysisResults: any = { persons: [], faces: [], timestamp: new Date().toISOString() };
     if (enablePersonDetection) {
-      const personResult = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
-      analysisResults.persons = personResult.detections.filter((d: any) => d.class === 'person');
+      try {
+        const personResult = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
+        analysisResults.persons = personResult.detections.filter((d: any) => d.class === 'person');
+      } catch (error) {
+        logger.warn(`Person detection unavailable: ${error}`, 'Motion');
+      }
     }
     if (enableFaceDetection) {
-      const faceResult = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
-      analysisResults.faces = faceResult.faces;
+      try {
+        const faceResult = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
+        analysisResults.faces = faceResult.faces;
+      } catch (error) {
+        logger.warn(`Face detection unavailable: ${error}`, 'Motion');
+      }
     }
 
     const io: SocketIOServer = (req.app as any).get('io');

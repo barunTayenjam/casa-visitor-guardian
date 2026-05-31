@@ -67,6 +67,10 @@ export class DetectionController extends BaseController {
       const results = await consolidatedDetectionService.detectObjects(cameraId, frame);
       this.ok(res, { detections: results });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('HTTP detection endpoint is disabled')) {
+        this.serverError(res, new Error('Detection endpoint disabled. Detection runs via Python WebSocket pipeline.'), 'triggerPersonDetection');
+        return;
+      }
       this.serverError(res, error, 'triggerPersonDetection');
     }
   }
@@ -85,6 +89,10 @@ export class DetectionController extends BaseController {
       const results = await consolidatedDetectionService.detectFaces(cameraId, frame);
       this.ok(res, { faces: results });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('HTTP face detection endpoint is disabled')) {
+        this.serverError(res, new Error('Face detection endpoint disabled. Detection runs via Python WebSocket pipeline.'), 'triggerFaceDetection');
+        return;
+      }
       this.serverError(res, error, 'triggerFaceDetection');
     }
   }

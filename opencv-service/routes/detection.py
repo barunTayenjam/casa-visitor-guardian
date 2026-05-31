@@ -62,11 +62,47 @@ def detect_motion_route():
         })
 
     except Exception as e:
-        print(f"OpenCV Service: Motion detection error: {e}")
+        print(f"OpenCV Service: Batch detection error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
+@detection_bp.route('/api/config', methods=['POST'])
+def update_config():
+    import state as app_state
+
+    try:
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON body provided'}), 400
+
+        camera_id = data.get('camera_id')
+        settings = data.get('settings')
+
+        if not camera_id or settings is None:
+            return jsonify({'success': False, 'error': 'camera_id and settings are required'}), 400
+
+        if app_state._rtsp_service and camera_id in app_state._rtsp_service._pipelines:
+            pipeline = app_state._rtsp_service._pipelines[camera_id]
+            for key, value in settings.items():
+                if isinstance(value, dict) and key in pipeline._config and isinstance(pipeline._config[key], dict):
+                    pipeline._config[key].update(value)
+                else:
+                    pipeline._config[key] = value
+            print(f"[ConfigRoute] Updated config for camera {camera_id}")
+        else:
+            print(f"[ConfigRoute] Camera {camera_id} not found in active pipelines — storing for late binding")
+            if not hasattr(app_state, '_pending_configs'):
+                app_state._pending_configs = {}
+            app_state._pending_configs[camera_id] = settings
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        print(f"[ConfigRoute] Error updating config: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @detection_bp.route('/detect-objects', methods=['POST'])

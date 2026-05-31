@@ -91,7 +91,7 @@ export function authenticate(options: AuthOptions = {}) {
       req.user = payload;
 
       // Log authentication success
-      logger.info(`User authenticated: ${payload.username} (${payload.role})`, 'AuthMiddleware');
+      logger.debug(`User authenticated: ${payload.username} (${payload.role})`, 'AuthMiddleware');
 
       next();
     } catch (error) {

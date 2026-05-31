@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validate } from '../middleware/validation.js';
+import { validate, validateUserRegistration, validatePasswordChange, validateWithExpress } from '../middleware/validation.js';
 import { createAuthRateLimit } from '../middleware/enhancedRateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import { authController } from '../controllers/AuthController.js';
@@ -10,14 +10,7 @@ const authRateLimit = createAuthRateLimit();
 
 router.post('/register',
   authenticate({ roles: ['admin'] }),
-  validate({
-    body: {
-      username: { type: 'string' as const, required: true, minLength: 3, maxLength: 50, pattern: /^[a-zA-Z0-9_-]+$/ },
-      email: { type: 'email' as const, required: true, maxLength: 100 },
-      password: { type: 'string' as const, required: true, minLength: 8, maxLength: 128 },
-      role: { type: 'string' as const, required: false, enum: ['admin', 'user', 'viewer'] }
-    }
-  }),
+  validateWithExpress(validateUserRegistration),
   (req, res) => authController.register(req, res)
 );
 
@@ -39,12 +32,7 @@ router.get('/profile',
 
 router.post('/change-password',
   authenticate(),
-  validate({
-    body: {
-      currentPassword: { type: 'string' as const, required: true, minLength: 1 },
-      newPassword: { type: 'string' as const, required: true, minLength: 8, maxLength: 128 }
-    }
-  }),
+  validateWithExpress(validatePasswordChange),
   (req, res) => authController.changePassword(req, res)
 );
 

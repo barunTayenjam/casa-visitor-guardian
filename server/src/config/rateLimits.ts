@@ -8,6 +8,10 @@ export interface RateLimitConfig {
 }
 
 export const RATE_LIMITS: RateLimitConfig = {
+  REGISTER: {
+    requests: parseInt(process.env.RATE_LIMIT_REGISTER_REQUESTS || '5', 10),
+    window: parseInt(process.env.RATE_LIMIT_REGISTER_WINDOW || '3600000', 10) // 1 hour
+  },
   STANDARD: {
     requests: parseInt(process.env.RATE_LIMIT_STANDARD_REQUESTS || '100', 10),
     window: parseInt(process.env.RATE_LIMIT_STANDARD_WINDOW || '900000', 10) // 15 minutes

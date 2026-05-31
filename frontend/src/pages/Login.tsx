@@ -7,15 +7,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { authService } from '@/services/api/authService';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register, isAuthenticated, isLoading, error, clearError, user } = useAuth();
+  const { login, register, isAuthenticated, isLoading, error, clearError, user, completeLogin } = useAuth();
+  const { toast } = useToast();
 
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaPendingToken, setMfaPendingToken] = useState('');
+  const [mfaChallengeCode, setMfaChallengeCode] = useState('');
+  const [mfaSubmitting, setMfaSubmitting] = useState(false);
 
   const [registerData, setRegisterData] = useState({
     username: '', email: '', password: '', confirmPassword: '',
@@ -63,8 +71,55 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateLoginForm()) return;
-    try { await login(loginData.username, loginData.password); }
-    catch { /* handled by auth context */ }
+    try {
+      const response = await authService.login(loginData.username, loginData.password);
+      if (response.mfaRequired && response.pendingToken) {
+        setMfaPendingToken(response.pendingToken);
+        setMfaStep(true);
+        return;
+      }
+      if (response.success && response.user && response.token) {
+        completeLogin(response.user, response.token);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: response.error || 'Invalid credentials',
+        });
+      }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Login failed',
+        description: 'An unexpected error occurred',
+      });
+    }
+  };
+
+  const handleMfaChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaChallengeCode || mfaChallengeCode.length < 6) return;
+    setMfaSubmitting(true);
+    try {
+      const response = await authService.mfaChallenge(mfaPendingToken, mfaChallengeCode);
+      if (response.success && response.user && response.token) {
+        completeLogin(response.user, response.token);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'MFA verification failed',
+          description: response.error || 'Invalid code',
+        });
+      }
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'MFA verification failed',
+        description: 'An unexpected error occurred',
+      });
+    } finally {
+      setMfaSubmitting(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -121,6 +176,51 @@ export default function Login() {
                 </TabsList>
 
                 <TabsContent value="login">
+                  {mfaStep ? (
+                    <form onSubmit={handleMfaChallenge} className="space-y-4">
+                      <div className="text-center mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          Enter the verification code from your authenticator app
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mfa-code" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Verification Code</Label>
+                        <Input
+                          id="mfa-code"
+                          type="text"
+                          value={mfaChallengeCode}
+                          onChange={(e) => setMfaChallengeCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 text-center text-lg tracking-widest"
+                          placeholder="000000"
+                          disabled={mfaSubmitting}
+                          maxLength={6}
+                          autoFocus
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-11" disabled={mfaChallengeCode.length < 6 || mfaSubmitting}>
+                        {mfaSubmitting ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            Verifying...
+                          </div>
+                        ) : (
+                          'Verify & Sign In'
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full text-xs text-muted-foreground"
+                        onClick={() => {
+                          setMfaStep(false);
+                          setMfaPendingToken('');
+                          setMfaChallengeCode('');
+                        }}
+                      >
+                        Back to login
+                      </Button>
+                    </form>
+                  ) : (
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="username" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Username</Label>
@@ -185,6 +285,7 @@ export default function Login() {
                       )}
                     </Button>
                   </form>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="register">

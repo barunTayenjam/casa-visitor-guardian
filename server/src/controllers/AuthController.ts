@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import jwt from 'jsonwebtoken';
 import { BaseController } from './BaseController.js';
-import authService, { AuthService } from '../auth/index.js';
+import authService, { AuthService, User } from '../auth/index.js';
+import { config } from '../config/index.js';
 import { AppDataSource } from '../database.js';
 import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
@@ -223,6 +225,36 @@ export class AuthController extends BaseController {
     }
   }
 
+  async disableMfa(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      await AppDataSource.query(
+        'UPDATE users SET mfa_enabled = false, mfa_secret = NULL, updated_at = NOW() WHERE id = $1',
+        [userId]
+      );
+
+      auditLogger.log({
+        level: 'INFO',
+        category: 'AUTH',
+        action: 'MFA_DISABLED',
+        userId: req.user?.userId,
+        username: req.user?.username,
+        ip: auditLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        success: true,
+      });
+
+      this.ok(res, { message: 'MFA disabled successfully' });
+    } catch (error) {
+      this.serverError(res, error, 'disableMfa');
+    }
+  }
+
   async setupMfa(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.userId;
@@ -249,6 +281,109 @@ export class AuthController extends BaseController {
       });
     } catch (error) {
       this.serverError(res, error, 'setupMfa');
+    }
+  }
+
+  async mfaChallenge(req: Request, res: Response): Promise<void> {
+    try {
+      const { pendingToken, code } = req.body;
+      if (!pendingToken || !code) {
+        this.badRequest(res, 'pendingToken and code are required');
+        return;
+      }
+
+      let payload: { userId: string; purpose: string };
+      try {
+        const decoded = jwt.verify(pendingToken, config.jwtSecret) as { userId: string; purpose: string };
+        payload = decoded;
+      } catch {
+        res.status(401).json({ success: false, error: 'Invalid or expired pending token' });
+        return;
+      }
+
+      if (payload.purpose !== 'mfa') {
+        res.status(401).json({ success: false, error: 'Invalid token purpose' });
+        return;
+      }
+
+      const [user] = await AppDataSource.query(
+        'SELECT mfa_secret, username, email FROM users WHERE id = $1',
+        [payload.userId]
+      );
+
+      if (!user || !user.mfa_secret) {
+        this.badRequest(res, 'MFA not configured');
+        return;
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: user.mfa_secret,
+        encoding: 'base32',
+        token: code,
+        window: 2,
+      });
+
+      if (!verified) {
+        auditLogger.log({
+          level: 'WARN',
+          category: 'AUTH',
+          action: 'MFA_CHALLENGE_FAILED',
+          userId: payload.userId,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          success: false,
+        });
+        this.badRequest(res, 'Invalid MFA code');
+        return;
+      }
+
+      const result = await AppDataSource.query(
+        `SELECT u.id, u.username, u.email, u.status, r.name as role_name, u.created_at, u.updated_at
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.id
+         WHERE u.id = $1`,
+        [payload.userId]
+      );
+
+      const dbUser = result[0];
+      const userForToken: User = {
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        password: '',
+        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        isActive: dbUser.status === 'active',
+        createdAt: dbUser.created_at,
+        updatedAt: dbUser.updated_at,
+      };
+
+      const token = this.authService.generateToken(userForToken);
+
+      auditLogger.log({
+        level: 'INFO',
+        category: 'AUTH',
+        action: 'MFA_CHALLENGE_SUCCESS',
+        userId: payload.userId,
+        username: dbUser.username,
+        ip: auditLogger.getClientIP(req),
+        userAgent: req.get('User-Agent'),
+        success: true,
+      });
+
+      await AppDataSource.query(
+        `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
+        [dbUser.id, token, token, req.ip || '0.0.0.0', req.get('User-Agent') || '']
+      ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+
+      const { password: _, ...userWithoutPassword } = userForToken;
+      this.ok(res, {
+        message: 'Login successful',
+        user: userWithoutPassword as unknown as Record<string, unknown>,
+        token,
+      });
+    } catch (error) {
+      this.serverError(res, error, 'mfaChallenge');
     }
   }
 

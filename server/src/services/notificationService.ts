@@ -3,6 +3,7 @@ import webPush from 'web-push';
 import { AppDataSource } from '../database.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { StreamManager } from '../streams/rtspManager.js';
 
 const VAPID_KEYS_DIR = process.env.VAPID_KEYS_DIR || '/data/vapid';
 const VAPID_PUB_KEY_FILE = path.join(VAPID_KEYS_DIR, 'public_key.pem');
@@ -37,6 +38,16 @@ export class NotificationService {
   private static vapidPublicKey: string;
   private static vapidPrivateKey: string;
   private static vapidSubject: string;
+  private static cameraNames: Map<string, string> = new Map();
+
+  static loadCameraNames(streamManager: StreamManager): void {
+    this.cameraNames.clear();
+    const cameras = streamManager.getAllCameras();
+    for (const camera of cameras) {
+      this.cameraNames.set(camera.id, camera.name);
+    }
+    logger.info(`Loaded ${this.cameraNames.size} camera names for notifications`, 'NotificationService');
+  }
 
   static async initialize(): Promise<void> {
     this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
@@ -185,10 +196,15 @@ export class NotificationService {
 
       if (prefs.quietHoursEnabled) {
         const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5);
+        const userTimeStr = now.toLocaleTimeString('en-US', {
+          timeZone: prefs.quietHoursTimezone || 'UTC',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
 
         const isQuietHours = this.isTimeInQuietHours(
-          currentTime,
+          userTimeStr,
           prefs.quietHoursStart,
           prefs.quietHoursEnd
         );
@@ -265,7 +281,7 @@ export class NotificationService {
   }
 
   static async notifyMotionEvent(event: Event): Promise<void> {
-    const cameraName = event.camera_id === 'cam1' ? 'Front Door' : 'Back Door';
+    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -290,7 +306,7 @@ export class NotificationService {
   }
 
   static async notifyUnknownFace(event: Event): Promise<void> {
-    const cameraName = event.camera_id === 'cam1' ? 'Front Door' : 'Back Door';
+    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -319,7 +335,7 @@ export class NotificationService {
     event: Event,
     objects: string[]
   ): Promise<void> {
-    const cameraName = event.camera_id === 'cam1' ? 'Front Door' : 'Back Door';
+    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',

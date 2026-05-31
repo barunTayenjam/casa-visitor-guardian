@@ -37,6 +37,8 @@ export class StreamManager {
   private unsubscribeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private readonly UNSUBSCRIBE_GRACE_MS = 30000;
   private activeSubscriptions: Set<string> = new Set();
+  private initializing: boolean = true;
+  private encryptionWarningLogged: boolean = false;
 
   constructor(io: SocketIOServer) {
     this.cameras = new Map();
@@ -52,6 +54,12 @@ export class StreamManager {
 
     configuredCameras.forEach((cameraConfig) => {
       this.addCamera(cameraConfig);
+    });
+
+    this.initializing = false;
+
+    this.persistCameras().catch(err => {
+      logger.error(`Failed to persist cameras after init: ${err}`, 'StreamManager');
     });
 
     this.setupConnectionTracking();
@@ -230,9 +238,11 @@ export class StreamManager {
 
     this.cameras.set(camera.id, camera);
 
-    this.persistCameras().catch(err => {
-      logger.error(`Failed to persist cameras after addCamera: ${err}`, 'StreamManager');
-    });
+    if (!this.initializing) {
+      this.persistCameras().catch(err => {
+        logger.error(`Failed to persist cameras after addCamera: ${err}`, 'StreamManager');
+      });
+    }
 
     return camera.id;
   }
@@ -335,9 +345,11 @@ export class StreamManager {
 
     Object.assign(camera.config, updates);
 
-    this.persistCameras().catch(err => {
-      logger.error(`Failed to persist cameras after updateCamera: ${err}`, 'StreamManager');
-    });
+    if (!this.initializing) {
+      this.persistCameras().catch(err => {
+        logger.error(`Failed to persist cameras after updateCamera: ${err}`, 'StreamManager');
+      });
+    }
 
     return true;
   }
@@ -356,9 +368,11 @@ export class StreamManager {
 
     this.cameras.delete(cameraId);
 
-    this.persistCameras().catch(err => {
-      logger.error(`Failed to persist cameras after removeCamera: ${err}`, 'StreamManager');
-    });
+    if (!this.initializing) {
+      this.persistCameras().catch(err => {
+        logger.error(`Failed to persist cameras after removeCamera: ${err}`, 'StreamManager');
+      });
+    }
 
     return true;
   }
@@ -413,9 +427,11 @@ export class StreamManager {
       'StreamManager',
     );
 
-    this.persistCameras().catch(err => {
-      logger.error(`Failed to persist cameras after toggleNightMode: ${err}`, 'StreamManager');
-    });
+    if (!this.initializing) {
+      this.persistCameras().catch(err => {
+        logger.error(`Failed to persist cameras after toggleNightMode: ${err}`, 'StreamManager');
+      });
+    }
 
     const opencvClient = getOpenCVClient();
     opencvClient.pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>).catch(err => {

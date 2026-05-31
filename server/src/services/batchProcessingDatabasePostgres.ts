@@ -485,12 +485,12 @@ export class BatchProcessingDatabasePostgres {
         AVG(processing_time_ms) as avg_processing_time_ms
       FROM batch_jobs 
       WHERE status = 'completed' 
-        AND created_at >= NOW() - INTERVAL '${days} days'
+        AND created_at >= NOW() - INTERVAL '1 day' * $1
       GROUP BY DATE(created_at)
       ORDER BY date DESC
     `;
 
-    return await this.dataSource.query(query);
+    return await this.dataSource.query(query, [days]);
   }
 
   // Utility methods
@@ -499,11 +499,11 @@ export class BatchProcessingDatabasePostgres {
     
     const query = `
       DELETE FROM batch_jobs 
-      WHERE created_at < NOW() - INTERVAL '${daysToKeep} days' 
+      WHERE created_at < NOW() - INTERVAL '1 day' * $1 
         AND status IN ('completed', 'failed', 'cancelled')
     `;
     
-    const result = await this.dataSource.query(query);
+    const result = await this.dataSource.query(query, [daysToKeep]);
     return result.rowCount || 0;
   }
 

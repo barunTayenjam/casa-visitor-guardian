@@ -295,6 +295,13 @@ export class AuthService {
         return { success: false, error: 'Invalid username or password' };
       }
 
+      if (dbUser.failed_login_attempts > 0 || dbUser.locked_until) {
+        await AppDataSource.query(
+          'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
+          [dbUser.id]
+        );
+      }
+
       const user: User = {
         id: dbUser.id,
         username: dbUser.username,

@@ -13,6 +13,7 @@ export default defineConfig({
       '127.0.0.1',
       '::1',
       '.lan',
+      'argus.tayenjam.qzz.io',
     ],
     proxy: {
       "/api": {
@@ -90,6 +91,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/alerts/, "/api/alerts"),
+      },
+      "/go2rtc": {
+        target: process.env.VITE_GO2RTC_URL || "http://localhost:1984",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/go2rtc/, ""),
       },
     },
   },

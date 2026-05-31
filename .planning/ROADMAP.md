@@ -111,13 +111,13 @@ Plans:
 
 **Requirements**: FIX-001, FIX-002, FIX-003, FIX-004, FIX-005, FIX-006, FIX-007
 **Depends on:** Phase 6
-**Plans:** 4 plans in 1 wave
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Event deletion implementation (FIX-001) — Wave 1
-- [ ] 10-02-PLAN.md — Camera CRUD + config persistence with credential re-encryption (FIX-002, FIX-003) — Wave 1
-- [ ] 10-03-PLAN.md — Auth security: lockout + MFA setup/verify fix (FIX-004, FIX-005, FIX-006) — Wave 1
-- [ ] 10-04-PLAN.md — SQL injection parameterization (FIX-007) — Wave 1
+- [x] 10-01-PLAN.md — Event deletion implementation (FIX-001) — Wave 1
+- [x] 10-02-PLAN.md — Camera CRUD + config persistence with credential re-encryption (FIX-002, FIX-003) — Wave 1
+- [x] 10-03-PLAN.md — Auth security: lockout + MFA setup/verify fix (FIX-004, FIX-005, FIX-006) — Wave 1
+- [x] 10-04-PLAN.md — SQL injection parameterization (FIX-007) — Wave 1
 
 ### Phase 11: High Priority Fixes
 

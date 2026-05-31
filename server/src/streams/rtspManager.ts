@@ -36,6 +36,7 @@ export class StreamManager {
   healthMonitor: StreamHealthMonitor;
   private unsubscribeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private readonly UNSUBSCRIBE_GRACE_MS = 30000;
+  private activeSubscriptions: Set<string> = new Set();
 
   constructor(io: SocketIOServer) {
     this.cameras = new Map();
@@ -68,6 +69,7 @@ export class StreamManager {
         const pythonWs = serviceRegistry.getPythonWsClient();
         if (pythonWs && pythonWs.connected) {
           pythonWs.unsubscribe(cameraId);
+          this.activeSubscriptions.delete(cameraId);
         }
       }
     }, this.UNSUBSCRIBE_GRACE_MS);
@@ -88,7 +90,10 @@ export class StreamManager {
       // When the Python WebSocket client connects, subscribe to all cameras to keep streams always on.
       pythonWs.on('connected', () => {
         this.cameras.forEach((_, camId) => {
-          pythonWs.subscribe(camId);
+          if (!this.activeSubscriptions.has(camId)) {
+            pythonWs.subscribe(camId);
+            this.activeSubscriptions.add(camId);
+          }
         });
       });
     }
@@ -157,8 +162,9 @@ export class StreamManager {
         this.cancelDebouncedUnsubscribe(cameraId);
 
         const pythonWs = serviceRegistry.getPythonWsClient();
-        if (pythonWs && pythonWs.connected) {
+        if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
           pythonWs.subscribe(cameraId);
+          this.activeSubscriptions.add(cameraId);
         }
 
         socket.emit('streamStarted', {
@@ -245,9 +251,15 @@ export class StreamManager {
 
     camera.isActive = true;
 
+    if (this.activeSubscriptions.has(cameraId)) {
+      logger.debug(`Subscription already exists for camera ${cameraId}, skipping duplicate`, 'StreamManager');
+      return true;
+    }
+
     const pythonWs = serviceRegistry.getPythonWsClient();
     if (pythonWs && pythonWs.connected) {
       pythonWs.subscribe(cameraId);
+      this.activeSubscriptions.add(cameraId);
     }
 
     return true;
@@ -265,6 +277,7 @@ export class StreamManager {
       const pythonWs = serviceRegistry.getPythonWsClient();
       if (pythonWs && pythonWs.connected) {
         pythonWs.unsubscribe(cameraId);
+        this.activeSubscriptions.delete(cameraId);
       }
       camera.isActive = false;
     }
@@ -277,8 +290,9 @@ export class StreamManager {
     if (!camera) return false;
 
     const pythonWs = serviceRegistry.getPythonWsClient();
-    if (pythonWs && pythonWs.connected) {
+    if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
       pythonWs.subscribe(cameraId);
+      this.activeSubscriptions.add(cameraId);
     }
 
     camera.isActive = true;
@@ -336,6 +350,7 @@ export class StreamManager {
       const pythonWs = serviceRegistry.getPythonWsClient();
       if (pythonWs && pythonWs.connected) {
         pythonWs.unsubscribe(cameraId);
+        this.activeSubscriptions.delete(cameraId);
       }
     }
 
@@ -526,6 +541,7 @@ export class StreamManager {
       const pythonWs = serviceRegistry.getPythonWsClient();
       if (pythonWs && pythonWs.connected) {
         pythonWs.unsubscribe(camera.id);
+        this.activeSubscriptions.delete(camera.id);
       }
     });
   }

@@ -27,6 +27,31 @@ interface EventDetailPanelProps {
   analyzing?: boolean;
 }
 
+interface DetectionBoxV1 { x: number; y: number; w: number; h: number; }
+interface DetectionBoxV2 { xmin: number; ymin: number; xmax: number; ymax: number; }
+interface DetectionEntry {
+  boundingBox?: { x: number; y: number; width: number; height: number };
+  box?: DetectionBoxV1;
+  bounding_box?: DetectionBoxV2;
+  [key: string]: unknown;
+}
+
+function normalizeBoundingBox(detection: DetectionEntry): { x: number; y: number; width: number; height: number } | null {
+  if (detection.boundingBox) return detection.boundingBox;
+  if (detection.box) {
+    return { x: detection.box.x, y: detection.box.y, width: detection.box.w, height: detection.box.h };
+  }
+  if (detection.bounding_box) {
+    return {
+      x: detection.bounding_box.xmin,
+      y: detection.bounding_box.ymin,
+      width: detection.bounding_box.xmax - detection.bounding_box.xmin,
+      height: detection.bounding_box.ymax - detection.bounding_box.ymin,
+    };
+  }
+  return null;
+}
+
 export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing,
 }) => {
@@ -106,22 +131,29 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               )}
               {(event.detections && event.detections.length > 0) && (
                 <div className="absolute inset-0 pointer-events-none">
-                  {event.detections.map((detection, index) => (
-                    <div key={index} className="absolute border-2"
-                      style={{
-                        left: `${detection.boundingBox.x}px`, top: `${detection.boundingBox.y}px`,
-                        width: `${detection.boundingBox.width}px`, height: `${detection.boundingBox.height}px`,
-                        borderColor: getDetectionColor(detection.type),
-                        boxShadow: `0 0 10px ${getDetectionColor(detection.type)}40`,
-                      }}
-                    >
-                      <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
-                        style={{ backgroundColor: getDetectionColor(detection.type) }}
+                  {event.detections.map((detection: DetectionEntry, index) => {
+                    const box = normalizeBoundingBox(detection);
+                    if (!box) return null;
+                    const detType = String(detection.type || 'motion');
+                    const conf = typeof detection.confidence === 'number' ? detection.confidence : 0;
+                    const displayConf = conf <= 1 ? Math.round(conf * 100) : Math.round(conf);
+                    return (
+                      <div key={index} className="absolute border-2"
+                        style={{
+                          left: `${box.x}px`, top: `${box.y}px`,
+                          width: `${box.width}px`, height: `${box.height}px`,
+                          borderColor: getDetectionColor(detType),
+                          boxShadow: `0 0 10px ${getDetectionColor(detType)}40`,
+                        }}
                       >
-                        {detection.type} • {Math.round(typeof detection.confidence === 'number' && detection.confidence <= 1 ? detection.confidence * 100 : detection.confidence)}%
+                        <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
+                          style={{ backgroundColor: getDetectionColor(detType) }}
+                        >
+                          {detType} • {displayConf}%
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {analysis && analysis.detectedEntities && (

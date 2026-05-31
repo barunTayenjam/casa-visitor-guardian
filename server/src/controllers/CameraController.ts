@@ -119,15 +119,23 @@ export class CameraController extends BaseController {
         updates.streams = [{ path: rtspUrl, roles: ['detect', 'record', 'live'] }];
       }
       if (frameRate !== undefined) {
-        if (!updates.streams) updates.streams = [];
-        if (updates.streams[0]) updates.streams[0].fps = frameRate;
+        const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+        const existingStreams = camera?.config?.streams;
+        if (existingStreams && existingStreams.length > 0) {
+          if (!updates.streams) updates.streams = [...existingStreams];
+          if (updates.streams[0]) updates.streams[0].fps = frameRate;
+        }
       }
       if (resolution !== undefined) {
-        if (!updates.streams) updates.streams = [];
-        const [w, h] = resolution.split('x').map(Number);
-        if (updates.streams[0]) {
-          updates.streams[0].width = w || 1920;
-          updates.streams[0].height = h || 1080;
+        const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+        const existingStreams = camera?.config?.streams;
+        if (existingStreams && existingStreams.length > 0) {
+          if (!updates.streams) updates.streams = [...existingStreams];
+          const [w, h] = resolution.split('x').map(Number);
+          if (updates.streams[0]) {
+            updates.streams[0].width = w || 1920;
+            updates.streams[0].height = h || 1080;
+          }
         }
       }
 

@@ -30,6 +30,7 @@ export interface AuthContextType extends AuthState {
   clearError: () => void;
   refreshToken: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  completeLogin: (user: User, token: string) => void;
 }
 
 export interface RegisterData {
@@ -405,6 +406,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const completeLogin = useCallback((user: User, token: string) => {
+    storeAuth(token);
+    dispatch({
+      type: 'AUTH_SUCCESS',
+      payload: { user, token },
+    });
+  }, [storeAuth]);
+
   const value: AuthContextType = {
     ...state,
     login,
@@ -413,6 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearError,
     refreshToken,
     changePassword,
+    completeLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -38,6 +38,7 @@ import { OptimizationSettings } from '@/components/settings/OptimizationSettings
 import { MotionDetectionSettings } from '@/components/settings/MotionDetectionSettings';
 import { settingsService } from '@/services/api/settingsService';
 import { notificationService } from '@/services/api/notificationService';
+import { authService } from '@/services/api/authService';
 
 interface GeneralSettings {
   systemName: string;
@@ -107,6 +108,12 @@ const SettingsPage = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+
+  const [mfaStatus, setMfaStatus] = useState<'idle' | 'setup' | 'verify' | 'enabled'>('idle');
+  const [mfaQrCode, setMfaQrCode] = useState('');
+  const [mfaSecretPreview, setMfaSecretPreview] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -698,6 +705,161 @@ const SettingsPage = () => {
                     System mode matches your operating system preference
                   </p>
                 </div>
+              </div>
+            </SettingCard>
+
+            <div className="mb-6 mt-8">
+              <h2 className="text-xl font-semibold text-foreground">Security</h2>
+              <p className="text-sm text-muted-foreground mt-1">Two-factor authentication settings</p>
+            </div>
+
+            <SettingCard>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-[0.5rem] bg-rose-500/10">
+                      <Lock className="h-5 w-5 text-rose-500" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-foreground">Two-Factor Authentication</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {mfaStatus === 'enabled'
+                          ? 'MFA is currently enabled'
+                          : mfaStatus === 'verify'
+                            ? 'Scan the QR code and enter the code from your authenticator app'
+                            : mfaStatus === 'setup'
+                              ? 'Generating MFA key...'
+                              : 'Add an extra layer of security to your account'}
+                      </p>
+                    </div>
+                  </div>
+                  {mfaStatus === 'enabled' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={mfaLoading}
+                      onClick={async () => {
+                        if (!window.confirm('Are you sure you want to disable two-factor authentication?')) return;
+                        setMfaLoading(true);
+                        try {
+                          const res = await authService.disableMFA();
+                          if (res.success) {
+                            setMfaStatus('idle');
+                            setMfaQrCode('');
+                            setMfaSecretPreview('');
+                            setMfaCode('');
+                            toast({ title: 'MFA disabled', description: 'Two-factor authentication has been disabled.' });
+                          }
+                        } catch (error) {
+                          toast({
+                            variant: 'destructive',
+                            title: 'Failed to disable MFA',
+                            description: error instanceof Error ? error.message : 'Unknown error',
+                          });
+                        } finally {
+                          setMfaLoading(false);
+                        }
+                      }}
+                    >
+                      {mfaLoading ? 'Disabling...' : 'Disable 2FA'}
+                    </Button>
+                  ) : mfaStatus === 'verify' ? null : (
+                    <Button
+                      size="sm"
+                      disabled={mfaLoading || mfaStatus === 'setup'}
+                      onClick={async () => {
+                        setMfaStatus('setup');
+                        setMfaLoading(true);
+                        try {
+                          const res = await authService.setupMFA();
+                          if (res.success) {
+                            setMfaQrCode(res.qrCode);
+                            setMfaSecretPreview(res.secretPreview);
+                            setMfaStatus('verify');
+                          }
+                        } catch (error) {
+                          setMfaStatus('idle');
+                          toast({
+                            variant: 'destructive',
+                            title: 'Failed to setup MFA',
+                            description: error instanceof Error ? error.message : 'Unknown error',
+                          });
+                        } finally {
+                          setMfaLoading(false);
+                        }
+                      }}
+                    >
+                      {mfaLoading ? 'Setting up...' : 'Enable 2FA'}
+                    </Button>
+                  )}
+                </div>
+
+                {mfaStatus === 'verify' && mfaQrCode && (
+                  <div className="space-y-4 pt-2 border-t border-border">
+                    <div className="flex justify-center">
+                      <img
+                        src={mfaQrCode}
+                        alt="MFA QR Code"
+                        className="w-48 h-48 rounded-lg"
+                      />
+                    </div>
+                    {mfaSecretPreview && (
+                      <p className="text-xs text-center text-muted-foreground">
+                        Secret key: {mfaSecretPreview}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Enter code from authenticator"
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value)}
+                        maxLength={6}
+                        className="text-center text-lg tracking-widest"
+                      />
+                      <Button
+                        disabled={mfaCode.length < 6 || mfaLoading}
+                        onClick={async () => {
+                          setMfaLoading(true);
+                          try {
+                            const res = await authService.verifyMFA(mfaCode);
+                            if (res.success) {
+                              setMfaStatus('enabled');
+                              setMfaCode('');
+                              toast({
+                                title: 'MFA enabled',
+                                description: 'Two-factor authentication is now active.',
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              variant: 'destructive',
+                              title: 'Verification failed',
+                              description: error instanceof Error ? error.message : 'Invalid code',
+                            });
+                          } finally {
+                            setMfaLoading(false);
+                          }
+                        }}
+                      >
+                        {mfaLoading ? 'Verifying...' : 'Verify'}
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setMfaStatus('idle');
+                        setMfaQrCode('');
+                        setMfaSecretPreview('');
+                        setMfaCode('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </div>
             </SettingCard>
 

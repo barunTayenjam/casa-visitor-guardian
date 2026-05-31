@@ -101,14 +101,18 @@ const AnalyticsPage = () => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        const hourlyData = await systemService.getHourlyAnalytics();
-
         const now = new Date();
         let daysBack = 7;
         if (timeRange === '30d') daysBack = 30;
         if (timeRange === '90d') daysBack = 90;
 
-        const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+        const rangeStartDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+        const hourlyData = await systemService.getHourlyAnalytics(
+          rangeStartDate.toISOString(),
+          now.toISOString()
+        );
+
+        const startDate = rangeStartDate;
         const eventsResponse = await eventService.getEnhancedEventsList({
           page: 1,
           pageSize: 1000,

@@ -7,6 +7,7 @@ import type { Camera } from '../streams/rtspManager.js';
 import type { CameraConfig } from '../config/index.js';
 
 export class CameraController extends BaseController {
+  private testIntervals: Map<string, NodeJS.Timeout> = new Map();
   listAll(req: Request, res: Response): void {
     try {
       logger.apiRequest('GET', '/api/cameras', req.ip || 'unknown', req.get('User-Agent'));
@@ -193,6 +194,11 @@ export class CameraController extends BaseController {
         return;
       }
 
+      const existing = this.testIntervals.get(req.params.id);
+      if (existing) {
+        clearInterval(existing);
+      }
+
       streamManager.stopStream(req.params.id);
       streamManager.startTestStream(req.params.id, 'detect');
       camera.isActive = true;
@@ -232,6 +238,11 @@ export class CameraController extends BaseController {
 
   stopStream(req: Request, res: Response): void {
     try {
+      const testInterval = this.testIntervals.get(req.params.id);
+      if (testInterval) {
+        clearInterval(testInterval);
+        this.testIntervals.delete(req.params.id);
+      }
       const streamManager = serviceRegistry.getStreamManager();
       const stopped = streamManager.stopStream(req.params.id);
       if (!stopped) {
@@ -241,6 +252,21 @@ export class CameraController extends BaseController {
       this.ok(res, {});
     } catch (error) {
       this.serverError(res, error, 'stopStream');
+    }
+  }
+
+  stopTestStream(req: Request, res: Response): void {
+    try {
+      const testInterval = this.testIntervals.get(req.params.id);
+      if (testInterval) {
+        clearInterval(testInterval);
+        this.testIntervals.delete(req.params.id);
+      }
+      const streamManager = serviceRegistry.getStreamManager();
+      streamManager.stopStream(req.params.id);
+      this.ok(res, { message: 'Test stream stopped' });
+    } catch (error) {
+      this.serverError(res, error, 'stopTestStream');
     }
   }
 

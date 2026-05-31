@@ -2,6 +2,7 @@ import React from 'react';
 import { MotionEvent } from '@/types/security';
 import { Link2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -73,7 +74,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
             <div className="rounded-[calc(1.25rem-1px)] bg-black/40">
               <div className="relative aspect-video bg-black rounded-t-[calc(1.25rem-1px)] overflow-hidden">
                 {event.imageUrl ? (
-                  <img src={event.imageUrl} alt={`Related event`} className="w-full h-full object-cover" />
+                  <ProgressiveImage src={event.imageUrl} alt={`Related event`} className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><p className="text-[10px] text-white/60">No image</p></div>
                 )}

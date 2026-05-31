@@ -75,9 +75,9 @@ export class AuthController extends BaseController {
         });
         if (result.user?.id && result.token) {
           await AppDataSource.query(
-            `INSERT INTO user_sessions (id, user_id, "refreshToken", "accessTokenHash", "ipAddress", "userAgent", "isActive", "expiresAt")
-             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, true, NOW() + INTERVAL '7 days')`,
-            [result.user.id, result.token, result.token, req.ip || '', req.get('User-Agent') || '']
+            `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
+            [result.user.id, result.token, result.token, req.ip || '0.0.0.0', req.get('User-Agent') || '']
           ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
         }
         logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');

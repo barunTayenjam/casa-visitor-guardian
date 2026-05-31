@@ -12,7 +12,7 @@ import { Eye, EyeOff } from 'lucide-react';
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register, isAuthenticated, isLoading, error, clearError } = useAuth();
+  const { login, register, isAuthenticated, isLoading, error, clearError, user } = useAuth();
 
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -113,9 +113,11 @@ export default function Login() {
           <div className="rounded-[calc(1.75rem-1px)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
             <div className="p-6">
               <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsList className={`grid w-full ${user?.role === 'admin' ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
                   <TabsTrigger value="login" className="text-xs">Sign In</TabsTrigger>
-                  <TabsTrigger value="register" className="text-xs">Sign Up</TabsTrigger>
+                  {user?.role === 'admin' && (
+                    <TabsTrigger value="register" className="text-xs">Sign Up</TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="login">
@@ -186,6 +188,11 @@ export default function Login() {
                 </TabsContent>
 
                 <TabsContent value="register">
+                  {user?.role !== 'admin' ? (
+                    <div className="py-8 text-center">
+                      <p className="text-sm text-muted-foreground">Only administrators can create new users.</p>
+                    </div>
+                  ) : (
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="reg-username" className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium">Username</Label>
@@ -307,6 +314,7 @@ export default function Login() {
                       )}
                     </Button>
                   </form>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

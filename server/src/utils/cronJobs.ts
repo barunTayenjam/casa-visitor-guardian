@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
+import NotificationService from '../services/notificationService.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -128,7 +129,27 @@ export function startCronJobs(io: SocketIOServer) {
     checkCameraHealth(io);
   });
 
+  // Expired subscription cleanup daily at 3:00 AM
+  cron.schedule('0 3 * * *', async () => {
+    try {
+      await NotificationService.cleanupExpiredSubscriptions();
+      logger.info('Expired subscription cleanup completed', 'Cron');
+    } catch (error) {
+      logger.error('Expired subscription cleanup failed:', 'Cron', error);
+    }
+  });
+
   // Scheduled tasks log disabled - console.log('Scheduled tasks started');
+}
+
+// Run expired subscription cleanup on startup
+export async function runStartupCleanup(): Promise<void> {
+  try {
+    const cleaned = await NotificationService.cleanupExpiredSubscriptions();
+    logger.info(`Startup cleanup removed ${cleaned} expired subscriptions`, 'Cron');
+  } catch (error) {
+    logger.error('Startup cleanup failed:', 'Cron', error);
+  }
 }
 
 // Clean up old snapshots and event images using database

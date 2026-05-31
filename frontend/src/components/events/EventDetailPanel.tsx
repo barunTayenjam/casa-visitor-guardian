@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface AIAnalysis {
   sceneDescription?: string;
@@ -52,10 +53,17 @@ function normalizeBoundingBox(detection: DetectionEntry): { x: number; y: number
   return null;
 }
 
+function formatConfidence(value: number): string {
+  if (value <= 0) return '0%';
+  if (value < 0.5) return '< 1%';
+  return `${Math.round(value)}%`;
+}
+
 export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const { toast } = useToast();
   if (!event) return null;
 
   const currentIndex = events.findIndex(e => e.id === event.id);
@@ -74,6 +82,24 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
   const handleDelete = () => {
     if (onDelete && window.confirm('Are you sure you want to delete this event?')) onDelete(event.id);
+  };
+
+  const handleShare = async () => {
+    const eventUrl = `${window.location.origin}/events?eventId=${event.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Security Event', url: eventUrl });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(eventUrl);
+        toast({ title: 'Link copied to clipboard' });
+      } catch {
+        toast({ title: 'Failed to copy link', variant: 'destructive' });
+      }
+    }
   };
 
   const getDetectionColor = (type: string) => {
@@ -136,7 +162,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     if (!box) return null;
                     const detType = String(detection.type || 'motion');
                     const conf = typeof detection.confidence === 'number' ? detection.confidence : 0;
-                    const displayConf = conf <= 1 ? Math.round(conf * 100) : Math.round(conf);
+                    const displayConf = conf <= 1 ? conf * 100 : conf;
                     return (
                       <div key={index} className="absolute border-2"
                         style={{
@@ -149,7 +175,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
                           style={{ backgroundColor: getDetectionColor(detType) }}
                         >
-                          {detType} • {displayConf}%
+                          {detType} • {formatConfidence(displayConf)}
                         </div>
                       </div>
                     );
@@ -208,7 +234,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {/* Key Stats */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Confidence', value: `${Math.round(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence)}%` },
+                  { label: 'Confidence', value: formatConfidence(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence) },
                   { label: 'Persons', value: event.personCount || 0 },
                   { label: 'Faces', value: event.faceCount || 0 },
                 ].map((stat, i) => (
@@ -506,7 +532,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               <Trash2 className="h-4 w-4 mr-2" /> Delete
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="text-xs">
+              <Button variant="outline" size="sm" className="text-xs" onClick={handleShare}>
                 <Share2 className="h-3.5 w-3.5 mr-1.5" /> Share
               </Button>
               <Button variant="outline" size="sm" className="text-xs" onClick={handleDownload} disabled={!event.imageUrl}>

@@ -108,22 +108,24 @@ const DayHighlightsPage = () => {
       ]);
 
       if (highlightsData.success && highlightsData.highlights.length > 0) {
-        // Always sort chronologically from 12:00 AM to end of day
-        const sortedHighlights = [...highlightsData.highlights].sort((a, b) => {
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-        });
+        let processedHighlights = [...highlightsData.highlights];
+        if (sortBy === 'recent') {
+          processedHighlights.sort((a, b) => {
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+          });
+        }
         
         // If viewing today, filter to only show events up to current time
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         
         if (date === today) {
-          const filteredHighlights = sortedHighlights.filter(h => {
+          processedHighlights = processedHighlights.filter(h => {
             return new Date(h.timestamp).getTime() <= now.getTime();
           });
-          setHighlights(filteredHighlights);
+          setHighlights(processedHighlights);
         } else {
-          setHighlights(sortedHighlights);
+          setHighlights(processedHighlights);
         }
         setCurrentIndex(0);
       } else {
@@ -183,11 +185,11 @@ const DayHighlightsPage = () => {
         break;
       case KEYBOARD_SHORTCUTS.PREV:
         e.preventDefault();
-        setCurrentIndex(prev => (prev - 1 + highlights.length) % highlights.length);
+        setCurrentIndex(prev => (prev - 1 + filteredHighlights.length) % filteredHighlights.length);
         break;
       case KEYBOARD_SHORTCUTS.NEXT:
         e.preventDefault();
-        setCurrentIndex(prev => (prev + 1) % highlights.length);
+        setCurrentIndex(prev => (prev + 1) % filteredHighlights.length);
         break;
       case KEYBOARD_SHORTCUTS.FIRST:
         e.preventDefault();

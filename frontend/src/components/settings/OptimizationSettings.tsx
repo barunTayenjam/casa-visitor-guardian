@@ -11,12 +11,14 @@ export const OptimizationSettings = () => {
   const { toast } = useToast();
   const [config, setConfig] = useState<DetectionConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [localThreads, setLocalThreads] = useState(2);
 
   useEffect(() => {
     const load = async () => {
       try {
         const data = await settingsService.getDetectionConfig();
         setConfig(data);
+        setLocalThreads(data.ffmpegThreads ?? 2);
       } catch (e) {
         console.error('Failed to load detection config', e);
       } finally {
@@ -61,12 +63,13 @@ export const OptimizationSettings = () => {
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
             <Label>FFmpeg Threads</Label>
-            <span className="font-bold">{config?.ffmpegThreads || 2}</span>
+            <span className="font-bold">{localThreads}</span>
           </div>
           <Slider 
-            value={[config?.ffmpegThreads || 2]} 
+            value={[localThreads]} 
             min={1} max={8} step={1}
-            onValueChange={(val) => updateConfig({ ffmpegThreads: val[0] })}
+            onValueChange={(val) => setLocalThreads(val[0])}
+            onValueCommit={(val) => updateConfig({ ffmpegThreads: val[0] })}
           />
         </div>
       </CardContent>

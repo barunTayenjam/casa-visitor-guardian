@@ -28,16 +28,26 @@ export class AnalyticsController extends BaseController {
     }
   }
 
-  getHourly(req: Request, res: Response): void {
+  async getHourly(req: Request, res: Response): Promise<void> {
     try {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const hourlyData = Array(24).fill(null).map((_, hour) => ({ hour, count: 0 }));
+      const { AppDataSource } = await import('../database.js');
+      const startDate = (req.query.startDate as string) || new Date().toISOString().split('T')[0];
+      const endDate = (req.query.endDate as string) || new Date().toISOString();
 
-      inMemoryState.getRecentEvents().forEach(event => {
-        const eventDate = new Date(event.timestamp);
-        if (eventDate >= startOfDay && eventDate <= today) {
-          hourlyData[eventDate.getHours()].count++;
+      const result = await AppDataSource.query(
+        `SELECT EXTRACT(HOUR FROM timestamp) as hour, COUNT(*) as count
+         FROM events
+         WHERE timestamp >= $1::timestamptz AND timestamp <= $2::timestamptz
+         GROUP BY hour
+         ORDER BY hour`,
+        [startDate, endDate]
+      );
+
+      const hourlyData = Array(24).fill(null).map((_, hour) => ({ hour, count: 0 }));
+      result.forEach((row: { hour: number; count: number }) => {
+        const h = parseInt(String(row.hour));
+        if (h >= 0 && h < 24) {
+          hourlyData[h].count = parseInt(String(row.count));
         }
       });
 

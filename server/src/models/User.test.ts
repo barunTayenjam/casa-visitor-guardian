@@ -42,7 +42,6 @@ describe('User Model', () => {
       
       expect(user.status).toBe('active');
       expect(user.mfaEnabled).toBe(false);
-      expect(user.emailVerified).toBe(false);
       expect(user.failedLoginAttempts).toBe(0);
     });
 

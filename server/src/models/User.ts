@@ -56,22 +56,6 @@ export class User {
   @Exclude()
   backupCodes!: string[] | null;
 
-  @Column({ name: 'email_verified', type: 'boolean', default: false })
-  emailVerified!: boolean;
-
-  @Column({ name: 'email_verification_token', type: 'varchar', length: 255, nullable: true })
-  emailVerificationToken!: string | null;
-
-  @Column({ name: 'email_verification_expires', type: 'timestamp', nullable: true })
-  emailVerificationExpires!: Date | null;
-
-  @Column({ name: 'password_reset_token', type: 'varchar', length: 255, nullable: true })
-  @Exclude()
-  passwordResetToken!: string | null;
-
-  @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
-  passwordResetExpires!: Date | null;
-
   @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin!: Date | null;
 

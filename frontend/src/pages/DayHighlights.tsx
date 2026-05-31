@@ -215,12 +215,27 @@ const DayHighlightsPage = () => {
         e.preventDefault();
         setCategoryFilter('unknown');
         break;
+      case KEYBOARD_SHORTCUTS.FULLSCREEN:
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+        break;
+      case KEYBOARD_SHORTCUTS.EXPORT:
+        e.preventDefault();
+        toast({
+          title: 'Export',
+          description: 'Export feature coming soon',
+        });
+        break;
       case '?':
         e.preventDefault();
         setShowKeyboardHelp(prev => !prev);
         break;
     }
-  }, [filteredHighlights.length]);
+  }, [filteredHighlights.length, toast]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

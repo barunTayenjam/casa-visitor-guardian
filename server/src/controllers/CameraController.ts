@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
+import path from 'node:path';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { logger } from '../utils/logger.js';
 import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
+import { AppDataSource } from '../database.js';
+import { Event } from '../models/Event.js';
 import type { Camera } from '../streams/rtspManager.js';
 import type { CameraConfig } from '../config/index.js';
 
@@ -273,11 +276,33 @@ export class CameraController extends BaseController {
   takeSnapshot(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
+      const cameraId = req.params.id;
       const { resolution } = req.body || {};
-      streamManager.takeSnapshot(req.params.id, resolution).then((snapshotPath: string | null) => {
+      streamManager.takeSnapshot(cameraId, resolution).then(async (snapshotPath: string | null) => {
         if (!snapshotPath) {
           this.serverError(res, 'Failed to take snapshot');
           return;
+        }
+        try {
+          const eventRepo = AppDataSource.getRepository(Event);
+          const snapshotEvent = eventRepo.create({
+            camera_id: cameraId,
+            event_type: 'snapshot',
+            timestamp: new Date(),
+            file_path: snapshotPath,
+            thumbnail_path: null,
+            confidence: 1.0,
+            persons_detected: 0,
+            faces_detected: 0,
+            known_faces_count: 0,
+            unknown_faces_count: 0,
+            object_detections: [],
+            face_detections: [],
+            metadata: JSON.stringify({ type: 'snapshot' }),
+          });
+          await eventRepo.save(snapshotEvent);
+        } catch (dbError) {
+          logger.error(`Failed to save snapshot event to database: ${dbError}`, 'CameraController');
         }
         this.ok(res, { url: '/snapshots/' + snapshotPath });
       }).catch((error: unknown) => {

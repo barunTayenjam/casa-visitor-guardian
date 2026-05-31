@@ -2,8 +2,10 @@ import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import eventSearchService from '../services/eventSearchService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
+import { AppDataSource } from '../database.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
 
@@ -188,17 +190,84 @@ router.get('/image/:filename', optionalAuth, validate({
   }
 });
 
+router.post('/bulk/archive', requireUser, async (req: Request, res: Response) => {
+  try {
+    const { eventIds } = req.body;
+    if (!Array.isArray(eventIds) || eventIds.length === 0 || !eventIds.every((id: unknown) => typeof id === 'string')) {
+       res.status(400).json({ success: false, error: 'eventIds must be a non-empty array of strings' });
+       return;
+    }
+
+    let deleted = 0;
+    let fileErrors = 0;
+
+    for (const eventId of eventIds) {
+      try {
+        const rows = await AppDataSource.query(
+          'SELECT file_path FROM events WHERE id = $1',
+          [eventId]
+        ) as Array<{ file_path: string | null }>;
+
+        if (rows.length === 0) continue;
+
+        await AppDataSource.query('DELETE FROM events WHERE id = $1', [eventId]);
+        deleted++;
+
+        const filePath = rows[0].file_path;
+        if (filePath) {
+          try {
+            await fsp.unlink(path.join(process.cwd(), filePath));
+          } catch {
+            fileErrors++;
+            logger.warn(`Failed to delete image file for event ${eventId}`, 'EventArchive');
+          }
+        }
+
+        inMemoryState.removeEvent(eventId);
+      } catch {
+        logger.warn(`Failed to delete event ${eventId} from database`, 'EventArchive');
+      }
+    }
+
+    res.json({ success: true, deleted, errors: fileErrors });
+  } catch (error) {
+     logger.error('Error in bulk archive', 'EventSearch', error);
+    res.status(500).json({ success: false, error: 'Failed to archive events' });
+  }
+});
+
 router.post('/:id/archive', requireUser, validate({
   params: {
     id: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
   }
-}), (req: Request, res: Response) => {
+}), async (req: Request, res: Response) => {
   try {
     const eventId = req.params.id;
-    const events = inMemoryState.getRecentEvents();
-    const eventIndex = events.findIndex(event => event.id === eventId);
-    if (eventIndex === -1) return res.status(404).json({ success: false, error: 'Event not found or already archived' });
-    res.json({ success: true, message: 'Event archived successfully' });
+
+    const rows = await AppDataSource.query(
+      'SELECT file_path FROM events WHERE id = $1',
+      [eventId]
+    ) as Array<{ file_path: string | null }>;
+
+    if (rows.length === 0) {
+       res.status(404).json({ success: false, error: 'Event not found' });
+       return;
+    }
+
+    await AppDataSource.query('DELETE FROM events WHERE id = $1', [eventId]);
+
+    const filePath = rows[0].file_path;
+    if (filePath) {
+      try {
+        await fsp.unlink(path.join(process.cwd(), filePath));
+      } catch {
+        logger.warn(`Failed to delete image file for event ${eventId}`, 'EventArchive');
+      }
+    }
+
+    inMemoryState.removeEvent(eventId);
+
+    res.json({ success: true, message: 'Event deleted successfully' });
   } catch (error) {
      logger.error(`Error archiving event ${req.params.id}`, 'EventSearch', error);
     res.status(500).json({ success: false, error: 'Failed to archive event' });

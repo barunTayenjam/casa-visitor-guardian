@@ -207,7 +207,16 @@ export class AuthService {
 
       if (newUserResult && newUserResult.length > 0) {
         const dbUser = newUserResult[0];
-        const user: User = {
+      try {
+        await AppDataSource.query(
+          'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
+          [dbUser.id]
+        );
+      } catch (resetError) {
+        logger.error(`Failed to reset lockout counters for user ${dbUser.id}: ${resetError}`, 'AuthService');
+      }
+
+      const user: User = {
           id: dbUser.id,
           username: dbUser.username,
           email: dbUser.email,
@@ -247,7 +256,9 @@ export class AuthService {
       }
 
       const result = await AppDataSource.query(
-        `SELECT u.id, u.username, u.email, u.password_hash, u.status, r.name as role_name, u.created_at, u.updated_at
+        `SELECT u.id, u.username, u.email, u.password_hash, u.status,
+                u.failed_login_attempts, u.locked_until,
+                r.name as role_name, u.created_at, u.updated_at
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
          WHERE u.username = $1`,
@@ -264,9 +275,23 @@ export class AuthService {
         return { success: false, error: 'Account is disabled' };
       }
 
+      if (dbUser.locked_until && new Date(dbUser.locked_until) > new Date()) {
+        return { success: false, error: 'Account is temporarily locked due to too many failed login attempts. Try again later.' };
+      }
+
       const isPasswordValid = await this.comparePassword(credentials.password, dbUser.password_hash);
 
       if (!isPasswordValid) {
+        const attempts = (dbUser.failed_login_attempts || 0) + 1;
+        const lockUntil = attempts >= config.security.maxLoginAttempts
+          ? new Date(Date.now() + config.security.lockoutDuration)
+          : null;
+
+        await AppDataSource.query(
+          'UPDATE users SET failed_login_attempts = $1, locked_until = $2, updated_at = NOW() WHERE id = $3',
+          [attempts, lockUntil, dbUser.id]
+        );
+
         return { success: false, error: 'Invalid username or password' };
       }
 

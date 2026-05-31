@@ -248,10 +248,10 @@ export const cameraService = {
         body: JSON.stringify({ resolution }),
       });
       const data = await response.json();
-      if (!data.success || !data.snapshotPath) {
+      if (!data.success || !data.url) {
         throw new ApiError(data.error || `Failed to take snapshot for camera ${id}`, response.status, 'SNAPSHOT_ERROR', data);
       }
-      return `/snapshots/${data.snapshotPath}`;
+      return data.url as string;
     } catch (error) {
       console.error(`Error taking snapshot for camera ${id}:`, error);
       if (error instanceof ApiError) throw error;

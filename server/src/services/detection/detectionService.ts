@@ -268,6 +268,10 @@ export class DetectionService {
   }
 }
 
-export const detectionService = new DetectionService(
-  {} as Repository<DetectionConfig>
-);
+function createDetectionService(): DetectionService {
+  const repo = AppDataSource.isInitialized
+    ? AppDataSource.getRepository(DetectionConfig)
+    : {} as Repository<DetectionConfig>;
+  return new DetectionService(repo);
+}
+export const detectionService = createDetectionService();

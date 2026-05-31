@@ -268,6 +268,7 @@ export class AuthService {
       );
 
       if (!result || result.length === 0) {
+        await bcrypt.compare('dummy-password', '$2b$10$0000000000000000000000000000000000000');
         return { success: false, error: 'Invalid username or password' };
       }
 

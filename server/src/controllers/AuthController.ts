@@ -76,10 +76,11 @@ export class AuthController extends BaseController {
           success: true
         });
         if (result.user?.id && result.token) {
+      const sessionIp1 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
           await AppDataSource.query(
             `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
              VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-            [result.user.id, result.token, result.token, req.ip || '0.0.0.0', req.get('User-Agent') || '']
+            [result.user.id, result.token, result.token, sessionIp1, req.get('User-Agent') || '']
           ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
         }
         logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');
@@ -380,10 +381,11 @@ export class AuthController extends BaseController {
         success: true,
       });
 
+      const sessionIp2 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
       await AppDataSource.query(
         `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-        [dbUser.id, token, token, req.ip || '0.0.0.0', req.get('User-Agent') || '']
+         [dbUser.id, token, token, sessionIp2, req.get('User-Agent') || '']
       ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
 
       const { password: _, ...userWithoutPassword } = userForToken;

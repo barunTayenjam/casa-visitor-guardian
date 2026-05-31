@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService, JWTPayload } from '../auth/index.js';
 import { logger } from '../utils/logger.js';
+import { AppDataSource } from '../database.js';
 
 // Extend Request interface to include user
 declare module 'express-serve-static-core' {
@@ -18,7 +19,7 @@ export interface AuthOptions {
 export function authenticate(options: AuthOptions = {}) {
   const { required = true, roles = [], skipValidation = false } = options;
 
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Get token from Authorization header
       const authHeader = req.headers.authorization;
@@ -56,6 +57,34 @@ export function authenticate(options: AuthOptions = {}) {
           success: false,
           error: 'Insufficient permissions'
         });
+      }
+
+      // Verify user has an active session (not logged out)
+      try {
+        if (AppDataSource.isInitialized) {
+          const session = await AppDataSource.query(
+            'SELECT id FROM user_sessions WHERE user_id = $1 AND is_active = true LIMIT 1',
+            [payload.userId]
+          );
+          if (!session || session.length === 0) {
+            if (required) {
+              return res.status(401).json({
+                success: false,
+                error: 'Session expired. Please login again.'
+              });
+            }
+            return next();
+          }
+        }
+      } catch (err) {
+        logger.error(`Session check error: ${err}`, 'AuthMiddleware');
+        if (required) {
+          return res.status(500).json({
+            success: false,
+            error: 'Authentication error'
+          });
+        }
+        return next();
       }
 
       // Add user payload to request

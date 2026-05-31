@@ -73,6 +73,13 @@ export class AuthController extends BaseController {
           details: { loginMethod: 'password' },
           success: true
         });
+        if (result.user?.id && result.token) {
+          await AppDataSource.query(
+            `INSERT INTO user_sessions (id, user_id, "refreshToken", "accessTokenHash", "ipAddress", "userAgent", "isActive", "expiresAt")
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, true, NOW() + INTERVAL '7 days')`,
+            [result.user.id, result.token, result.token, req.ip || '', req.get('User-Agent') || '']
+          ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+        }
         logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');
         this.ok(res, {
           message: 'Login successful',
@@ -192,6 +199,12 @@ export class AuthController extends BaseController {
         userAgent: req.get('User-Agent'),
         success: true
       });
+      if (req.user?.userId) {
+        await AppDataSource.query(
+          'DELETE FROM user_sessions WHERE user_id = $1',
+          [req.user.userId]
+        ).catch(err => logger.error(`Failed to delete user sessions on logout: ${err}`, 'AuthRoutes'));
+      }
       logger.info(`User logged out: ${req.user?.username}`, 'AuthRoutes');
       this.ok(res, { message: 'Logout successful' });
     } catch (error) {

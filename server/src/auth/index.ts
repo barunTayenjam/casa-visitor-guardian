@@ -472,10 +472,27 @@ export class AuthService {
         return { success: false, error: 'Current password is incorrect' };
       }
 
+      const historyEntries = await AppDataSource.query(
+        'SELECT password_hash FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [userId]
+      );
+      for (const entry of historyEntries) {
+        const isReused = await this.comparePassword(newPassword, entry.password_hash);
+        if (isReused) {
+          return { success: false, error: 'Cannot reuse a recent password' };
+        }
+      }
+
       const newPasswordHash = await this.hashPassword(newPassword);
       await AppDataSource.query(
         `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
         [newPasswordHash, userId]
+      );
+
+      await AppDataSource.query(
+        `INSERT INTO password_history (id, user_id, password_hash, created_at)
+         VALUES (gen_random_uuid(), $1, $2, NOW())`,
+        [userId, dbUser.password_hash]
       );
 
       logger.info(`Password changed for user: ${userId}`, 'AuthService');

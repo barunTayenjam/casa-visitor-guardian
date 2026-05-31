@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Security & Quality
-status: complete
-last_updated: "2026-05-30T18:00:00.000Z"
+milestone: v1.5
+milestone_name: Audit Bug Fixes
+status: in_progress
+last_updated: "2026-05-31T12:30:00.000Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 25
 ---
 
 # State: SentryVision Home Security System
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 8 — Reliability & Type Safety (✅ Complete)
+**Current focus:** Phase 10 — Critical Bug Fixes (✅ Complete)
 
 ---
 
@@ -38,6 +38,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 | Milestone v1.2 | ✅ Complete | 4/4 phases, 11/11 plans, 100% |
 | Milestone v1.3 | ✅ Complete | 1/1 phases, 3/3 plans, 100% |
 | Milestone v1.4 | ✅ Complete | 3 phases, 8 plans, 100% |
+| Milestone v1.5 | ◆ In Progress | Phase 10 done, 3 phases remaining |
 
 ## Accumulated Context
 
@@ -161,12 +162,13 @@ Phase 6 (Documentation Audit & Fix): 3/3 plans complete ✅.
 
 ## Session Context
 
-**Last Session:** 2026-05-30T14:00:00+05:30
+**Last Session:** 2026-05-31T12:30:00+05:30
 
-- **Status:** Phase 8 (Reliability & Type Safety) — 3/3 plans complete ✅
-- **Completed:** Wave 1 (fail-fast startup + health/readiness endpoints) + Wave 2 (async fs + Socket.io consolidation + directory cache + registry migration + noImplicitAny + typed JSONB + safe EventBus)
-- **Next:** Phase 9 (Code Quality & Test Coverage) — 3 plans
-- **Reference:** Phase 8 research + plans in `.planning/phases/08-phase-8-reliability-type-safety/`
+- **Status:** Phase 10 (Critical Bug Fixes) — 4/4 plans complete ✅
+- **Completed:** Wave 1 (event deletion, camera persistence + create, account lockout + MFA, SQL injection) — all 7 P0 bugs fixed, verified, and re-verified
+- **TypeScript:** Zero errors on `cd server && npx tsc --noEmit`
+- **Next:** Phase 11 (High Priority Fixes) — 22 P1 bugs
+- **Reference:** Phase 10 plans + research in `.planning/phases/10-critical-bug-fixes/`
 
 ---
 
@@ -184,6 +186,19 @@ Architecture review (2026-05-30) identified 6 critical/high issues and 12 medium
 **Reliability fixes (Phase 8):** Partial startup, async I/O, Socket.io consolidation, strict TypeScript
 **Quality improvements (Phase 9):** File decomposition, logging, frontend tests, CI
 
+## v1.5 Milestone Plan — Audit Bug Fixes
+
+Comprehensive audit of 131 features (docs/AUDIT-REPORT.md) identified 61 bugs across 4 priority tiers.
+
+| Phase | Name | Priority | Bugs | Plans | Status |
+|-------|------|----------|------|-------|--------|
+| 10 | Critical Bug Fixes | P0 Critical | 7 | 4 | ✅ Complete |
+| 11 | High Priority Fixes | P1 High | 22 | — | 📋 Planned |
+| 12 | Medium Priority Fixes | P2 Medium | 23 | — | 📋 Planned |
+| 13 | Low Priority Fixes | P3 Low | 9 | — | 📋 Planned |
+
+**Phase 10 completed (7 bugs fixed):** Event deletion (FIX-001), camera config persistence (FIX-002), camera create E2E (FIX-003), account lockout (FIX-004), MFA setup persist (FIX-005), MFA verify protocol (FIX-006), SQL injection (FIX-007).
+
 ---
 
-*State updated: 2026-05-30 — Phase 8 Reliability & Type Safety complete (3/3 plans). Phase 9 remaining.*
+*State updated: 2026-05-31 — Phase 10 Critical Bug Fixes complete (4/4 plans, 7/7 bugs). Phase 11 remaining.*

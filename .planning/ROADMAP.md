@@ -125,17 +125,18 @@ Plans:
 
 **Requirements**: FIX-008 through FIX-029
 **Depends on:** Phase 10
+**Plans:** 9 plans in 5 waves
 
 Plans:
-- [ ] 11-01-PLAN.md — Visitor + alerts fixes (FIX-008, FIX-027, FIX-028)
-- [ ] 11-02-PLAN.md — Day highlights fixes (FIX-009, FIX-010, FIX-011)
-- [ ] 11-03-PLAN.md — Analytics + events fixes (FIX-012, FIX-018, FIX-019)
-- [ ] 11-04-PLAN.md — Detection pipeline fixes (FIX-014, FIX-015, FIX-016)
-- [ ] 11-05-PLAN.md — Camera management P1 fixes (FIX-020, FIX-021, FIX-022)
-- [ ] 11-06-PLAN.md — Settings fixes (FIX-023, FIX-024)
-- [ ] 11-07-PLAN.md — Auth P1 fixes: token invalidation + password history (FIX-025, FIX-026)
-- [ ] 11-08-PLAN.md — Notifications: wire to pipeline + VAPID persistence (FIX-013, FIX-014)
-- [ ] 11-09-PLAN.md — Batch CSV fix (FIX-029)
+- [ ] 11-01-PLAN.md — Visitor + alerts fixes (FIX-008, FIX-027, FIX-028) — Wave 1
+- [ ] 11-02-PLAN.md — Day highlights fixes (FIX-009, FIX-010, FIX-011) — Wave 1
+- [ ] 11-03-PLAN.md — Analytics + events fixes (FIX-012, FIX-018, FIX-019) — Wave 2
+- [ ] 11-04-PLAN.md — Detection pipeline: stubs, repository, settings→Python (FIX-015, FIX-016, FIX-017) — Wave 4
+- [ ] 11-05-PLAN.md — Camera management: update fields, filter body, zone→Python (FIX-020, FIX-021, FIX-022) — Wave 5
+- [ ] 11-06-PLAN.md — Settings fixes: retention mapping, fresh-install upsert (FIX-023, FIX-024) — Wave 2
+- [ ] 11-07-PLAN.md — Auth P1 fixes: token invalidation + password history (FIX-025, FIX-026) — Wave 3
+- [ ] 11-08-PLAN.md — Notifications: wire to pipeline + VAPID persistence (FIX-013, FIX-014) — Wave 4
+- [ ] 11-09-PLAN.md — Batch CSV newline fix (FIX-029) — Wave 1
 
 ### Phase 12: Medium Priority Fixes
 

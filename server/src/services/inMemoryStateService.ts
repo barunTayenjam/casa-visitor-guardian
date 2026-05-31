@@ -1,7 +1,5 @@
-// In-memory state service for recent events, alerts, and cached system settings
-// Replaces global mutable state previously declared in routes/index.ts
-
-// ---- Type Definitions ----
+import { AppDataSource } from '../database.js';
+import { logger } from '../utils/logger.js';
 
 export interface MotionEvent {
   id: string;
@@ -109,9 +107,16 @@ export class InMemoryStateService {
     this.recentEvents = [];
   }
 
+  removeEvent(eventId: string): boolean {
+    const index = this.recentEvents.findIndex((e) => e.id === eventId);
+    if (index === -1) return false;
+    this.recentEvents.splice(index, 1);
+    return true;
+  }
+
   // ---- Alerts ----
 
-  addAlert(alert: Omit<Alert, 'id' | 'timestamp' | 'acknowledged'>): void {
+  async addAlert(alert: Omit<Alert, 'id' | 'timestamp' | 'acknowledged'>): Promise<void> {
     const newAlert: Alert = {
       id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
@@ -122,28 +127,78 @@ export class InMemoryStateService {
     if (this.alerts.length > MAX_ENTRIES) {
       this.alerts.pop();
     }
+
+    try {
+      await AppDataSource.query(
+        `INSERT INTO alerts (id, type, severity, message, camera_id, acknowledged, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [newAlert.id, newAlert.type, newAlert.severity, newAlert.message, newAlert.cameraId || null, false, newAlert.timestamp]
+      );
+    } catch (error: any) {
+      logger.warn(`Failed to persist alert to database: ${error.message}`, 'InMemoryState');
+    }
   }
 
   getAlerts(): Alert[] {
     return [...this.alerts];
   }
 
-  acknowledgeAlert(alertId: string): boolean {
+  async loadAlertsFromDb(): Promise<void> {
+    try {
+      const rows = await AppDataSource.query(
+        'SELECT id, type, severity, message, camera_id, acknowledged, created_at FROM alerts ORDER BY created_at DESC LIMIT $1',
+        [MAX_ENTRIES]
+      ) as any[];
+
+      this.alerts = rows.map(r => ({
+        id: r.id,
+        type: r.type,
+        severity: r.severity,
+        message: r.message,
+        timestamp: new Date(r.created_at),
+        acknowledged: r.acknowledged,
+        cameraId: r.camera_id || undefined,
+      }));
+      logger.info(`Loaded ${this.alerts.length} alerts from database`, 'InMemoryState');
+    } catch (error: any) {
+      logger.warn(`Could not load alerts from database: ${error.message}`, 'InMemoryState');
+    }
+  }
+
+  async acknowledgeAlert(alertId: string): Promise<boolean> {
     const alert = this.alerts.find((a) => a.id === alertId);
     if (!alert) return false;
     alert.acknowledged = true;
+    try {
+      await AppDataSource.query(
+        'UPDATE alerts SET acknowledged = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [alertId]
+      );
+    } catch (error: any) {
+      logger.warn(`Failed to persist alert acknowledgment to database: ${error.message}`, 'InMemoryState');
+    }
     return true;
   }
 
-  deleteAlert(alertId: string): boolean {
+  async deleteAlert(alertId: string): Promise<boolean> {
     const index = this.alerts.findIndex((a) => a.id === alertId);
     if (index === -1) return false;
     this.alerts.splice(index, 1);
+    try {
+      await AppDataSource.query('DELETE FROM alerts WHERE id = $1', [alertId]);
+    } catch (error: any) {
+      logger.warn(`Failed to delete alert from database: ${error.message}`, 'InMemoryState');
+    }
     return true;
   }
 
-  clearAlerts(): void {
+  async clearAlerts(): Promise<void> {
     this.alerts = [];
+    try {
+      await AppDataSource.query('DELETE FROM alerts');
+    } catch (error: any) {
+      logger.warn(`Failed to clear alerts from database: ${error.message}`, 'InMemoryState');
+    }
   }
 
   // ---- System Settings ----
@@ -165,5 +220,4 @@ export class InMemoryStateService {
   }
 }
 
-// Singleton instance
 export const inMemoryState = new InMemoryStateService();

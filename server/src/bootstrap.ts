@@ -86,6 +86,18 @@ async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
 
   await AppDataSource.getRepository(Event).save(event);
   logger.info(`[Bootstrap] Persisted ${eventTypeStr} event for ${cameraId} (track=${trackId}, class=${className})`, 'BOOTSTRAP');
+
+  try {
+    if (eventTypeStr === 'person') {
+      NotificationService.notifyObjectDetected(event, [className]).catch(() => {});
+    } else if (eventTypeStr === 'face') {
+      NotificationService.notifyUnknownFace(event).catch(() => {});
+    } else {
+      NotificationService.notifyMotionEvent(event).catch(() => {});
+    }
+  } catch {
+    /* notification failures are non-blocking */
+  }
 }
 
 export async function initializeServices(io: SocketIOServer): Promise<void> {
@@ -259,7 +271,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
   try {
     logger.info('Initializing notification service...', 'BOOTSTRAP');
-    NotificationService.initialize();
+    await NotificationService.initialize();
     serviceRegistry.setNotificationService(NotificationService);
     logger.info('Notification service initialized successfully', 'BOOTSTRAP');
   } catch (error) {

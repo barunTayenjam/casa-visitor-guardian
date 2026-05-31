@@ -97,12 +97,25 @@ export class StreamManager {
     if (pythonWs) {
       // When the Python WebSocket client connects, subscribe to all cameras to keep streams always on.
       pythonWs.on('connected', () => {
-        this.cameras.forEach((_, camId) => {
+        this.cameras.forEach((camera, camId) => {
           if (!this.activeSubscriptions.has(camId)) {
-            pythonWs.subscribe(camId);
-            this.activeSubscriptions.add(camId);
+            const perCamera = camera.config.pythonEnabled;
+            const pipelineMode = config.pipeline.mode;
+            if (perCamera === true || (perCamera === undefined && pipelineMode !== 'legacy')) {
+              pythonWs.subscribe(camId);
+              this.activeSubscriptions.add(camId);
+            } else {
+              logger.debug(`Skipping Python subscription for camera ${camId}: pythonEnabled=${perCamera}, mode=${pipelineMode}`, 'StreamManager');
+            }
+          } else {
+            logger.debug(`Subscription already exists for camera ${camId} on reconnect, preserving existing`, 'StreamManager');
           }
         });
+      });
+
+      pythonWs.on('disconnected', () => {
+        this.activeSubscriptions.clear();
+        logger.debug('Cleared active subscriptions on Python WS disconnect', 'StreamManager');
       });
     }
     if (!pythonWs) return;

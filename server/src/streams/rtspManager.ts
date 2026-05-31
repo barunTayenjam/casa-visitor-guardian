@@ -289,6 +289,10 @@ export class StreamManager {
     const camera = this.cameras.get(cameraId);
     if (!camera) return;
 
+    if ((camera as any)._testInterval) {
+      clearInterval((camera as any)._testInterval);
+    }
+
     camera.isActive = true;
     camera.lastFrame = null;
 

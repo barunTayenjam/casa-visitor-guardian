@@ -12,6 +12,7 @@ router.put('/:id', requireUser, (req, res) => cameraController.update(req, res))
 router.delete('/:id', requireUser, (req, res) => cameraController.remove(req, res));
 
 router.post('/:id/stream/start-test', requireUser, (req, res) => cameraController.startTestStream(req, res));
+router.post('/:id/stream/stop-test', requireUser, (req, res) => cameraController.stopTestStream(req, res));
 router.post('/:id/stream/start', requireUser, (req, res) => cameraController.startStream(req, res));
 router.post('/:id/stream/stop', requireUser, (req, res) => cameraController.stopStream(req, res));
 router.post('/:id/snapshot', requireUser, (req, res) => cameraController.takeSnapshot(req, res));

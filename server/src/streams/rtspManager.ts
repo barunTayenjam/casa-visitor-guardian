@@ -10,6 +10,7 @@ import { Event } from "../models/Event.js";
 import { StreamHealthMonitor } from "./streamHealthMonitor.js";
 import { serviceRegistry } from "../services/serviceRegistry.js";
 import { encryptCredential } from "../services/credentialEncryption.js";
+import { getOpenCVClient } from "../services/opencvMicroserviceClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -395,6 +396,11 @@ export class StreamManager {
 
     this.persistCameras().catch(err => {
       logger.error(`Failed to persist cameras after toggleNightMode: ${err}`, 'StreamManager');
+    });
+
+    const opencvClient = getOpenCVClient();
+    opencvClient.pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>).catch(err => {
+      logger.warn(`Failed to push night mode config to Python: ${err}`, 'StreamManager');
     });
 
     return true;

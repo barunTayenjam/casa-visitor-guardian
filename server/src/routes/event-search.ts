@@ -160,7 +160,7 @@ router.get('/image/:filename', optionalAuth, validate({
       return res.status(400).json({ success: false, error: 'Invalid filename' });
     }
 
-    const publicImagePath = path.join(process.cwd(), 'public', 'events', filename);
+    const publicImagePath = path.join(config.storage.eventsDir, filename);
     if (fs.existsSync(publicImagePath)) return res.sendFile(publicImagePath);
 
     try {
@@ -168,7 +168,7 @@ router.get('/image/:filename', optionalAuth, validate({
       if (storagePath) {
         let actualImagePath = storagePath;
         if (!path.isAbsolute(actualImagePath)) {
-          actualImagePath = path.join(process.cwd(), 'data', 'detections', actualImagePath);
+          actualImagePath = path.join(config.storage.detectionsDir, actualImagePath);
         }
         if (fs.existsSync(actualImagePath)) return res.sendFile(actualImagePath);
       }
@@ -220,7 +220,7 @@ router.post('/bulk/archive', requireUser, async (req: Request, res: Response) =>
         const filePath = rows[0].file_path;
         if (filePath) {
           try {
-            await fsp.unlink(path.join(process.cwd(), filePath));
+            await fsp.unlink(path.join(config.storage.detectionsDir, filePath));
           } catch {
             fileErrors++;
             logger.warn(`Failed to delete image file for event ${eventId}`, 'EventArchive');
@@ -263,7 +263,7 @@ router.post('/:id/archive', requireUser, validate({
     const filePath = rows[0].file_path;
     if (filePath) {
       try {
-        await fsp.unlink(path.join(process.cwd(), filePath));
+        await fsp.unlink(path.join(config.storage.detectionsDir, filePath));
       } catch {
         logger.warn(`Failed to delete image file for event ${eventId}`, 'EventArchive');
       }

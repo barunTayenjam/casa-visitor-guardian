@@ -1,14 +1,20 @@
 import { Router } from 'express';
 import { validate, validateUserRegistration, validatePasswordChange, validateWithExpress } from '../middleware/validation.js';
-import { createAuthRateLimit } from '../middleware/enhancedRateLimit.js';
+import { createAuthRateLimit, EnhancedRateLimit } from '../middleware/enhancedRateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import { authController } from '../controllers/AuthController.js';
 
 const router = Router();
 
 const authRateLimit = createAuthRateLimit();
+const registerRateLimit = new EnhancedRateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Too many registration attempts, please try again after an hour',
+}).middleware();
 
 router.post('/register',
+  registerRateLimit,
   authenticate({ roles: ['admin'] }),
   validateWithExpress(validateUserRegistration),
   (req, res) => authController.register(req, res)

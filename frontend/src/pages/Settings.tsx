@@ -140,6 +140,11 @@ const SettingsPage = () => {
         }
       } catch (error) {
         console.error('Failed to load system settings:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load settings',
+          description: error instanceof Error ? error.message : 'Could not load settings from server',
+        });
       }
       try {
         const prefs = await notificationService.getPreferences();
@@ -166,7 +171,7 @@ const SettingsPage = () => {
       setLoading(false);
     }
     loadSettings();
-  }, []);
+  }, [toast]);
 
   const markChanged = () => setHasChanges(true);
 

@@ -135,6 +135,21 @@ export const systemService = {
     }
   },
 
+  async getStorageStats(): Promise<{ storageUsed: number; storageTotal: number }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/analytics/storage`);
+      const data = await response.json();
+      if (!data.success || (data.storageUsed === undefined)) {
+        throw new ApiError(data.error || 'Failed to fetch storage stats', response.status, 'GET_STORAGE_STATS_ERROR', data);
+      }
+      return { storageUsed: data.storageUsed, storageTotal: data.storageTotal };
+    } catch (error) {
+      console.error('Error fetching storage stats:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to fetch storage stats', 500, 'GET_STORAGE_STATS_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    }
+  },
+
   async getResponseTimeAnalytics(): Promise<{ average: number; recent: { timestamp: string; responseTime: number }[] }> {
     try {
       const response = await fetchWithRetry(`${API_URL}/analytics/response-time`);

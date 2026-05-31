@@ -188,10 +188,17 @@ const AnalyticsPage = () => {
           events: h.count,
         }));
 
-        // Calculate storage stats (estimate based on events)
-        const avgEventSize = 0.5; // MB per event
+        // Query real storage stats
         const totalEvents = events.length;
-        const usedGB = Math.round((totalEvents * avgEventSize) / 1024);
+        let storageUsedBytes = 0;
+        try {
+          const storageStats = await systemService.getStorageStats();
+          storageUsedBytes = storageStats.storageUsed || 0;
+        } catch (e) {
+          console.debug('Storage stats fetch failed', e);
+        }
+
+        const usedGB = Math.round(storageUsedBytes / (1024 * 1024 * 1024));
 
         // Count today's detections
         const today = new Date();

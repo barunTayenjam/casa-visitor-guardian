@@ -34,6 +34,8 @@ export interface AuthResult {
   token?: string;
   refreshToken?: string;
   error?: string;
+  mfaRequired?: boolean;
+  pendingToken?: string;
 }
 
 // Seed default users to database (runs once on startup)
@@ -257,7 +259,7 @@ export class AuthService {
 
       const result = await AppDataSource.query(
         `SELECT u.id, u.username, u.email, u.password_hash, u.status,
-                u.failed_login_attempts, u.locked_until,
+                u.failed_login_attempts, u.locked_until, u.mfa_enabled,
                 r.name as role_name, u.created_at, u.updated_at
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
@@ -306,6 +308,28 @@ export class AuthService {
         'UPDATE users SET last_login = NOW() WHERE id = $1',
         [dbUser.id]
       );
+
+      if (dbUser.mfa_enabled) {
+        const pendingToken = jwt.sign(
+          { userId: dbUser.id, purpose: 'mfa' },
+          config.jwtSecret,
+          { expiresIn: '5m' } as jwt.SignOptions
+        );
+        return {
+          success: true,
+          mfaRequired: true,
+          pendingToken,
+          user: {
+            id: dbUser.id,
+            username: dbUser.username,
+            email: dbUser.email,
+            role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+            isActive: true,
+            createdAt: dbUser.created_at,
+            updatedAt: dbUser.updated_at,
+          },
+        };
+      }
 
       const user: User = {
         id: dbUser.id,

@@ -15,6 +15,7 @@ import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
+import { startCronJobs, runStartupCleanup } from './utils/cronJobs.js';
 import { inMemoryState } from './services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from './services/pythonWsClient.js';
 import authService from './auth/index.js';
@@ -242,6 +243,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     logger.info('Initializing stream manager...', 'BOOTSTRAP');
     const streamManagerInstance = await setupRTSPStreams(io);
     serviceRegistry.setStreamManager(streamManagerInstance);
+    NotificationService.loadCameraNames(streamManagerInstance);
     logger.info('Stream manager initialized successfully', 'BOOTSTRAP');
   } catch (error) {
     logger.error('FATAL: Stream manager initialization failed', 'BOOTSTRAP', error);
@@ -273,6 +275,8 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     logger.info('Initializing notification service...', 'BOOTSTRAP');
     await NotificationService.initialize();
     serviceRegistry.setNotificationService(NotificationService);
+    startCronJobs(io);
+    runStartupCleanup();
     logger.info('Notification service initialized successfully', 'BOOTSTRAP');
   } catch (error) {
     logger.error('Notification service failed (non-critical)', 'BOOTSTRAP', error);

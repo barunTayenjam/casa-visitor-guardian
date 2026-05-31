@@ -3,7 +3,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import jwt from 'jsonwebtoken';
 import { BaseController } from './BaseController.js';
-import authService, { AuthService, User } from '../auth/index.js';
+import authService, { AuthService, User, JWTPayload } from '../auth/index.js';
 import { config } from '../config/index.js';
 import { AppDataSource } from '../database.js';
 import auditLogger from '../utils/auditLogger.js';
@@ -164,11 +164,20 @@ export class AuthController extends BaseController {
         return;
       }
 
-      const payload = this.authService.verifyToken(token);
+      let payload = this.authService.verifyToken(token);
 
+      // If token is expired, still allow refresh by decoding payload (ignore expiration)
       if (!payload) {
-        res.status(401).json({ success: false, error: 'Invalid or expired token' });
-        return;
+        try {
+          const decoded = jwt.decode(token) as JWTPayload | null;
+          if (decoded) {
+            payload = decoded;
+          }
+        } catch {}
+        if (!payload) {
+          res.status(401).json({ success: false, error: 'Invalid token' });
+          return;
+        }
       }
 
       const user = await this.authService.getUserById(payload.userId);

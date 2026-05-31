@@ -90,9 +90,14 @@ export const systemService = {
     }
   },
 
-  async getHourlyAnalytics(): Promise<{ hour: number; count: number }[]> {
+  async getHourlyAnalytics(startDate?: string, endDate?: string): Promise<{ hour: number; count: number }[]> {
     try {
-      const response = await fetchWithRetry(`${API_URL}/analytics/hourly`);
+      const params = new URLSearchParams();
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      const queryString = params.toString();
+      const url = `${API_URL}/analytics/hourly${queryString ? `?${queryString}` : ''}`;
+      const response = await fetchWithRetry(url);
       const data = await response.json();
       if (!data.success || !data.hourlyData) {
         throw new ApiError(data.error || 'Failed to fetch hourly analytics', response.status, 'GET_HOURLY_ANALYTICS_ERROR', data);

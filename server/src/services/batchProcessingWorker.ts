@@ -177,7 +177,7 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
         ])
       ];
 
-      fs.writeFileSync(path.join(outputDir, filename), csvLines.join('\\n'));
+      fs.writeFileSync(path.join(outputDir, filename), csvLines.join('\n'));
     }
 
     // Database saving is handled by metadata updates

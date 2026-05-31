@@ -2,13 +2,14 @@ export type Theme = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'sentryvision-theme';
 
-function getSystemTheme(): 'dark' {
-  return 'dark';
+export function getSystemPreference(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
 export function resolveTheme(theme: Theme): 'light' | 'dark' {
   if (theme === 'system') {
-    return getSystemTheme();
+    return getSystemPreference();
   }
   return theme;
 }

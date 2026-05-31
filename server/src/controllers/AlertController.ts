@@ -11,10 +11,11 @@ export class AlertController extends BaseController {
     }
   }
 
-  acknowledge(req: Request, res: Response): void {
+  async acknowledge(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      if (!inMemoryState.acknowledgeAlert(id)) {
+      const result = await inMemoryState.acknowledgeAlert(id);
+      if (!result) {
         this.notFound(res, 'Alert not found');
         return;
       }
@@ -24,10 +25,11 @@ export class AlertController extends BaseController {
     }
   }
 
-  remove(req: Request, res: Response): void {
+  async remove(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      if (!inMemoryState.deleteAlert(id)) {
+      const result = await inMemoryState.deleteAlert(id);
+      if (!result) {
         this.notFound(res, 'Alert not found');
         return;
       }

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Camera, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Camera as CameraType } from '@/types/security';
@@ -6,49 +6,48 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ScreenshotButtonProps {
   camera: CameraType;
-  imgRef: React.RefObject<HTMLImageElement>;
+  imgRef?: React.RefObject<HTMLImageElement>;
+  videoRef?: React.RefObject<HTMLVideoElement>;
   className?: string;
 }
 
 export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
   camera,
   imgRef,
+  videoRef,
   className,
 }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const { toast } = useToast();
 
   const handleScreenshot = async () => {
-    if (!imgRef.current || isCapturing) return;
+    const mediaEl = videoRef?.current || imgRef?.current;
+    if (!mediaEl || isCapturing) return;
 
     setIsCapturing(true);
 
     try {
-      // Create canvas from image
       const canvas = document.createElement('canvas');
-      canvas.width = imgRef.current.naturalWidth;
-      canvas.height = imgRef.current.naturalHeight;
+      const isVideo = 'videoWidth' in mediaEl;
+      canvas.width = isVideo ? (mediaEl as HTMLVideoElement).videoWidth : (mediaEl as HTMLImageElement).naturalWidth;
+      canvas.height = isVideo ? (mediaEl as HTMLVideoElement).videoHeight : (mediaEl as HTMLImageElement).naturalHeight;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
         throw new Error('Could not get canvas context');
       }
 
-      // Draw image to canvas
-      ctx.drawImage(imgRef.current, 0, 0);
+      ctx.drawImage(mediaEl, 0, 0);
 
-      // Add timestamp watermark
       const timestamp = new Date().toLocaleString();
       ctx.font = '14px monospace';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.lineWidth = 3;
       const text = `${camera.name} - ${timestamp}`;
-      const textWidth = ctx.measureText(text).width;
       ctx.strokeText(text, 10, canvas.height - 10);
       ctx.fillText(text, 10, canvas.height - 10);
 
-      // Convert to blob and download
       canvas.toBlob(async (blob) => {
         if (blob) {
           const url = URL.createObjectURL(blob);
@@ -67,11 +66,11 @@ export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
           });
         }
       }, 'image/jpeg', 0.95);
-    } catch (error) {
-      console.error('Screenshot failed:', error);
+    } catch (err) {
+      console.error('Screenshot failed:', err);
       toast({
         title: 'Screenshot Failed',
-        description: error instanceof Error ? error.message : 'Failed to capture screenshot',
+        description: err instanceof Error ? err.message : 'Failed to capture screenshot',
         variant: 'destructive',
         duration: 3000,
       });
@@ -80,13 +79,15 @@ export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
     }
   };
 
+  const hasMedia = !!(videoRef?.current || imgRef?.current);
+
   return (
     <Button
       variant="ghost"
       size="icon"
       className={className}
       onClick={handleScreenshot}
-      disabled={isCapturing || !imgRef.current}
+      disabled={isCapturing || !hasMedia}
       title="Take Screenshot"
       aria-label="Take screenshot"
     >

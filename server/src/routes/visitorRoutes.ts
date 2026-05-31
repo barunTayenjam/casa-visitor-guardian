@@ -55,12 +55,8 @@ router.put('/:id', requireUser, validate({
 }), async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
-    if (!name) {
-      res.status(400).json({ success: false, error: 'Name is required' });
-      return;
-    }
-    const personId = await visitorService.createPerson(name);
-    res.json({ success: true, personId, message: `Visitor updated successfully` });
+    await visitorService.updatePerson(req.params.id, { name });
+    res.json({ success: true, message: `Visitor updated successfully` });
   } catch (error) {
      logger.error('Error updating visitor', 'Visitor', error);
     res.status(500).json({ success: false, error: 'Failed to update visitor' });

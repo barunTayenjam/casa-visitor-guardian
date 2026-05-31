@@ -104,11 +104,11 @@ export class EventSearchService {
       queryParams.push(camera_id);
     }
     if (start_date) {
-      conditions.push(`e.timestamp >= $${paramIndex++}::timestamp`);
+      conditions.push(`e.timestamp >= $${paramIndex++}::timestamptz`);
       queryParams.push(start_date.replace(' 00:00:00', ''));
     }
     if (end_date) {
-      conditions.push(`e.timestamp <= $${paramIndex++}::timestamp`);
+      conditions.push(`e.timestamp <= $${paramIndex++}::timestamptz`);
       queryParams.push(end_date.replace(' 23:59:59', ''));
     }
     if (searchQuery?.trim()) {
@@ -394,11 +394,8 @@ export class EventSearchService {
   }
 
   async getTodayEventCount(): Promise<number> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
     const result = await AppDataSource.query(
-      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= $1 AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')`,
-      [todayStart.toISOString()]
+      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata' AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')`
     );
     return parseInt(result[0].count);
   }

@@ -15,6 +15,7 @@ import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
+import { inMemoryState } from './services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from './services/pythonWsClient.js';
 import authService from './auth/index.js';
 import { ReviewSegment } from './models/ReviewSegment.js';
@@ -114,6 +115,20 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
   serviceRegistry.setAppDataSource(AppDataSource);
   serviceRegistry.setDetectionService(consolidatedDetectionService);
+
+  try {
+    await consolidatedDetectionService.loadSettingsFromDb();
+    logger.info('Detection settings loaded from database', 'BOOTSTRAP');
+  } catch (error: any) {
+    logger.warn(`Could not load detection settings from DB: ${error.message}`, 'BOOTSTRAP');
+  }
+
+  try {
+    await inMemoryState.loadAlertsFromDb();
+    logger.info('Alerts loaded from database', 'BOOTSTRAP');
+  } catch (error: any) {
+    logger.warn(`Could not load alerts from DB: ${error.message}`, 'BOOTSTRAP');
+  }
 
   try {
     logger.info('Initializing Python WebSocket client...', 'BOOTSTRAP');

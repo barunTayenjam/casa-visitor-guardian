@@ -129,26 +129,6 @@ router.put('/face/settings', requireUser, validate({
 
 // ==================== MOTION SETTINGS ====================
 
-interface MotionSettings {
-  sensitivity: number;
-  requiredConsecutiveFrames: number;
-  minContourArea: number;
-  useGaussianBlur: boolean;
-  blurKernelSize: number;
-  timeZones: Record<string, { start: string; end: string; sensitivityMultiplier: number }>;
-}
-
-const defaultMotionSettings: MotionSettings = {
-  sensitivity: 90,
-  requiredConsecutiveFrames: 3,
-  minContourArea: 500,
-  useGaussianBlur: true,
-  blurKernelSize: 5,
-  timeZones: {},
-};
-
-const motionSettingsStore = new Map<string, MotionSettings>();
-
 router.get('/motion/settings', optionalAuth, validate({
   query: {
     cameraId: { type: 'string' as const, required: true, maxLength: 100 }
@@ -156,7 +136,7 @@ router.get('/motion/settings', optionalAuth, validate({
 }), async (req: Request, res: Response) => {
   try {
     const cameraId = req.query.cameraId as string;
-    const settings = motionSettingsStore.get(cameraId) || { ...defaultMotionSettings };
+    const settings = consolidatedDetectionService.getMotionSettings(cameraId);
     res.json({ settings });
   } catch (error) {
     logger.error('Error getting motion settings', 'Detection', error);
@@ -176,8 +156,7 @@ router.put('/motion/settings', requireUser, validate({
 }), async (req: Request, res: Response) => {
   try {
     const { cameraId, ...settings } = req.body;
-    const current = motionSettingsStore.get(cameraId) || { ...defaultMotionSettings };
-    motionSettingsStore.set(cameraId, { ...current, ...settings });
+    consolidatedDetectionService.updateMotionSettings(cameraId, settings);
     res.json({ success: true, message: 'Motion settings updated' });
   } catch (error) {
     logger.error('Error updating motion settings', 'Detection', error);

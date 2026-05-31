@@ -1,7 +1,4 @@
-// Authentication-related API methods extracted from ApiService.ts
 import { apiClient, fetchWithRetry, ApiError, API_URL } from './baseClient';
-
-// ==================== AUTH SERVICE ====================
 
 export const authService = {
   async login(username: string, password: string) {
@@ -47,9 +44,9 @@ export const authService = {
     return response.json();
   },
 
-  async setupMFA(): Promise<{ success: boolean; secret: string; qrCode: string }> {
+  async setupMFA(): Promise<{ success: boolean; qrCode: string; secretPreview: string }> {
     try {
-      const response = await apiClient.get<{ success: boolean; secret: string; qrCode: string }>('/auth/mfa/setup');
+      const response = await apiClient.get<{ success: boolean; qrCode: string; secretPreview: string }>('/auth/mfa/setup');
       if (response.success) return response;
       throw new ApiError('Failed to setup MFA', 400, 'MFA_SETUP_ERROR');
     } catch (error) {
@@ -66,6 +63,25 @@ export const authService = {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError('MFA verification failed', 500, 'MFA_VERIFY_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    }
+  },
+
+  async mfaChallenge(pendingToken: string, code: string) {
+    const response = await fetchWithRetry(`${API_URL}/auth/mfa/challenge`, {
+      method: 'POST',
+      body: JSON.stringify({ pendingToken, code }),
+    });
+    return response.json();
+  },
+
+  async disableMFA(): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.post<{ success: boolean; message: string }>('/auth/mfa/disable');
+      if (response.success) return response;
+      throw new ApiError('Failed to disable MFA', 400, 'MFA_DISABLE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to disable MFA', 500, 'MFA_DISABLE_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
     }
   },
 };

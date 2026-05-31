@@ -40,6 +40,10 @@ router.post('/refresh',
   (req, res) => authController.refreshToken(req, res)
 );
 
+router.post('/mfa/challenge',
+  (req, res) => authController.mfaChallenge(req, res)
+);
+
 router.post('/logout',
   authenticate(),
   (req, res) => authController.logout(req, res)
@@ -53,6 +57,11 @@ router.get('/mfa/setup',
 router.post('/mfa/verify',
   authenticate(),
   (req, res) => authController.verifyMfa(req, res)
+);
+
+router.post('/mfa/disable',
+  authenticate(),
+  (req, res) => authController.disableMfa(req, res)
 );
 
 export default router;

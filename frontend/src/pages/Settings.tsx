@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { type Theme, getStoredTheme, storeTheme, applyTheme } from '@/lib/theme';
 import { OptimizationSettings } from '@/components/settings/OptimizationSettings';
-import { MotionDetectionSettings } from '@/components/settings/MotionDetectionSettings';
+import { MotionDetectionSettings, type MotionDetectionSettingsHandle } from '@/components/settings/MotionDetectionSettings';
 import { settingsService } from '@/services/api/settingsService';
 import { notificationService } from '@/services/api/notificationService';
 import { authService } from '@/services/api/authService';
@@ -110,6 +110,7 @@ const SettingsPage = () => {
   const [pushLoading, setPushLoading] = useState(false);
 
   const [mfaStatus, setMfaStatus] = useState<'idle' | 'setup' | 'verify' | 'enabled'>('idle');
+  const motionSettingsRef = useRef<MotionDetectionSettingsHandle>(null);
   const [mfaQrCode, setMfaQrCode] = useState('');
   const [mfaSecretPreview, setMfaSecretPreview] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -212,6 +213,9 @@ const SettingsPage = () => {
         quiet_hours_end: notificationPrefs.quietHoursEnd,
         quiet_hours_timezone: settings.timezone,
       });
+      if (motionSettingsRef.current) {
+        await motionSettingsRef.current.save();
+      }
       setHasChanges(false);
       toast({
         title: 'Settings saved',
@@ -595,7 +599,7 @@ const SettingsPage = () => {
               <p className="text-sm text-muted-foreground mt-1">Configure motion detection sensitivity</p>
             </div>
 
-            <MotionDetectionSettings markChanged={markChanged} />
+            <MotionDetectionSettings ref={motionSettingsRef} markChanged={markChanged} />
 
             <div className="mb-6 mt-8">
               <h2 className="text-xl font-semibold text-foreground">Data & Storage</h2>

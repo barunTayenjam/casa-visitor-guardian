@@ -178,7 +178,17 @@ export class AuthController extends BaseController {
       }
 
       try {
-        const newToken = this.authService.generateToken(user as any);
+        const userForToken: User = {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          password: '',
+          role: user.role,
+          isActive: user.isActive,
+          createdAt: new Date(user.createdAt),
+          updatedAt: new Date(user.updatedAt),
+        };
+        const newToken = this.authService.generateToken(userForToken);
         this.ok(res, { token: newToken });
       } catch (error) {
         logger.error(`Token refresh error during JWT signing: ${error}`, 'AuthRoutes');

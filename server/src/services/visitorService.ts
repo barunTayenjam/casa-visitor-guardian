@@ -22,6 +22,15 @@ class VisitorService {
     return id;
   }
 
+  async updatePerson(id: string, data: { name: string }): Promise<boolean> {
+    const { AppDataSource } = await import('../database.js');
+    const result = await AppDataSource.query(
+      'UPDATE visitors SET name = $1, updated_at = NOW() WHERE id = $2',
+      [data.name, id]
+    );
+    return (result.rowCount || 0) > 0;
+  }
+
   async getKnownFaces(): Promise<any[]> {
     const { AppDataSource } = await import('../database.js');
     const rows = await AppDataSource.query(
@@ -35,7 +44,7 @@ class VisitorService {
 
   async deleteFace(personId: string): Promise<boolean> {
     const { AppDataSource } = await import('../database.js');
-    const result = await AppDataSource.query('DELETE FROM visitors WHERE id = $1', [personId]);
+    const result = await AppDataSource.query('DELETE FROM face_embeddings WHERE visitor_id = $1', [personId]);
     return (result.rowCount || 0) > 0;
   }
 

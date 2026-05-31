@@ -256,7 +256,10 @@ const EventsPage = () => {
 
   const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters);
-  }, []);
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleSortChange = useCallback((value: SortOption) => {
     setSortBy(value);

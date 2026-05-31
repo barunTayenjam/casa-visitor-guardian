@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'url';
 import { BaseController } from './BaseController.js';
@@ -50,16 +51,31 @@ export class SystemController extends BaseController {
         knownVisitors = parseInt(visitorResult?.[0]?.count) || 0;
       } catch {}
 
-      this.ok(res, {
-        stats: {
-          totalEvents,
-          totalCameras: cameras.length,
-          activeCameras,
-          knownVisitors,
-          storageUsed: 0,
-          storageTotal: 0,
-        }
-      });
+let storageUsed = 0;
+    let storageTotal = 0;
+    try {
+      const { config } = await import('../config/index.js');
+      const dbResult = await AppDataSource.query(
+        `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`
+      );
+      storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
+      const fs = await import('node:fs');
+      const detectionsPath = config.storage.detectionsDir;
+      if ((fs as any).existsSync(detectionsPath) && typeof (fs as any).statfsSync === 'function') {
+        const stat = (fs as any).statfsSync(detectionsPath);
+        storageTotal = stat.blocks * stat.bsize;
+      }
+    } catch {}
+    this.ok(res, {
+      stats: {
+        totalEvents,
+        totalCameras: cameras.length,
+        activeCameras,
+        knownVisitors,
+        storageUsed,
+        storageTotal,
+      }
+    });
     } catch (error: any) {
       this.serverError(res, error, 'stats');
     }
@@ -102,8 +118,34 @@ export class SystemController extends BaseController {
     }
   }
 
-  async cleanupStatus(_req: Request, res: Response): Promise<void> {
-    res.status(501).json({ success: false, error: 'Not implemented - use POST /api/maintenance/cleanup-images instead', code: 'NOT_IMPLEMENTED' });
+async cleanupStatus(_req: Request, res: Response): Promise<void> {
+    try {
+        const { AppDataSource } = await import('../database.js');
+        const lastCleanup = await AppDataSource.query(
+          `SELECT value FROM system_settings WHERE key = 'last_cleanup_timestamp'`
+        );
+        const cleanupService = AutomatedCleanupService.getInstance();
+        const inProgress = cleanupService.isCleanupInProgress();
+        res.json({
+          success: true,
+          data: {
+            lastRun: lastCleanup[0]?.value || null,
+            status: inProgress ? 'running' : 'idle',
+            nextScheduled: 'Daily at 3:00 AM',
+          }
+        });
+    } catch (error) {
+        const cleanupService = AutomatedCleanupService.getInstance();
+        const inProgress = cleanupService?.isCleanupInProgress?.() ?? false;
+        res.json({
+          success: true,
+          data: {
+            lastRun: null,
+            status: inProgress ? 'running' : 'idle',
+            nextScheduled: 'Daily at 3:00 AM',
+          }
+        });
+    }
   }
 
   async overview(req: Request, res: Response): Promise<void> {
@@ -138,7 +180,7 @@ export class SystemController extends BaseController {
     }
   }
 
-  systemHealth(req: Request, res: Response): void {
+  async systemHealth(req: Request, res: Response): Promise<void> {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
@@ -152,6 +194,14 @@ export class SystemController extends BaseController {
 
       const uptime = process.uptime();
       if (uptime < 300) issues.push('System recently restarted');
+
+      let dbHealthy = false;
+      try {
+        const { AppDataSource } = await import('../database.js');
+        await AppDataSource.query('SELECT 1');
+        dbHealthy = true;
+      } catch {}
+      if (!dbHealthy) issues.push('Database connectivity issue');
 
       const recentEvents = inMemoryState.getRecentEvents();
 
@@ -202,28 +252,31 @@ export class SystemController extends BaseController {
       const errorLogFile = path.join(logsDir, 'error.log');
       const combinedLogFile = path.join(logsDir, 'combined.log');
 
-      const parseLogFile = (filePath: string, targetLevel?: string): Array<{ timestamp: string; level: string; message: string; context?: string }> => {
-        const entries: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
-        if (!fs.existsSync(filePath)) return entries;
-
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const lines = content.split('\n');
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
-          if (match) {
-            const [, timestamp, logLevel, context, message] = match;
-            if (!targetLevel || logLevel === targetLevel) {
-              entries.push({ timestamp, level: logLevel, message, context });
+const parseLogFile = async (filePath: string, targetLevel?: string): Promise<Array<{ timestamp: string; level: string; message: string; context?: string }>> => {
+          const entries: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
+          try {
+            await fsp.access(filePath);
+          } catch {
+            return entries;
+          }
+          const content = await fsp.readFile(filePath, 'utf-8');
+          const lines = content.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
+            if (match) {
+              const [, timestamp, logLevel, context, message] = match;
+              if (!targetLevel || logLevel === targetLevel) {
+                entries.push({ timestamp, level: logLevel, message, context });
+              }
             }
           }
-        }
-        return entries;
-      };
-
-      logs.push(...parseLogFile(combinedLogFile, level as string));
-      logs.push(...parseLogFile(errorLogFile, 'ERROR'));
+          return entries;
+        };
+        const combinedEntries = await parseLogFile(combinedLogFile, level as string);
+        logs.push(...combinedEntries);
+        const errorEntries = await parseLogFile(errorLogFile, 'ERROR');
+        logs.push(...errorEntries);
 
       const maxLogs = parseInt(limit as string) || 100;
       this.ok(res, { logs: logs.slice(-maxLogs).reverse() });

@@ -6,8 +6,13 @@ import { promises as fsp } from 'node:fs';
 import eventSearchService from '../services/eventSearchService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import { AppDataSource } from '../database.js';
+import { config } from '../config/index.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
+
+const imagePathCache = new Map<string, { path: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_MAX = 1000;
 
 const router = Router();
 
@@ -169,20 +174,19 @@ router.get('/image/:filename', optionalAuth, validate({
       }
     } catch {}
 
-    const now = new Date();
-    for (let y = now.getFullYear(); y >= now.getFullYear() - 4; y--) {
-      const startMonth = y === now.getFullYear() ? now.getMonth() + 1 : 12;
-      for (let m = startMonth; m >= 1; m--) {
-        const ym = `${y}-${String(m).padStart(2, '0')}`;
-        const candidates = [
-          path.join(process.cwd(), 'data', 'detections', ym, 'events', 'motion', filename),
-          path.join(process.cwd(), 'data', 'detections', ym, 'events', 'faces', filename),
-        ];
-        for (const imagePath of candidates) {
-          if (fs.existsSync(imagePath)) return res.sendFile(imagePath);
-        }
-      }
+    const cacheKey = `img:${filename}`;
+    const cached = imagePathCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      if (fs.existsSync(cached.path)) return res.sendFile(cached.path);
     }
+
+    const fallbackPath = path.join(config.storage.detectionsDir, filename);
+    if (fs.existsSync(fallbackPath)) {
+      if (imagePathCache.size >= CACHE_MAX) imagePathCache.clear();
+      imagePathCache.set(cacheKey, { path: fallbackPath, timestamp: Date.now() });
+      return res.sendFile(fallbackPath);
+    }
+
     res.status(404).json({ success: false, error: 'Image file not found on disk' });
   } catch (error) {
      logger.error('Error serving event image', 'EventSearch', error);

@@ -18,12 +18,17 @@ app.register_blueprint(system_bp)
 
 def init_app():
     pipeline.initialize()
+    try:
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
+            pipeline.start_rtsp_service()
+    except Exception as e:
+        print(f"init_app error: {e}", flush=True)
 
-    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
-        pipeline.start_rtsp_service()
-
-
-init_app()
+# Initialize app safely
+try:
+    init_app()
+except Exception as e:
+    print(f"Failed to init app: {e}", flush=True)
 
 PORT = 8084
 

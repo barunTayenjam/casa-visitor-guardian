@@ -9,9 +9,11 @@ import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
 import { StreamHealthMonitor } from "./streamHealthMonitor.js";
 import { serviceRegistry } from "../services/serviceRegistry.js";
+import { encryptCredential } from "../services/credentialEncryption.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const CAMERAS_CONFIG_PATH = path.join(__dirname, '../../cameras.json');
 
 export interface Camera {
   id: string;
@@ -21,6 +23,7 @@ export interface Camera {
   lastFrame: Buffer | null;
   activeViewers: Set<string>;
   adaptiveFps: number;
+  lastFrameEmitTime: number;
 }
 
 const configuredCameras: CameraConfig[] = config.cameras;
@@ -91,7 +94,6 @@ export class StreamManager {
     if (!pythonWs) return;
 
     pythonWs.on('frame', (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {
-         logger.info(`[rtspManager] Received frame from Python for camera ${message.cameraId}`, 'STREAM');
       const { cameraId, data } = message;
       if (!cameraId) return;
 
@@ -101,12 +103,18 @@ export class StreamManager {
       camera.lastFrame = data;
       this.healthMonitor.recordFrameEmitted(cameraId, 'live');
 
-      const roomName = `camera-${cameraId}-live`;
       const viewerCount = camera.activeViewers.size;
       const adaptiveFps = this.getOptimalFps(viewerCount);
       camera.adaptiveFps = adaptiveFps;
-      const frameIntervalMs = 1000 / adaptiveFps;
 
+      const now = Date.now();
+      const frameIntervalMs = 1000 / adaptiveFps;
+      if (now - camera.lastFrameEmitTime < frameIntervalMs) {
+        return;
+      }
+      camera.lastFrameEmitTime = now;
+
+      const roomName = `camera-${cameraId}-live`;
       if (viewerCount > 0) {
         this.io.to(roomName).emit("frame", {
           cameraId,
@@ -210,9 +218,15 @@ export class StreamManager {
       lastFrame: null,
       activeViewers: new Set<string>(),
       adaptiveFps: 4,
+      lastFrameEmitTime: 0,
     };
 
     this.cameras.set(camera.id, camera);
+
+    this.persistCameras().catch(err => {
+      logger.error(`Failed to persist cameras after addCamera: ${err}`, 'StreamManager');
+    });
+
     return camera.id;
   }
 
@@ -301,6 +315,11 @@ export class StreamManager {
     if (!camera) return false;
 
     Object.assign(camera.config, updates);
+
+    this.persistCameras().catch(err => {
+      logger.error(`Failed to persist cameras after updateCamera: ${err}`, 'StreamManager');
+    });
+
     return true;
   }
 
@@ -316,6 +335,11 @@ export class StreamManager {
     }
 
     this.cameras.delete(cameraId);
+
+    this.persistCameras().catch(err => {
+      logger.error(`Failed to persist cameras after removeCamera: ${err}`, 'StreamManager');
+    });
+
     return true;
   }
 
@@ -368,7 +392,33 @@ export class StreamManager {
       `Night mode ${enabled ? "enabled" : "disabled"} for camera ${cameraId}`,
       'StreamManager',
     );
+
+    this.persistCameras().catch(err => {
+      logger.error(`Failed to persist cameras after toggleNightMode: ${err}`, 'StreamManager');
+    });
+
     return true;
+  }
+
+  async persistCameras(): Promise<void> {
+    try {
+      const serializable = Array.from(this.cameras.values()).map(camera => {
+        const cfg = camera.config;
+        return {
+          ...cfg,
+          streams: cfg.streams.map(stream => ({
+            ...stream,
+            path: encryptCredential(stream.path)
+          }))
+        };
+      });
+      const tmpPath = CAMERAS_CONFIG_PATH + '.tmp';
+      await fsp.writeFile(tmpPath, JSON.stringify(serializable, null, 2), 'utf8');
+      await fsp.rename(tmpPath, CAMERAS_CONFIG_PATH);
+      logger.info('Camera config persisted to cameras.json', 'StreamManager');
+    } catch (error) {
+      logger.error(`Failed to persist camera config: ${error}`, 'StreamManager');
+    }
   }
 
   async simulateMotionDetection(cameraId: string) {

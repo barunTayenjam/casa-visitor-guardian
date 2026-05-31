@@ -530,7 +530,7 @@ export class EventSearchService {
 
   async lookupEventImagePath(filename: string): Promise<string | null> {
     let results = await AppDataSource.query(
-      `SELECT file_path as storage_path FROM events WHERE file_path LIKE $1 LIMIT 1`, [`%${filename}`]
+      `SELECT file_path as storage_path FROM events WHERE file_path LIKE '%' || $1 LIMIT 1`, [filename]
     );
     if (results.length === 0) {
       results = await AppDataSource.query(

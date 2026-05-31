@@ -426,6 +426,22 @@ export const validateCameraCreation = [
     .withMessage('Night mode must be a boolean')
 ];
 
+export const validatePasswordChange = [
+  body('currentPassword')
+    .isString()
+    .withMessage('Current password must be a string')
+    .isLength({ min: 1, max: 128 })
+    .withMessage('Current password must be between 1 and 128 characters'),
+
+  body('newPassword')
+    .isString()
+    .withMessage('New password must be a string')
+    .isLength({ min: 8, max: 128 })
+    .withMessage('Password must be between 8 and 128 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
+];
+
 export const validateUserRegistration = [
   body('username')
     .isString()

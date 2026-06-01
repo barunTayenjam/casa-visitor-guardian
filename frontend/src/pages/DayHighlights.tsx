@@ -338,7 +338,7 @@ const DayHighlightsPage = () => {
           backTo="/app/events"
           size="large"
           actions={
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -375,7 +375,7 @@ const DayHighlightsPage = () => {
         />
 
         {/* Category Filters */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 flex-wrap">
           <Button
             onClick={() => setCategoryFilter('all')}
             variant={categoryFilter === 'all' ? 'default' : 'outline'}

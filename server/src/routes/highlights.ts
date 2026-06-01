@@ -32,7 +32,7 @@ router.get('/:date', optionalAuth, validate({
     else if (sort === 'unknown') { whereConditions = 'AND COALESCE(e.unknown_faces_count, 0) > 0'; orderBy = 'ORDER BY e.timestamp DESC'; }
     else if (sort === 'confidence') orderBy = 'ORDER BY e.confidence DESC, e.timestamp DESC';
 
-    let query = `SELECT e.id, e.file_path as filename, e.camera_id, e.timestamp, e.event_type, e.confidence, e.persons_detected, e.faces_detected, e.known_faces_count, e.unknown_faces_count, e.object_detections, e.face_detections, e.metadata FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face') ${whereConditions} ${orderBy}`;
+    let query = `SELECT e.id, e.file_path as filename, e.camera_id, e.timestamp, e.event_type, e.confidence, e.persons_detected, e.faces_detected, e.known_faces_count, e.unknown_faces_count, e.object_detections, e.face_detections, e.metadata FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0 ${whereConditions} ${orderBy}`;
     if (limitNum > 0) query += ` LIMIT ${limitNum}`;
 
     const results = await AppDataSource.query(query, [startDate, endDate]);
@@ -60,9 +60,10 @@ router.get('/:date/summary', optionalAuth, validate({
     const endDate = new Date(`${date}T23:59:59.999+05:30`);
 
     const [hourlyData, categoryResult] = await Promise.all([
-      AppDataSource.query(`SELECT EXTRACT(HOUR FROM e.timestamp) as hour, COUNT(*) as count FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face') GROUP BY EXTRACT(HOUR FROM e.timestamp) ORDER BY hour`, [startDate, endDate]),
-      AppDataSource.query(`SELECT COUNT(*) as total, SUM(e.persons_detected) as total_persons, SUM(e.faces_detected) as total_faces, SUM(e.known_faces_count) as total_known_faces, COUNT(CASE WHEN EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6 THEN 1 END) as night_events FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')`, [startDate, endDate])
+      AppDataSource.query(`SELECT EXTRACT(HOUR FROM e.timestamp) as hour, COUNT(*) as count FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0 GROUP BY EXTRACT(HOUR FROM e.timestamp) ORDER BY hour`, [startDate, endDate]),
+      AppDataSource.query(`SELECT COUNT(*) as total, SUM(e.persons_detected) as total_persons, SUM(e.faces_detected) as total_faces, SUM(e.known_faces_count) as total_known_faces, COUNT(CASE WHEN EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6 THEN 1 END) as night_events FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0`, [startDate, endDate])
     ]);
+
 
     const hourly = Array.from({ length: 24 }, (_, i) => { const f = hourlyData.find((h: any) => parseInt(h.hour) === i); return { hour: i, count: f ? parseInt(f.count) : 0 }; });
     res.json({ success: true, date, summary: { totalEvents: parseInt(categoryResult[0].total), totalPersons: parseInt(categoryResult[0].total_persons) || 0, totalFaces: parseInt(categoryResult[0].total_faces) || 0, knownFaces: parseInt(categoryResult[0].total_known_faces) || 0, nightEvents: parseInt(categoryResult[0].night_events) || 0 }, hourly });

@@ -119,7 +119,7 @@ staticRoutes.get('/health/ready', (_req, res) => {
     services.pythonWs = false;
   }
 
-  const criticalReady = services.database && services.streamManager;
+  const criticalReady = services.database && services.streamManager && services.pythonWs;
 
   res.status(criticalReady ? 200 : 503).json({
     status: criticalReady ? 'ready' : 'not_ready',

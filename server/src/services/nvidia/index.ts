@@ -58,7 +58,8 @@ export async function analyzeImage(
 
       const processingTime = Date.now() - startTime;
 
-      const content = apiResponse.choices?.[0]?.message?.content || '';
+      const message = apiResponse.choices?.[0]?.message;
+      let content = message?.content || message?.reasoning_content || message?.reasoning || '';
 
       if (!content) {
         throw new Error('Empty response from NVIDIA API');
@@ -215,7 +216,7 @@ export async function analyzeWithBoundingBoxes(
         }
       ],
       temperature: 0.1,
-      max_tokens: 2048,
+      max_tokens: 4096,
       stream: false,
       top_p: 0.9
     };
@@ -245,7 +246,8 @@ export async function analyzeWithBoundingBoxes(
     }
 
     const apiResponse = await response.json();
-    const content = apiResponse.choices?.[0]?.message?.content || '';
+    const message = apiResponse.choices?.[0]?.message;
+    const content = message?.content || message?.reasoning_content || message?.reasoning || '';
     const processingTime = Date.now() - startTime;
 
     let detectedBoxes: BoundingBox[] = [];
@@ -372,7 +374,7 @@ export async function analyzePersons(
         }
       ],
       temperature: 0.1,
-      max_tokens: 1024,
+      max_tokens: 2048,
       stream: false,
       top_p: 0.9
     };
@@ -402,7 +404,8 @@ export async function analyzePersons(
     }
 
     const apiResponse = await response.json();
-    const content = apiResponse.choices?.[0]?.message?.content || '';
+    const personMessage = apiResponse.choices?.[0]?.message;
+    const content = personMessage?.content || personMessage?.reasoning_content || personMessage?.reasoning || '';
     const processingTime = Date.now() - startTime;
 
     let people: PersonDetectionResult['people'] = [];

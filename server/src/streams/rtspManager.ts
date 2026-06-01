@@ -110,6 +110,9 @@ export class StreamManager {
           } else {
             logger.debug(`Subscription already exists for camera ${camId} on reconnect, preserving existing`, 'StreamManager');
           }
+          this.healthMonitor.resetRestartCounter(camId, 'live');
+          this.healthMonitor.resetRestartCounter(camId, 'detect');
+          this.healthMonitor.resetRestartCounter(camId, 'record');
         });
       });
 
@@ -296,13 +299,15 @@ export class StreamManager {
       this.healthMonitor.recordStreamStopped(cameraId, _role);
     }
 
-    if (!_role || camera.activeViewers.size === 0) {
-      const pythonWs = serviceRegistry.getPythonWsClient();
-      if (pythonWs && pythonWs.connected) {
-        pythonWs.unsubscribe(cameraId);
-        this.activeSubscriptions.delete(cameraId);
+    if (!_role) {
+      if (camera.activeViewers.size === 0) {
+        const pythonWs = serviceRegistry.getPythonWsClient();
+        if (pythonWs && pythonWs.connected) {
+          pythonWs.unsubscribe(cameraId);
+          this.activeSubscriptions.delete(cameraId);
+        }
+        camera.isActive = false;
       }
-      camera.isActive = false;
     }
 
     return true;
@@ -313,7 +318,17 @@ export class StreamManager {
     if (!camera) return false;
 
     const pythonWs = serviceRegistry.getPythonWsClient();
-    if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
+
+    if (!pythonWs || !pythonWs.connected) {
+      logger.warn(`[StreamManager] Cannot restart ${cameraId}: Python WS disconnected, forcing reconnect`, 'StreamManager');
+      if (pythonWs) {
+        pythonWs.disconnect();
+        pythonWs.connect();
+      }
+      return false;
+    }
+
+    if (!this.activeSubscriptions.has(cameraId)) {
       pythonWs.subscribe(cameraId);
       this.activeSubscriptions.add(cameraId);
     }
@@ -384,6 +399,9 @@ export class StreamManager {
     if (!this.initializing) {
       this.persistCameras().catch(err => {
         logger.error(`Failed to persist cameras after removeCamera: ${err}`, 'StreamManager');
+      });
+      AppDataSource.query('DELETE FROM cameras WHERE id = $1', [cameraId]).catch(err => {
+        logger.warn(`Failed to delete camera ${cameraId} from DB: ${err}`, 'StreamManager');
       });
     }
 
@@ -472,12 +490,62 @@ export class StreamManager {
           }))
         };
       });
-      const tmpPath = CAMERAS_CONFIG_PATH + '.tmp';
-      await fsp.writeFile(tmpPath, JSON.stringify(serializable, null, 2), 'utf8');
-      await fsp.rename(tmpPath, CAMERAS_CONFIG_PATH);
-      logger.info('Camera config persisted to cameras.json', 'StreamManager');
+      try {
+        const tmpPath = CAMERAS_CONFIG_PATH + '.tmp';
+        await fsp.writeFile(tmpPath, JSON.stringify(serializable, null, 2), 'utf8');
+        await fsp.rename(tmpPath, CAMERAS_CONFIG_PATH);
+        logger.info('Camera config persisted to cameras.json', 'StreamManager');
+      } catch (fileErr) {
+        logger.debug(`Skipping cameras.json write (${fileErr instanceof Error ? fileErr.message : fileErr})`, 'StreamManager');
+      }
+
+      await this.persistCamerasToDb(Array.from(this.cameras.values()).map(camera => camera.config));
     } catch (error) {
       logger.error(`Failed to persist camera config: ${error}`, 'StreamManager');
+    }
+  }
+
+  private async persistCamerasToDb(camerasConfig: CameraConfig[]): Promise<void> {
+    try {
+      if (!AppDataSource.isInitialized) return;
+
+      for (const cfg of camerasConfig) {
+        const enabled = cfg.enabled !== false;
+        await AppDataSource.query(
+          `INSERT INTO cameras (id, name, config, enabled)
+           VALUES ($1, $2, $3::jsonb, $4)
+           ON CONFLICT (id) DO UPDATE SET name = $2, config = $3::jsonb, enabled = $4`,
+          [cfg.id, cfg.name, JSON.stringify(cfg), enabled]
+        );
+      }
+
+      const currentIds = camerasConfig.map(c => c.id);
+      if (currentIds.length > 0) {
+        const placeholders = currentIds.map((_, i) => `$${i + 1}`).join(', ');
+        await AppDataSource.query(
+          `DELETE FROM cameras WHERE id NOT IN (${placeholders})`,
+          currentIds
+        );
+      }
+      logger.info(`Camera config persisted to database (${camerasConfig.length} cameras)`, 'StreamManager');
+    } catch (error) {
+      logger.warn(`Failed to persist cameras to DB (non-critical): ${error}`, 'StreamManager');
+    }
+  }
+
+  static async loadCamerasFromDb(): Promise<CameraConfig[]> {
+    try {
+      if (!AppDataSource.isInitialized) return [];
+      const rows = await AppDataSource.query('SELECT id, name, config, enabled FROM cameras ORDER BY created_at');
+      if (rows.length === 0) return [];
+      logger.info(`Loaded ${rows.length} cameras from database`, 'StreamManager');
+      return rows.map((row: any) => {
+        const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
+        return { ...cfg, enabled: row.enabled };
+      });
+    } catch (error) {
+      logger.warn(`Failed to load cameras from DB: ${error}`, 'StreamManager');
+      return [];
     }
   }
 
@@ -588,14 +656,35 @@ export async function setupRTSPStreams(
   io: SocketIOServer,
 ): Promise<StreamManager> {
    logger.info("Setting up RTSP stream manager", 'STREAM');
+
+  if (configuredCameras.length === 0) {
+    const dbCameras = await StreamManager.loadCamerasFromDb();
+    if (dbCameras.length > 0) {
+      dbCameras.forEach(c => {
+        if (!configuredCameras.find(existing => existing.id === c.id)) {
+          configuredCameras.push(c);
+        }
+      });
+      logger.info(`Loaded ${dbCameras.length} cameras from database into config`, 'STREAM');
+    }
+  }
+
   streamManager = new StreamManager(io);
+
+  if (configuredCameras.length > 0) {
+    await streamManager.persistCameras();
+  }
 
   streamManager.healthMonitor.start();
    logger.info("Stream health monitor started", 'STREAM');
 
   setTimeout(() => {
     streamManager.getAllCameras().forEach((camera) => {
-       logger.info(`Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`, 'STREAM');
+      if (!camera.config.enabled) {
+        logger.info(`Skipping auto-start for disabled camera: ${camera.id} (${camera.name})`, 'STREAM');
+        return;
+      }
+      logger.info(`Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`, 'STREAM');
       streamManager.startStream(camera.id, 'live');
     });
   }, 2000);

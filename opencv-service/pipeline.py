@@ -158,19 +158,19 @@ class YOLOObjectDetector:
         self.net = None
         self.layer_names = None
         self.input_size = 640
-        self.confidence_threshold = 0.40
-        self.nms_threshold = 0.30
+        self.confidence_threshold = 0.50
+        self.nms_threshold = 0.45
         self.model_type = None
 
         self.dnn_face_detector = None
 
         self.class_thresholds = {
             'person': 0.45,
-            'car': 0.45,
-            'truck': 0.45,
-            'bus': 0.45,
-            'motorcycle': 0.40,
-            'bicycle': 0.40,
+            'car': 0.50,
+            'truck': 0.70,
+            'bus': 0.50,
+            'motorcycle': 0.50,
+            'bicycle': 0.50,
             'dog': 0.35,
             'cat': 0.35,
             'bird': 0.30,
@@ -239,9 +239,9 @@ class YOLOObjectDetector:
             'toothbrush': 0.45,
         }
 
-        self.min_box_area = 1600
-        self.min_box_width = 40
-        self.min_box_height = 40
+        self.min_box_area = 2500
+        self.min_box_width = 50
+        self.min_box_height = 50
 
     def initialize(self):
         if self.initialized:
@@ -290,9 +290,9 @@ class YOLOObjectDetector:
                     self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
                     print("OpenCV Service: Using YOLOv5n with CPU")
 
-            self.initialized = True
-            print("OpenCV Service: YOLOv5n detection initialized successfully")
-            return
+                self.initialized = True
+                print("OpenCV Service: YOLOv5n detection initialized successfully")
+                return
 
             weights_path = os.path.join(MODELS_DIR, 'yolov4-tiny.weights')
             config_path = os.path.join(MODELS_DIR, 'yolov4-tiny.cfg')
@@ -470,7 +470,7 @@ class YOLOObjectDetector:
                         class_id = int(np.argmax(class_scores))
                         class_conf = float(class_scores[class_id])
 
-                        confidence = class_conf
+                        confidence = obj_conf * class_conf
 
                         class_name = state.class_names[class_id] if class_id < len(state.class_names) else f"object_{class_id}"
                         class_threshold = self._get_class_threshold(class_name)
@@ -501,9 +501,12 @@ class YOLOObjectDetector:
                 else:
                     for output in outputs:
                         for detection in output:
+                            obj_conf = float(detection[4])
                             scores = detection[5:]
                             class_id = np.argmax(scores)
-                            confidence = scores[class_id]
+                            class_conf = float(scores[class_id])
+
+                            confidence = obj_conf * class_conf
 
                             class_name = state.class_names[class_id] if class_id < len(state.class_names) else f"object_{class_id}"
                             class_threshold = self._get_class_threshold(class_name)
@@ -527,10 +530,11 @@ class YOLOObjectDetector:
                                     confidences.append(float(confidence))
                                     class_ids.append(int(class_id))
 
+                max_detections = 50
                 indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence_threshold, self.nms_threshold)
 
                 if len(indices) > 0:
-                    for i in indices.flatten():
+                    for i in indices.flatten()[:max_detections]:
                         x, y, w, h = boxes[i]
                         class_id = class_ids[i]
                         confidence = confidences[i]

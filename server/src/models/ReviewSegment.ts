@@ -4,7 +4,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, Index } from 'typeorm'
 @Index(['camera', 'start_time'])
 @Index(['severity'])
 export class ReviewSegment {
-  @PrimaryColumn({ type: 'varchar', length: 30, comment: 'Unique segment ID' })
+  @PrimaryColumn({ type: 'varchar', length: 100, comment: 'Unique segment ID' })
   id!: string;
 
   @Column({ type: 'varchar', length: 20, comment: 'Camera name' })

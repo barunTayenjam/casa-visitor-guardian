@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Camera } from '@/types/security';
 import { CameraStream } from '@/components/dashboard/CameraStream';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { X, ChevronLeft, ChevronRight, MonitorPlay, MonitorStop } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useViewportStream, StreamSlotManager } from '@/hooks/useViewportStream';
 
@@ -10,7 +9,7 @@ export type GridLayout = 'adaptive' | '1x1' | '2x2' | '3x3';
 
 const SLOT_MANAGER_MAX = 4;
 
-const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotManager; onClick: () => void; onKeyDown: (e: React.KeyboardEvent) => void; gridKey: string }> = ({ camera, slotManager, onClick, onKeyDown, gridKey }) => {
+const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotManager; onClick: () => void; onKeyDown: (e: React.KeyboardEvent) => void; gridKey: string; className?: string }> = ({ camera, slotManager, onClick, onKeyDown, gridKey, className }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { isVisible } = useViewportStream(cardRef);
   const [slotAcquired, setSlotAcquired] = useState(false);
@@ -45,7 +44,7 @@ const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotMana
   const shouldStream = isVisible && slotAcquired;
 
   return (
-    <div ref={cardRef} className="relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]"
+    <div ref={cardRef} className={cn("relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]", className)}
       onClick={onClick}
       role="button" tabIndex={0} aria-label={`${camera.name} camera feed`}
       onKeyDown={onKeyDown}
@@ -59,35 +58,56 @@ interface AdaptiveCameraGridProps {
   cameras: Camera[];
   focusedCameraId?: string;
   onCameraFocus?: (cameraId: string | undefined) => void;
+  slideshowActive?: boolean;
+  onSlideshowChange?: (active: boolean) => void;
 }
 
-export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras, focusedCameraId, onCameraFocus }) => {
+export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras, focusedCameraId, onCameraFocus, slideshowActive = false, onSlideshowChange }) => {
   const [layout, setLayout] = useState<GridLayout>('adaptive');
-  const [transitionOffset, setTransitionOffset] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [switchCameraId, setSwitchCameraId] = useState<string | undefined>(focusedCameraId);
-  const isTransitioningRef = useRef(false);
-  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fadeOverlay, setFadeOverlay] = useState(false);
+  const [slideshowInterval, setSlideshowInterval] = useState(5);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const slotManagerRef = useRef(new StreamSlotManager(SLOT_MANAGER_MAX));
+  const focusedContainerRef = useRef<HTMLDivElement>(null);
+  const slideshowTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigateCameraRef = useRef<(direction: 'prev' | 'next') => void>(() => {});
 
-  useEffect(() => { if (!isAnimating) setSwitchCameraId(focusedCameraId); }, [focusedCameraId, isAnimating]);
+  useEffect(() => { return () => { if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current); }; }, []);
 
-  useEffect(() => { return () => { if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current); }; }, []);
-
-  useEffect(() => { return () => { slotManagerRef.current.releaseAll(); }; }, []);
-
-  const switchCameraWithAnimation = useCallback((direction: 'left' | 'right', targetCameraId: string) => {
-    if (isTransitioningRef.current) return;
-    isTransitioningRef.current = true;
-    setTransitionOffset(direction === 'left' ? 60 : -60);
-    setIsAnimating(true);
-    requestAnimationFrame(() => {
-      setSwitchCameraId(targetCameraId);
-      requestAnimationFrame(() => setTransitionOffset(0));
-    });
-    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
-    transitionTimeoutRef.current = setTimeout(() => { setIsAnimating(false); isTransitioningRef.current = false; }, 300);
+  useEffect(() => {
+    return () => {
+      slotManagerRef.current.releaseAll();
+      if (slideshowTimerRef.current) clearInterval(slideshowTimerRef.current);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    };
   }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) onSlideshowChange?.(false);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, [onSlideshowChange]);
+
+  useEffect(() => {
+    if (slideshowActive) {
+      slideshowTimerRef.current = setInterval(() => {
+        navigateCameraRef.current('next');
+      }, slideshowInterval * 1000);
+    } else {
+      if (slideshowTimerRef.current) {
+        clearInterval(slideshowTimerRef.current);
+        slideshowTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (slideshowTimerRef.current) {
+        clearInterval(slideshowTimerRef.current);
+        slideshowTimerRef.current = null;
+      }
+    };
+  }, [slideshowActive, slideshowInterval]);
 
   const activeCameras = useMemo(() => cameras, [cameras]);
   const cameraCount = activeCameras.length;
@@ -142,9 +162,15 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
       nextIndex = direction === 'next' ? (currentIndex + 1) % activeCameras.length : (currentIndex - 1 + activeCameras.length) % activeCameras.length;
     }
     const targetId = activeCameras[nextIndex].id;
-    if (focusedCameraId && currentIndex !== -1) switchCameraWithAnimation(direction === 'next' ? 'left' : 'right', targetId);
+    if (focusedCameraId && currentIndex !== -1) {
+      setFadeOverlay(true);
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = setTimeout(() => setFadeOverlay(false), 300);
+    }
     onCameraFocus?.(targetId);
-  }, [activeCameras, getFocusedIndex, focusedCameraId, onCameraFocus, switchCameraWithAnimation]);
+  }, [activeCameras, getFocusedIndex, focusedCameraId, onCameraFocus]);
+
+  useEffect(() => { navigateCameraRef.current = navigateCamera; }, [navigateCamera]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]; touchStartRef.current = { x: touch.clientX, y: touch.clientY };
@@ -206,69 +232,122 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedCameraId, activeCameras, onCameraFocus, navigateCamera]);
 
+  const handleStartSlideshow = useCallback(() => {
+    onSlideshowChange?.(true);
+    document.documentElement.requestFullscreen();
+  }, [onSlideshowChange]);
+
+  const handleStopSlideshow = useCallback(() => {
+    onSlideshowChange?.(false);
+    if (slideshowTimerRef.current) {
+      clearInterval(slideshowTimerRef.current);
+      slideshowTimerRef.current = null;
+    }
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [onSlideshowChange]);
+
   return (
-    <div className="relative w-full h-full flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <div className="flex-1">
+    <div ref={focusedContainerRef} className="relative w-full h-full flex flex-col min-h-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="flex-1 min-h-0">
         {activeCameras.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center text-white/60">
             <div className="text-center"><p className="text-base">No Cameras Online</p><p className="text-sm mt-2">Add cameras to start viewing live streams</p></div>
           </div>
-        ) : focusedCameraId ? (
-          <div className="w-full h-full flex items-center justify-center">
-            {(() => {
-              const camera = activeCameras.find(c => c.id === switchCameraId);
-              if (!camera) return null;
-              return (
-                <div className={cn("relative w-full h-full max-h-screen select-none", isAnimating && "transition-transform duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)]")}
-                  style={{ transform: `translateX(${transitionOffset}px)` }}
-                  onMouseDown={handleMouseDown}
-                  onTransitionEnd={(e) => { if (e.propertyName === 'transform' && isTransitioningRef.current) { setIsAnimating(false); isTransitioningRef.current = false; } }}
-                >
-                  <button
-                    className="absolute top-4 right-4 z-10 min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                    onClick={(e) => { e.stopPropagation(); handleCameraClick(camera.id); }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    title="Exit fullscreen" aria-label="Exit fullscreen"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                  {activeCameras.length > 1 && (
-                    <>
-                      <button className="absolute left-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                        onClick={(e) => { e.stopPropagation(); navigateCamera('prev'); }} onMouseDown={(e) => e.stopPropagation()} title="Previous camera" aria-label="Previous camera"
-                      ><ChevronLeft className="h-6 w-6" /></button>
-                      <button className="absolute right-2 top-1/2 -translate-y-1/2 z-10 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                        onClick={(e) => { e.stopPropagation(); navigateCamera('next'); }} onMouseDown={(e) => e.stopPropagation()} title="Next camera" aria-label="Next camera"
-                      ><ChevronRight className="h-6 w-6" /></button>
-                    </>
-                  )}
-                  <CameraStream key={`focused-${camera.id}`} camera={camera} autoStart={true} />
-                  {activeCameras.length > 1 && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
-                      {activeCameras.map((cam) => (
-                        <button key={cam.id}
-                          className={cn("rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]", cam.id === focusedCameraId ? "w-2.5 h-2.5 bg-white" : "w-2 h-2 bg-white/40 hover:bg-white/60")}
-                          onClick={(e) => { e.stopPropagation(); const ci = activeCameras.findIndex(c => c.id === focusedCameraId); const ti = activeCameras.findIndex(c => c.id === cam.id); if (ci !== -1 && ti !== -1 && ci !== ti) switchCameraWithAnimation(ti > ci ? 'left' : 'right', cam.id); onCameraFocus?.(cam.id); }}
-                          onMouseDown={(e) => e.stopPropagation()} aria-label={`Switch to ${cam.name}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
         ) : (
-          <div className={getGridClasses()} role="group" aria-label="Camera grid">
+          <div className={cn(focusedCameraId ? "relative w-full h-full bg-black" : getGridClasses())} role="group" aria-label="Camera grid">
             {activeCameras.map((camera) => (
-              <ViewportCameraCard key={camera.id}
+              <ViewportCameraCard
+                key={camera.id}
                 camera={camera}
                 slotManager={slotManagerRef.current}
                 gridKey={`grid-${camera.id}`}
+                className={cn(
+                  focusedCameraId && "absolute inset-0",
+                  focusedCameraId && camera.id !== focusedCameraId && "opacity-0 pointer-events-none",
+                  focusedCameraId && camera.id === focusedCameraId && "rounded-none"
+                )}
                 onClick={() => handleCameraClick(camera.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCameraClick(camera.id); } }}
               />
             ))}
+          </div>
+        )}
+        {focusedCameraId && (
+          <div className="absolute inset-0 z-20 pointer-events-none" onMouseDown={handleMouseDown}>
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+              <div className="flex items-center gap-2 pointer-events-auto">
+                {!slideshowActive ? (
+                  <button
+                    className="min-h-[44px] min-w-[44px] h-11 px-3 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] text-xs font-medium"
+                    onClick={(e) => { e.stopPropagation(); handleStartSlideshow(); }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    title="Start slideshow" aria-label="Start slideshow"
+                  >
+                    <MonitorPlay className="h-4 w-4" />
+                    <span className="hidden sm:inline">Slideshow</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-red-500/80 backdrop-blur-md border border-red-500/30 text-white hover:bg-red-500 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                      onClick={(e) => { e.stopPropagation(); handleStopSlideshow(); }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      title="Stop slideshow" aria-label="Stop slideshow"
+                    >
+                      <MonitorStop className="h-4 w-4" />
+                    </button>
+                    <div className="flex gap-1">
+                      {[3, 5, 10].map((sec) => (
+                        <button key={sec}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-full text-xs font-medium backdrop-blur-md border transition-all",
+                            slideshowInterval === sec
+                              ? "bg-white/20 border-white/20 text-white"
+                              : "bg-black/40 border-white/10 text-white/60 hover:text-white hover:bg-black/60"
+                          )}
+                          onClick={(e) => { e.stopPropagation(); setSlideshowInterval(sec); }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          title={`${sec} seconds`} aria-label={`${sec} seconds`}
+                        >
+                          {sec}s
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                className="pointer-events-auto min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                onClick={(e) => { e.stopPropagation(); handleCameraClick(focusedCameraId!); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title="Exit fullscreen" aria-label="Exit fullscreen"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {activeCameras.length > 1 && (
+              <>
+                <button className="absolute left-2 top-1/2 -translate-y-1/2 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                  onClick={(e) => { e.stopPropagation(); navigateCamera('prev'); }} onMouseDown={(e) => e.stopPropagation()} title="Previous camera" aria-label="Previous camera"
+                ><ChevronLeft className="h-6 w-6" /></button>
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                  onClick={(e) => { e.stopPropagation(); navigateCamera('next'); }} onMouseDown={(e) => e.stopPropagation()} title="Next camera" aria-label="Next camera"
+                ><ChevronRight className="h-6 w-6" /></button>
+              </>
+            )}
+            {activeCameras.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                {activeCameras.map((cam) => (
+                  <button key={cam.id}
+                    className={cn("rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]", cam.id === focusedCameraId ? "w-2.5 h-2.5 bg-white" : "w-2 h-2 bg-white/40 hover:bg-white/60")}
+                    onClick={(e) => { e.stopPropagation(); onCameraFocus?.(cam.id); }}
+                    onMouseDown={(e) => e.stopPropagation()} aria-label={`Switch to ${cam.name}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

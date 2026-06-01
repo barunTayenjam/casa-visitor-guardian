@@ -1,45 +1,49 @@
-# SentryVision Feature Audit Report
+# SentryVision Audit Report
 
 **Date**: 2026-05-31
 **Version**: 1.4.0
-**Auditor**: AI-assisted deep code review across all layers (backend, frontend, database, Python pipeline)
+**Auditor**: AI-assisted deep code review (backend + frontend + database + Python pipeline)
 
 ---
 
 ## Executive Summary
 
-| Category | Working | Partial | Broken | Stub |
-|----------|---------|---------|--------|------|
-| Authentication | 4 | 3 | 2 | 0 |
-| Camera Management | 5 | 8 | 1 | 1 |
-| Live Streaming | 4 | 0 | 0 | 0 |
-| Detection Pipeline | 4 | 5 | 3 | 0 |
-| Events & Search | 11 | 5 | 1 | 0 |
-| Analytics | 3 | 4 | 1 | 2 |
-| Day Highlights | 5 | 2 | 0 | 0 |
-| Settings | 2 | 5 | 0 | 0 |
-| Notifications | 4 | 2 | 0 | 0 |
-| Review Workflow | 5 | 0 | 0 | 0 |
-| Visitor Tracking | 4 | 1 | 0 | 0 |
-| System Health | 4 | 2 | 1 | 0 |
-| NVIDIA AI | 8 | 0 | 0 | 0 |
-| Batch Processing | 6 | 0 | 0 | 0 |
-| Face Config & Embeddings | 9 | 0 | 0 | 0 |
-| Alerts | 2 | 1 | 0 | 0 |
-| **Total** | **80** | **39** | **9** | **3** |
+This report updates the original audit with corrections from 5 re-audits. **22 bugs from the original audit were false positives** — the code already handled them correctly and the original analysis was mistaken. **1 bug has been fixed by Phase 11** (ANA-001). **~60+ new bugs** were discovered, including 7 P0-critical and 8 P1-security issues.
 
-**Overall**: ~40% fully working, ~45% partially working with bugs, ~15% broken or stubs.
+The original audit had a 33% false-positive rate in re-audited areas. This replacement report corrects all known errors.
+
+### Bug Count by Area
+
+| Area | Original Count | False Positives | Fixed | Remaining Original | New Bugs | **Total Real** |
+|------|---------------|-----------------|-------|-------------------|----------|---------------|
+| Authentication | 11 | 6 | 0 | 5 | 10 | **15** |
+| Camera Management | 9 | 4 | 0 | 5 | 11 | **16** |
+| Events & Search | 6 | 3 | 0 | 3 | 21 | **24** |
+| Analytics | 5 | 0 | 1 | 4 | 5 | **9** |
+| Settings | 7 | 1 | 0 | 6 | 7 | **13** |
+| Day Highlights | 4 | 3 | 0 | 1 | 1 | **2** |
+| Notifications | 5 | 2 | 0 | 3 | 3 | **6** |
+| System Health | 4 | 0 | 0 | 4 | 0 | **4** |
+| Batch Processing | 2 | 2 | 0 | 0 | 2 | **2** |
+| Live Streaming | 0 | 0 | 0 | 0 | 0 | **0** |
+| Detection Pipeline | 4 | 0 | 0 | 4 | 0 | **4** |
+| Visitor Tracking | 3 | 0 | 0 | 3 | 0 | **3** |
+| NVIDIA AI | 0 | 0 | 0 | 0 | 0 | **0** |
+| Face Config | 0 | 0 | 0 | 0 | 0 | **0** |
+| Alerts | 1 | 1 | 0 | 0 | 0 | **0** |
+| Review Workflow | 0 | 0 | 0 | 0 | 1 | **1** |
+| DB / Migrations | 0 | 0 | 0 | 0 | 4 | **4** |
+| Python OpenCV | 0 | 0 | 0 | 0 | 5 | **5** |
+| **Total** | **61** | **22** | **1** | **38** | **70** | **108** |
 
 ---
 
 ## Priority Classification
 
-Fixes are organized into three tiers:
-
-- **P0 — Critical**: Broken functionality, data loss, security vulnerabilities. Must fix before any new features.
-- **P1 — High**: Significant bugs affecting UX or data integrity. Should fix soon.
-- **P2 — Medium**: Cosmetic issues, minor bugs, dead code. Fix when convenient.
-- **P3 — Low**: Code quality, documentation, naming. Nice to have.
+- **P0 — Critical**: Broken functionality, data loss, security vulnerabilities.
+- **P1 — High**: Significant bugs affecting UX or data integrity.
+- **P2 — Medium**: Cosmetic issues, minor bugs, dead code.
+- **P3 — Low**: Code quality, naming, nice-to-haves.
 
 ---
 
@@ -52,163 +56,139 @@ Fixes are organized into three tiers:
 | User Login | `POST /api/auth/login` | WORKING |
 | User Registration | `POST /api/auth/register` | WORKING (admin-only) |
 | JWT Token Verification | middleware `auth.ts` | WORKING |
-| Token Refresh | `POST /api/auth/refresh` | WORKING |
-| Logout | `POST /api/auth/logout` | WORKING (client-side) |
+| Token Refresh | `POST /api/auth/refresh` | WORKING (no auth middleware — AUTH-013) |
+| Logout | `POST /api/auth/logout` | WORKING |
 | Password Change | `POST /api/auth/change-password` | WORKING |
 | User Profile | `GET /api/auth/profile` | WORKING |
 | Frontend Auth Context | `AuthContext.tsx` | WORKING |
 | Route Guards | `ProtectedRoute.tsx` | WORKING |
-| Role-Based Access | admin > user > viewer hierarchy | WORKING |
+| Role-Based Access | admin > user > viewer | WORKING |
 | Dev User Seeding | default admin/user on empty DB | WORKING |
+| MFA Setup | `GET /api/auth/mfa/setup` | WORKING |
+| MFA Verify | `POST /api/auth/mfa/verify` | WORKING |
+| Account Lockout | login handler | WORKING |
+| Token Invalidation | logout deletes user_sessions | WORKING |
+| Password History | changePassword checks last 5 | WORKING |
+| UserSession usage | created/checked/deleted | WORKING |
 
-### 1.2 Bugs & Issues
+### 1.2 False Positives (code works correctly)
 
-#### BUG-AUTH-001 — MFA Setup Secret Never Persisted [P0 BROKEN]
+**~~AUTH-001 — MFA Secret Never Persisted [P0]~~** — AuthController persists `user.mfaSecret` after setup. The secret IS saved to the database.
 
-**File**: `server/src/auth/index.ts` (MFA setup handler)
-**Severity**: P0 — Security feature is completely non-functional
+**~~AUTH-002 — MFA Verify Protocol Mismatch [P0]~~** — Backend reads the secret from `user.mfaSecret` in the database, not from the request body. MFA verify works end-to-end.
 
-The `GET /api/auth/mfa/setup` endpoint generates a TOTP secret and returns it to the client with a QR code data URL, but never writes the secret to `user.mfaSecret` in the database. The `User` model has `mfaSecret` (nullable varchar) and `mfaEnabled` (boolean) columns, but they are never updated.
+**~~AUTH-003 — Account Lockout Unimplemented [P0]~~** — Login handler checks `lockedUntil` before allowing login, increments `failedLoginAttempts` on bad password, and resets both on success. Lockout is fully implemented.
 
-**Fix**: After generating the secret, persist it:
-```typescript
-await userRepo.update(user.id, { mfaSecret: secret.base32 });
-```
-Also implement a two-step enrollment: setup returns secret → user verifies code → only then set `mfaEnabled = true`.
+**~~AUTH-004 — No Token Invalidation on Logout [P1]~~** — `AuthController.logout()` calls `userSessionRepo.delete()` which removes the session. Middleware's `requireAuth` checks for a valid `UserSession` record. Tokens ARE invalidated.
 
----
+**~~AUTH-006 — Password History Not Enforced [P1]~~** — `changePassword()` queries `PasswordHistory` for the last 5 entries, compares each using `bcrypt.compare`, and rejects on match.
 
-#### BUG-AUTH-002 — MFA Verify Protocol Mismatch [P0 BROKEN]
+**~~AUTH-008 — UserSession Model Never Used [P2]~~** — Sessions are created on login, looked up by middleware, and deleted on logout. The model is fully wired.
 
-**File**: `server/src/controllers/AuthController.ts:238`, `frontend/src/services/api/authService.ts:61-69`
-**Severity**: P0 — MFA verify always fails with 400
+### 1.3 Remaining Original Bugs
 
-Frontend sends `{ code }` only. Backend expects `{ code, secret }` from the request body. Since the server never persisted the secret during setup (BUG-AUTH-001), it requires the client to send it back. But the frontend only sends the code.
+**AUTH-005 — lastLogin Never Updated [P2]**
+`server/src/auth/index.ts` — `login()` never writes `NOW()` to `user.lastLogin`. Stays `null` forever.
 
-Response is always: `400 "Code and secret are required"`
-
-**Fix**: Either:
-1. Backend loads the secret from `user.mfaSecret` (requires fixing BUG-AUTH-001 first), OR
-2. Frontend sends the secret it received during setup
+**Fix**: `await userRepo.update(user.id, { lastLogin: new Date() })` on login success.
 
 ---
 
-#### BUG-AUTH-003 — Account Lockout Unimplemented [P0 SECURITY]
+**AUTH-007 — Password Complexity Not Enforced [P2]**
+`server/src/routes/auth.ts:17` — Route validation only checks `minLength: 8, maxLength: 128`. A stricter `validateUserRegistration` schema exists in `validation.ts:448` but is unused.
 
-**File**: `server/src/auth/index.ts` (login handler)
-**Severity**: P0 — Brute-force attacks not mitigated
-
-The `User` model has `failedLoginAttempts` and `lockedUntil` columns. Config has `maxLoginAttempts: 5` and `lockoutDuration: 900000`. But `authService.login()` never:
-- Increments `failedLoginAttempts` on bad password
-- Checks `lockedUntil` before allowing login
-- Resets the counter on success
-
-**Fix**: In the login handler, before password check:
-```typescript
-if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-  throw new Error('Account locked. Try again later.');
-}
-```
-On bad password: increment `failedLoginAttempts`, set `lockedUntil` if threshold reached.
-On success: reset `failedLoginAttempts` to 0, clear `lockedUntil`.
+**Fix**: Wire the existing schema to the register route middleware.
 
 ---
 
-#### BUG-AUTH-004 — No Token Invalidation on Logout [P1 SECURITY]
-
-**File**: `server/src/auth/index.ts`, `middleware/auth.ts`
-**Severity**: P1
-
-Logout only writes an audit log entry. The JWT remains valid until natural expiry. There is no token blacklist, no session deletion in `user_sessions`, and no `UserSession` cleanup.
-
-**Fix options**:
-1. Token blacklist in Redis with TTL matching JWT expiry
-2. Track `UserSession` records and check on each request
-3. Short-lived access tokens (5 min) + proper refresh token rotation
-
----
-
-#### BUG-AUTH-005 — lastLogin Never Updated [P2]
-
-**File**: `server/src/auth/index.ts`
-**Severity**: P2
-
-The `User` model has a `lastLogin` column that is queried by `getUserById()` but `login()` never writes `NOW()` to it. The value stays `null` forever.
-
-**Fix**: In the login success path:
-```typescript
-await userRepo.update(user.id, { lastLogin: new Date() });
-```
-
----
-
-#### BUG-AUTH-006 — Password History Not Enforced [P1]
-
-**File**: `server/src/auth/index.ts` (change-password handler)
-**Severity**: P1
-
-The `PasswordHistory` model exists with proper `userId` index and `CASCADE` delete, but is never written to or queried. Users can change their password to the same password repeatedly.
-
-**Fix**: Before accepting new password:
-1. Query `PasswordHistory` for last N entries
-2. Compare new password against each using `bcrypt.compare`
-3. Reject if match found
-4. After successful change, insert old password hash into `PasswordHistory`
-
----
-
-#### BUG-AUTH-007 — Password Complexity Not Enforced [P2]
-
-**File**: `server/src/routes/auth.ts:17`
-**Severity**: P2
-
-Route validation only checks `minLength: 8, maxLength: 128`. A `validateUserRegistration` schema with uppercase, lowercase, digit, and special character rules exists in `validation.ts:448` but is never wired to the register route.
-
-**Fix**: Use the existing `validateUserRegistration` schema in the register route validation middleware.
-
----
-
-#### BUG-AUTH-008 — UserSession Model Never Used [P2]
-
-**File**: `server/src/models/UserSession.ts`
-**Severity**: P2
-
-The entire `UserSession` model (refreshToken, accessTokenHash, deviceInfo, ipAddress, userAgent) is fully defined but never written to. Session tracking is entirely absent.
-
-**Fix**: Create session records on login, delete on logout, add session listing endpoint.
-
----
-
-#### BUG-AUTH-009 — Auth Middleware Logs Every Request at INFO [P2]
-
-**File**: `server/src/middleware/auth.ts:65`
-**Severity**: P2
-
-`logger.info(...)` on every authenticated request produces extremely high log volume.
+**AUTH-009 — Auth Middleware Logs Every Request at INFO [P2]**
+`server/src/middleware/auth.ts:65` — `logger.info(...)` on every authenticated request.
 
 **Fix**: Change to `logger.debug(...)`.
 
 ---
 
-#### BUG-AUTH-010 — Salt Column Dead [P3]
+**AUTH-010 — Salt Column Dead [P3]**
+`server/src/auth/index.ts:205` — `salt: 'salt'` hardcoded. Never read during login. Column is dead schema.
 
-**File**: `server/src/auth/index.ts:205`
-**Severity**: P3
-
-`salt: 'salt'` is a hardcoded constant. The `User.salt` column is never read during login (bcrypt handles salting internally). Dead column with misleading data.
-
-**Fix**: Remove the `salt` column from the `User` model in a future migration.
+**Fix**: Remove `salt` column in a future migration.
 
 ---
 
-#### BUG-AUTH-011 — Register Tab Visible to Non-Admins [P2]
+**AUTH-011 — Register Tab Visible to Non-Admins [P2]**
+`frontend/src/pages/Login.tsx:220-233` — Register tab shown to all users. Backend requires admin role, so non-admin users get 401 errors.
 
-**File**: `frontend/src/pages/Login.tsx:220-233`
-**Severity**: P2
+**Fix**: Conditionally render the register tab only for authenticated admin users.
 
-The register tab is shown to all users, but the backend requires admin role. Non-admin users will get 401 errors.
+### 1.4 New Bugs
 
-**Fix**: Hide the register tab for non-authenticated users, or show it only if the user is already logged in as admin.
+**AUTH-013 — /auth/refresh Has No Auth Middleware [P1 SECURITY]**
+`server/src/routes/auth.ts` — The refresh endpoint has no `requireAuth` middleware. A stolen refresh token (stored in localStorage) can be used indefinitely to obtain new access tokens.
+
+**Fix**: Add `requireAuth` middleware. Also validate that the refresh token matches the stored hash.
+
+---
+
+**AUTH-014 — JWT Stored in Plaintext in user_sessions [P1 SECURITY]**
+`server/src/models/UserSession.ts` — Contains both `accessTokenHash` (misleading name — stores plaintext) and `refreshToken` (plaintext). If the DB is compromised, all sessions are compromised.
+
+**Fix**: Hash both tokens before storage. Rename `accessTokenHash` to `accessToken` for clarity, or actually store a hash.
+
+---
+
+**AUTH-015 — No MFA UI in Frontend [P2]**
+Backend MFA endpoints exist and work, but there is no frontend UI to enroll, verify, or manage MFA. Settings page has no MFA section.
+
+**Fix**: Build frontend MFA enrollment flow (setup QR code → verify code → enable).
+
+---
+
+**AUTH-016 — AuthController Uses `user as any` Type Bypass [P2]**
+`server/src/controllers/AuthController.ts` — Multiple type casts bypass TypeScript strict mode, masking potential type errors.
+
+**Fix**: Replace `as any` with proper typed assertions or refactor to avoid the need.
+
+---
+
+**AUTH-017 — Login Timing-Based Username Enumeration [P2]**
+`server/src/auth/index.ts` — When user is not found, returns immediately. When user is found but password is wrong, performs bcrypt comparison (taking ~100ms). Timing difference reveals valid usernames.
+
+**Fix**: Always perform a dummy bcrypt compare when user is not found, to normalize response timing.
+
+---
+
+**AUTH-018 — Session ip_address INET Rejects Empty String [P2]**
+`server/src/auth/index.ts` — Attempts to insert `ip_address: ''` into an `INET` column, which PostgreSQL rejects. Login crashes when `req.ip` is empty (e.g., some proxy configurations).
+
+**Fix**: Default `ip_address` to `'0.0.0.0'` or make the column nullable with a fallback.
+
+---
+
+**AUTH-019 — Email Verification / Password Reset Columns Are Dead Schema [P2]**
+`User` model has `emailVerified`, `emailVerificationToken`, `emailVerificationExpires`, `passwordResetToken`, `passwordResetExpires` — none are ever written or checked.
+
+**Fix**: Implement the flows or remove the columns in a migration.
+
+---
+
+**AUTH-020 — Register Endpoint Has No Rate Limiting [P2]**
+`POST /api/auth/register` — No rate limit. An attacker can create unlimited accounts, filling the users table.
+
+**Fix**: Add enhanced rate limiting to the register route.
+
+---
+
+**AUTH-021 — deleteUser / updateUser Methods Unreachable [P3]**
+`server/src/controllers/AuthController.ts` — Two methods exist but no routes call them.
+
+**Fix**: Add routes or remove the dead methods.
+
+---
+
+**AUTH-022 — setupMFA Returns Raw TOTP Secret in API Response [P2]**
+`server/src/auth/index.ts` — Returns `{ secret: { ascii, hex, base32, otpauth_url } }` including the raw `base32` secret in the API response body. If the response is logged or intercepted, MFA is compromised.
+
+**Fix**: Only return the `otpauth_url` (for QR code generation). Never expose raw secrets.
 
 ---
 
@@ -218,121 +198,141 @@ The register tab is shown to all users, but the backend requires admin role. Non
 
 | Feature | Endpoint | Status |
 |---------|----------|--------|
-| List All Cameras | `GET /api/cameras` | WORKING |
+| List All Cameras | `GET /api/cameras` | WORKING (leaks credentials — CAM-011) |
+| Get Camera by ID | `GET /api/cameras/:id` | PARTIAL (serialization crash risk) |
+| Create Camera | `POST /api/cameras/create` | WORKING |
+| Update Camera | `PUT /api/cameras/:id` | WORKING |
+| Delete Camera | `DELETE /api/cameras/:id` | WORKING |
 | Start Stream | `POST /api/cameras/:id/stream/start` | WORKING |
-| Stop Stream | `POST /api/cameras/:id/stream/stop` | PARTIAL |
-| Test Stream (synthetic) | `POST /api/cameras/:id/stream/start-test` | WORKING |
-| RTSP Stream Manager | `rtspManager.ts` | WORKING |
-| Config Loading | `cameras.json` + env var | WORKING |
-| Credential Decryption | `credentialEncryption.ts` | WORKING |
+| Stop Stream | `POST /api/cameras/:id/stream/stop` | PARTIAL (kills all viewers — CAM-012) |
+| Test Stream | `POST /api/cameras/:id/stream/start-test` | WORKING (no stop endpoint — CAM-014) |
+| Config Persistence | `persistCameras()` | WORKING |
+| Filter/Zones CRUD | zone/filter endpoints | WORKING |
+| Credential Encryption | `credentialEncryption.ts` | WORKING |
 | Frontend Camera Context | `CameraContext.tsx` | PARTIAL |
+| Snapshot | `POST /api/cameras/:id/snapshot` | PARTIAL |
 
-### 2.2 Bugs & Issues
+### 2.2 False Positives (code works correctly)
 
-#### BUG-CAM-001 — Create Camera Broken End-to-End [P0 BROKEN]
+**~~CAM-001 — Create Camera Broken [P0]~~** — Controller generates a non-empty ID (`cam_${uuid}`), returns `{ camera: { id, ... } }` matching frontend expectations, and calls `persistCameras()`. All three supposed bugs are incorrect.
 
-**File**: `server/src/controllers/CameraController.ts` (createCamera)
-**Severity**: P0 — Cannot add cameras via UI
+**~~CAM-002 — Update Camera Ignores Fields [P1]~~** — Controller extracts all 5 fields: `name`, `nightMode`, `rtspUrl`, `frameRate`, `resolution`.
 
-Three distinct bugs:
-1. **Empty ID**: Controller calls `streamManager.addCamera()` with `id: ''`. Camera stored in Map with key `''`.
-2. **Response format mismatch**: Backend returns `{ success: true, cameraId }`. Frontend expects `{ camera: { id } }` (cameraService.ts:147). Frontend always throws `ApiError` on successful creation.
-3. **No persistence**: Adding a camera only updates the in-memory `Map`. `cameras.json` is never written.
+**~~CAM-003 — No Config Persistence [P0]~~** — `persistCameras()` EXISTS and is called after every create, update, delete, zone, and filter operation.
 
-**Fix**:
-1. Generate a proper camera ID (e.g., `cam${Date.now()}` or UUID)
-2. Return `{ success: true, camera: { id: newCamera.id, ... } }` matching frontend expectation
-3. Write updated camera list to `cameras.json`
+**~~CAM-008 — Update Filter Body Shape Mismatch [P1]~~** — Backend handles both shapes via `req.body.filter || req.body`.
 
----
+### 2.3 Remaining Original Bugs
 
-#### BUG-CAM-002 — Update Camera Ignores Most Fields [P1]
-
-**File**: `server/src/controllers/CameraController.ts:107-110`
-**Severity**: P1
-
-Only `name` and `nightMode` are extracted from the request body. The frontend sends `rtspUrl`, `fps`, and `resolution` which are silently ignored.
-
-**Fix**: Extract and apply all fields that the frontend sends.
-
----
-
-#### BUG-CAM-003 — No Config Persistence [P0]
-
-**File**: `server/src/streams/rtspManager.ts`
-**Severity**: P0 — All camera/zone/filter changes lost on restart
-
-Changes to cameras, zones, and object filters are in-memory only. `cameras.json` is read once at startup and never written back.
-
-**Fix**: Implement a `persistCameras()` method that writes the current camera config to `cameras.json`. Call it after any create/update/delete/zone/filter operation.
-
----
-
-#### BUG-CAM-004 — Get Camera By ID Leaks Internal State [P1]
-
-**File**: `server/src/controllers/CameraController.ts` (getById)
-**Severity**: P1
-
-Returns the raw `Camera` object including `lastFrame: Buffer | null`, `activeViewers: Set<string>`, `adaptiveFps`, etc. Serializing a `Set` and `Buffer` to JSON produces garbage.
+**CAM-004 — Get Camera by ID Leaks Internal State [P0]**
+`server/src/controllers/CameraController.ts` (getById) — Returns raw `Camera` object including `lastFrame: Buffer | null`, `activeViewers: Set<string>`, `adaptiveFps`. Serializing `Set`/`Buffer` to JSON produces garbage or crashes.
 
 **Fix**: Use the same trimming logic as `listAll` to return a clean API response.
 
 ---
 
-#### BUG-CAM-005 — Snapshot Path Mismatch [P1]
+**CAM-005 — Snapshot Path Mismatch [P1]**
+`server/src/controllers/CameraController.ts` (takeSnapshot), `frontend/src/services/api/cameraService.ts` — Backend saves to `data/detections/YYYY-MM/snapshots/` but frontend constructs URL `/snapshots/filename`. Image is not accessible.
 
-**File**: `server/src/controllers/CameraController.ts` (takeSnapshot), `frontend/src/services/api/cameraService.ts`
-**Severity**: P1
-
-Backend saves to `data/detections/YYYY-MM/snapshots/` but frontend constructs URL `/snapshots/filename`. The image is not accessible via the constructed URL.
-
-**Fix**: Align the URL construction. Either:
-1. Frontend uses the full path relative to the API base URL, OR
-2. Backend returns a URL path instead of a filename
+**Fix**: Return a full URL path from the backend, or align the frontend URL construction.
 
 ---
 
-#### BUG-CAM-006 — Night Mode Is a Stub [P2]
+**CAM-006 — Night Mode Is a Stub [P2]**
+`server/src/streams/rtspManager.ts` (toggleNightMode) — Only sets `camera.config.nightMode = enabled` and logs. No propagation to Python detection pipeline.
 
-**File**: `server/src/streams/rtspManager.ts` (toggleNightMode)
-**Severity**: P2
-
-Only sets `camera.config.nightMode = enabled` and logs it. No actual image processing change. Python detection pipeline doesn't receive this config change.
-
-**Fix**: Send the night mode config to the Python service, or remove the feature from the UI.
+**Fix**: Send night mode config to Python, or remove the feature from the UI.
 
 ---
 
-#### BUG-CAM-007 — Zone/Filters Not Propagated to Python [P1]
+**CAM-007 — Zone/Filters Fire-and-Forget to Python [P2]**
+`server/src/controllers/CameraController.ts` — Zone/filter config changes are sent to Python but the HTTP call is fire-and-forget with no error handling. `toggleNightMode` doesn't call it at all.
 
-**File**: `server/src/controllers/CameraController.ts` (zone/filter CRUD)
-**Severity**: P1
-
-Zone and object filter changes are made on the in-memory camera config but never communicated to the Python detection service. Changes take no effect until pipeline restart.
-
-**Fix**: Send config updates to the Python WebSocket or HTTP endpoint.
+**Fix**: Add error handling to the Python push. Wire `toggleNightMode` to call the same update path.
 
 ---
 
-#### BUG-CAM-008 — Update Filter Body Shape Mismatch [P1]
+**CAM-009 — Test Stream Interval Leak [P2]**
+`server/src/controllers/CameraController.ts` (startTestStream) — Each call creates a new `setInterval` with no guard to clear existing one.
 
-**File**: `server/src/controllers/CameraController.ts` (updateFilter), `frontend/src/services/api/cameraService.ts`
-**Severity**: P1
+**Fix**: Check for and clear existing interval before creating a new one.
 
-Frontend sends `{ filter: { minArea, ... } }`. Backend reads top-level fields (`req.body.minArea`). All filter updates from the frontend silently fall back to defaults.
+### 2.4 New Bugs
 
-**Fix**: Align the body shape. Either frontend sends flat fields, or backend reads from `req.body.filter`.
+**CAM-011 — listAll Leaks Decrypted RTSP URLs with Credentials [P1 SECURITY]**
+`server/src/controllers/CameraController.ts` (listAll) — Returns `rtspUrl` containing plaintext `rtsp://user:password@host:port/...`. Anyone who can call `GET /api/cameras` gets access to camera credentials.
+
+**Fix**: Strip credentials from RTSP URLs in the API response (e.g., `rtsp://****:****@host:port/...`).
 
 ---
 
-#### BUG-CAM-009 — Test Stream Interval Leak [P2]
+**CAM-012 — REST stopStream Kills Stream for ALL Socket.io Viewers [P1]**
+`server/src/controllers/CameraController.ts` (stopStream) — Calling the REST endpoint stops the camera stream for everyone, not just the requester. Other viewers watching via Socket.io lose their stream.
 
-**File**: `server/src/controllers/CameraController.ts` (startTestStream)
-**Severity**: P2
+**Fix**: REST stopStream should only stop test streams or require explicit intent. Socket.io viewer management should be separate.
 
-Each call creates a new `setInterval` stored in `(camera as any)._testInterval`. No guard to clear existing interval. No stop-test-stream route.
+---
 
-**Fix**: Check for and clear existing interval before creating a new one. Add a stop endpoint.
+**CAM-013 — Test Stream Interval Not Cleared by stopStream [P2]**
+`server/src/controllers/CameraController.ts` — The test interval created by `startTestStream` is not cleared when `stopStream` is called.
+
+**Fix**: Clear the interval in the stop handler.
+
+---
+
+**CAM-014 — No Stop-Test-Stream API Endpoint [P2]**
+`server/src/routes/cameras.ts` — There is a `start-test` endpoint but no corresponding `stop-test` endpoint.
+
+**Fix**: Add a `POST /api/cameras/:id/stream/stop-test` endpoint.
+
+---
+
+**CAM-015 — takeSnapshot Doesn't Create detection_files DB Record [P2]**
+`server/src/controllers/CameraController.ts` (takeSnapshot) — Saves the image to disk but never inserts a row in the `detection_files` or `events` table. The snapshot is invisible to the events system.
+
+**Fix**: Create a minimal event or detection_files record linking to the snapshot.
+
+---
+
+**CAM-016 — express.static /snapshots Points to Wrong Directory [P2]**
+`server/src/index.ts` — `app.use('/snapshots', express.static('public/snapshots'))` but snapshots are saved to `data/detections/YYYY-MM/snapshots/`. All snapshot URLs return 404.
+
+**Fix**: Serve from the correct directory, or use the event image serving endpoint.
+
+---
+
+**CAM-017 — Multiple startStream Calls Cause Duplicate Python Subscriptions [P2]**
+`server/src/streams/rtspManager.ts` — Calling `startStream` multiple times for the same camera creates multiple Python WebSocket subscriptions.
+
+**Fix**: Guard against duplicate subscriptions — check if already subscribed before creating a new one.
+
+---
+
+**CAM-018 — Auto-Start on Setup Ignores Camera enabled: false Flag [P1]**
+`server/src/streams/rtspManager.ts` — During initialization, all cameras are auto-started regardless of their `enabled` flag.
+
+**Fix**: Check `camera.enabled` before auto-starting.
+
+---
+
+**CAM-019 — persistCameras Written N Times During Init [P2]**
+`server/src/streams/rtspManager.ts` — During bootstrap with N cameras, `persistCameras()` is called N times, writing the same file repeatedly.
+
+**Fix**: Batch init calls or suppress persistence during initialization.
+
+---
+
+**CAM-020 — wirePythonWsFrames Overrides Bootstrap's Python Subscription on Reconnect [P2]**
+`server/src/streams/rtspManager.ts` — On WebSocket reconnect, `wirePythonWsFrames` creates a new subscription that replaces the filtered subscription set up by `bootstrap.ts`, losing per-camera filtering.
+
+**Fix**: Check for existing subscriptions before replacing.
+
+---
+
+**CAM-021 — persistCameras Silently Fails if CREDENTIAL_ENCRYPTION_KEY Missing [P2]**
+`server/src/streams/rtspManager.ts` — `persistCameras()` calls credential encryption without checking if the encryption key is configured. If missing, the write silently fails and config is lost.
+
+**Fix**: Check for encryption key before calling persist; log a clear warning if missing.
 
 ---
 
@@ -355,9 +355,9 @@ Each call creates a new `setInterval` stored in `(camera as any)._testInterval`.
 
 ### 3.2 Notes
 
-- Confirmed working with 3 concurrent viewers (2 Mac Chrome, 1 Android Chrome)
+- Confirmed working with 3 concurrent viewers
 - Cameras produce H.264 High/Main profile + PCMA audio
-- go2rtc also has built-in WebUI at port 1984 for direct testing
+- go2rtc WebUI at port 1984 for direct testing
 - Detection pipeline is separate (Python FFmpegReader) and unaffected
 
 ---
@@ -369,7 +369,7 @@ Each call creates a new `setInterval` stored in `(camera as any)._testInterval`.
 | Feature | Component | Status |
 |---------|-----------|--------|
 | Python MOG2 background subtraction | `MotionGate` | WORKING |
-| YOLO object detection (YOLOv8n→YOLOv5n→yolov4-tiny) | `InProcessYOLO` | WORKING |
+| YOLO detection (YOLOv8n→YOLOv5n→yolov4-tiny) | `InProcessYOLO` | WORKING (fallback broken — PIP-001) |
 | Multi-object tracking (Kalman filter) | `ByteTracker` | WORKING |
 | Face recognition (InsightFace ArcFace) | `IdentityEnrichment` | WORKING |
 | WebSocket event publishing | `WebSocketPublisher` | WORKING |
@@ -380,54 +380,33 @@ Each call creates a new `setInterval` stored in `(camera as any)._testInterval`.
 | Face config CRUD with validation | `faceConfigRoutes.ts` | WORKING |
 | Face embedding lifecycle | `faceEmbeddingRoutes.ts` | WORKING |
 
-### 4.2 Bugs & Issues
+### 4.2 Bugs
 
-#### BUG-DET-001 — Node.js Trigger Endpoints Return Empty [P1 BROKEN]
+**DET-001 — Node.js Trigger Endpoints Return Empty [P1]**
+`server/src/detection/consolidatedDetectionService.ts` — `detectObjects()` and `detectFaces()` return empty arrays (intentional — pipeline runs in Python). Endpoints still exist in routes but return nothing.
 
-**File**: `server/src/detection/consolidatedDetectionService.ts` (detectObjects, detectFaces)
-**Severity**: P1
-
-`detectObjects()` and `detectFaces()` return empty arrays with a log: *"HTTP detection path is removed. Detection now runs via the Python WebSocket pipeline."*
-
-Affected endpoints:
-- `POST /api/detection-operations/person/:cameraId/trigger`
-- `POST /api/detection-operations/face/:cameraId/trigger`
-- `POST /api/motion/:cameraId/analyze`
-
-**Fix**: Either remove these endpoints from the UI, or proxy to the Python OpenCV service (`/detect-objects`).
+**Fix**: Either remove the endpoints from the UI, or proxy to the Python OpenCV service.
 
 ---
 
-#### BUG-DET-002 — detectionService Singleton Has Broken Repository [P1]
+**DET-002 — detectionService Singleton Has Broken Repository [P1]**
+`server/src/services/detection/detectionService.ts:271-272` — Initialized with `{} as Repository<DetectionConfig>`. DB operations will crash. Fallback in routes hides this by returning hardcoded defaults.
 
-**File**: `server/src/services/detection/detectionService.ts:271-272`
-**Severity**: P1
-
-Initialized with `{} as Repository<DetectionConfig>`. All DB operations (`getConfig()`, `updateConfig()`) will crash. The fallback in `detectionRoutes.ts` hides this by returning hardcoded defaults.
-
-**Fix**: Initialize the repository properly from the TypeORM connection.
+**Fix**: Initialize repository properly from TypeORM connection.
 
 ---
 
-#### BUG-DET-003 — Settings Not Propagated to Python [P1]
+**DET-003 — Settings Not Propagated to Python [P1]**
+`server/src/detection/consolidatedDetectionService.ts` — Settings saved to `camera_settings` DB but never sent to Python. Python maintains its own independent config.
 
-**File**: `server/src/detection/consolidatedDetectionService.ts`
-**Severity**: P1
-
-Settings are saved to `camera_settings` DB table but never pushed to the Python detection pipeline. Python maintains its own config.
-
-**Fix**: After saving settings to DB, send the updated config to the Python service via HTTP or WebSocket message.
+**Fix**: After saving to DB, push config to Python via HTTP or WebSocket.
 
 ---
 
-#### BUG-DET-004 — writeSettingsToDb Called Without await [P2]
+**DET-004 — writeSettingsToDb Called Without await [P2]**
+`server/src/detection/consolidatedDetectionService.ts:166,178,196` — Fire-and-forget persistence. Errors silently swallowed.
 
-**File**: `server/src/detection/consolidatedDetectionService.ts:166,178,196`
-**Severity**: P2
-
-Fire-and-forget persistence. Errors are silently swallowed.
-
-**Fix**: `await writeSettingsToDb(...)` and handle errors.
+**Fix**: `await writeSettingsToDb(...)` with error handling.
 
 ---
 
@@ -443,6 +422,8 @@ Fire-and-forget persistence. Errors are silently swallowed.
 | Range Statistics | `GET /api/events/stats/range` | WORKING |
 | Event Details | `GET /api/events/:id/details` | WORKING |
 | Image Serving | `GET /api/events/image/:filename` | WORKING |
+| Event Deletion | `DELETE /api/events/:id` | WORKING |
+| Bulk Delete | `POST /api/events/bulk-delete` | PARTIAL (Promise.all — EVT-009) |
 | Event File Listing | `GET /api/events/list` | WORKING |
 | Smart Filters | `SmartFilters.tsx` | WORKING |
 | Grid/List View Toggle | `EventsPage.tsx` | WORKING |
@@ -451,82 +432,177 @@ Fire-and-forget persistence. Errors are silently swallowed.
 | Event Detail Panel | `EventDetailPanel.tsx` | WORKING |
 | Related Events | `RelatedEvents.tsx` | WORKING |
 | AI Scene Analysis (per-event) | `EventsPage.tsx` | WORKING |
+| Motion Filter | `SmartFilters.tsx` | WORKING |
+| Bounding Box Rendering | `EventDetailPanel.tsx` | WORKING |
 
-### 5.2 Bugs & Issues
+### 5.2 False Positives (code works correctly)
 
-#### BUG-EVT-001 — Event Deletion Is a No-Op [P0 BROKEN]
+**~~EVT-001 — Event Deletion Is a No-Op [P0]~~** — Handler performs all three steps: 1) `pool.query('DELETE FROM events WHERE id = $1')`, 2) `fs.unlinkSync(imagePath)`, 3) `inMemoryState.removeEvent()`. Deletion works correctly.
 
-**File**: `server/src/routes/event-search.ts` (archive handler)
-**Severity**: P0 — Users think they deleted events but nothing happens
+**~~EVT-002 — Detection Bounding Boxes Never Render [P1]~~** — `normalizeBoundingBox()` handles all 3 formats (`boundingBox`, `box`, `bounding_box`) with corresponding coordinate systems. Rendering works.
 
-The handler searches `inMemoryState.getRecentEvents()` for the event, finds it, but only returns a success message. It never:
-1. Removes the event from in-memory state
-2. Deletes from the database
-3. Deletes the file from disk
+**~~EVT-004 — Motion Filter Does Nothing [P1]~~** — `listEnhanced` has a `case 'motion':` handler that adds `WHERE e.event_type = 'motion'`. Motion filter works.
 
-Both single and bulk delete are affected.
+### 5.3 Remaining Original Bugs
 
-**Fix**: Implement actual deletion:
-```typescript
-await pool.query('DELETE FROM events WHERE id = $1', [eventId]);
-fs.unlinkSync(imagePath);
-inMemoryState.removeEvent(eventId);
-```
+**EVT-003 — Share Button Has No Handler [P2]**
+`frontend/src/components/events/EventDetailPanel.tsx:477-478` — Renders but does nothing.
+
+**Fix**: Implement share (copy link, share image) or remove the button.
 
 ---
 
-#### BUG-EVT-002 — Detection Bounding Boxes Never Render [P1]
+**EVT-005 — Image Serving Performance (Up to 122 fs.exists Calls) [P2]**
+`server/src/routes/event-search.ts:170-183` — Fallback directory search iterates up to 5 years of month directories via `fs.existsSync`.
 
-**File**: `frontend/src/components/events/EventDetailPanel.tsx:107-126`
-**Severity**: P1
-
-Frontend expects `detection.boundingBox` with `{ x, y, width, height }`. Backend sends `{ box: { x, y, w, h } }` or `{ bounding_box: { xmin, ymin, xmax, ymax } }`. Field name and coordinate format mismatch.
-
-**Fix**: Normalize detection data in the frontend or backend to use a consistent format.
+**Fix**: Cache directory structure or use DB lookup to resolve paths.
 
 ---
 
-#### BUG-EVT-003 — Share Button Has No Handler [P2]
+**EVT-006 — Today's Event Count Timezone Bug [P2]**
+`server/src/routes/event-search.ts` — `new Date().setHours(0,0,0,0)` uses server local time. PostgreSQL `timestamptz` comparison is UTC. Events between midnight IST and 5:30 AM IST get miscounted.
 
-**File**: `frontend/src/components/events/EventDetailPanel.tsx:477-478`
-**Severity**: P2
+**Fix**: Use `timezone('Asia/Kolkata', now()::date)` in queries or use `timestamptz` consistently.
 
-Renders but does nothing when clicked.
+### 5.4 New Bugs
 
-**Fix**: Implement share functionality (copy link, share image, etc.) or remove the button.
+**EVT-007 — Calendar Day Range Selection Never Works [P1]**
+`server/src/routes/event-search.ts` (calendarStats) — When `startDate` and `endDate` are provided, the handler enters a dead code branch that performs an incorrect query and returns wrong results.
 
----
-
-#### BUG-EVT-004 — Motion Filter Does Nothing [P1]
-
-**File**: `frontend/src/components/events/SmartFilters.tsx`, `server/src/services/eventSearchService.ts`
-**Severity**: P1
-
-Selecting "Motion" sends `event_type=motion` to the backend. `listEnhanced` has no case for `event_type === 'motion'`, so it falls through without adding a filter condition. Motion filter returns all events unfiltered.
-
-**Fix**: Add a `case 'motion':` handler in `listEnhanced` that filters for motion-type events.
+**Fix**: Fix the date-range query path in the calendar stats handler.
 
 ---
 
-#### BUG-EVT-005 — Image Serving Performance (Up to 120 fs.exists Calls) [P2]
+**EVT-008 — Camera Name Never Returned by API [P1]**
+`server/src/routes/event-search.ts` (listEnhanced) — The query joins events with cameras but does not select `camera.name`. The frontend always shows a fallback name.
 
-**File**: `server/src/routes/event-search.ts:170-183`
-**Severity**: P2
-
-The fallback directory search iterates up to 5 years of month directories (up to 120 `fs.existsSync` calls per image request).
-
-**Fix**: Cache the directory structure, or use a database lookup to resolve paths.
+**Fix**: Add `c.name as camera_name` to the SELECT clause.
 
 ---
 
-#### BUG-EVT-006 — Today's Event Count Timezone Bug [P2]
+**EVT-009 — Bulk Delete Uses Promise.all — Partial Failures Reported as Full Success [P1]**
+`server/src/routes/event-search.ts` (bulkDelete) — `Promise.all()` resolves/rejects on the first failure. Some deletions may succeed while others fail, but the response always says all succeeded.
 
-**File**: `server/src/routes/event-search.ts`, `frontend/src/services/api/eventService.ts:83`
-**Severity**: P2
+**Fix**: Use `Promise.allSettled()` and report per-item results.
 
-Creates `todayStart` with `new Date().setHours(0, 0, 0, 0)` using server local timezone, but PostgreSQL `timestamp` comparison may be UTC. Events between midnight IST and 5:30 AM IST could be counted under the previous day.
+---
 
-**Fix**: Use `timezone('Asia/Kolkata', now()::date)` in the PostgreSQL query, or use `timestamptz` consistently.
+**EVT-010 — getEventImageUrl Returns Wrong Path [P1]**
+`frontend/src/services/api/eventService.ts` — Returns `/events/` instead of `/api/events/image/`. Images fail to load.
+
+**Fix**: Correct the URL path to `/api/events/image/`.
+
+---
+
+**EVT-011 — RelatedEvents Uses Plain img Instead of ProgressiveImage [P2]**
+`frontend/src/components/events/RelatedEvents.tsx` — Uses `<img>` directly instead of the `ProgressiveImage` component used elsewhere.
+
+**Fix**: Replace with `ProgressiveImage` for consistent lazy loading.
+
+---
+
+**EVT-012 — EventTimeline "Now" Indicator Always at Left Edge [P2]**
+`frontend/src/components/events/EventTimeline.tsx` — The "now" indicator has no CSS `left` position calculated from actual time. Always renders at column 0.
+
+**Fix**: Calculate `left` percentage from current time relative to 24h range.
+
+---
+
+**EVT-013 — EventTimeline Drag-to-Scroll Has No Bounds [P2]**
+`frontend/src/components/events/EventTimeline.tsx` — Drag-to-scroll can go past the timeline boundaries, leaving a blank view.
+
+**Fix**: Clamp the scroll position to valid bounds.
+
+---
+
+**EVT-014 — URL Synced with Stale Page Number on Filter Change [P2]**
+`frontend/src/pages/EventsPage.tsx` — When a filter is changed, the URL query parameter still reflects the old page number while results reset to page 1.
+
+**Fix**: Reset page to 1 in the URL when any filter changes.
+
+---
+
+**EVT-015 — Image Path LIKE Query with Leading Wildcard [P2]**
+`server/src/routes/event-search.ts` — Uses `image_path LIKE '%searchterm'` preventing index usage.
+
+**Fix**: Use a suffix-only pattern or full-text search on image paths.
+
+---
+
+**EVT-016 — End Date ::timestamp Cast Drops Timezone Info [P2]**
+`server/src/routes/event-search.ts` — `endDate::timestamp` loses timezone context.
+
+**Fix**: Cast to `timestamptz` or use `AT TIME ZONE` for correct comparison.
+
+---
+
+**EVT-018 — Bounding Box Coordinates Not Scaled to Display Size [P1]**
+`frontend/src/components/events/EventDetailPanel.tsx` — Bounding boxes are drawn at absolute pixel coordinates from the 640×360 source, but the display image uses `object-cover` which may crop or scale differently.
+
+**Fix**: Calculate scale factors from natural vs displayed image dimensions and apply them.
+
+---
+
+**EVT-019 — ISO String + ::timestamp = Timezone Incorrect [P2]**
+`server/src/routes/event-search.ts` — `WHERE e.timestamp >= $1::timestamp` with ISO string treated as local time by PostgreSQL. Mismatch with DB timestamptz.
+
+**Fix**: Use `$1::timestamptz` or send a timezone-aware literal.
+
+---
+
+**EVT-020 — EventTimeline Hour Zoom Groups May Not Align with 24-Column Grid [P2]**
+`frontend/src/components/events/EventTimeline.tsx` — The zoomed hour groups may not cleanly divide the fixed 24-column grid, causing alignment issues.
+
+**Fix**: Round zoom boundaries to the nearest hour boundary.
+
+---
+
+**EVT-021 — "All Time" getDates() Return Value Is Dead Code [P3]**
+`server/src/routes/event-search.ts` — The `getDates()` return for `'all'` is never consumed.
+
+**Fix**: Remove or wire up the return value.
+
+---
+
+**EVT-022 — Calendar Nav Uses ChevronDown/Up Instead of ChevronLeft/Right [P3]**
+`frontend/src/components/events/EventTimeline.tsx` — Navigation buttons use vertical chevrons for horizontal calendar paging.
+
+**Fix**: Replace with `ChevronLeft`/`ChevronRight`.
+
+---
+
+**EVT-023 — Today Highlight Only Works When quickRange === 'all' [P3]**
+`frontend/src/components/events/SmartFilters.tsx` — The "today" visual highlight is only active when no specific filter range is selected.
+
+**Fix**: Show today highlight regardless of quick range selection.
+
+---
+
+**EVT-024 — Confidence Badge Shows "0%" for Very Low Confidence Events [P2]**
+`frontend/src/components/events/EventDetailPanel.tsx` — Shows `0%` when confidence rounds to 0.
+
+**Fix**: Show `< 1%` for values between 0 and 0.5%.
+
+---
+
+**EVT-025 — "Showing X of Y" Shows Page Size vs Filtered Count [P2]**
+`frontend/src/pages/EventsPage.tsx` — Displays `Showing 1-50 of 50` showing page size instead of total filtered event count.
+
+**Fix**: Display the total count from the API response.
+
+---
+
+**EVT-026 — File Deletion Uses process.cwd() [P2]**
+`server/src/routes/event-search.ts` — Image path resolution uses `process.cwd()` which may differ in Docker from the intended data directory.
+
+**Fix**: Use a config-based path or an absolute path from config.
+
+---
+
+**EVT-027 — Brief Empty State Flash During Loading Transition [P3]**
+`frontend/src/pages/EventsPage.tsx` — The empty state ("No events found") flashes briefly between loading spinner and results.
+
+**Fix**: Prevent empty state rendering while `isLoading` is true.
 
 ---
 
@@ -539,67 +615,74 @@ Creates `todayStart` with `new Date().setHours(0, 0, 0, 0)` using server local t
 | Detection Types Pie Chart | `Analytics.tsx` | WORKING |
 | Camera Status Panel | `Analytics.tsx` | WORKING |
 | Stat Cards | `Analytics.tsx` | WORKING |
+| Events Over Time Chart | `Analytics.tsx` | WORKING (vehicle counting fixed) |
 
-### 6.2 Bugs & Issues
+### 6.2 Fixed Bugs
 
-#### BUG-ANA-001 — Vehicles Always Zero in Events Over Time Chart [P1]
+**~~ANA-001 — Vehicles Always Zero in Chart [P1]~~** [FIXED by Phase 11] — Vehicle counting logic added to the `eventsByDay` aggregation loop.
 
-**File**: `frontend/src/pages/Analytics.tsx:128-143`
-**Severity**: P1
+### 6.3 Remaining Original Bugs
 
-The `eventsByDay` loop increments `events`, `persons`, and `packages` but never increments `vehicles`. The vehicles line in the area chart always reads 0.
+**ANA-002 — Storage Is Hardcoded 0.5MB Estimate [P2]**
+`frontend/src/pages/Analytics.tsx:188` — Uses `0.5 MB per event` estimate instead of actual filesystem usage.
 
-**Fix**: Add vehicle counting logic:
-```typescript
-if (obj.class === 'car' || obj.class === 'truck' || obj.class === 'motorcycle' ||
-    obj.class === 'bus' || obj.class === 'vehicle') {
-  day.vehicles++;
-}
-```
+**Fix**: Query actual disk usage from backend (`du -sh data/detections/`) or aggregate file sizes from DB.
 
 ---
 
-#### BUG-ANA-002 — Storage Is Hardcoded 0.5MB Estimate [P2]
+**ANA-003 — Hourly Data Capped at 100 In-Memory Events [P1]**
+`server/src/controllers/AnalyticsController.ts` (hourly endpoint) — Reads from `inMemoryState.getRecentEvents()` which holds max 100 events.
 
-**File**: `frontend/src/pages/Analytics.tsx:188`
-**Severity**: P2
-
-Uses `0.5 MB per event` estimate. Not actual filesystem usage.
-
-**Fix**: Query actual disk usage from the backend (`du -sh data/detections/`) or aggregate file sizes from the database.
+**Fix**: Query database directly for hourly analytics.
 
 ---
 
-#### BUG-ANA-003 — Hourly Data Capped at 100 In-Memory Events [P1]
+**ANA-004 — Response Time Analytics Fabricates Data [P2]**
+`server/src/controllers/AnalyticsController.ts` — All data generated with `Math.random()`. Frontend never calls this endpoint (dead code).
 
-**File**: `server/src/controllers/AnalyticsController.ts` (hourly endpoint)
-**Severity**: P1
-
-Reads from `inMemoryState.getRecentEvents()` which holds max 100 events. On busy days, older events are dropped from analytics.
-
-**Fix**: Query the database for hourly analytics instead of relying on in-memory state.
+**Fix**: Implement real timing or remove the endpoint.
 
 ---
 
-#### BUG-ANA-004 — Response Time Analytics Fabricates Data [P2]
-
-**File**: `server/src/controllers/AnalyticsController.ts` (responseTime endpoint)
-**Severity**: P2
-
-All data generated using `Math.random()`. No real HTTP request timing captured. Frontend never calls this endpoint (dead code).
-
-**Fix**: Either implement real timing or remove the endpoint.
-
----
-
-#### BUG-ANA-005 — Weekly/Monthly Endpoints Unused [P3]
-
-**File**: `server/src/controllers/AnalyticsController.ts`, `frontend/src/services/api/systemService.ts`
-**Severity**: P3
-
-Service methods exist but no page or component calls them.
+**ANA-005 — Weekly/Monthly Endpoints Unused [P3]**
+`server/src/controllers/AnalyticsController.ts`, `frontend/src/services/api/systemService.ts` — Service methods exist but no component calls them.
 
 **Fix**: Wire them up in the Analytics page, or remove.
+
+### 6.4 New Bugs
+
+**ANA-006 — Motion Count Inflated in Pie Chart [P2]**
+`frontend/src/pages/Analytics.tsx` — Every event increments motion count, even when the event has a specific detection type (person, vehicle, etc.). Motion overcounted.
+
+**Fix**: Only count `event_type === 'motion'` for the motion slice.
+
+---
+
+**ANA-007 — Hourly Chart Ignores Time Range [P2]**
+`server/src/controllers/AnalyticsController.ts` — The hourly endpoint always returns today's data regardless of the requested date range.
+
+**Fix**: Honor the `startDate`/`endDate` query parameters.
+
+---
+
+**ANA-008 — Pie Chart Empty State Renders Empty Chart [P2]**
+`frontend/src/pages/Analytics.tsx` — When all detection counts are zero, the chart renders an empty space instead of a "no data" message.
+
+**Fix**: Show a placeholder when all values are zero.
+
+---
+
+**ANA-009 — pageSize Hardcoded to 1000 [P3]**
+`server/src/controllers/AnalyticsController.ts` — The events query hardcodes `LIMIT 1000`. Analytics are incomplete beyond 1000 events.
+
+**Fix**: Remove the limit or make it configurable/adaptive.
+
+---
+
+**ANA-010 — Fragile Date Key Sorting [P3]**
+`frontend/src/pages/Analytics.tsx` — Date keys (strings like "2026-01-01") sorted alphabetically. Works within a single year but breaks at year boundaries (e.g., "2025-12-31" vs "2026-01-01" — alphabetical happens to work, but any sort of "2026-01-01" vs "2026-02-01" would fail lexicographically if padding were inconsistent).
+
+**Fix**: Sort by `new Date(key).getTime()` instead of string comparison.
 
 ---
 
@@ -614,57 +697,31 @@ Service methods exist but no page or component calls them.
 | Category Filters | `DayHighlights.tsx` | WORKING |
 | Event Detail Panel | `DayHighlights.tsx` | WORKING |
 | Timeline Sidebar | `DayHighlights.tsx` | WORKING |
+| Night Events Count | highlights API | WORKING |
+| Sort Dropdown | `DayHighlights.tsx` | WORKING |
+| Keyboard Navigation | `DayHighlights.tsx` | WORKING |
 
-### 7.2 Bugs & Issues
+### 7.2 False Positives (code works correctly)
 
-#### BUG-HL-001 — Night Events Count Always Zero [P1]
+**~~HL-001 — Night Events Count Always Zero [P1]~~** — SQL uses `OR` not `BETWEEN`: `EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6`. This correctly matches both late-night (≥22) and early-morning (≤6) hours. Original audit incorrectly read it as `BETWEEN`.
 
-**File**: `server/src/routes/highlights.ts:64`
-**Severity**: P1 — Night Events stat permanently shows 0
+**~~HL-002 — Sort Dropdown Broken [P1]~~** — The chronological re-sort wrapper is conditional on `sortBy === 'recent'`. When other sort options are selected, the API sort order is preserved correctly.
 
-SQL uses `BETWEEN 22 AND 6` which means `>= 22 AND <= 6`. No integer satisfies both conditions simultaneously.
+**~~HL-003 — Keyboard Nav Index Overflow With Active Filters [P1]~~** — Handlers use `filteredHighlights.length` (correctly), not `highlights.length`. Original audit misread the variable name.
 
-**Fix**:
-```sql
-COUNT(CASE WHEN EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6 THEN 1 END)
-```
+### 7.3 Remaining Original Bugs
 
----
-
-#### BUG-HL-002 — Sort Dropdown Broken [P1]
-
-**File**: `frontend/src/pages/DayHighlights.tsx:112`
-**Severity**: P1
-
-After receiving sorted data from the API, the frontend unconditionally re-sorts chronologically:
-```typescript
-sortedHighlights.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-```
-Choosing "Most People", "Most Faces", "High Confidence", or "Unknown Faces" has no visible effect.
-
-**Fix**: Only sort chronologically if no sort is selected, or remove this line.
-
----
-
-#### BUG-HL-003 — Keyboard Nav Index Overflow With Active Filters [P1]
-
-**File**: `frontend/src/pages/DayHighlights.tsx:186,190`
-**Severity**: P1
-
-`ArrowLeft`/`ArrowRight` handlers use `highlights.length` (unfiltered total) instead of `filteredHighlights.length`. With active filters, `currentIndex` can exceed the filtered array bounds, causing blank UI.
-
-**Fix**: Replace `highlights.length` with `filteredHighlights.length` in keyboard handlers.
-
----
-
-#### BUG-HL-004 — Fullscreen/Export Shortcuts Undefined [P2]
-
-**File**: `frontend/src/pages/DayHighlights.tsx`
-**Severity**: P2
-
-`FULLSCREEN` ('f') and `EXPORT` ('e') defined in `KEYBOARD_SHORTCUTS` but have no handler in the switch statement.
+**HL-004 — Fullscreen/Export Keyboard Shortcuts Have No Handler [P2]**
+`frontend/src/pages/DayHighlights.tsx` — `KEYBOARD_SHORTCUTS` defines `FULLSCREEN` ('f') and `EXPORT` ('e') but the switch statement has no cases for them.
 
 **Fix**: Implement handlers or remove from shortcuts list.
+
+### 7.4 New Bugs
+
+**HL-005 — Unused KEYBOARD_SHORTCUTS Constants [P3]**
+`frontend/src/pages/DayHighlights.tsx` — `FULLSCREEN` and `EXPORT` constants defined but unused (see HL-004). Dead constants.
+
+**Fix**: Remove with HL-004.
 
 ---
 
@@ -677,83 +734,102 @@ Choosing "Most People", "Most Faces", "High Confidence", or "Unknown Faces" has 
 | System Settings Load/Save | `SettingsController.ts` | WORKING (with caveats) |
 | Change Password | `Settings.tsx` | WORKING |
 | General Settings UI | `Settings.tsx` | WORKING |
+| Settings Upsert on Fresh Install | `SettingsController.ts` | WORKING |
 
-### 8.2 Bugs & Issues
+### 8.2 False Positives (code works correctly)
 
-#### BUG-SET-001 — Theme Selector Only Shows "Dark" [P2]
+**~~SET-007 — Settings Never Created on Fresh Install [P1]~~** — Controller uses `INSERT INTO system_settings (...) VALUES (...) ON CONFLICT DO UPDATE`. On a fresh install with an empty table, the INSERT succeeds and creates the row. Original audit incorrectly said it uses UPDATE-only.
 
-**File**: `frontend/src/pages/Settings.tsx:684-701`
-**Severity**: P2
+### 8.3 Remaining Original Bugs
 
-The `<Select>` for theme only contains a `dark` option. Imports `Sun`, `Moon`, `Monitor` icons but doesn't render `system` or `light` options.
+**SET-001 — Theme Selector Only Shows "Dark" [P2]**
+`frontend/src/pages/Settings.tsx:684-701` — The `<Select>` for theme only contains a `dark` option. Imports `Sun`, `Moon`, `Monitor` icons but doesn't render `system` or `light`.
 
-**Fix**: Add `light` and `system` options to the dropdown.
-
----
-
-#### BUG-SET-002 — Theme Never Persisted to Backend [P2]
-
-**File**: `frontend/src/pages/Settings.tsx:179`
-**Severity**: P2
-
-`handleSave` hardcodes `theme: 'system'` in the payload, overriding whatever the user selected.
-
-**Fix**: Use the actual selected theme value from state.
+**Fix**: Add `light` and `system` options.
 
 ---
 
-#### BUG-SET-003 — Storage Retention Maps to Wrong Field [P1]
+**SET-002 — Theme Never Persisted to Backend [P2]**
+`frontend/src/pages/Settings.tsx:179` — `handleSave` hardcodes `theme: 'system'`.
 
-**File**: `frontend/src/pages/Settings.tsx:124,184`
-**Severity**: P1
-
-`eventRetentionDays` is mapped to `maxStorageGB` on load and save. "Days to keep event records" actually saves as "30 GB max storage". Completely different semantics.
-
-**Fix**: Add a proper `retentionDays` field to the backend, or correctly map to the existing field.
+**Fix**: Use `formData.theme` (the actual selected value) instead of `'system'`.
 
 ---
 
-#### BUG-SET-004 — Motion Settings Auto-Save Without Save Button [P2]
+**SET-003 — Storage Retention Maps to Wrong Field [P1]**
+`frontend/src/pages/Settings.tsx:124,184` — `eventRetentionDays` mapped to `maxStorageGB`. Different semantics.
 
-**File**: `frontend/src/components/settings/MotionDetectionSettings.tsx:87,109,131`
-**Severity**: P2
-
-Every dropdown change triggers an immediate API call. The parent "Save Changes" button does not save these settings.
-
-**Fix**: Use local state and save only when the parent "Save Changes" button is clicked.
+**Fix**: Add a `retentionDays` field to backend model, or correct the mapping.
 
 ---
 
-#### BUG-SET-005 — Motion Settings Hardcoded to cam1/cam2 [P2]
+**SET-004 — Motion Settings Auto-Save Without Save Button [P2]**
+`frontend/src/components/settings/MotionDetectionSettings.tsx:87,109,131` — Every dropdown change triggers immediate API call. Parent "Save Changes" doesn't save these.
 
-**File**: `frontend/src/components/settings/MotionDetectionSettings.tsx:57`
-**Severity**: P2
+**Fix**: Use local state, save only on parent "Save Changes" click.
 
-Always applies settings to `'cam1'` and `'cam2'`. Dynamic cameras are missed.
+---
+
+**SET-005 — Motion Settings Hardcoded to cam1/cam2 [P2]**
+`frontend/src/components/settings/MotionDetectionSettings.tsx:57` — Always applies to `'cam1'` and `'cam2'`. Dynamic cameras missed.
 
 **Fix**: Iterate over actual camera list from context.
 
 ---
 
-#### BUG-SET-006 — Optimization Settings Backend Ignores Fields [P2]
+**SET-006 — Optimization Settings Backend Ignores Fields [P2]**
+`frontend/src/components/settings/OptimizationSettings.tsx`, `server/src/routes/detectionRoutes.ts:23-27` — Frontend sends `lowResourceMode`, `ffmpegThreads`. Zod schema only validates `thresholds`, `labelmap`, `score_history_length`.
 
-**File**: `frontend/src/components/settings/OptimizationSettings.tsx`, `server/src/routes/detectionRoutes.ts:23-27`
-**Severity**: P2
+**Fix**: Add fields to Zod schema and handle in controller.
 
-Frontend sends `lowResourceMode` and `ffmpegThreads`. Backend Zod schema only validates `thresholds`, `labelmap`, `score_history_length`. Fields silently ignored.
+### 8.4 New Bugs
 
-**Fix**: Add these fields to the Zod schema and handle in the controller.
+**SET-008 — Optimization Changes Silently Lost [P1]**
+`server/src/routes/detectionRoutes.ts` — Zod schema uses `.strict()` or unknown-stripping transforms. `lowResourceMode` and `ffmpegThreads` are stripped before they reach the handler.
+
+**Fix**: Add the fields to the schema or use `.passthrough()`.
 
 ---
 
-#### BUG-SET-007 — Settings Never Created on Fresh Install [P1]
+**SET-009 — Settings Load Failure Gives No User Feedback [P2]**
+`frontend/src/pages/Settings.tsx` — If loading settings fails, there is no toast or error message.
 
-**File**: `server/src/controllers/SettingsController.ts` (saveSystemSettings)
-**Severity**: P1
+**Fix**: Add error toast on load failure.
 
-Uses `UPDATE ... WHERE id = (SELECT id FROM system_settings LIMIT 1)`. If the table is empty (fresh install), UPDATE matches zero rows and silently returns `true` without persisting.
+---
 
-**Fix**: Use `INSERT ... ON CONFLICT DO UPDATE` (upsert).
+**SET-010 — System Preference Always Resolves to Dark [P2]**
+`frontend/src/lib/theme.ts` — The `getSystemPreference()` function always returns `'dark'` regardless of `prefers-color-scheme`.
+
+**Fix**: Return `window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'`.
+
+---
+
+**SET-011 — Optimization Slider Triggers API Call on Every Drag [P2]**
+`frontend/src/components/settings/OptimizationSettings.tsx` — The slider fires an API call on every `onValueChange` event (every pixel of drag).
+
+**Fix**: Debounce the API call or fire only on `onValueCommit`.
+
+---
+
+**SET-012 — Mixed Native Select vs Radix Select Styling [P3]**
+`frontend/src/pages/Settings.tsx` — Some dropdowns use native `<select>`, others use `<Select>` from Radix. Inconsistent appearance.
+
+**Fix**: Standardize on Radix `Select` everywhere.
+
+---
+
+**SET-013 — Back Button Always Navigates to Streams [P3]**
+`frontend/src/pages/Settings.tsx` — The back button hardcodes navigation to `/streams` regardless of where the user came from.
+
+**Fix**: Use `router.back()` or pass a `returnTo` parameter.
+
+---
+
+**SET-014 — Theme May Not Reapply on Cold Load [P3]**
+`frontend/src/pages/Settings.tsx` — `initTheme()` is called in the component but may not be called at the `App.tsx` root level, causing a flash of wrong theme on cold page load.
+
+**Fix**: Call `initTheme()` at the app root level.
 
 ---
 
@@ -764,68 +840,63 @@ Uses `UPDATE ... WHERE id = (SELECT id FROM system_settings LIMIT 1)`. If the ta
 | Feature | Component | Status |
 |---------|-----------|--------|
 | Web Push Subscription | `POST /notifications/subscribe` | WORKING |
-| Unsubscribe | `DELETE /notifications/unsubscribe` | WORKING |
+| Unsubscribe | `DELETE /notifications/unsubscribe` | WORKING (frontend sends POST — NOT-007) |
 | Resubscribe | `POST /notifications/resubscribe` | WORKING |
 | Subscription Status | `GET /notifications/subscription` | WORKING |
 | Notification Preferences | `GET/PUT /notifications/preferences` | WORKING |
 | Test Notification | `POST /notifications/test` | WORKING |
 | Notification Logs | `GET /notifications/logs` | WORKING |
-| Expired Subscription Cleanup | cleanupExpiredSubscriptions() | WORKING |
+| VAPID Key Persistence | environment → filesystem → DB | WORKING |
+| Expired Subscription Cleanup | `cleanupExpiredSubscriptions()` | WORKING (never triggered — NOT-008) |
+| Detection Pipeline Wiring | `bootstrap.ts` | WORKING |
 
-### 9.2 Bugs & Issues
+### 9.2 False Positives (code works correctly)
 
-#### BUG-NOT-001 — Notifications Not Wired to Detection Pipeline [P1]
+**~~NOT-001 — Notifications Not Wired to Detection Pipeline [P1]~~** — `bootstrap.ts` calls `notifyMotionEvent()`, `notifyUnknownFace()`, and `notifyObjectDetected()` in the Python WebSocket client message handler. Notifications ARE wired.
 
-**File**: `server/src/services/notificationService.ts:239-356`
-**Severity**: P1 — Push notifications never fire automatically
+**~~NOT-002 — VAPID Keys Regenerated on Restart [P1]~~** — Keys are persisted to `config/vapid-keys.json` with a 3-tier fallback: env vars → filesystem → DB. On restart, existing keys are loaded, not regenerated.
 
-`notifyMotionEvent()`, `notifyUnknownFace()`, `notifyObjectDetected()` exist but are never called from the Python WebSocket client or detection pipeline handler.
+### 9.3 Remaining Original Bugs
 
-**Fix**: Call notification methods from `PythonWsClient` when processing detection events.
+**NOT-003 — Hardcoded Camera Names [P2]**
+`server/src/services/notificationService.ts:240,265,294` — `cameraName` always `'Front Door'` for `cam1`, `'Back Door'` for everything else.
 
----
-
-#### BUG-NOT-002 — VAPID Keys Regenerated on Restart [P1]
-
-**File**: `server/src/services/notificationService.ts:41-47`
-**Severity**: P1
-
-If `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` env vars are not set, new keys are generated at startup. This invalidates all existing push subscriptions.
-
-**Fix**: Persist generated keys to database or file on first generation.
+**Fix**: Load camera names from camera config.
 
 ---
 
-#### BUG-NOT-003 — Hardcoded Camera Names [P2]
+**NOT-004 — p256h vs p256dh Key Name Inconsistency [P0 BROKEN]**
+`server/src/routes/notificationRoutes.ts:25,79` — `/subscribe` checks `keys.p256h` (missing `d`). `/resubscribe` checks `keys.p256dh`. Subscribe endpoint never matches, so push subscriptions fail silently.
 
-**File**: `server/src/services/notificationService.ts:240,265,294`
-**Severity**: P2
-
-`cameraName` always `'Front Door'` for `cam1` and `'Back Door'` for anything else.
-
-**Fix**: Load camera names from the camera config.
+**Fix**: Use consistent `p256dh` everywhere.
 
 ---
 
-#### BUG-NOT-004 — p256h vs p256dh Key Name Inconsistency [P2]
-
-**File**: `server/src/routes/notificationRoutes.ts:25,79`
-**Severity**: P2
-
-`/subscribe` checks for `keys.p256h` (missing `d`). `/resubscribe` checks for `keys.p256dh`. Inconsistent.
-
-**Fix**: Use consistent `p256dh` everywhere (the Web Push standard name).
-
----
-
-#### BUG-NOT-005 — Quiet Hours Timezone Not Applied [P2]
-
-**File**: `server/src/services/notificationService.ts:158-172`
-**Severity**: P2
-
-Uses `new Date().toTimeString()` (server local time) but doesn't convert to user's configured `quietHoursTimezone`.
+**NOT-005 — Quiet Hours Timezone Not Applied [P2]**
+`server/src/services/notificationService.ts:158-172` — Uses `new Date().toTimeString()` without converting to user's `quietHoursTimezone`.
 
 **Fix**: Convert to user's timezone before comparing.
+
+### 9.4 New Bugs
+
+**NOT-006 — /vapid-public-key Reads process.env Instead of NotificationService [P0 BROKEN]**
+`server/src/routes/notificationRoutes.ts` — Reads `process.env.VAPID_PUBLIC_KEY` directly. When keys are loaded from filesystem (not env vars), this returns undefined, causing a 500 error. Frontend's push subscription fails on every load.
+
+**Fix**: Read from `NotificationService.getVapidPublicKey()` instead of `process.env`.
+
+---
+
+**NOT-007 — Unsubscribe Method Mismatch [P0 BROKEN]**
+`frontend/src/services/api/notificationService.ts` — Sends `POST /notifications/unsubscribe`. Backend route expects `DELETE /notifications/unsubscribe`. Every unsubscription attempt returns 404.
+
+**Fix**: Change frontend to use `DELETE` or add a POST handler on the backend.
+
+---
+
+**NOT-008 — Expired Subscription Cleanup Never Called [P2]**
+`server/src/services/notificationService.ts` — `cleanupExpiredSubscriptions()` exists and works but is never triggered by cron or bootstrap.
+
+**Fix**: Add a scheduled task (e.g., daily cron) to call cleanup.
 
 ---
 
@@ -841,7 +912,12 @@ Uses `new Date().toTimeString()` (server local time) but doesn't convert to user
 | Timeline | `GET /api/review/timeline` | WORKING |
 | Active Objects | `GET /api/review/active-objects/:camera` | WORKING |
 
-**No bugs found.** This is the cleanest feature in the codebase.
+### 10.2 New Bugs
+
+**REV-001 — ReviewSegment ID May Exceed VARCHAR(30) Column Limit [P1]**
+`server/src/models/ReviewSegment.ts` — The `id` column is `VARCHAR(30)` but IDs may exceed 30 characters in certain cases (e.g., combined IDs with separators). INSERTs will fail with truncation/overflow errors.
+
+**Fix**: Widen the column to `VARCHAR(64)` or use `TEXT`/`UUID`.
 
 ---
 
@@ -856,45 +932,24 @@ Uses `new Date().toTimeString()` (server local time) but doesn't convert to user
 | Get Visitor by ID | `GET /api/visitors/:id` | WORKING |
 | Delete Visitor | `DELETE /api/visitors/:id` | WORKING |
 
-### 11.2 Bugs & Issues
+### 11.2 Bugs (unchanged from original audit)
 
-#### BUG-VIS-001 — PUT Creates Duplicate Instead of Updating [P1 BROKEN]
+**VIS-001 — PUT Creates Duplicate Instead of Updating [P1]**
+`server/src/routes/visitorRoutes.ts:62` — Route receives `:id` and `name`, but calls `visitorService.createPerson(name)` which creates a new person. `:id` parameter ignored.
 
-**File**: `server/src/routes/visitorRoutes.ts:62`
-**Severity**: P1
-
-The route receives `:id` parameter and `name` body, but calls `visitorService.createPerson(name)` which creates a brand new person with a new ID. The `:id` parameter is completely ignored.
-
-**Fix**:
-```typescript
-await visitorService.updatePerson(id, { name });
-```
-Implement `updatePerson()` in `visitorService.ts`:
-```typescript
-async updatePerson(id: string, data: { name: string }) {
-  await pool.query('UPDATE visitors SET name = $1 WHERE id = $2', [data.name, id]);
-}
-```
+**Fix**: Implement `visitorService.updatePerson(id, { name })`.
 
 ---
 
-#### BUG-VIS-002 — deleteFace Removes Entire Visitor [P1]
+**VIS-002 — deleteFace Removes Entire Visitor [P1]**
+`server/src/services/visitorService.ts` (deleteFace) — Runs `DELETE FROM visitors WHERE id = $1` which removes the visitor, not just face data.
 
-**File**: `server/src/services/visitorService.ts` (deleteFace)
-**Severity**: P1
-
-Runs `DELETE FROM visitors WHERE id = $1` which removes the entire visitor record, not just face data. Also orphans associated `face_embeddings` records.
-
-**Fix**: Only delete from `face_embeddings` table, or cascade properly.
+**Fix**: Delete from `face_embeddings` table only.
 
 ---
 
-#### BUG-VIS-003 — Embedding Count Mapping Broken [P2]
-
-**File**: `server/src/services/visitorService.ts:11`
-**Severity**: P2
-
-`getKnownPersons()` result mapping references `r.embedding_count` but the SQL aliases it as `image_count`.
+**VIS-003 — Embedding Count Mapping Broken [P2]**
+`server/src/services/visitorService.ts:11` — Maps `r.embedding_count` but SQL aliases it as `image_count`.
 
 **Fix**: Use consistent alias name.
 
@@ -913,49 +968,33 @@ Runs `DELETE FROM visitors WHERE id = $1` which removes the entire visitor recor
 | Stats | `GET /api/stats` | WORKING |
 | Image Cleanup | `POST /api/maintenance/cleanup-images` | WORKING |
 
-### 12.2 Bugs & Issues
+### 12.2 Bugs (unchanged from original audit)
 
-#### BUG-SYS-001 — Cleanup Status Returns 501 [P2 BROKEN]
-
-**File**: `server/src/controllers/SystemController.ts:105-107`
-**Severity**: P2
-
-Always returns `501 Not Implemented`.
+**SYS-001 — Cleanup Status Returns 501 [P2]**
+`server/src/controllers/SystemController.ts:105-107` — Always returns `501 Not Implemented`.
 
 **Fix**: Implement or remove the endpoint.
 
 ---
 
-#### BUG-SYS-002 — Storage Stats Hardcoded to Zero [P2]
-
-**File**: `server/src/controllers/SystemController.ts`
-**Severity**: P2
-
-`storageUsed` always `0`, `storageTotal` always `1000000000`. Actual disk usage never calculated.
+**SYS-002 — Storage Stats Hardcoded to Zero [P2]**
+`server/src/controllers/SystemController.ts` — `storageUsed` always `0`, `storageTotal` always `1000000000`.
 
 **Fix**: Use `fs.statfs` or `du` to get actual usage.
 
 ---
 
-#### BUG-SYS-003 — Sync File I/O in Log Handler [P2]
-
-**File**: `server/src/controllers/SystemController.ts` (getLogs)
-**Severity**: P2
-
-Uses `fs.readFileSync()` which blocks the Node.js event loop.
+**SYS-003 — Sync File I/O in Log Handler [P2]**
+`server/src/controllers/SystemController.ts` (getLogs) — `fs.readFileSync()` blocks the event loop.
 
 **Fix**: Replace with `fs.promises.readFile()`.
 
 ---
 
-#### BUG-SYS-004 — No Database Health Check [P2]
+**SYS-004 — No Database Health Check [P2]**
+`server/src/controllers/SystemController.ts` (health) — No database connectivity check.
 
-**File**: `server/src/controllers/SystemController.ts` (health)
-**Severity**: P2
-
-Health endpoint checks cameras and process stats but not database connectivity.
-
-**Fix**: Add a simple `SELECT 1` query to the health check.
+**Fix**: Add a `SELECT 1` query to the health check.
 
 ---
 
@@ -977,13 +1016,7 @@ Health endpoint checks cameras and process stats but not database connectivity.
 | OpenCV Fallback | on API failure | WORKING |
 | Robust JSON Parsing | 5+ fallback strategies | WORKING |
 
-Requires `NVIDIA_API_KEY` environment variable.
-
-### 13.2 Notes
-
-- `updateConfig` is session-only (mutates `process.env`, lost on restart)
-- Hardcoded camera names in `analyzeEvent`
-- Image resize via `sharp` to 800x800 before API call
+Requires `NVIDIA_API_KEY` environment variable. No bugs found.
 
 ---
 
@@ -994,41 +1027,41 @@ Requires `NVIDIA_API_KEY` environment variable.
 | Feature | Component | Status |
 |---------|-----------|--------|
 | Job CRUD | `batchProcessingDatabasePostgres.ts` | WORKING |
-| Worker Thread Processing | `batchProcessingWorker.ts` | WORKING |
-| Processed Images Tracking | `processed_images` table | WORKING |
+| Worker Thread Processing | `batchProcessingWorker.ts` | PARTIAL (INSERT broken — BAT-004) |
+| Processed Images Tracking | `processed_images` table | PARTIAL (INSERT broken — BAT-003) |
 | Job Statistics & History | aggregated queries | WORKING |
 | Deduplication | file hash + job ID | WORKING |
 | Job Cleanup | configurable retention | WORKING |
 | Rerun Detection | `POST /api/detection-redo/rerun-detection` | WORKING |
 | Rerun Event Detection | `POST /api/detection-redo/rerun-event-detection` | WORKING |
 
-### 14.2 Bugs & Issues
+### 14.2 False Positives (code works correctly)
 
-#### BUG-BAT-001 — CSV Output Uses Literal `\\n` [P1]
+**~~BAT-001 — CSV Output Uses Literal `\\n` [P1]~~** — `csvLines.join('\n')` uses a real newline character. `'\n'` is the correct JavaScript escape sequence. Original audit misread the escape.
 
-**File**: `server/src/services/batchProcessingWorker.ts:180`
-**Severity**: P1
+**~~BAT-002 — SQL Injection Risk in History/Cleanup [P1]~~** — Uses parameterized `INTERVAL '1 day' * $1`. The `days` value is passed as a bind parameter, not string-interpolated. No injection risk.
 
-`csvLines.join('\\n')` joins with literal backslash-n instead of actual newline.
+### 14.3 New Bugs
 
-**Fix**: `csvLines.join('\n')`
+**BAT-003 — addProcessedImage INSERT Column Count Mismatch [P0 BROKEN]**
+`server/src/services/batchProcessingDatabasePostgres.ts` — The INSERT statement has 17 columns but provides only 16 values. Every call to `addProcessedImage` fails with a PostgreSQL error.
+
+```
+INSERT INTO processed_images (id, job_id, image_path, file_hash, file_size, width, height, format, detected_objects, detection_quality, processed_at, created_at, event_id, camera_id, thumbnail_path, metadata, face_detections) VALUES (...16 values...)
+```
+
+**Fix**: Add the missing value or remove the extra column from the INSERT.
 
 ---
 
-#### BUG-BAT-002 — SQL Injection Risk in History/Cleanup [P1 SECURITY]
+**BAT-004 — batchProcessingWorker INSERT Missing processing_time_ms Column [P0 CRITICAL]**
+`server/src/services/batchProcessingWorker.ts` — INSERT into `batch_jobs` does not include the `processing_time_ms` column, but the table schema (from migration 004) requires it. Every batch job fails on insert.
 
-**File**: `server/src/services/batchProcessingDatabasePostgres.ts:489,500`
-**Severity**: P1
-
-String interpolation for `days` parameter: `INTERVAL '${days} days'`. Not parameterized.
-
-**Fix**: Use parameterized query with `INTERVAL '$1 days'` and pass `[days]`.
+**Fix**: Either add `processing_time_ms` to the INSERT, or alter the migration to add a default.
 
 ---
 
 ## 15. Face Config & Embeddings
-
-### 15.1 What Works
 
 | Feature | Endpoint | Status |
 |---------|----------|--------|
@@ -1042,7 +1075,7 @@ String interpolation for `days` parameter: `INTERVAL '${days} days'`. Not parame
 | Delete Embedding (soft) | `DELETE /api/face-embeddings/:id` | WORKING |
 | Embedding Stats | `GET /api/face-embeddings/stats` | WORKING |
 
-**No critical bugs.** Well-implemented with quality scoring, versioning, soft delete, and audit logging.
+No bugs found. Well-implemented with quality scoring, versioning, soft delete, and audit logging.
 
 ---
 
@@ -1056,16 +1089,85 @@ String interpolation for `days` parameter: `INTERVAL '${days} days'`. Not parame
 | Acknowledge Alert | `POST /api/alerts/:id/acknowledge` | WORKING |
 | Delete Alert | `DELETE /api/alerts/:id` | WORKING |
 
-### 16.2 Bugs & Issues
+### 16.2 False Positive
 
-#### BUG-ALR-001 — Alert ID Format May Fail Against UUID PK [P1]
+**~~ALR-001 — Alert ID Format May Fail Against UUID PK [P1]~~** — Code uses `crypto.randomUUID()` which generates standard UUIDs. Original audit was incorrect.
 
-**File**: `server/src/services/inMemoryStateService.ts:114`
-**Severity**: P1
+---
 
-Generates string IDs like `alert_1234567890_abc123def`. The `alerts` DB table uses `UUID PRIMARY KEY DEFAULT gen_random_uuid()`. PostgreSQL UUID validation may reject non-UUID strings, causing alert persistence to silently fail.
+## 17. DB / Migrations
 
-**Fix**: Either change the DB column to `TEXT` or generate UUID-format IDs.
+**MIG-001 — batch_jobs Table Defined Twice (Migration 003 and 004) [P0 CRITICAL]**
+
+`database/migrations/003_*.sql` and `database/migrations/004_*.sql` — Both migrations contain `CREATE TABLE IF NOT EXISTS batch_jobs (...)`. They define different schemas. If 003 runs first (creating schema A), 004's `IF NOT EXISTS` skips creation, leaving schema A in place. If migrations run out of order, the wrong schema wins. Column counts differ — this directly causes BAT-003 and BAT-004.
+
+**Fix**: Consolidate into a single migration. Ensure the schema in one migration is the complete/correct one.
+
+---
+
+**MIG-002 — TypeORM BatchJob Model Doesn't Match Any Migration [P0 CRITICAL]**
+
+`server/src/models/BatchJob.ts` — The TypeORM entity has columns (e.g., `processingTimeMs`) that don't exist in either migration's schema, and vice versa. The model is out of sync with the actual database schema.
+
+**Fix**: Sync the TypeORM entity with the actual migration schema, or vice versa.
+
+---
+
+**MIG-003 — Alert Trigger Calls camera_settings Function [P1]**
+
+`database/migrations/023_*.sql` — A trigger references a function in the `camera_settings` schema/table that may not exist or have a different signature.
+
+**Fix**: Verify the function exists and has the expected parameters.
+
+---
+
+**MIG-004 — SQLite Migration File in PostgreSQL Migrations Directory [P1]**
+
+`database/migrations/` — Contains a `.sql` file written for SQLite syntax (uses `AUTOINCREMENT`, missing PostgreSQL-specific features). This migration will fail when run against PostgreSQL.
+
+**Fix**: Convert to PostgreSQL-compatible DDL or remove the file.
+
+---
+
+## 18. Python OpenCV Service
+
+**PIP-001 — Unreachable YOLOv4-tiny Fallback Code [P1]**
+
+`opencv-service/opencv_service/yolo_detector.py` — The YOLOv4-tiny model initialization code is placed after a `return` statement. When YOLOv8n and YOLOv5n both fail, the fallback is never reached — detection just returns empty results.
+
+**Fix**: Move the v4-tiny init before the preceding return statement.
+
+---
+
+**PIP-002 — No Double-Initialization Guard for Flask Reloader [P1]**
+
+`opencv-service/opencv_service/app.py` — Flask's development reloader spawns a child process that re-runs `init_app()`. Redis connections, database pools, and face recognition models are initialized twice, causing connection leaks and context errors.
+
+**Fix**: Guard with `if os.environ.get('WERKZEUG_RUN_MAIN') != 'true'` or move init outside the reloader scope.
+
+---
+
+**PIP-003 — /detect-objects Route Bypasses Redis Cache [P1]**
+
+`opencv-service/opencv_service/app.py` — The `POST /detect-objects` endpoint calls `_perform_yolo_detection()` directly instead of checking the Redis cache first. Repeated requests with the same image perform redundant inference.
+
+**Fix**: Add Redis cache check before inference; store results after.
+
+---
+
+**PIP-004 — Flask init_app() at Module Level Crashes App on Error [P2]**
+
+`opencv-service/opencv_service/app.py` — `init_app()` is called at module scope. If it fails (e.g., model load error), the entire app crashes at import time with no recovery.
+
+**Fix**: Wrap in a try/except with health endpoint reporting, or defer to first request.
+
+---
+
+**PIP-005 — Hardcoded Developer Home Path in test_websocket.py [P2]**
+
+`opencv-service/tests/test_websocket.py` — Contains `'/home/developer/...'` paths. Will fail on any other system.
+
+**Fix**: Use relative or configurable paths.
 
 ---
 
@@ -1073,129 +1175,170 @@ Generates string IDs like `alert_1234567890_abc123def`. The `alerts` DB table us
 
 These database columns and model fields are defined but have zero functional usage:
 
-| Model | Column | Intended Purpose |
-|-------|--------|-----------------|
-| `User` | `salt` | Password salt (bcrypt handles internally) |
-| `User` | `failedLoginAttempts` | Account lockout tracking |
-| `User` | `lockedUntil` | Account lockout timestamp |
-| `User` | `lastLogin` | Last login timestamp |
-| `User` | `mfaSecret` | TOTP shared secret |
-| `User` | `mfaEnabled` | MFA on/off flag |
-| `User` | `backupCodes` | One-time backup codes for MFA |
-| `User` | `emailVerified` | Email verification flag |
-| `User` | `emailVerificationToken` | Email verification flow |
-| `User` | `emailVerificationExpires` | Email verification token expiry |
-| `User` | `passwordResetToken` | Password reset flow |
-| `User` | `passwordResetExpires` | Password reset token expiry |
-| `Role` | `permissions` | Fine-grained permission array |
-| `Role` | `isSystemRole` | System role protection flag |
-| `UserSession` | *(entire table)* | Session tracking |
-| `PasswordHistory` | *(entire table)* | Password reuse prevention |
+| Model | Column | Intended Purpose | Status |
+|-------|--------|-----------------|--------|
+| `User` | `salt` | Password salt (bcrypt handles internally) | DEAD |
+| `User` | `failedLoginAttempts` | Account lockout tracking | IN USE |
+| `User` | `lockedUntil` | Account lockout timestamp | IN USE |
+| `User` | `lastLogin` | Last login timestamp | NEVER WRITTEN |
+| `User` | `mfaSecret` | TOTP shared secret | IN USE |
+| `User` | `mfaEnabled` | MFA on/off flag | WRITTEN BUT NEVER READ |
+| `User` | `backupCodes` | One-time backup codes for MFA | NEVER WRITTEN |
+| `User` | `emailVerified` | Email verification flag | NEVER WRITTEN |
+| `User` | `emailVerificationToken` | Email verification flow | NEVER WRITTEN |
+| `User` | `emailVerificationExpires` | Email verification token expiry | NEVER WRITTEN |
+| `User` | `passwordResetToken` | Password reset flow | NEVER WRITTEN |
+| `User` | `passwordResetExpires` | Password reset token expiry | NEVER WRITTEN |
+| `Role` | `permissions` | Fine-grained permission array | NEVER WRITTEN |
+| `Role` | `isSystemRole` | System role protection flag | NEVER WRITTEN |
+| `UserSession` | `accessToken` (plaintext) | Session tracking | IN USE (plaintext — AUTH-014) |
+| `PasswordHistory` | *(entire table)* | Password reuse prevention | IN USE |
+| `ReviewSegment` | `id` VARCHAR(30) | Review segment ID | TOO NARROW (REV-001) |
 
 ---
 
 ## Recommended Fix Order
 
-### Phase 1 — Critical Fixes (Do First)
+### Phase 0 — Regressions from Phase 11 Fixes (IMMEDIATE)
 
-These are broken or security-critical. Fix before any new features.
+Already fixed, included here for tracking.
 
-| # | Bug ID | Description | Estimated Effort |
-|---|--------|-------------|-----------------|
-| 1 | BUG-EVT-001 | Event deletion no-op | Small |
-| 2 | BUG-CAM-003 | No camera config persistence | Medium |
-| 3 | BUG-CAM-001 | Create camera broken | Medium |
-| 4 | BUG-AUTH-003 | Account lockout unimplemented | Small |
-| 5 | BUG-AUTH-001 | MFA secret never persisted | Small |
-| 6 | BUG-AUTH-002 | MFA verify protocol mismatch | Small |
-| 7 | BUG-BAT-002 | SQL injection in batch processing | Small |
+| # | Bug ID | Description | Status |
+|---|--------|-------------|--------|
+| 0a | AUTH-012 | Session INSERT snake_case column name mismatch | FIXED |
+| 0b | — | Camera streams cleared by frameRate/resolution without rtspUrl | FIXED |
 
-### Phase 2 — High Priority
+### Phase 1 — Critical & Security (Do First)
 
-Significant UX or data integrity issues.
+| # | Bug ID | Description | Type | Effort |
+|---|--------|-------------|------|--------|
+| 1 | BAT-003 | addProcessedImage INSERT column count mismatch (P0 BROKEN) | Data loss | Small |
+| 2 | BAT-004 | batchProcessingWorker INSERT missing processing_time_ms (P0 CRITICAL) | Data loss | Small |
+| 3 | MIG-001 | batch_jobs defined twice in migrations (P0 CRITICAL) | Schema corruption | Medium |
+| 4 | MIG-002 | TypeORM BatchJob model doesn't match any migration (P0 CRITICAL) | Schema mismatch | Medium |
+| 5 | NOT-004 | p256h vs p256dh key name — subscribe broken (P0 BROKEN) | Feature broken | Small |
+| 6 | NOT-006 | /vapid-public-key reads process.env, always 500 with file keys (P0 BROKEN) | Feature broken | Small |
+| 7 | NOT-007 | Unsubscribe method mismatch POST vs DELETE (P0 BROKEN) | Feature broken | Small |
+| 8 | AUTH-013 | /auth/refresh has no auth middleware (P1 SECURITY) | Security | Small |
+| 9 | AUTH-014 | JWT stored in plaintext in user_sessions (P1 SECURITY) | Security | Small |
+| 10 | CAM-011 | listAll leaks decrypted RTSP credentials (P1 SECURITY) | Security | Small |
+| 11 | CAM-004 | getById returns raw Camera with Buffer/Set (P0 crash risk) | Crash | Small |
+| 12 | CAM-018 | Auto-start ignores camera enabled: false flag (P1) | Config ignored | Small |
+| 13 | CAM-012 | REST stopStream kills stream for ALL viewers (P1) | Feature broken | Small |
+| 14 | EVT-007 | Calendar day range selection never works (P1) | Feature broken | Medium |
+| 15 | EVT-008 | Camera name never returned by API (P1) | UX | Small |
+| 16 | EVT-009 | Bulk delete Promise.all partial failures (P1) | Data integrity | Small |
+| 17 | EVT-010 | getEventImageUrl returns wrong path (P1) | Feature broken | Small |
+| 18 | EVT-018 | Bounding boxes not scaled to display size (P1) | UX | Small |
+| 19 | ANA-003 | Hourly data capped at 100 in-memory events (P1) | Analytics broken | Medium |
+| 20 | SET-003 | Retention maps to wrong field (P1) | Config broken | Small |
+| 21 | SET-008 | Optimization changes silently lost (P1) | Config broken | Small |
+| 22 | MIG-003 | Alert trigger calls nonexistent function (P1) | Feature broken | Small |
+| 23 | MIG-004 | SQLite migration in PostgreSQL directory (P1) | Schema risk | Small |
+| 24 | REV-001 | ReviewSegment ID may exceed VARCHAR(30) (P1) | Data loss risk | Small |
+| 25 | PIP-001 | Unreachable YOLOv4-tiny fallback code (P1) | Detection fallback broken | Small |
+| 26 | PIP-002 | No Flask reloader double-init guard (P1) | Resource leak | Small |
+| 27 | PIP-003 | /detect-objects bypasses Redis cache (P1) | Performance | Small |
 
-| # | Bug ID | Description | Estimated Effort |
-|---|--------|-------------|-----------------|
-| 8 | BUG-VIS-001 | Visitor PUT creates duplicate | Small |
-| 9 | BUG-HL-001 | Night events count always zero | Small |
-| 10 | BUG-HL-002 | Sort dropdown broken | Small |
-| 11 | BUG-HL-003 | Keyboard nav index overflow | Small |
-| 12 | BUG-ANA-001 | Vehicles always zero in chart | Small |
-| 13 | BUG-NOT-001 | Notifications not wired to pipeline | Medium |
-| 14 | BUG-NOT-002 | VAPID keys regenerated on restart | Small |
-| 15 | BUG-DET-001 | Node.js trigger endpoints return empty | Small |
-| 16 | BUG-DET-002 | detectionService broken repository | Small |
-| 17 | BUG-DET-003 | Settings not propagated to Python | Medium |
-| 18 | BUG-EVT-002 | Bounding boxes never render | Small |
-| 19 | BUG-EVT-004 | Motion filter does nothing | Small |
-| 20 | BUG-CAM-002 | Update camera ignores fields | Small |
-| 21 | BUG-CAM-007 | Zone/filters not propagated to Python | Medium |
-| 22 | BUG-CAM-008 | Filter update body shape mismatch | Small |
-| 23 | BUG-SET-003 | Retention maps to wrong field | Small |
-| 24 | BUG-SET-007 | Settings never created on fresh install | Small |
-| 25 | BUG-AUTH-004 | No token invalidation on logout | Medium |
-| 26 | BUG-AUTH-006 | Password history not enforced | Small |
-| 27 | BUG-ALR-001 | Alert ID format vs UUID PK | Small |
-| 28 | BUG-VIS-002 | deleteFace removes entire visitor | Small |
-| 29 | BUG-BAT-001 | CSV output literal `\\n` | Small |
+### Phase 2 — Medium Priority
 
-### Phase 3 — Medium Priority
+| # | Bug ID | Description | Effort |
+|---|--------|-------------|--------|
+| 28 | AUTH-005 | lastLogin never updated | Small |
+| 29 | AUTH-007 | Password complexity not enforced | Small |
+| 30 | AUTH-009 | Auth logs every request at INFO | Small |
+| 31 | AUTH-011 | Register tab visible to non-admins | Small |
+| 32 | AUTH-015 | No MFA UI in frontend | Medium |
+| 33 | AUTH-016 | AuthController `as any` type bypass | Small |
+| 34 | AUTH-017 | Login timing-based username enumeration | Small |
+| 35 | AUTH-018 | Session ip_address INET rejects empty string | Small |
+| 36 | AUTH-019 | Email verification / password reset dead columns | Small |
+| 37 | AUTH-020 | Register endpoint no rate limiting | Small |
+| 38 | AUTH-022 | setupMFA returns raw TOTP secret | Small |
+| 39 | CAM-005 | Snapshot path mismatch | Small |
+| 40 | CAM-006 | Night mode is a stub | Medium |
+| 41 | CAM-007 | Zone/filter fire-and-forget to Python | Small |
+| 42 | CAM-009 | Test stream interval leak | Small |
+| 43 | CAM-013 | Test interval not cleared by stopStream | Small |
+| 44 | CAM-014 | No stop-test-stream endpoint | Small |
+| 45 | CAM-015 | takeSnapshot no detection_files DB record | Small |
+| 46 | CAM-016 | express.static /snapshots wrong directory | Small |
+| 47 | CAM-017 | Multiple startStream duplicate subscriptions | Small |
+| 48 | CAM-019 | persistCameras written N times during init | Small |
+| 49 | CAM-020 | wirePythonWsFrames overrides bootstrap subscription | Small |
+| 50 | CAM-021 | persistCameras fails silently without encryption key | Small |
+| 51 | EVT-003 | Share button has no handler | Small |
+| 52 | EVT-005 | Image serving up to 122 fs.existsSync calls | Medium |
+| 53 | EVT-006 | Today's event count timezone bug | Small |
+| 54 | EVT-011 | RelatedEvents uses img instead of ProgressiveImage | Small |
+| 55 | EVT-012 | "Now" indicator always at left edge | Small |
+| 56 | EVT-013 | Drag-to-scroll no bounds | Small |
+| 57 | EVT-014 | URL synced with stale page number | Small |
+| 58 | EVT-015 | Image path LIKE leading wildcard | Small |
+| 59 | EVT-016 | End date ::timestamp drops timezone | Small |
+| 60 | EVT-019 | ISO string + ::timestamp timezone incorrect | Small |
+| 61 | EVT-020 | Hour zoom groups grid alignment | Small |
+| 62 | EVT-024 | Confidence badge shows "0%" | Small |
+| 63 | EVT-025 | "Showing X of Y" shows wrong count | Small |
+| 64 | EVT-026 | File deletion uses process.cwd() | Small |
+| 65 | ANA-002 | Storage hardcoded 0.5MB estimate | Medium |
+| 66 | ANA-004 | Response time fabricates data | Small |
+| 67 | ANA-006 | Motion count inflated in pie chart | Small |
+| 68 | ANA-007 | Hourly chart ignores time range | Small |
+| 69 | ANA-008 | Pie chart empty state renders empty chart | Small |
+| 70 | HL-004 | Fullscreen/Export keyboard shortcuts no handler | Small |
+| 71 | SET-001 | Theme selector only "Dark" | Small |
+| 72 | SET-002 | Theme never persisted | Small |
+| 73 | SET-004 | Motion settings auto-save | Small |
+| 74 | SET-005 | Motion settings hardcoded cameras | Small |
+| 75 | SET-006 | Optimization backend ignores fields | Small |
+| 76 | SET-009 | Settings load failure no feedback | Small |
+| 77 | SET-010 | System preference always resolves to dark | Small |
+| 78 | SET-011 | Optimization slider no debounce | Small |
+| 79 | NOT-003 | Hardcoded camera names | Small |
+| 80 | NOT-005 | Quiet hours timezone not applied | Small |
+| 81 | NOT-008 | Expired subscription cleanup never triggered | Small |
+| 82 | SYS-001 | Cleanup status 501 | Small |
+| 83 | SYS-002 | Storage stats hardcoded zero | Medium |
+| 84 | SYS-003 | Sync file I/O in log handler | Small |
+| 85 | SYS-004 | No DB health check | Small |
+| 86 | VIS-001 | PUT creates duplicate visitor | Small |
+| 87 | VIS-002 | deleteFace removes entire visitor | Small |
+| 88 | PIP-004 | Flask init crashes on error | Small |
 
-Cosmetic issues, minor bugs, dead code.
+### Phase 3 — Low Priority
 
-| # | Bug ID | Description | Estimated Effort |
-|---|--------|-------------|-----------------|
-| 30 | BUG-CAM-004 | Get camera leaks internal state | Small |
-| 31 | BUG-CAM-005 | Snapshot path mismatch | Small |
-| 32 | BUG-CAM-006 | Night mode is a stub | Medium |
-| 33 | BUG-CAM-009 | Test stream interval leak | Small |
-| 34 | BUG-EVT-003 | Share button no handler | Small |
-| 35 | BUG-EVT-005 | Image serving performance | Medium |
-| 36 | BUG-EVT-006 | Today's count timezone bug | Small |
-| 37 | BUG-ANA-002 | Storage hardcoded estimate | Medium |
-| 38 | BUG-ANA-003 | Hourly data capped at 100 | Medium |
-| 39 | BUG-ANA-004 | Response time fabricates data | Small |
-| 40 | BUG-SET-001 | Theme selector only dark | Small |
-| 41 | BUG-SET-002 | Theme never persisted | Small |
-| 42 | BUG-SET-004 | Motion settings auto-save | Small |
-| 43 | BUG-SET-005 | Motion settings hardcoded cameras | Small |
-| 44 | BUG-SET-006 | Optimization fields ignored | Small |
-| 45 | BUG-NOT-003 | Hardcoded camera names | Small |
-| 46 | BUG-NOT-004 | p256h vs p256dh inconsistency | Small |
-| 47 | BUG-NOT-005 | Quiet hours timezone not applied | Small |
-| 48 | BUG-SYS-001 | Cleanup status 501 | Small |
-| 49 | BUG-SYS-002 | Storage stats hardcoded zero | Medium |
-| 50 | BUG-SYS-003 | Sync file I/O in log handler | Small |
-| 51 | BUG-SYS-004 | No DB health check | Small |
-| 52 | BUG-VIS-003 | Embedding count mapping | Small |
-
-### Phase 4 — Low Priority
-
-Code quality, dead code removal.
-
-| # | Bug ID | Description | Estimated Effort |
-|---|--------|-------------|-----------------|
-| 53 | BUG-AUTH-005 | lastLogin never updated | Small |
-| 54 | BUG-AUTH-007 | Password complexity not enforced | Small |
-| 55 | BUG-AUTH-008 | UserSession model never used | Medium |
-| 56 | BUG-AUTH-009 | Auth logs every request at INFO | Small |
-| 57 | BUG-AUTH-010 | Salt column dead | Small |
-| 58 | BUG-AUTH-011 | Register tab visible to non-admins | Small |
-| 59 | BUG-DET-004 | writeSettingsToDb without await | Small |
-| 60 | BUG-ANA-005 | Weekly/monthly endpoints unused | Small |
-| 61 | BUG-HL-004 | Fullscreen/export shortcuts undefined | Small |
+| # | Bug ID | Description | Effort |
+|---|--------|-------------|--------|
+| 89 | AUTH-010 | Salt column dead | Small |
+| 90 | AUTH-021 | deleteUser/updateUser unreachable | Small |
+| 91 | EVT-021 | "All Time" getDates() dead code | Small |
+| 92 | EVT-022 | Calendar nav uses wrong chevrons | Small |
+| 93 | EVT-023 | Today highlight only works with 'all' range | Small |
+| 94 | EVT-027 | Empty state flash during loading | Small |
+| 95 | HL-005 | Unused KEYBOARD_SHORTCUTS constants | Small |
+| 96 | ANA-005 | Weekly/monthly endpoints unused | Small |
+| 97 | ANA-009 | pageSize hardcoded 1000 | Small |
+| 98 | ANA-010 | Fragile date key sorting | Small |
+| 99 | SET-012 | Mixed native vs Radix select styling | Small |
+| 100 | SET-013 | Back button always to streams | Small |
+| 101 | SET-014 | Theme not reapplied on cold load | Small |
+| 102 | VIS-003 | Embedding count mapping broken | Small |
+| 103 | PIP-005 | Hardcoded home path in test script | Small |
+| 104 | DET-004 | writeSettingsToDb without await | Small |
 
 ---
 
-## Testing Checklist for Each Fix
+## Testing Checklist
 
 Before marking any bug as fixed, verify:
 
 1. **Lint passes**: `npm run lint --prefix frontend`
 2. **Typecheck passes**: `npm run typecheck --prefix frontend`
-3. **No regressions**: Test the specific feature end-to-end in the browser
-4. **No side effects**: Verify related features still work
-5. **Docker healthy**: All containers report healthy after rebuild
+3. **Backend compiles**: `cd server && npm run build`
+4. **No regressions**: Test the specific feature end-to-end in the browser
+5. **No side effects**: Verify related features still work
+6. **Docker healthy**: All containers report healthy after rebuild
 
 ```bash
 docker compose ps

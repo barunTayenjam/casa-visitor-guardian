@@ -8,7 +8,7 @@ class VisitorService {
     );
     return rows.map((r: any) => ({
       id: r.id, name: r.name, imageCount: r.image_count,
-      embeddingCount: r.embedding_count, createdAt: r.created_at, updatedAt: r.updated_at
+      embeddingCount: r.image_count, createdAt: r.created_at, updatedAt: r.updated_at
     }));
   }
 
@@ -44,8 +44,9 @@ class VisitorService {
 
   async deleteFace(personId: string): Promise<boolean> {
     const { AppDataSource } = await import('../database.js');
-    const result = await AppDataSource.query('DELETE FROM face_embeddings WHERE visitor_id = $1', [personId]);
-    return (result.rowCount || 0) > 0;
+    await AppDataSource.query('DELETE FROM face_embeddings WHERE visitor_id = $1', [personId]);
+    const visitorResult = await AppDataSource.query('DELETE FROM visitors WHERE id = $1', [personId]);
+    return (visitorResult.rowCount || 0) > 0;
   }
 
   async registerFace(name: string): Promise<string> {

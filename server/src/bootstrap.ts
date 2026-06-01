@@ -150,6 +150,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     serviceRegistry.setPythonWsClient(pythonWsClient);
 
     const persistedTracks = new Set<string>();
+    const lastSavedPerCameraClass = new Map<string, { bbox: { x: number; y: number; w: number; h: number }; ts: number }>();
 
     pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
       const { cameraId, event: eventType, trackId, class: className, score, bbox, identity, identityConfidence } = ev;
@@ -196,6 +197,31 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
       const trackKey = `${cameraId}:${trackId}`;
       if (!persistedTracks.has(trackKey) && (eventType === 'track_started' || eventType === 'track_updated')) {
+        const sceneKey = `${cameraId}:${className}`;
+        const prev = lastSavedPerCameraClass.get(sceneKey);
+        const now = Date.now();
+
+        if (prev && className !== 'person') {
+          const dx = Math.abs((bbox[0] ?? 0) - prev.bbox.x);
+          const dy = Math.abs((bbox[1] ?? 0) - prev.bbox.y);
+          const dw = Math.abs((bbox[2] ?? 0) - prev.bbox.w);
+          const dh = Math.abs((bbox[3] ?? 0) - prev.bbox.h);
+          const bboxShift = Math.sqrt(dx * dx + dy * dy + dw * dw + dh * dh);
+          const elapsed = now - prev.ts;
+
+          if (bboxShift < 80 && elapsed < 10 * 60 * 1000) {
+            persistedTracks.add(trackKey);
+            return;
+          }
+        }
+
+        if (className !== 'person') {
+          lastSavedPerCameraClass.set(sceneKey, {
+            bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
+            ts: now,
+          });
+        }
+
         persistedTracks.add(trackKey);
         persistDetectionEvent(ev).catch((err) => {
           logger.error(`[Bootstrap] Failed to persist detection event for ${cameraId}`, 'BOOTSTRAP', err);
@@ -251,6 +277,45 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
   }
 
   try {
+    const dbCameras = await AppDataSource.query('SELECT COUNT(*) as count FROM cameras');
+    const cameraCount = parseInt(dbCameras[0]?.count || '0', 10);
+    if (cameraCount === 0 && config.cameras.length === 0) {
+      const seedConfig = [
+        {
+          id: 'cam1', name: 'Front Door', enabled: true,
+          streams: [{ path: 'rtsp://admin:password@192.168.1.100:554/stream1', roles: ['live', 'detect'], width: 1920, height: 1080, fps: 2 }],
+          detect: { enabled: true, type: 'opencv', interval: 3, resize_width: 640, resize_height: 360 },
+          objects: { track: ['person', 'car', 'dog', 'cat', 'package'] },
+          zones: [] as Array<{ id: string; name: string; coordinates: number[][]; objects: string[] }>
+        },
+        {
+          id: 'cam2', name: 'Back Door', enabled: true,
+          streams: [{ path: 'rtsp://admin:password@192.168.1.101:554/stream1', roles: ['live', 'detect'], width: 1920, height: 1080, fps: 2 }],
+          detect: { enabled: true, type: 'opencv', interval: 3, resize_width: 640, resize_height: 360 },
+          objects: { track: ['person', 'car', 'dog', 'cat'] },
+          zones: [] as Array<{ id: string; name: string; coordinates: number[][]; objects: string[] }>
+        }
+      ];
+      for (const cam of seedConfig) {
+        await AppDataSource.query(
+          'INSERT INTO cameras (id, name, config, enabled) VALUES ($1, $2, $3::jsonb, $4)',
+          [cam.id, cam.name, JSON.stringify(cam), true]
+        );
+      }
+      logger.info(`Seeded ${seedConfig.length} example cameras into database`, 'BOOTSTRAP');
+
+      const sm = serviceRegistry.getStreamManager();
+      if (sm) {
+        for (const cam of seedConfig) {
+          sm.addCamera(cam as any);
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn(`Camera DB seed skipped (non-critical): ${error}`, 'BOOTSTRAP');
+  }
+
+  try {
     logger.info('Initializing review, timeline and detection services...', 'BOOTSTRAP');
     const reviewSegmentRepo = AppDataSource.getRepository(ReviewSegment);
     const reviewStatusRepo = AppDataSource.getRepository(UserReviewStatus);
@@ -260,7 +325,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
     const timelineServiceInstance = new TimelineService(timelineRepo, regionRepo);
     const previewServiceInstance = new PreviewService(timelineServiceInstance);
-    const detectionServiceInstance = new DetectionService(detectionConfigRepo);
+    const detectionServiceInstance = new DetectionService();
     const reviewServiceInstance = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineServiceInstance, previewServiceInstance);
 
     serviceRegistry.setTimelineService(timelineServiceInstance);

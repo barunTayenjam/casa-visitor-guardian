@@ -110,36 +110,6 @@ export const systemService = {
     }
   },
 
-  async getWeeklyAnalytics(): Promise<{ totalEvents: number; dailyBreakdown: { date: string; count: number }[] }> {
-    try {
-      const response = await fetchWithRetry(`${API_URL}/analytics/weekly`);
-      const data = await response.json();
-      if (!data.success || !data.weeklyData) {
-        throw new ApiError(data.error || 'Failed to fetch weekly analytics', response.status, 'GET_WEEKLY_ANALYTICS_ERROR', data);
-      }
-      return data.weeklyData;
-    } catch (error) {
-      console.error('Error fetching weekly analytics:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to fetch weekly analytics', 500, 'GET_WEEKLY_ANALYTICS_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
-    }
-  },
-
-  async getMonthlyAnalytics(): Promise<{ totalEvents: number; weeklyBreakdown: { week: string; count: number }[] }> {
-    try {
-      const response = await fetchWithRetry(`${API_URL}/analytics/monthly`);
-      const data = await response.json();
-      if (!data.success || !data.monthlyData) {
-        throw new ApiError(data.error || 'Failed to fetch monthly analytics', response.status, 'GET_MONTHLY_ANALYTICS_ERROR', data);
-      }
-      return data.monthlyData;
-    } catch (error) {
-      console.error('Error fetching monthly analytics:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to fetch monthly analytics', 500, 'GET_MONTHLY_ANALYTICS_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
-    }
-  },
-
   async getStorageStats(): Promise<{ storageUsed: number; storageTotal: number }> {
     try {
       const response = await fetchWithRetry(`${API_URL}/analytics/storage`);

@@ -287,7 +287,7 @@ export class BatchProcessingDatabasePostgres {
         file_size, processed_at, person_count, face_count, known_face_count,
         unknown_face_count, processing_time_ms, status, error_message,
         detection_json, file_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       ${conflictClause}
     `;
 
@@ -296,6 +296,7 @@ export class BatchProcessingDatabasePostgres {
       imageData.job_id,
       imageData.filename,
       imageData.file_path,
+      imageData.camera_id,
       imageData.image_timestamp.toISOString(),
       imageData.file_size,
       processedAt,

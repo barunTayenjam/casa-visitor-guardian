@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import jwt from 'jsonwebtoken';
 import { BaseController } from './BaseController.js';
 import authService, { AuthService, User, JWTPayload } from '../auth/index.js';
 import { config } from '../config/index.js';
@@ -77,11 +78,22 @@ export class AuthController extends BaseController {
         });
         if (result.user?.id && result.token) {
       const sessionIp1 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
+          const refreshTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
+          const accessTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
           await AppDataSource.query(
             `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
              VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-            [result.user.id, result.token, result.token, sessionIp1, req.get('User-Agent') || '']
+            [result.user.id, refreshTokenHash, accessTokenHash, sessionIp1, req.get('User-Agent') || '']
           ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+        }
+        if (result.mfaRequired) {
+          this.ok(res, {
+            message: 'MFA verification required',
+            mfaRequired: true,
+            pendingToken: result.pendingToken,
+            user: result.user as Record<string, unknown>,
+          });
+          return;
         }
         logger.info(`User logged in successfully: ${username}`, 'AuthRoutes');
         this.ok(res, {
@@ -154,31 +166,16 @@ export class AuthController extends BaseController {
 
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
-      const authHeader = req.headers.authorization;
-      const token = authHeader && authHeader.startsWith('Bearer ')
-        ? authHeader.substring(7)
-        : null;
-
-      if (!token) {
-        res.status(401).json({ success: false, error: 'No token provided' });
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
         return;
       }
 
-      let payload = this.authService.verifyToken(token);
-
-      // If token is expired, still allow refresh by decoding payload (ignore expiration)
-      if (!payload) {
-        try {
-          const decoded = jwt.decode(token) as JWTPayload | null;
-          if (decoded) {
-            payload = decoded;
-          }
-        } catch {}
-        if (!payload) {
-          res.status(401).json({ success: false, error: 'Invalid token' });
-          return;
-        }
-      }
+      const payload: JWTPayload = {
+        userId: req.user.userId,
+        username: req.user.username,
+        role: req.user.role,
+      };
 
       const user = await this.authService.getUserById(payload.userId);
 
@@ -391,10 +388,12 @@ export class AuthController extends BaseController {
       });
 
       const sessionIp2 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
+      const refreshTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
+      const accessTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
       await AppDataSource.query(
-        `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-         [dbUser.id, token, token, sessionIp2, req.get('User-Agent') || '']
+         `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
+          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
+         [dbUser.id, refreshTokenHash2, accessTokenHash2, sessionIp2, req.get('User-Agent') || '']
       ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
 
       const { password: _, ...userWithoutPassword } = userForToken;

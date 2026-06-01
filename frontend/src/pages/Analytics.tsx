@@ -115,24 +115,24 @@ const AnalyticsPage = () => {
         const startDate = rangeStartDate;
         const eventsResponse = await eventService.getEnhancedEventsList({
           page: 1,
-          pageSize: 1000,
+          pageSize: 5000,
           start_date: startDate.toISOString(),
           end_date: now.toISOString(),
         });
         const events = eventsResponse.events || [];
         const eventsByDay = new Map<string, { events: number; persons: number; vehicles: number; packages: number }>();
+        const dateKeyOrder: string[] = [];
 
-        // Initialize with all days in range
         for (let i = daysBack - 1; i >= 0; i--) {
           const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-          const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const dateKey = date.toISOString().split('T')[0];
+          dateKeyOrder.push(dateKey);
           eventsByDay.set(dateKey, { events: 0, persons: 0, vehicles: 0, packages: 0 });
         }
 
-        // Count events by type and day
         events.forEach((event: AnalyticsEvent) => {
           const eventDate = new Date(event.timestamp);
-          const dateKey = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const dateKey = eventDate.toISOString().split('T')[0];
           const current = eventsByDay.get(dateKey) || { events: 0, persons: 0, vehicles: 0, packages: 0 };
 
           current.events++;
@@ -151,35 +151,47 @@ const AnalyticsPage = () => {
           eventsByDay.set(dateKey, current);
         });
 
-        const eventsOverTime = Array.from(eventsByDay.entries()).map(([date, counts]) => ({
-          date,
-          events: counts.events,
-          persons: counts.persons,
-          vehicles: counts.vehicles,
-          packages: counts.packages,
-        }));
+        const eventsOverTime = dateKeyOrder.map((dateKey) => {
+          const counts = eventsByDay.get(dateKey) || { events: 0, persons: 0, vehicles: 0, packages: 0 };
+          return {
+            date: new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            events: counts.events,
+            persons: counts.persons,
+            vehicles: counts.vehicles,
+            packages: counts.packages,
+          };
+        });
 
-          // Count detection types
         const detectionCounts = { person: 0, vehicle: 0, package: 0, motion: 0 };
         events.forEach((event: AnalyticsEvent) => {
           if (event.persons_detected > 0) detectionCounts.person += event.persons_detected;
           if (event.object_detections) {
             const objects = Array.isArray(event.object_detections) ? event.object_detections : [];
             objects.forEach((obj) => {
-              if (obj.class === 'car' || obj.class === 'vehicle') detectionCounts.vehicle++;
+              if (obj.class === 'car' || obj.class === 'truck' || obj.class === 'motorcycle' ||
+                  obj.class === 'bus' || obj.class === 'vehicle') {
+                detectionCounts.vehicle++;
+              }
               if (obj.class === 'package') detectionCounts.package++;
             });
           }
-          if (event.event_type === 'motion' || event.event_type === 'event_motion') {
-            detectionCounts.motion++;
+          if ((event.event_type === 'motion' || event.event_type === 'event_motion') && event.persons_detected === 0) {
+            const objects = Array.isArray(event.object_detections) ? event.object_detections : [];
+            const hasVehicleOrPackage = objects.some((obj) =>
+              obj.class === 'car' || obj.class === 'truck' || obj.class === 'motorcycle' ||
+              obj.class === 'bus' || obj.class === 'vehicle' || obj.class === 'package'
+            );
+            if (!hasVehicleOrPackage) {
+              detectionCounts.motion++;
+            }
           }
         });
-        
+
         const detectionTypes = [
-          { name: 'Person', value: detectionCounts.person, color: '#22c55e', icon: Users }, // person: green-500
-          { name: 'Vehicle', value: detectionCounts.vehicle, color: '#3b82f6', icon: Car }, // vehicle: blue-500
-          { name: 'Package', value: detectionCounts.package, color: '#06b6d4', icon: Package }, // package: cyan-500
-          { name: 'Motion', value: detectionCounts.motion, color: '#f59e0b', icon: Activity }, // motion: amber-500
+          { name: 'Person', value: detectionCounts.person, color: '#22c55e', icon: Users },
+          { name: 'Vehicle', value: detectionCounts.vehicle, color: '#3b82f6', icon: Car },
+          { name: 'Package', value: detectionCounts.package, color: '#06b6d4', icon: Package },
+          { name: 'Motion', value: detectionCounts.motion, color: '#f59e0b', icon: Activity },
         ].filter(d => d.value > 0);
 
         // Camera uptime
@@ -265,14 +277,14 @@ const AnalyticsPage = () => {
   return (
     <div className="w-full min-h-[100dvh] bg-background">
       <div className="px-5 pt-6 pb-2 animate-fade-in">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
               Analytics
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Insights & Statistics</h1>
           </div>
-          <div className="bezel inline-flex" role="group" aria-label="Time range selection">
+          <div className="bezel inline-flex self-start sm:self-auto" role="group" aria-label="Time range selection">
             <div className="bezel-inner flex items-center gap-0 p-1">
               {(['7d', '30d', '90d'] as const).map((range) => (
                 <button

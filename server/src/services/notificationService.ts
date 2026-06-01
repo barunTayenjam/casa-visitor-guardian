@@ -49,6 +49,10 @@ export class NotificationService {
     logger.info(`Loaded ${this.cameraNames.size} camera names for notifications`, 'NotificationService');
   }
 
+  static getVapidPublicKey(): string | undefined {
+    return this.vapidPublicKey || undefined;
+  }
+
   static async initialize(): Promise<void> {
     this.vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@sentryvision.local';
     this.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';

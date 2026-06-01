@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
-import path from 'node:path';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { logger } from '../utils/logger.js';
 import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
@@ -39,7 +38,10 @@ export class CameraController extends BaseController {
           nightMode: camera.config.nightMode || false,
           status: camera.config.enabled ? 'online' : 'offline',
           config: {
-            streams: camera.config.streams,
+            streams: camera.config.streams?.map((s: any) => ({
+              ...s,
+              path: s.path ? this.stripCredentials(s.path) : s.path,
+            })),
             objects: camera.config.objects,
             zones: camera.config.zones
           }
@@ -71,7 +73,23 @@ export class CameraController extends BaseController {
         this.notFound(res, 'Camera not found');
         return;
       }
-      this.ok(res, { camera: camera as unknown as Record<string, unknown> });
+      this.ok(res, {
+        camera: {
+          id: camera.id,
+          name: camera.name,
+          isActive: camera.isActive,
+          nightMode: camera.config.nightMode || false,
+          status: camera.config.enabled ? 'online' : 'offline',
+          config: {
+            streams: camera.config.streams?.map((s: any) => ({
+              ...s,
+              path: s.path ? this.stripCredentials(s.path) : s.path,
+            })),
+            objects: camera.config.objects,
+            zones: camera.config.zones,
+          },
+        },
+      });
     } catch (error) {
       this.serverError(res, error, 'getCamera');
     }
@@ -247,6 +265,11 @@ export class CameraController extends BaseController {
         this.testIntervals.delete(req.params.id);
       }
       const streamManager = serviceRegistry.getStreamManager();
+      const camera = streamManager.getCamera(req.params.id);
+      if (camera && (camera as any)._testInterval) {
+        clearInterval((camera as any)._testInterval);
+        (camera as any)._testInterval = null;
+      }
       const stopped = streamManager.stopStream(req.params.id);
       if (!stopped) {
         this.serverError(res, 'Failed to stop stream');
@@ -266,6 +289,11 @@ export class CameraController extends BaseController {
         this.testIntervals.delete(req.params.id);
       }
       const streamManager = serviceRegistry.getStreamManager();
+      const camera = streamManager.getCamera(req.params.id);
+      if (camera && (camera as any)._testInterval) {
+        clearInterval((camera as any)._testInterval);
+        (camera as any)._testInterval = null;
+      }
       streamManager.stopStream(req.params.id);
       this.ok(res, { message: 'Test stream stopped' });
     } catch (error) {
@@ -567,6 +595,14 @@ export class CameraController extends BaseController {
       }
     } catch (error) {
       logger.warn(`Failed to push camera config to Python service: ${error}`, 'CameraController');
+    }
+  }
+
+  private stripCredentials(url: string): string {
+    try {
+      return url.replace(/:\/\/([^:@/]+):([^@/]+)@/, '://****:****@');
+    } catch {
+      return url;
     }
   }
 }

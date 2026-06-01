@@ -167,11 +167,11 @@ export class ConsolidatedDetectionService {
 
   // ==================== OBJECT DETECTION ====================
 
-  updateObjectDetectionSettings(cameraId: string, settings: Partial<ObjectDetectionSettings>): ObjectDetectionSettings {
+  async updateObjectDetectionSettings(cameraId: string, settings: Partial<ObjectDetectionSettings>): Promise<ObjectDetectionSettings> {
     const current = this.objectDetectionSettings.get(cameraId) || this.objectDetectionSettings.get('default') || { ...DEFAULT_OBJECT_DETECTION_SETTINGS };
     const updated = { ...current, ...settings };
     this.objectDetectionSettings.set(cameraId, updated);
-    this.writeSettingsToDb(cameraId);
+    await this.writeSettingsToDb(cameraId);
     return updated;
   }
 
@@ -181,9 +181,9 @@ export class ConsolidatedDetectionService {
 
   // ==================== FACIAL RECOGNITION ====================
 
-  updateFacialRecognitionSettings(settings: Partial<FacialRecognitionSettings>): FacialRecognitionSettings {
+  async updateFacialRecognitionSettings(settings: Partial<FacialRecognitionSettings>): Promise<FacialRecognitionSettings> {
     this.facialRecognitionSettings = { ...this.facialRecognitionSettings, ...settings };
-    this.writeSettingsToDb('default');
+    await this.writeSettingsToDb('default');
     return this.facialRecognitionSettings;
   }
 
@@ -197,11 +197,11 @@ export class ConsolidatedDetectionService {
     return this.motionSettingsStore.get(cameraId) || { ...DEFAULT_MOTION_SETTINGS };
   }
 
-  updateMotionSettings(cameraId: string, settings: Partial<MotionSettings>): MotionSettings {
+  async updateMotionSettings(cameraId: string, settings: Partial<MotionSettings>): Promise<MotionSettings> {
     const current = this.motionSettingsStore.get(cameraId) || { ...DEFAULT_MOTION_SETTINGS };
     const updated = { ...current, ...settings };
     this.motionSettingsStore.set(cameraId, updated);
-    this.writeSettingsToDb(cameraId);
+    await this.writeSettingsToDb(cameraId);
     return updated;
   }
 

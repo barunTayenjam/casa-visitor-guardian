@@ -1,0 +1,7 @@
+- generic [active]:
+  - generic:
+    - link "Skip to main content" [ref=e1] [cursor=pointer]:
+      - /url: "#main-content"
+    - region "Notifications (F8)":
+      - list
+    - main

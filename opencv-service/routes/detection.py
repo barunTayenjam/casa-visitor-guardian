@@ -5,6 +5,7 @@ import os
 import hashlib
 import time
 import tempfile
+import json
 
 import state
 from utils import draw_detections
@@ -128,7 +129,20 @@ def detect_objects_route():
 
         print(f"OpenCV Service: Object detection request for {file_hash}")
 
+        cached = state.redis_cache.get(file_hash) if state.redis_cache else None
+        if cached:
+            print(f"OpenCV Service: Using Redis cached result for {file_hash}")
+            return jsonify({
+                'success': True,
+                'detections': cached['object_detections'],
+                'fileHash': file_hash,
+                'cached': True,
+            })
+
         detections = state.detector._perform_yolo_detection(image)
+
+        if state.redis_cache:
+            state.redis_cache.set(file_hash, detections, [], 0)
 
         return jsonify({
             'success': True,

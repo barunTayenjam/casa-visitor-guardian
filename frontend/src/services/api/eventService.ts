@@ -160,7 +160,7 @@ export const eventService = {
     if (!filename) {
       throw new ApiError('Filename is required', 400, 'INVALID_FILENAME', { filename });
     }
-    return `/events/${filename}`;
+    return `/api/events/image/${filename}`;
   },
 
   getSnapshotImageUrl(filename: string): string {

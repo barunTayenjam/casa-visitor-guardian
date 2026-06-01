@@ -30,28 +30,6 @@ CREATE INDEX IF NOT EXISTS idx_detection_files_is_deleted ON detection_files(is_
 CREATE INDEX IF NOT EXISTS idx_detection_files_storage_path ON detection_files(storage_path);
 CREATE INDEX IF NOT EXISTS idx_detection_files_metadata ON detection_files USING GIN(metadata);
 
--- Batch jobs table to track batch processing
-CREATE TABLE IF NOT EXISTS batch_jobs (
-    id SERIAL PRIMARY KEY,
-    job_uuid UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-    job_type VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
-    total_files INTEGER DEFAULT 0,
-    processed_files INTEGER DEFAULT 0,
-    failed_files INTEGER DEFAULT 0,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    error_message TEXT,
-    result_path VARCHAR(1000),
-    metadata JSONB DEFAULT '{}'
-);
-
--- Create indexes for batch jobs
-CREATE INDEX IF NOT EXISTS idx_batch_jobs_status ON batch_jobs(status);
-CREATE INDEX IF NOT EXISTS idx_batch_jobs_created_at ON batch_jobs(created_at);
-CREATE INDEX IF NOT EXISTS idx_batch_jobs_job_type ON batch_jobs(job_type);
-
 -- Storage statistics table for monitoring
 CREATE TABLE IF NOT EXISTS storage_stats (
     id SERIAL PRIMARY KEY,
@@ -195,5 +173,4 @@ COMMENT ON COLUMN detection_files.storage_path IS 'Full file system path where t
 COMMENT ON COLUMN detection_files.file_hash IS 'SHA-256 hash for file integrity verification';
 COMMENT ON COLUMN detection_files.metadata IS 'JSONB metadata for detection results, confidence scores, objects detected, etc.';
 
-COMMENT ON TABLE batch_jobs IS 'Tracks batch processing jobs';
 COMMENT ON TABLE storage_stats IS 'Daily storage statistics for monitoring and cleanup';

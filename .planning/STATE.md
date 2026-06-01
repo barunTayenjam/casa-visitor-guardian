@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Audit Bug Fixes
-status: in_progress
-last_updated: "2026-05-31T12:30:00.000Z"
+status: executing
+last_updated: "2026-05-31T06:33:10.295Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 20
+  completed_plans: 10
   percent: 25
 ---
 
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Provide reliable, automated home surveillance that detects motion and visitors, sends real-time alerts, and stores events for later review
 
-**Current focus:** Phase 10 — Critical Bug Fixes (✅ Complete)
+**Current focus:** Phase 12 — medium-priority-fixes
 
 ---
 
@@ -164,7 +164,7 @@ Phase 6 (Documentation Audit & Fix): 3/3 plans complete ✅.
 
 **Last Session:** 2026-05-31T12:30:00+05:30
 
-- **Status:** Phase 10 (Critical Bug Fixes) — 4/4 plans complete ✅
+- **Status:** Executing Phase 12
 - **Completed:** Wave 1 (event deletion, camera persistence + create, account lockout + MFA, SQL injection) — all 7 P0 bugs fixed, verified, and re-verified
 - **TypeScript:** Zero errors on `cd server && npx tsc --noEmit`
 - **Next:** Phase 11 (High Priority Fixes) — 22 P1 bugs
@@ -202,3 +202,4 @@ Comprehensive audit of 131 features (docs/AUDIT-REPORT.md) identified 61 bugs ac
 ---
 
 *State updated: 2026-05-31 — Phase 10 Critical Bug Fixes complete (4/4 plans, 7/7 bugs). Phase 11 remaining.*
+| 2026-06-01 | fast | fix: only render focused camera in slideshow instead of hiding others with opacity-0 in 1x1 grid | ✅ |

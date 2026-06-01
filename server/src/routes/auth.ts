@@ -43,6 +43,7 @@ router.post('/change-password',
 );
 
 router.post('/refresh',
+  authenticate(),
   (req, res) => authController.refreshToken(req, res)
 );
 

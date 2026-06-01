@@ -221,12 +221,15 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
           detection_types: uniqueTypes
         };
 
+        const processingTimeMs = result.processingTimeMs || 0;
+
         await client.query(
           `INSERT INTO processed_images 
            (id, job_id, filename, file_path, camera_id, image_timestamp, 
+            file_size, processing_time_ms,
             person_count, face_count, known_face_count, unknown_face_count, 
             status, detection_json, file_hash, processed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
            ON CONFLICT (id) DO UPDATE SET
              person_count = EXCLUDED.person_count,
              face_count = EXCLUDED.face_count,
@@ -242,6 +245,8 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
             result.filename,
             result.cameraId,
             result.timestamp,
+            result.fileSize || 0,
+            processingTimeMs,
             result.persons.length,
             result.faces.length,
             knownFaces,

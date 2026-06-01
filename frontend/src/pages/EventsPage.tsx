@@ -73,7 +73,7 @@ function parseDateParam(value: string | null): Date | undefined {
 
 function readFiltersFromParams(searchParams: URLSearchParams): FilterState {
   const cameraId = searchParams.get('cameraId') || 'all';
-  const detectionType = (searchParams.get('detectionType') || 'all') as FilterState['detectionType'];
+  const detectionType = (searchParams.get('detectionType') || 'person') as FilterState['detectionType'];
   const quickRange = (searchParams.get('quickRange') || 'all') as FilterState['quickRange'];
   if (quickRange !== 'all') {
     return { cameraId, detectionType, dateRange: { start: undefined, end: undefined }, quickRange };
@@ -467,10 +467,10 @@ const EventsPage = () => {
         <EventTimeline events={filteredEvents} selectedEventId={selectedEventId || undefined} onEventSelect={handleEventSelect} />
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         <div className="flex-1 overflow-y-auto px-5 pb-28">
           {loading ? (
-            <div className={cn(viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'space-y-3', 'gap-4')}>
+            <div className={cn(viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'space-y-3', 'gap-4')}>
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="animate-pulse rounded-[1.25rem] overflow-hidden bg-white/[0.06] border border-white/[0.12]">
                   <div className="aspect-video bg-white/[0.08]" />
@@ -750,7 +750,7 @@ const EventsPage = () => {
               analyzing={analyzingEventId === selectedEvent.id}
               analysis={selectedEvent ? analysisByEvent[selectedEvent.id] : null}
             />
-            <div className="w-full md:w-[400px] lg:w-[500px] border-l border-white/[0.12] overflow-y-auto bg-black/20">
+            <div className="w-full xl:w-[400px] 2xl:w-[500px] xl:border-l border-t xl:border-t-0 border-white/[0.12] overflow-y-auto bg-black/20">
               <RelatedEvents currentEvent={selectedEvent} events={filteredEvents} onEventSelect={handleEventSelect} />
             </div>
           </>

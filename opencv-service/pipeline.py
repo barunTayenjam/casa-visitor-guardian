@@ -158,14 +158,14 @@ class YOLOObjectDetector:
         self.net = None
         self.layer_names = None
         self.input_size = 640
-        self.confidence_threshold = 0.50
+        self.confidence_threshold = 0.30
         self.nms_threshold = 0.45
         self.model_type = None
 
         self.dnn_face_detector = None
 
         self.class_thresholds = {
-            'person': 0.45,
+            'person': 0.30,
             'car': 0.50,
             'truck': 0.70,
             'bus': 0.50,

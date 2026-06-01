@@ -107,7 +107,7 @@ class InProcessYOLO:
         self._net = None
         self._model_type = None
         self._input_size = 640
-        self._confidence_threshold = 0.50
+        self._confidence_threshold = 0.30
         self._nms_threshold = 0.45
         self._class_thresholds = {
             "person": 0.45, "car": 0.50, "truck": 0.70, "bus": 0.50,

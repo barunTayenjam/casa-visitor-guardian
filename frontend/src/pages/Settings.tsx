@@ -194,7 +194,7 @@ const SettingsPage = () => {
         },
         storage: {
           retentionDays: retentionSettings.eventRetentionDays,
-          maxStorageGB: retentionSettings.imageRetentionDays,
+          maxStorageGB: 50,
           autoCleanup: retentionSettings.cleanupEnabled,
           compressionEnabled: true,
           compressionQuality: 80,
@@ -343,7 +343,7 @@ const SettingsPage = () => {
       <div className="w-full min-h-[100dvh] flex flex-col bg-background">
         <div className="px-5 pt-6 pb-2 animate-fade-in">
           <div className="flex items-center gap-4">
-            <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
+            <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
@@ -364,7 +364,7 @@ const SettingsPage = () => {
       <div className="px-5 pt-6 pb-2 animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button size="sm" variant="ghost" onClick={() => navigate('/app/streams')}>
+            <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
@@ -409,31 +409,33 @@ const SettingsPage = () => {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-foreground">Timezone</Label>
-                  <select
-                    value={settings.timezone}
-                    onChange={(e) => updateSetting('timezone', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-[0.5rem] bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
-                    <option value="America/New_York">America/New_York (EST, UTC-5)</option>
-                    <option value="America/Los_Angeles">America/Los_Angeles (PST, UTC-8)</option>
-                    <option value="Europe/London">Europe/London (GMT, UTC+0)</option>
-                    <option value="UTC">UTC (UTC+0)</option>
-                  </select>
+                  <Select value={settings.timezone} onValueChange={(v) => updateSetting('timezone', v)}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</SelectItem>
+                      <SelectItem value="America/New_York">America/New_York (EST, UTC-5)</SelectItem>
+                      <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST, UTC-8)</SelectItem>
+                      <SelectItem value="Europe/London">Europe/London (GMT, UTC+0)</SelectItem>
+                      <SelectItem value="UTC">UTC (UTC+0)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-foreground">Language</Label>
-                  <select
-                    value={settings.language}
-                    onChange={(e) => updateSetting('language', e.target.value)}
-                    className="mt-2 w-full px-3 py-2 rounded-[0.5rem] bg-muted border border-input text-foreground text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="hi">Hindi</option>
-                  </select>
+                  <Select value={settings.language} onValueChange={(v) => updateSetting('language', v)}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Spanish</SelectItem>
+                      <SelectItem value="fr">French</SelectItem>
+                      <SelectItem value="de">German</SelectItem>
+                      <SelectItem value="hi">Hindi</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </SettingCard>

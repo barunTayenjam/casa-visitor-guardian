@@ -25,10 +25,6 @@ export class User {
   @Exclude()
   passwordHash!: string;
 
-  @Column({ type: 'varchar', length: 32 })
-  @Exclude()
-  salt!: string;
-
   @Column({ name: 'role_id', type: 'uuid', nullable: true })
   roleId!: string;
 

@@ -73,15 +73,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const failureCountRef = useRef<number>(0);
   const connectionAttemptsRef = useRef<number>(0);
   const lastConnectionAttemptRef = useRef<number>(0);
+  const lastVideoTimeRef = useRef<number>(0);
+  const lastVideoTimeUpdateRef = useRef<number>(0);
+  const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleStreamStartRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const handleStreamStopRef = useRef<() => void>(() => {});
 
   const RESTART_COOLDOWN_MS = 5000;
-  const VISIBILITY_DEBOUNCE_MS = 2000;
+  const VISIBILITY_DEBOUNCE_MS = 1000;
   const MAX_FAILURE_COUNT = 3;
   const CONNECTION_RATE_LIMIT_MS = 3000;
   const MAX_CONNECTION_ATTEMPTS_PER_MINUTE = 10;
+  const STALL_THRESHOLD_MS = 5000;
 
   const rateLimitResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -114,17 +118,22 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   }, []);
 
   const handleStreamRestart = useCallback(() => {
-    if (!canRestartStream()) return;
+    if (!canRestartStream()) {
+      console.log(`[CameraStream:${camera.name}] Restart suppressed by rate limit or cooldown`);
+      return;
+    }
+
+    console.log(`[CameraStream:${camera.name}] Restarting stream...`);
 
     if (failureCountRef.current >= MAX_FAILURE_COUNT) {
       const backoffMs = Math.min(30000, 1000 * Math.pow(2, failureCountRef.current - MAX_FAILURE_COUNT));
+      console.log(`[CameraStream:${camera.name}] Too many failures, backing off for ${backoffMs}ms`);
       if (restartCooldownRef.current) clearTimeout(restartCooldownRef.current);
       restartCooldownRef.current = setTimeout(() => {
         failureCountRef.current = 0;
         streamActionRef.current = null;
         handleStreamStopRef.current();
         setTimeout(() => {
-          hasAutoStartedRef.current = false;
           handleStreamStartRef.current();
         }, 500);
       }, backoffMs);
@@ -132,10 +141,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
 
     streamActionRef.current = null;
-    hasAutoStartedRef.current = false;
     handleStreamStopRef.current();
     setTimeout(() => handleStreamStartRef.current(), 1000);
-  }, [canRestartStream]);
+  }, [canRestartStream, camera.name]);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [showFullOverlay, setShowFullOverlay] = useState(false);
@@ -191,17 +199,31 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const cleanupPeerConnection = useCallback(() => {
     if (pcRef.current) {
+      console.log(`[CameraStream:${camera.name}] Cleaning up PeerConnection`);
       pcRef.current.close();
       pcRef.current = null;
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  }, []);
+    if (watchdogIntervalRef.current) {
+      clearInterval(watchdogIntervalRef.current);
+      watchdogIntervalRef.current = null;
+    }
+  }, [camera.name]);
+
+  const isStreamingRef = useRef(isStreaming);
+  const connectionStateRef = useRef(connectionState);
+
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+    connectionStateRef.current = connectionState;
+  }, [isStreaming, connectionState]);
 
   const startWebRTC = useCallback(async () => {
     cleanupPeerConnection();
 
+    console.log(`[CameraStream:${camera.name}] Starting WebRTC connection`);
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
@@ -211,15 +233,22 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     pc.addTransceiver('audio', { direction: 'recvonly' });
 
     pc.ontrack = (event) => {
+      console.log(`[CameraStream:${camera.name}] Received video track`);
       if (videoRef.current && event.streams[0]) {
         videoRef.current.srcObject = event.streams[0];
         lastFrameTimeRef.current = Date.now();
+        lastVideoTimeRef.current = 0;
+        lastVideoTimeUpdateRef.current = Date.now();
+        
+        // Ensure video plays
+        videoRef.current.play().catch(e => console.warn('Video play failed:', e));
       }
     };
 
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
-      if (state === 'failed') {
+      console.log(`[CameraStream:${camera.name}] ICE state: ${state}`);
+      if (state === 'failed' || state === 'disconnected') {
         failureCountRef.current++;
         handleStreamRestart();
       } else if (state === 'connected' || state === 'completed') {
@@ -246,18 +275,33 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     const answer = await response.json();
     await pc.setRemoteDescription(new RTCSessionDescription(answer));
-  }, [camera.id, cleanupPeerConnection, handleStreamRestart]);
 
-  const hasAutoStartedRef = useRef(false);
+    // Start watchdog
+    if (watchdogIntervalRef.current) clearInterval(watchdogIntervalRef.current);
+    watchdogIntervalRef.current = setInterval(() => {
+      if (videoRef.current && isStreamingRef.current && connectionStateRef.current === 'connected' && !document.hidden) {
+        const currentTime = videoRef.current.currentTime;
+        const now = Date.now();
+
+        if (currentTime !== lastVideoTimeRef.current) {
+          lastVideoTimeRef.current = currentTime;
+          lastVideoTimeUpdateRef.current = now;
+        } else if (now - lastVideoTimeUpdateRef.current > STALL_THRESHOLD_MS) {
+          console.warn(`[CameraStream:${camera.name}] Stream stalled detected by watchdog`);
+          handleStreamRestart();
+        }
+      }
+    }, 2000);
+  }, [camera.id, camera.name, cleanupPeerConnection, handleStreamRestart]);
 
   const handleStreamStart = useCallback(async () => {
     if (streamActionRef.current === "start") return;
 
+    console.log(`[CameraStream:${camera.name}] Starting stream`);
     setError(null);
     setConnectionState('connecting');
     streamActionRef.current = "start";
     setIsStreaming(true);
-    hasAutoStartedRef.current = true;
 
     frameCountRef.current = 0;
     lastFrameTimeRef.current = Date.now();
@@ -267,11 +311,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
     connectionTimeoutRef.current = setTimeout(() => {
       streamActionRef.current = null;
-      hasAutoStartedRef.current = false;
       setConnectionState('error');
       setError('Connection timeout. Please try again.');
       setIsStreaming(false);
-    }, 10000);
+    }, 15000);
 
     try {
       const startTime = Date.now();
@@ -299,11 +342,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       cleanupPeerConnection();
       streamActionRef.current = null;
     }
-  }, [camera.id, startCameraStream, startWebRTC, cleanupPeerConnection]);
+  }, [camera.id, camera.name, startCameraStream, startWebRTC, cleanupPeerConnection]);
 
   const handleStreamStop = useCallback(() => {
     if (streamActionRef.current === "stop") return;
 
+    console.log(`[CameraStream:${camera.name}] Stopping stream`);
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
@@ -311,10 +355,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     streamActionRef.current = "stop";
     setIsStreaming(false);
     setConnectionState('idle');
-    hasAutoStartedRef.current = false;
     cleanupPeerConnection();
     stopCameraStream(camera.id).catch(() => {});
-  }, [camera.id, stopCameraStream, cleanupPeerConnection]);
+  }, [camera.id, camera.name, stopCameraStream, cleanupPeerConnection]);
 
   handleStreamStartRef.current = handleStreamStart;
   handleStreamStopRef.current = handleStreamStop;
@@ -329,17 +372,36 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         clearTimeout(restartCooldownRef.current);
         restartCooldownRef.current = null;
       }
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (autoStart && socketConnected && !isStreaming && !hasAutoStartedRef.current) {
-      hasAutoStartedRef.current = true;
-      handleStreamStart();
-    } else if (!autoStart && isStreaming) {
+    let mountTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const maybeStart = () => {
+      if (autoStart && socketConnected && !isStreaming && (connectionState === 'idle' || connectionState === 'error')) {
+        console.log(`[CameraStream:${camera.name}] Auto-starting stream (mount/nav check)`);
+        handleStreamStart();
+      }
+    };
+
+    if (autoStart && socketConnected) {
+      mountTimer = setTimeout(maybeStart, 500);
+    }
+
+    return () => {
+      if (mountTimer) clearTimeout(mountTimer);
+    };
+  }, [camera.id, camera.name, autoStart, socketConnected, isStreaming, connectionState, handleStreamStart]);
+
+  useEffect(() => {
+    if (!autoStart && isStreaming) {
       handleStreamStop();
     }
-  }, [camera.id, autoStart, socketConnected, isStreaming, handleStreamStart, handleStreamStop]);
+  }, [autoStart, isStreaming, handleStreamStop]);
 
   useEffect(() => {
     return () => {
@@ -348,20 +410,15 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       }
       cleanupPeerConnection();
       streamActionRef.current = null;
-      hasAutoStartedRef.current = false;
       stopCameraStream(camera.id).catch(() => {});
     };
   }, [camera.id, stopCameraStream, cleanupPeerConnection]);
 
   useEffect(() => {
-    if (socketConnected && autoStart && !isStreaming && connectionState === 'idle' && !hasAutoStartedRef.current) {
-      handleStreamStart();
-    }
     if (!socketConnected && isStreaming && connectionState === 'connected') {
       setConnectionState('reconnecting');
-      hasAutoStartedRef.current = false;
     }
-  }, [socketConnected, connectionStatus, autoStart, isStreaming, connectionState, handleStreamStart, camera.id]);
+  }, [socketConnected, isStreaming, connectionState]);
 
   useEffect(() => {
     if (isStreaming && socketConnected) {
@@ -377,8 +434,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
       visibilityDebounceRef.current = setTimeout(() => {
         if (!document.hidden && socketConnected && autoStart) {
-          if (!isStreaming && (connectionState === 'idle' || connectionState === 'error') && !hasAutoStartedRef.current) {
+          // Check if stream is healthy
+          const isVideoPlaying = videoRef.current && !videoRef.current.paused && videoRef.current.readyState >= 3;
+          const isStalled = Date.now() - lastVideoTimeUpdateRef.current > STALL_THRESHOLD_MS;
+          
+          if (!isStreaming || connectionState !== 'connected' || !isVideoPlaying || isStalled) {
+            console.log(`[CameraStream:${camera.name}] Tab became visible and stream needs restart.`, {
+              isStreaming, connectionState, isVideoPlaying, isStalled
+            });
             handleStreamRestart();
+          } else {
+            // Just ensure it's playing
+            videoRef.current?.play().catch(() => {});
           }
         }
       }, VISIBILITY_DEBOUNCE_MS);
@@ -394,11 +461,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         clearTimeout(visibilityDebounceRef.current);
       }
     };
-  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamRestart]);
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamRestart, camera.name]);
 
   useEffect(() => {
     const handleSocketReconnect = () => {
-      if (socketConnected && autoStart && !isStreaming && connectionState === 'idle' && !hasAutoStartedRef.current) {
+      if (socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
         handleStreamStart();
       }
     };
@@ -494,6 +561,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onStalled={() => {
+              console.warn(`[CameraStream:${camera.name}] Video stalled`);
+              lastVideoTimeUpdateRef.current = 0; // Force watchdog to see it as stalled
+            }}
+            onWaiting={() => {
+              console.log(`[CameraStream:${camera.name}] Video waiting for data`);
+              // Don't restart immediately on waiting, as it might just be a brief buffer
+            }}
           />
 
           {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
@@ -519,6 +594,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
               state={connectionState as 'connecting' | 'error' | 'reconnecting'}
               cameraName={camera.name}
               errorMessage={error || undefined}
+              onRetry={() => {
+                failureCountRef.current = 0; // Reset failure count on manual retry
+                handleStreamRestart();
+              }}
             />
           )}
 

@@ -84,7 +84,7 @@ export async function callNvidiaApi(
       }
     ],
     temperature: 0.1,
-    max_tokens: 2048,
+    max_tokens: 4096,
     stream: false,
     top_p: 0.9
   };

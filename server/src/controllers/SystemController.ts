@@ -15,20 +15,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export class SystemController extends BaseController {
-  health(req: Request, res: Response): void {
+  async health(req: Request, res: Response): Promise<void> {
+    let db = 'unknown';
+    try {
+      const { AppDataSource } = await import('../database.js');
+      await AppDataSource.query('SELECT 1');
+      db = 'ok';
+    } catch {
+      db = 'error';
+    }
+
+    let pipeline = 'unknown';
+    try {
+      const pythonWs = serviceRegistry.getPythonWsClient();
+      pipeline = pythonWs.connected ? 'connected' : 'disconnected';
+    } catch {
+      pipeline = 'unavailable';
+    }
+
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
+      const overallStatus = db === 'ok' && pipeline === 'connected' ? 'ok' : 'degraded';
       res.json({
-        status: 'ok',
+        status: overallStatus,
         timestamp: new Date().toISOString(),
-        activeCameras: cameras.filter((c: any) => c.isActive).length
+        activeCameras: cameras.filter((c: any) => c.isActive).length,
+        db,
+        pipeline
       });
     } catch (error) {
       res.json({
-        status: 'ok',
+        status: db === 'ok' ? 'degraded' : 'error',
         timestamp: new Date().toISOString(),
-        activeCameras: 0
+        activeCameras: 0,
+        db,
+        pipeline
       });
     }
   }
@@ -154,7 +176,19 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
       const cameras = streamManager.getAllCameras();
 
       let storageUsed = 0;
-      let storageTotal = 1000000000;
+      let storageTotal = 0;
+      try {
+        const { AppDataSource } = await import('../database.js');
+        const { config } = await import('../config/index.js');
+        const dbResult = await AppDataSource.query(
+          `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`
+        );
+        storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
+        if (fs.existsSync(config.storage.detectionsDir) && typeof (fs as any).statfsSync === 'function') {
+          const stat = (fs as any).statfsSync(config.storage.detectionsDir);
+          storageTotal = stat.blocks * stat.bsize;
+        }
+      } catch {}
 
       const recentEvents = inMemoryState.getRecentEvents();
       const overview = {

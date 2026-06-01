@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface ProgressiveImageProps {
   src: string; alt: string; className?: string; placeholderClassName?: string;
-  onLoad?: () => void; onError?: () => void;
+  onLoad?: (e?: React.SyntheticEvent<HTMLImageElement>) => void; onError?: () => void;
 }
 
 export function ProgressiveImage({ src, alt, className, placeholderClassName, onLoad, onError }: ProgressiveImageProps) {
@@ -21,7 +21,7 @@ export function ProgressiveImage({ src, alt, className, placeholderClassName, on
     return () => observer.disconnect();
   }, []);
 
-  const handleLoad = () => { setLoaded(true); onLoad?.(); };
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => { setLoaded(true); onLoad?.(e); };
   const handleError = () => { setError(true); onError?.(); };
 
   return (

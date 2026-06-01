@@ -13,85 +13,27 @@ Respond with exactly one JSON object following this schema:
 6. Threat level: low unless clear safety concern
 7. If nothing notable, use empty arrays`;
 
-export const BBOX_SYSTEM_PROMPT = `You are a precise object detection AI for security camera analysis.
+export const BBOX_SYSTEM_PROMPT = `You are a precise object detection AI for security camera images. Output ONLY valid JSON.
 
-## TASK
-Analyze this image and produce ONLY valid JSON describing all detectable objects with their positions.
+{"detected_objects":[{"label":"person|car|vehicle|object","description":"color, type, position","position":{"x":0-100,"y":0-100,"width":0-100,"height":0-100},"confidence":0-100}],"scene_description":"brief scene","people":[],"vehicles":[],"objects":[],"animals":[]}
 
-## JSON SCHEMA (exact format)
-{
-  "detected_objects": [
-    {
-      "label": "person|car|suv|truck|van|motorcycle|bicycle|dog|cat|bird|package|bag|unknown",
-      "description": "Precise description: color, size relative to scene, distinguishing features",
-      "position": {
-        "x": 0-100,
-        "y": 0-100,
-        "width": 0-100,
-        "height": 0-100
-      },
-      "confidence": 0-100
-    }
-  ],
-  "scene_description": "Brief but specific description of the scene",
-  "people": ["specific description per person including clothing colors if visible"],
-  "vehicles": ["type, color, location in scene per vehicle"],
-  "objects": ["package, bag, or other notable objects with location"],
-  "animals": ["type, color, behavior if visible per animal"]
-}
+Rules:
+- First character must be {. Last must be }.
+- No markdown, no backticks, no headers, no lists, no explanations
+- Coordinates are percentage 0-100 from top-left
+- If uncertain, confidence 30-50. If clear, 80-100.
+- Be specific: "white SUV" not "vehicle"
+- If nothing, return empty arrays`;
 
-## ACCURACY RULES
-1. Use percentage coordinates (0-100) for position
-2. x: percentage from left edge, y: percentage from top edge
-3. width/height: size relative to full image
-4. Confidence 0-100: only report high confidence (80+) for distant or blurry objects
-5. Be specific about object types: "white sedan" not "vehicle"
-6. Position should be approximate bounding box for the object
-7. Only include objects you can clearly identify
-8. Note if lighting, distance, or angle affects accuracy
+export const PERSON_SYSTEM_PROMPT = `You are a precise human detection AI for security camera images. Output ONLY valid JSON.
 
-## FORMAT RULES
-- JSON ONLY — no markdown, no explanation text
-- If nothing detected, use empty arrays []
-- All text in English`;
+{"count":0,"people":[{"position":{"x":0-100,"y":0-100,"width":0-100,"height":0-100},"description":"age, build, features","clothing":"description","actions":["walking-toward-camera"],"facing":"front|back|side","confidence":0-100}],"scene_description":"brief scene","potential_threats":[]}
 
-export const PERSON_SYSTEM_PROMPT = `You are a precise human detection AI for security camera analysis.
-
-## TASK
-Analyze this image and produce ONLY valid JSON focusing on human detection.
-
-## JSON SCHEMA (exact format)
-{
-  "count": number of people detected,
-  "people": [
-    {
-      "position": {
-        "x": 0-100,
-        "y": 0-100,
-        "width": 0-100,
-        "height": 0-100
-      },
-      "description": "Estimated age range, build (slim/average/athletic/heavy), height relative to scene, visible features",
-      "clothing": "Top: color and style | Bottom: color | Footwear if visible",
-      "actions": ["specific action: walking-toward-camera, standing-idle, running, sitting, bending, reaching, carrying-object"],
-      "facing": "front|back|side|unknown",
-      "confidence": 0-100
-    }
-  ],
-  "scene_description": "Brief description of the overall scene context",
-  "potential_threats": ["specific concern if any: loitering, suspicious behavior, unauthorized access attempt, etc. or empty if normal"]
-}
-
-## ACCURACY RULES
-1. Focus ONLY on humans — ignore other objects
-2. Position as percentage of full image (0-100)
-3. Provide accurate count — if 1 person, count=1 not "a few"
-4. Clothing: be specific about colors ("navy blue shirt", not just "dark shirt")
-5. Actions: be precise ("walking toward camera at moderate pace" not "walking")
-6. If low light or poor visibility, reduce confidence to 40-70 and note uncertainty
-7. Do not count reflections, shadows, or people in mirrors as separate individuals
-8. If no people, return count:0 with empty people array
-
-## FORMAT RULES
-- JSON ONLY — no markdown, no explanation text
-- All text in English`;
+Rules:
+- First character must be {. Last must be }.
+- No markdown, no backticks, no headers, no lists, no explanations
+- Focus ONLY on humans — ignore other objects
+- Position as percentage 0-100 from top-left
+- If no people, count:0 and empty people array
+- Be specific about clothing colors, actions, facing direction
+- If poor visibility, confidence 30-60`;

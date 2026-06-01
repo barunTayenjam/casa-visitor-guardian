@@ -156,6 +156,30 @@ export const detectionService = {
     }
   },
 
+  async analyzeEventWithBboxes(eventId: string): Promise<{
+    success: boolean;
+    boxes: Array<{ label: string; confidence: number; x: number; y: number; width: number; height: number }>;
+    sceneDescription?: string;
+    rawAnalysis?: { people?: string[]; vehicles?: string[]; objects?: string[]; animals?: string[] };
+    annotatedImage?: string | null;
+    metadata?: { processingTime: number; modelUsed: string };
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/nvidia/analyze-event-with-bboxes`, {
+        method: 'POST',
+        body: JSON.stringify({ eventId, includeAnnotatedImage: false }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new ApiError(data.error || 'Failed to analyze event with bounding boxes', (response as Response).status, 'ANALYZE_EVENT_BBOXES_ERROR', data);
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`Failed to analyze event bounding boxes for ${eventId}`, 500, 'ANALYZE_EVENT_BBOXES_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    }
+  },
+
   // ==================== FACE RECOGNITION ====================
 
   async getKnownFaces(): Promise<Array<{ id: string; name: string; imageCount: number; lastTrained: string; personId?: string }>> {

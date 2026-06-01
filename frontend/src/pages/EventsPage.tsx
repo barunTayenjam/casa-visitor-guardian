@@ -27,6 +27,7 @@ type AnalysisEntry = {
   recommendedActions?: string[]; processingTime?: number; modelUsed?: string;
   overall_summary?: string; activities?: string[];
   persons?: Record<string, unknown>[]; vehicles?: Record<string, unknown>[];
+  boxes?: Array<{ label: string; confidence: number; x: number; y: number; width: number; height: number }>;
 };
 
 const getLabelColor = (label: string): string => {
@@ -118,9 +119,14 @@ const EventsPage = () => {
   const handleAnalyzeEvent = async (eventId: string) => {
     setAnalyzingEventId(eventId);
     try {
-      const result = await detectionService.analyzeEvent(eventId);
-      if (result.success && result.analysis) {
-        const a = result.analysis;
+      const [result, boxesResult] = await Promise.allSettled([
+        detectionService.analyzeEvent(eventId),
+        detectionService.analyzeEventWithBboxes(eventId),
+      ]);
+
+      if (result.status === 'fulfilled' && result.value.success && result.value.analysis) {
+        const a = result.value.analysis;
+        const boxes = boxesResult.status === 'fulfilled' ? boxesResult.value.boxes : undefined;
         setAnalysisByEvent(prev => ({ ...prev, [eventId]: {
           sceneDescription: a.sceneDescription || a.overall_summary || a.summary || '',
           summary: a.summary,
@@ -132,10 +138,11 @@ const EventsPage = () => {
           recommendedActions: a.recommendedActions || [],
           processingTime: a.processing_time_ms || a.processingTime || 0,
           modelUsed: a.model || a.modelUsed || 'unknown',
+          boxes,
         }}));
         toast({ title: 'AI Analysis Complete', description: a.overall_summary || a.sceneDescription || a.summary || 'Event analyzed' });
       } else {
-        toast({ title: 'Analysis Failed', description: result.message || 'Unknown error', variant: 'destructive' });
+        toast({ title: 'Analysis Failed', description: (result.status === 'fulfilled' ? (result.value.message || 'Unknown error') : 'Analysis request failed'), variant: 'destructive' });
       }
     } catch (error) {
       toast({ title: 'Analysis Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
@@ -749,6 +756,7 @@ const EventsPage = () => {
               onAnalyze={handleAnalyzeEvent}
               analyzing={analyzingEventId === selectedEvent.id}
               analysis={selectedEvent ? analysisByEvent[selectedEvent.id] : null}
+              boxes={selectedEvent ? analysisByEvent[selectedEvent.id]?.boxes : undefined}
             />
             <div className="w-full xl:w-[400px] 2xl:w-[500px] xl:border-l border-t xl:border-t-0 border-white/[0.12] overflow-y-auto bg-black/20">
               <RelatedEvents currentEvent={selectedEvent} events={filteredEvents} onEventSelect={handleEventSelect} />

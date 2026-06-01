@@ -42,10 +42,14 @@ const CACHE_TTL = 3600;
 
 export class DetectionService {
   private scoreHistories = new Map<string, ScoreHistory>();
+  private configRepo: Repository<DetectionConfig> | null = null;
 
-  constructor(
-    private readonly configRepo: Repository<DetectionConfig>,
-  ) {}
+  private async getRepo(): Promise<Repository<DetectionConfig>> {
+    if (!this.configRepo) {
+      this.configRepo = AppDataSource.getRepository(DetectionConfig);
+    }
+    return this.configRepo;
+  }
 
   async getConfig(camera?: string): Promise<{
     thresholds: Record<string, ThresholdConfig>;
@@ -56,14 +60,15 @@ export class DetectionService {
     const cached = await cacheService.getJSON(cacheKey);
     if (cached) return cached;
 
+    const repo = await this.getRepo();
     let config: DetectionConfig | null = null;
 
     if (camera) {
-      config = await this.configRepo.findOne({ where: { camera } });
+      config = await repo.findOne({ where: { camera } });
     }
 
     if (!config) {
-      config = await this.configRepo.findOne({ where: { camera: null } });
+      config = await repo.findOne({ where: { camera: null } });
     }
 
     const result = {
@@ -84,9 +89,10 @@ export class DetectionService {
       score_history_length: number;
     }>
   ): Promise<void> {
+    const repo = await this.getRepo();
     let existing = camera
-      ? await this.configRepo.findOne({ where: { camera } })
-      : await this.configRepo.findOne({ where: { camera: null } });
+      ? await repo.findOne({ where: { camera } })
+      : await repo.findOne({ where: { camera: null } });
 
     const currentConfig = existing?.config || {
       thresholds: DEFAULT_THRESHOLDS,
@@ -101,12 +107,12 @@ export class DetectionService {
     };
 
     if (existing) {
-      await this.configRepo.update(existing.id, {
+      await repo.update(existing.id, {
         config: newConfig,
         updated_at: new Date(),
       });
     } else {
-      await this.configRepo.save({
+      await repo.save({
         camera,
         config: newConfig,
       });
@@ -268,10 +274,4 @@ export class DetectionService {
   }
 }
 
-function createDetectionService(): DetectionService {
-  const repo = AppDataSource.isInitialized
-    ? AppDataSource.getRepository(DetectionConfig)
-    : {} as Repository<DetectionConfig>;
-  return new DetectionService(repo);
-}
-export const detectionService = createDetectionService();
+export const detectionService = new DetectionService();

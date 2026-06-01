@@ -22,14 +22,14 @@ router.post('/subscribe', validate({
     const userId = req.user!.userId;
     const { endpoint, keys } = req.body;
 
-    if (!endpoint || !keys || !keys.p256h || !keys.auth) {
+    if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
       return res.status(400).json({ error: 'Invalid subscription format' });
     }
 
     const subscription = await NotificationService.subscribe(userId, {
       endpoint,
       keys: {
-        p256h: keys.p256h,
+        p256h: keys.p256dh,
         auth: keys.auth,
       },
     });
@@ -123,7 +123,7 @@ router.get('/subscription', async (req: Request, res: Response) => {
 });
 
 router.get('/vapid-public-key', (req: Request, res: Response) => {
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPublicKey = NotificationService.getVapidPublicKey();
 
   if (!vapidPublicKey) {
     return res.status(500).json({ error: 'VAPID keys not configured' });

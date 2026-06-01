@@ -17,7 +17,8 @@ app.register_blueprint(system_bp)
 
 
 def init_app():
-    pipeline.initialize()
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not os.environ.get('WERKZEUG_RUN_MAIN'):
+        pipeline.initialize()
     try:
         if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_DEBUG') != '1':
             pipeline.start_rtsp_service()

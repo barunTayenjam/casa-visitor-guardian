@@ -1,6 +1,7 @@
 import { AppDataSource } from '../../database.js';
 import { Event } from '../../models/Event.js';
 import { DetectionDataNormalizer } from '../../utils/detectionDataNormalizer.js';
+import { serviceRegistry } from '../serviceRegistry.js';
 import type { EventSearchFilters, EventSearchResponse, ListEnhancedFilters, HistoryFilters, LegacySearchFilters, DetectionEventFilters } from './types.js';
 
 export class EventSearchService {
@@ -95,7 +96,7 @@ export class EventSearchService {
     const size = Math.min(500, Math.max(1, parseInt(pageSize)));
     const offset = (currentPage - 1) * size;
 
-    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'event_motion', 'event_face')", "e.file_path IS NOT NULL AND e.file_path != ''"];
+    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')", "e.file_path IS NOT NULL AND e.file_path != ''"];
     const queryParams: unknown[] = [];
     let paramIndex = 1;
 
@@ -207,8 +208,16 @@ export class EventSearchService {
       })() : null,
     }));
 
+    let streamManager: ReturnType<typeof serviceRegistry.getStreamManager> | null = null;
+    try { streamManager = serviceRegistry.getStreamManager(); } catch { streamManager = null; }
+
+    const eventsWithCameraName = mapped.map((evt: Record<string, unknown>) => ({
+      ...evt,
+      cameraName: streamManager?.getCamera(evt.cameraId as string)?.name || `Camera ${evt.cameraId}`,
+    }));
+
     return {
-      events: mapped,
+      events: eventsWithCameraName,
       pagination: { totalEvents, currentPage, pageSize: size, totalPages: Math.ceil(totalEvents / size) }
     };
   }
@@ -227,7 +236,7 @@ export class EventSearchService {
     const size = Math.min(500, Math.max(1, parseInt(limit) || parseInt(pageSize)));
     const offsetCount = (currentPage - 1) * size;
 
-    const conditions: string[] = ["e.event_type IN ('event_motion', 'event_face')"];
+    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
     const values: unknown[] = [];
     let paramIndex = 1;
 
@@ -236,8 +245,9 @@ export class EventSearchService {
       values.push(cameraIdFilter);
     }
     if (detectionType && detectionType !== 'all') {
-      if (detectionType === 'face') conditions.push(`e.event_type = 'event_face'`);
-      else if (detectionType === 'motion' || detectionType === 'person') conditions.push(`e.event_type = 'event_motion'`);
+      if (detectionType === 'face') conditions.push(`e.event_type IN ('face', 'event_face', 'recognition')`);
+      else if (detectionType === 'person') conditions.push(`e.event_type IN ('person', 'visitor', 'recognition') OR COALESCE(e.persons_detected, 0) > 0`);
+      else if (detectionType === 'motion') conditions.push(`e.event_type IN ('motion', 'event_motion')`);
     }
     if (startDateStr) { conditions.push(`e.timestamp >= $${paramIndex++}`); values.push(new Date(startDateStr)); }
     if (endDateStr) { conditions.push(`e.timestamp <= $${paramIndex++}`); values.push(new Date(endDateStr)); }
@@ -395,7 +405,7 @@ export class EventSearchService {
 
   async getTodayEventCount(): Promise<number> {
     const result = await AppDataSource.query(
-      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata' AND e.event_type IN ('motion', 'face', 'event_motion', 'event_face')`
+      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata' AND e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`
     );
     return parseInt(result[0].count);
   }
@@ -405,7 +415,7 @@ export class EventSearchService {
   }> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
-    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"];
+    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
     const params: any[] = [startDate.toISOString(), endDate.toISOString()];
     if (cameraId && cameraId !== 'all') { conditions.push(`e.camera_id = $${params.length + 1}`); params.push(cameraId); }
 
@@ -446,7 +456,7 @@ export class EventSearchService {
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
-    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'event_motion', 'event_face')"];
+    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
     const params: any[] = [start.toISOString(), end.toISOString()];
     if (cameraId && cameraId !== 'all') { conditions.push(`e.camera_id = $${params.length + 1}`); params.push(cameraId); }
 
@@ -470,7 +480,7 @@ export class EventSearchService {
 
   async listEventFiles(): Promise<string[]> {
     const results = await AppDataSource.query(
-      `SELECT e.file_path FROM events e WHERE e.event_type IN ('motion', 'face', 'event_motion', 'event_face') ORDER BY e.timestamp DESC LIMIT 1000`
+      `SELECT e.file_path FROM events e WHERE e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face') ORDER BY e.timestamp DESC LIMIT 1000`
     );
     return results.map((row: any) => { const p = row.file_path.split('/'); return p[p.length - 1]; });
   }
@@ -547,10 +557,22 @@ export class EventSearchService {
     let paramIndex = 1;
 
     if (type) {
-      if (type === 'person' || type === 'motion') { conditions.push(`event_type = $${paramIndex++}`); values.push('event_motion'); }
-      else if (type === 'face') { conditions.push(`event_type = $${paramIndex++}`); values.push('event_face'); }
-      else { conditions.push(`event_type = $${paramIndex++}`); values.push(type); }
-    } else conditions.push(`event_type IN ('event_motion', 'event_face')`);
+      if (type === 'person') { 
+        conditions.push(`(event_type IN ('person', 'visitor', 'recognition') OR COALESCE(persons_detected, 0) > 0)`); 
+      }
+      else if (type === 'face') { 
+        conditions.push(`(event_type IN ('face', 'event_face', 'recognition') OR COALESCE(faces_detected, 0) > 0)`); 
+      }
+      else if (type === 'motion') {
+        conditions.push(`event_type IN ('motion', 'event_motion')`);
+      }
+      else { 
+        conditions.push(`event_type = $${paramIndex++}`); 
+        values.push(type); 
+      }
+    } else {
+      conditions.push(`event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`);
+    }
     if (cameraId) { conditions.push(`camera_id = $${paramIndex++}`); values.push(cameraId); }
     if (startDate) { conditions.push(`timestamp >= $${paramIndex++}`); values.push(new Date(startDate)); }
     if (endDate) { conditions.push(`timestamp <= $${paramIndex++}`); values.push(new Date(endDate)); }

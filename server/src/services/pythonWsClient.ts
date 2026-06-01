@@ -38,6 +38,12 @@ export class PythonWsClient extends EventEmitter {
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private silenceTimer: ReturnType<typeof setInterval> | null = null;
+  private lastDataAt = 0;
+  private readonly CONNECT_TIMEOUT_MS = 10000;
+  private readonly SILENCE_CHECK_MS = 30000;
+  private readonly SILENCE_TIMEOUT_MS = 60000;
   private url: string;
   private _connected = false;
   private pendingMetadata: FrameMetadata | null = null;
@@ -59,14 +65,25 @@ export class PythonWsClient extends EventEmitter {
 
     this.ws = new WebSocket(this.url);
 
+    this.connectTimeout = setTimeout(() => {
+      if (this.ws?.readyState === WebSocket.CONNECTING) {
+        logger.warn('[PythonWsClient] Connection timeout, terminating', 'PythonWsClient');
+        this.ws.terminate();
+      }
+    }, this.CONNECT_TIMEOUT_MS);
+
     this.ws.on('open', () => {
+      if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
       logger.info('[PythonWsClient] Connected', 'PythonWsClient');
       this.reconnectDelay = 1000;
       this._connected = true;
+      this.lastDataAt = Date.now();
+      this.startSilenceMonitor();
       this.emit('connected');
     });
 
     this.ws.on('message', (data: WebSocket.Data, isBinary: boolean) => {
+      this.lastDataAt = Date.now();
       if (isBinary) {
         const metadata = this.pendingMetadata;
         this.pendingMetadata = null;
@@ -109,7 +126,13 @@ export class PythonWsClient extends EventEmitter {
       }
     });
 
+    this.ws.on('ping', () => {
+      this.lastDataAt = Date.now();
+    });
+
     this.ws.on('close', () => {
+      this.stopSilenceMonitor();
+      if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
       this._connected = false;
       this.reconnectTimer = setTimeout(() => {
         this.connect();
@@ -120,7 +143,26 @@ export class PythonWsClient extends EventEmitter {
 
     this.ws.on('error', (err: Error) => {
       logger.error(`[PythonWsClient] Error: ${err.message}`, 'PythonWsClient', err);
+      if (this.ws) {
+        this.ws.terminate();
+      }
     });
+  }
+
+  private startSilenceMonitor(): void {
+    this.stopSilenceMonitor();
+    this.silenceTimer = setInterval(() => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      const elapsed = Date.now() - this.lastDataAt;
+      if (elapsed > this.SILENCE_TIMEOUT_MS) {
+        logger.warn(`[PythonWsClient] No data from Python for ${elapsed}ms, terminating connection`, 'PythonWsClient');
+        this.ws.terminate();
+      }
+    }, this.SILENCE_CHECK_MS);
+  }
+
+  private stopSilenceMonitor(): void {
+    if (this.silenceTimer) { clearInterval(this.silenceTimer); this.silenceTimer = null; }
   }
 
   send(data: any): void {
@@ -144,6 +186,8 @@ export class PythonWsClient extends EventEmitter {
   }
 
   disconnect(): void {
+    this.stopSilenceMonitor();
+    if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

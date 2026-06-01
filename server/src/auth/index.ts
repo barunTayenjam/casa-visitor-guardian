@@ -94,7 +94,6 @@ async function seedDefaultUsers() {
       username: 'admin',
       email: 'admin@security.local',
       password_hash: adminPasswordHash,
-      salt: crypto.randomBytes(16).toString('hex'),
       role_id: adminRole.id,
       status: 'active',
       mfa_enabled: false,
@@ -108,7 +107,6 @@ async function seedDefaultUsers() {
       username: 'user',
       email: 'user@security.local',
       password_hash: userPasswordHash,
-      salt: crypto.randomBytes(16).toString('hex'),
       role_id: userRole.id,
       status: 'active',
       mfa_enabled: false,
@@ -129,6 +127,26 @@ seedDefaultUsers().catch(err => {
 });
 
 export class AuthService {
+  // Generate a long‑lived refresh token (default 7 days)
+  generateRefreshToken(user: User): string {
+    const payload: JWTPayload = {
+      userId: user.id,
+      username: user.username,
+      role: user.role
+    };
+    const expires = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+    try {
+      return jwt.sign(payload, config.jwtSecret, {
+        expiresIn: expires,
+        issuer: 'home-security-system',
+        audience: 'home-security-client'
+      } as jwt.SignOptions);
+    } catch (error) {
+      logger.error(`Refresh JWT signing error: ${error}`, 'AuthService');
+      throw error;
+    }
+  }
+
   generateToken(user: User): string {
     const payload: JWTPayload = {
       userId: user.id,
@@ -201,10 +219,10 @@ export class AuthService {
       const roleId = roleResult && roleResult.length > 0 ? roleResult[0].id : null;
 
       const newUserResult = await AppDataSource.query(
-        `INSERT INTO users (username, email, password_hash, salt, role_id, status, mfa_enabled, email_verified, failed_login_attempts, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 'active', false, true, 0, NOW(), NOW())
+        `INSERT INTO users (username, email, password_hash, role_id, status, mfa_enabled, email_verified, failed_login_attempts, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'active', false, true, 0, NOW(), NOW())
          RETURNING id, username, email, created_at, updated_at`,
-        [userData.username, userData.email, hashedPassword, 'salt', roleId]
+        [userData.username, userData.email, hashedPassword, roleId]
       );
 
       if (newUserResult && newUserResult.length > 0) {
@@ -420,63 +438,6 @@ export class AuthService {
     } catch (error) {
       logger.error(`getAllUsers error: ${error}`, 'AuthService');
       return [];
-    }
-  }
-
-  async updateUser(userId: string, updates: Partial<Omit<User, 'id' | 'createdAt'>> & { password?: string }): Promise<AuthResult> {
-    try {
-      if (!AppDataSource.isInitialized) {
-        return { success: false, error: 'Database not available' };
-      }
-
-      const result = await AppDataSource.query(
-        `SELECT id FROM users WHERE id = $1`,
-        [userId]
-      );
-
-      if (!result || result.length === 0) {
-        return { success: false, error: 'User not found' };
-      }
-
-      const { password: newPassword, ...otherUpdates } = updates;
-
-      if (newPassword) {
-        const hashedPassword = await this.hashPassword(newPassword);
-        await AppDataSource.query(
-          `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-          [hashedPassword, userId]
-        );
-      }
-
-      logger.info(`User updated: ${userId}`, 'AuthService');
-
-      return { success: true };
-    } catch (error) {
-      logger.error(`User update error: ${error}`, 'AuthService');
-      return { success: false, error: 'User update failed' };
-    }
-  }
-
-  async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!AppDataSource.isInitialized) {
-        return { success: false, error: 'Database not available' };
-      }
-
-      const result = await AppDataSource.query(
-        `DELETE FROM users WHERE id = $1 RETURNING username`,
-        [userId]
-      );
-
-      if (!result || result.length === 0) {
-        return { success: false, error: 'User not found' };
-      }
-
-      logger.info(`User deleted: ${userId}`, 'AuthService');
-      return { success: true };
-    } catch (error) {
-      logger.error(`User deletion error: ${error}`, 'AuthService');
-      return { success: false, error: 'User deletion failed' };
     }
   }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Calendar, Camera, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Calendar, Camera, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -103,7 +103,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
       return 'bg-primary/20';
     }
     if (isSelected) return 'bg-primary';
-    if (isToday(day) && filters.quickRange === 'all') return 'bg-amber-500 text-white';
+    if (isToday(day)) return 'bg-amber-500 text-white';
     return 'hover:bg-white/[0.06]';
   };
 
@@ -127,8 +127,8 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
 
   return (
     <div className="w-full px-5 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 flex-1">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 flex-wrap">
           <Select value={filters.quickRange} onValueChange={(value) => updateFilter('quickRange', value as FilterState['quickRange'])}>
             <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
               <Calendar className="h-3.5 w-3.5 mr-2" />
@@ -181,11 +181,11 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
             <PopoverContent className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.14]" align="end">
               <div className="p-3 hairline-bottom flex items-center justify-between">
                 <Button variant="ghost" size="icon-sm" onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}>
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
                 <span className="text-xs font-medium">{format(calendarMonth, 'MMMM yyyy')}</span>
                 <Button variant="ghost" size="icon-sm" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-                  <ChevronUp className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
               <div className="grid grid-cols-7 gap-0.5 p-2">

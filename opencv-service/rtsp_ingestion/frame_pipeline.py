@@ -107,15 +107,15 @@ class InProcessYOLO:
         self._net = None
         self._model_type = None
         self._input_size = 640
-        self._confidence_threshold = 0.40
-        self._nms_threshold = 0.30
+        self._confidence_threshold = 0.50
+        self._nms_threshold = 0.45
         self._class_thresholds = {
-            "person": 0.45, "car": 0.45, "truck": 0.45, "bus": 0.45,
-            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.35, "cat": 0.35,
+            "person": 0.45, "car": 0.50, "truck": 0.70, "bus": 0.50,
+            "motorcycle": 0.50, "bicycle": 0.50, "dog": 0.50, "cat": 0.50,
         }
-        self._default_threshold = 0.50
-        self._min_box_area = 1600
-        self._min_box_side = 40
+        self._default_threshold = 0.60
+        self._min_box_area = 2500
+        self._min_box_side = 50
         self._initialized = False
         self._class_names = self._load_class_names()
         self._backend_label = 'CPU'
@@ -243,9 +243,10 @@ class InProcessYOLO:
         else:
             for out in outputs:
                 for det in out:
+                    obj_conf = float(det[4])
                     scores = det[5:]
                     cid = int(np.argmax(scores))
-                    conf = float(scores[cid])
+                    conf = float(scores[cid]) * obj_conf
                     cname = self._class_names[cid] if cid < len(self._class_names) else f"obj_{cid}"
                     thresh = self._class_thresholds.get(cname, self._default_threshold)
                     if conf < thresh:

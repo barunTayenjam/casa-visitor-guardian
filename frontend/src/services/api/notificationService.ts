@@ -116,7 +116,7 @@ export const notificationService = {
     const subscription = await registration.pushManager.getSubscription();
 
     if (subscription) {
-      await apiClient.post('/notifications/unsubscribe', {
+      await apiClient.delete('/notifications/unsubscribe', {
         endpoint: subscription.endpoint,
       });
       await subscription.unsubscribe();

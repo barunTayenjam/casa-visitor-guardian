@@ -213,10 +213,14 @@ export async function apiPut<T>(endpoint: string, body?: unknown): Promise<T> {
   return response.json();
 }
 
-export async function apiDelete<T>(endpoint: string): Promise<T> {
-  const response = await fetchWithRetry(`${API_URL}${endpoint}`, {
+export async function apiDelete<T>(endpoint: string, body?: unknown): Promise<T> {
+  const options: RequestInit = {
     method: 'DELETE',
-  });
+  };
+  if (body !== undefined) {
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetchWithRetry(`${API_URL}${endpoint}`, options);
   return response.json();
 }
 

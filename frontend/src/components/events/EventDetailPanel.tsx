@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { MotionEvent } from '@/types/security';
 import { X, Download, Trash2, Share2, ChevronLeft, ChevronRight, Brain, AlertTriangle, Car, User, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,42 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageScale, setImageScale] = useState<{ scaleX: number; scaleY: number; offsetX: number; offsetY: number }>({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 });
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const handleImageLoad = useCallback((e?: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e?.currentTarget;
+    const container = imageContainerRef.current;
+    if (!img || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    if (!naturalW || !naturalH) return;
+    const containerW = containerRect.width;
+    const containerH = containerRect.height;
+    const imgAspect = naturalW / naturalH;
+    const containerAspect = containerW / containerH;
+    let renderedW: number, renderedH: number, offsetX: number, offsetY: number;
+    if (imgAspect > containerAspect) {
+      renderedW = containerW;
+      renderedH = containerW / imgAspect;
+      offsetX = 0;
+      offsetY = (containerH - renderedH) / 2;
+    } else {
+      renderedH = containerH;
+      renderedW = containerH * imgAspect;
+      offsetX = (containerW - renderedW) / 2;
+      offsetY = 0;
+    }
+    setImageScale({
+      scaleX: renderedW / naturalW,
+      scaleY: renderedH / naturalH,
+      offsetX,
+      offsetY,
+    });
+  }, []);
+
   if (!event) return null;
 
   const currentIndex = events.findIndex(e => e.id === event.id);
@@ -149,29 +184,31 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
             {/* Event Image */}
-            <div className="relative aspect-video bg-black">
+            <div className="relative aspect-video bg-black" ref={imageContainerRef}>
               {!imageError && event.imageUrl ? (
-                <ProgressiveImage src={event.imageUrl} alt={`Event from ${event.cameraName}`} className="w-full h-full" onError={() => setImageError(true)} />
+                <ProgressiveImage src={event.imageUrl} alt={`Event from ${event.cameraName}`} className="w-full h-full" onError={() => setImageError(true)} onLoad={handleImageLoad} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center"><p className="text-white/60 text-sm">Image not available</p></div>
               )}
               {(event.detections && event.detections.length > 0) && (
                 <div className="absolute inset-0 pointer-events-none">
                   {event.detections.map((detection: DetectionEntry, index) => {
-                    const box = normalizeBoundingBox(detection);
-                    if (!box) return null;
-                    const detType = String(detection.type || 'motion');
-                    const conf = typeof detection.confidence === 'number' ? detection.confidence : 0;
-                    const displayConf = conf <= 1 ? conf * 100 : conf;
-                    return (
-                      <div key={index} className="absolute border-2"
-                        style={{
-                          left: `${box.x}px`, top: `${box.y}px`,
-                          width: `${box.width}px`, height: `${box.height}px`,
-                          borderColor: getDetectionColor(detType),
-                          boxShadow: `0 0 10px ${getDetectionColor(detType)}40`,
-                        }}
-                      >
+                     const box = normalizeBoundingBox(detection);
+                     if (!box) return null;
+                     const detType = String(detection.type || 'motion');
+                     const conf = typeof detection.confidence === 'number' ? detection.confidence : 0;
+                     const displayConf = conf <= 1 ? conf * 100 : conf;
+                     return (
+                       <div key={index} className="absolute border-2"
+                         style={{
+                           left: `${box.x * imageScale.scaleX + imageScale.offsetX}px`,
+                           top: `${box.y * imageScale.scaleY + imageScale.offsetY}px`,
+                           width: `${box.width * imageScale.scaleX}px`,
+                           height: `${box.height * imageScale.scaleY}px`,
+                           borderColor: getDetectionColor(detType),
+                           boxShadow: `0 0 10px ${getDetectionColor(detType)}40`,
+                         }}
+                       >
                         <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
                           style={{ backgroundColor: getDetectionColor(detType) }}
                         >

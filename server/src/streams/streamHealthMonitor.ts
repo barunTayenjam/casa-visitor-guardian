@@ -1,5 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import { logger } from "../utils/logger.js";
+import { serviceRegistry } from "../services/serviceRegistry.js";
 
 interface HealthCheckConfig {
   intervalMs: number; // How often to check health (default: 30 seconds)
@@ -149,7 +150,6 @@ export class StreamHealthMonitor {
         { cameraId, role, staleMinutes, restartAttempts: status.restartAttempts }
       );
       
-      // Emit alert to clients
       this.io.emit('streamHealthAlert', {
         cameraId,
         role,
@@ -157,7 +157,17 @@ export class StreamHealthMonitor {
         message: `Stream unavailable for ${staleMinutes} minutes. Max restart attempts reached.`,
         timestamp: new Date().toISOString()
       });
-      
+
+      try {
+        const pythonWs = serviceRegistry.getPythonWsClient();
+        if (pythonWs && !pythonWs.connected) {
+          logger.warn('[HealthMonitor] Force reconnecting Python WS client after max restart failures', 'HealthMonitor');
+          pythonWs.disconnect();
+          pythonWs.connect();
+          status.restartAttempts = 0;
+        }
+      } catch {}
+
       return;
     }
 

@@ -194,8 +194,8 @@ export async function analyzeWithBoundingBoxes(
     ].filter(Boolean).join(' | ');
 
     const userMessage = contextInfo
-      ? `Context: ${contextInfo}\n\nIdentify all objects in this image carefully. Use percentage coordinates (0-100) for position. Be specific about object types, colors, and positions. Report confidence based on image clarity and visibility.`
-      : 'Identify all objects in this image carefully. Use percentage coordinates (0-100) for position. Be specific about object types, colors, and positions. Report confidence based on image clarity.';
+      ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
+      : 'Respond with only valid JSON: {';
 
     const requestBody = {
       model: model,
@@ -215,7 +215,7 @@ export async function analyzeWithBoundingBoxes(
           ]
         }
       ],
-      temperature: 0.1,
+      temperature: 0.0,
       max_tokens: 4096,
       stream: false,
       top_p: 0.9
@@ -268,14 +268,25 @@ export async function analyzeWithBoundingBoxes(
       const parsed = JSON.parse(jsonStr.trim());
 
       if (parsed.detected_objects && Array.isArray(parsed.detected_objects)) {
-        detectedBoxes = parsed.detected_objects.map((obj: any) => ({
-          x: obj.position?.x || 0,
-          y: obj.position?.y || 0,
-          width: obj.position?.width || 0,
-          height: obj.position?.height || 0,
-          label: obj.label || obj.description || 'unknown',
-          confidence: obj.confidence || 50
-        }));
+        detectedBoxes = parsed.detected_objects.map((obj: any) => {
+          const rawBox = {
+            x: obj.position?.x || 0,
+            y: obj.position?.y || 0,
+            width: obj.position?.width || 0,
+            height: obj.position?.height || 0,
+            label: obj.label || obj.description || 'unknown',
+            confidence: obj.confidence || 50
+          };
+          const maxCoord = Math.max(rawBox.x, rawBox.y, rawBox.x + rawBox.width, rawBox.y + rawBox.height);
+          if (maxCoord > 100) {
+            const scale = 8;
+            rawBox.x /= scale;
+            rawBox.y /= scale;
+            rawBox.width /= scale;
+            rawBox.height /= scale;
+          }
+          return rawBox;
+        });
       }
 
       rawAnalysis.people = parsed.people || [];
@@ -352,8 +363,8 @@ export async function analyzePersons(
     ].filter(Boolean).join(' | ');
 
     const userMessage = contextInfo
-      ? `Context: ${contextInfo}\n\nFocus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100). Be specific about clothing colors, actions, and facing direction. Note any uncertainty due to lighting or distance.`
-      : 'Focus ONLY on detecting humans/people. Provide accurate positions using percentage coordinates (0-100). Be specific about clothing colors, actions, and facing direction. If lighting is poor or person is distant, note your uncertainty and reduce confidence.';
+      ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
+      : 'Respond with only valid JSON: {';
 
     const requestBody = {
       model: model,
@@ -373,8 +384,8 @@ export async function analyzePersons(
           ]
         }
       ],
-      temperature: 0.1,
-      max_tokens: 2048,
+      temperature: 0.0,
+      max_tokens: 4096,
       stream: false,
       top_p: 0.9
     };

@@ -15,6 +15,15 @@ interface AIAnalysis {
   recommendedActions?: string[]; processingTime?: number; modelUsed?: string;
 }
 
+interface NvidiaBox {
+  label: string;
+  confidence: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface EventDetailPanelProps {
   event: MotionEvent | null;
   events: MotionEvent[];
@@ -26,6 +35,7 @@ interface EventDetailPanelProps {
   onAnalyze?: (eventId: string) => void;
   analysis?: AIAnalysis | null;
   analyzing?: boolean;
+  boxes?: NvidiaBox[];
 }
 
 interface DetectionBoxV1 { x: number; y: number; w: number; h: number; }
@@ -60,10 +70,11 @@ function formatConfidence(value: number): string {
 }
 
 export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
-  event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing,
+  event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing, boxes,
 }) => {
   const [imageError, setImageError] = useState(false);
-  const [imageScale, setImageScale] = useState<{ scaleX: number; scaleY: number; offsetX: number; offsetY: number }>({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 });
+  const [showBoxes, setShowBoxes] = useState(true);
+  const [imageScale, setImageScale] = useState<{ scaleX: number; scaleY: number; offsetX: number; offsetY: number; renderedW: number; renderedH: number }>({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, renderedW: 0, renderedH: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -96,8 +107,12 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
       scaleY: renderedH / naturalH,
       offsetX,
       offsetY,
+      renderedW,
+      renderedH,
     });
   }, []);
+
+  const hasNvidiaBoxes = boxes && boxes.length > 0 && showBoxes;
 
   if (!event) return null;
 
@@ -232,8 +247,48 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   ))}
                 </div>
               )}
+              {hasNvidiaBoxes && (
+                <div className="absolute inset-0 pointer-events-none" key="nvidia-boxes">
+                  {boxes.map((box, i) => (
+                    <div key={i} className="absolute border-2"
+                      style={{
+                        left: `${(box.x / 100) * imageScale.renderedW + imageScale.offsetX}px`,
+                        top: `${(box.y / 100) * imageScale.renderedH + imageScale.offsetY}px`,
+                        width: `${(box.width / 100) * imageScale.renderedW}px`,
+                        height: `${(box.height / 100) * imageScale.renderedH}px`,
+                        borderColor: getDetectionColor(box.label),
+                        boxShadow: `0 0 10px ${getDetectionColor(box.label)}40`,
+                      }}
+                    >
+                      <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full whitespace-nowrap"
+                        style={{ backgroundColor: getDetectionColor(box.label) }}
+                      >
+                        {box.label} • {formatConfidence(box.confidence)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {analysis ? (
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  <button
+                    onClick={() => setShowBoxes(v => !v)}
+                    className="p-[1px] rounded-full bg-white/[0.08] hover:bg-white/[0.12] transition-all duration-500"
+                    title={showBoxes ? 'Hide bounding boxes' : 'Show bounding boxes'}
+                  >
+                    <div className={cn(
+                      "rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1",
+                      showBoxes ? "text-green-400" : "text-white/40"
+                    )}>
+                      <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="1" y="1" width="14" height="14" rx="2" />
+                        <line x1="1" y1="5" x2="15" y2="5" />
+                        <line x1="1" y1="11" x2="15" y2="11" />
+                        <line x1="5" y1="1" x2="5" y2="15" />
+                        <line x1="11" y1="1" x2="11" y2="15" />
+                      </svg>
+                    </div>
+                  </button>
                   <div className="p-[1px] rounded-full bg-green-500/30 shadow-[0_0_16px_rgba(34,197,94,0.15)]">
                     <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
                       <Brain className="h-3 w-3 text-green-400" />

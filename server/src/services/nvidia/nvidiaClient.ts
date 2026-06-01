@@ -57,8 +57,8 @@ export async function callNvidiaApi(
   ].filter(Boolean).join(' | ');
 
   const userMessage = contextInfo
-    ? `Context: ${contextInfo}\n\nAnalyze this image carefully. Your response MUST be ONLY valid JSON starting with { and ending with }. No markdown, no code blocks, no preamble. Be specific about counts, colors, positions, and behaviors.`
-    : 'Analyze this image carefully. Your response MUST be ONLY valid JSON starting with { and ending with }. No markdown, no code blocks, no preamble. Be specific about counts, colors, positions, and behaviors.';
+    ? `Context: ${contextInfo}\n\nAnalyze this image. Respond with only valid JSON: {`
+    : 'Analyze this image. Respond with only valid JSON: {';
 
   const requestBody = {
     model: model,
@@ -83,7 +83,7 @@ export async function callNvidiaApi(
         ]
       }
     ],
-    temperature: 0.1,
+    temperature: 0.0,
     max_tokens: 4096,
     stream: false,
     top_p: 0.9

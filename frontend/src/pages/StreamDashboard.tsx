@@ -49,7 +49,7 @@ const StreamDashboard = () => {
         ref={containerRef}
         className={cn("flex-1 min-h-0", focusedCameraId ? "" : "px-4 pb-28")}
       >
-        <div className={focusedCameraId ? 'h-full' : 'rounded-[4px] overflow-hidden'}>
+        <div className='h-full rounded-[4px] overflow-hidden'>
           <AdaptiveCameraGrid
             cameras={cameras}
             focusedCameraId={focusedCameraId}

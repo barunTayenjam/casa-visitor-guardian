@@ -15,7 +15,8 @@ WORKDIR /app
 COPY package.json .
 
 # Install dependencies
-RUN npm install --force && \
+RUN npm install --force --no-audit --no-fund && \
+    npm cache clean --force && \
     chown -R node:node /app
 
 # Copy source code

@@ -42,6 +42,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [isWanStream, setIsWanStream] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -77,6 +78,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const lastVideoTimeUpdateRef = useRef<number>(0);
   const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamStartTimeRef = useRef<number>(0);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const latestFrameRef = useRef<HTMLImageElement | null>(null);
+  const hasNewFrameRef = useRef(false);
+  const renderRafRef = useRef<number>(0);
+  const isWanRef = useRef<boolean | null>(null);
+  const frameUnsubscribeRef = useRef<(() => void) | null>(null);
 
   const handleStreamStartRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const handleStreamStopRef = useRef<() => void>(() => {});
@@ -221,76 +229,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     connectionStateRef.current = connectionState;
   }, [isStreaming, connectionState]);
 
-  const startWebRTC = useCallback(async () => {
-    cleanupPeerConnection();
-
-    console.log(`[CameraStream:${camera.name}] Starting WebRTC connection`);
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    });
-    pcRef.current = pc;
-
-    pc.addTransceiver('video', { direction: 'recvonly' });
-    pc.addTransceiver('audio', { direction: 'recvonly' });
-
-    pc.ontrack = (event) => {
-      console.log(`[CameraStream:${camera.name}] Received video track`);
-      if (videoRef.current && event.streams[0]) {
-        videoRef.current.srcObject = event.streams[0];
-        lastFrameTimeRef.current = Date.now();
-        lastVideoTimeRef.current = 0;
-        lastVideoTimeUpdateRef.current = Date.now();
-        
-        videoRef.current.play().catch(e => {
-          if (e.name !== 'AbortError') console.warn('Video play failed:', e);
-        });
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      const state = pc.iceConnectionState;
-      console.log(`[CameraStream:${camera.name}] ICE state: ${state}`);
-      if (state === 'failed') {
-        failureCountRef.current++;
-        handleStreamRestart();
-      } else if (state === 'disconnected') {
-        console.log(`[CameraStream:${camera.name}] ICE disconnected, waiting for recovery...`);
-        setConnectionState('reconnecting');
-      } else if (state === 'connected' || state === 'completed') {
-        lastFrameTimeRef.current = Date.now();
-        lastVideoTimeRef.current = 0;
-        lastVideoTimeUpdateRef.current = Date.now();
-
-        if (connectionTimeoutRef.current) {
-          clearTimeout(connectionTimeoutRef.current);
-          connectionTimeoutRef.current = null;
-        }
-        const elapsed = Date.now() - streamStartTimeRef.current;
-        setMetrics(prev => ({ ...prev, latency: elapsed }));
-        connectionAttemptsRef.current = 0;
-        setConnectionState('connected');
-      }
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    const response = await fetch(`${GO2RTC_BASE}/api/webrtc?src=${camera.id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: offer.type,
-        sdp: offer.sdp,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`go2rtc returned ${response.status}`);
-    }
-
-    const answer = await response.json();
-    await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
+  const startWatchdog = useCallback(() => {
     if (watchdogIntervalRef.current) clearInterval(watchdogIntervalRef.current);
     watchdogIntervalRef.current = setInterval(() => {
       if (videoRef.current && isStreamingRef.current && !document.hidden) {
@@ -321,7 +260,195 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         }
       }
     }, 2000);
+  }, [camera.name, handleStreamRestart]);
+
+  const startWebRTC = useCallback((): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      cleanupPeerConnection();
+
+      console.log(`[CameraStream:${camera.name}] Starting WebRTC connection`);
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+      pcRef.current = pc;
+
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+
+      let settled = false;
+
+      pc.ontrack = (event) => {
+        if (pcRef.current !== pc) return;
+        console.log(`[CameraStream:${camera.name}] Received video track`);
+        if (videoRef.current && event.streams[0]) {
+          videoRef.current.srcObject = event.streams[0];
+          lastFrameTimeRef.current = Date.now();
+          lastVideoTimeRef.current = 0;
+          lastVideoTimeUpdateRef.current = Date.now();
+
+          videoRef.current.play().catch(e => {
+            if (e.name !== 'AbortError') console.warn('Video play failed:', e);
+          });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pcRef.current !== pc) return;
+        const state = pc.iceConnectionState;
+        console.log(`[CameraStream:${camera.name}] ICE state: ${state}`);
+
+        if (settled) {
+          if (state === 'failed') {
+            failureCountRef.current++;
+            handleStreamRestart();
+          } else if (state === 'disconnected') {
+            console.log(`[CameraStream:${camera.name}] ICE disconnected, waiting for recovery...`);
+            setConnectionState('reconnecting');
+          } else if (state === 'connected' || state === 'completed') {
+            lastFrameTimeRef.current = Date.now();
+            lastVideoTimeRef.current = 0;
+            lastVideoTimeUpdateRef.current = Date.now();
+            setConnectionState('connected');
+          }
+          return;
+        }
+
+        if (state === 'connected' || state === 'completed') {
+          settled = true;
+          lastFrameTimeRef.current = Date.now();
+          lastVideoTimeRef.current = 0;
+          lastVideoTimeUpdateRef.current = Date.now();
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          const elapsed = Date.now() - streamStartTimeRef.current;
+          setMetrics(prev => ({ ...prev, latency: elapsed }));
+          connectionAttemptsRef.current = 0;
+          setConnectionState('connected');
+          resolve();
+        } else if (state === 'failed') {
+          settled = true;
+          reject(new Error('ICE connection failed'));
+        } else if (state === 'disconnected') {
+          console.log(`[CameraStream:${camera.name}] ICE disconnected, waiting for recovery...`);
+          setConnectionState('reconnecting');
+        }
+      };
+
+      (async () => {
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
+          const response = await fetch(`${GO2RTC_BASE}/api/webrtc?src=${camera.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: offer.type, sdp: offer.sdp }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`go2rtc returned ${response.status}`);
+          }
+
+          const answer = await response.json();
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        } catch (err) {
+          if (!settled) {
+            settled = true;
+            reject(err);
+          }
+        }
+      })();
+    });
   }, [camera.id, camera.name, cleanupPeerConnection, handleStreamRestart]);
+
+  const stopFrameRender = useCallback(() => {
+    if (renderRafRef.current) {
+      cancelAnimationFrame(renderRafRef.current);
+      renderRafRef.current = 0;
+    }
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+    if (frameUnsubscribeRef.current) {
+      frameUnsubscribeRef.current();
+      frameUnsubscribeRef.current = null;
+    }
+    if (latestFrameRef.current) {
+      URL.revokeObjectURL(latestFrameRef.current.src);
+      latestFrameRef.current = null;
+    }
+    hasNewFrameRef.current = false;
+  }, []);
+
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  const startFrameRender = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resizeCanvas = () => {
+      const parent = canvas.parentElement;
+      if (parent) {
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+      }
+    };
+
+    resizeCanvas();
+    const parent = canvas.parentElement;
+    if (parent) {
+      resizeObserverRef.current = new ResizeObserver(resizeCanvas);
+      resizeObserverRef.current.observe(parent);
+    }
+
+    const render = () => {
+      if (hasNewFrameRef.current && latestFrameRef.current) {
+        const img = latestFrameRef.current;
+        if (canvas.width > 0 && canvas.height > 0 && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          const scale = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+          const x = (canvas.width - img.naturalWidth * scale) / 2;
+          const y = (canvas.height - img.naturalHeight * scale) / 2;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
+        }
+        hasNewFrameRef.current = false;
+      }
+      renderRafRef.current = requestAnimationFrame(render);
+    };
+    renderRafRef.current = requestAnimationFrame(render);
+  }, []);
+
+  const setupWanStream = useCallback(() => {
+    setIsWanStream(true);
+    stopFrameRender();
+    frameUnsubscribeRef.current = socketService.on('frame', (raw: Record<string, unknown>) => {
+      const event = raw as { cameraId: string; data: ArrayBuffer; role: string; timestamp: string };
+      if (event.cameraId !== camera.id) return;
+      const blob = new Blob([event.data], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        if (latestFrameRef.current) {
+          URL.revokeObjectURL(latestFrameRef.current.src);
+        }
+        latestFrameRef.current = img;
+        hasNewFrameRef.current = true;
+      };
+      img.onerror = () => URL.revokeObjectURL(url);
+      img.src = url;
+    });
+    startFrameRender();
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    setConnectionState('connected');
+  }, [camera.id, stopFrameRender, startFrameRender]);
 
   const handleStreamStart = useCallback(async () => {
     if (streamActionRef.current === "start") return;
@@ -331,6 +458,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     setConnectionState('connecting');
     streamActionRef.current = "start";
     setIsStreaming(true);
+    setIsWanStream(false);
 
     frameCountRef.current = 0;
     lastFrameTimeRef.current = Date.now();
@@ -346,11 +474,30 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       setConnectionState('error');
       setError('Connection timeout. Please try again.');
       setIsStreaming(false);
-    }, 15000);
+    }, 30000);
 
     try {
       await startCameraStream(camera.id);
-      await startWebRTC();
+
+      if (isWanRef.current === true) {
+        setupWanStream();
+        return;
+      }
+
+      const webRtcTimeoutMs = isWanRef.current === false ? 10000 : 5000;
+      try {
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('WebRTC timeout')), webRtcTimeoutMs)
+        );
+        await Promise.race([startWebRTC(), timeoutPromise]);
+        isWanRef.current = false;
+        startWatchdog();
+      } catch {
+        console.log(`[CameraStream:${camera.name}] WebRTC failed, falling back to WAN canvas`);
+        cleanupPeerConnection();
+        isWanRef.current = true;
+        setupWanStream();
+      }
     } catch (err) {
       failureCountRef.current++;
       if (connectionTimeoutRef.current) {
@@ -361,10 +508,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       setError(errorMessage);
       setConnectionState('error');
       setIsStreaming(false);
+      setIsWanStream(false);
       cleanupPeerConnection();
+      stopFrameRender();
       streamActionRef.current = null;
     }
-  }, [camera.id, camera.name, startCameraStream, startWebRTC, cleanupPeerConnection]);
+  }, [camera.id, camera.name, startCameraStream, startWebRTC, cleanupPeerConnection, stopFrameRender, setupWanStream, startWatchdog]);
 
   const handleStreamStop = useCallback(() => {
     if (streamActionRef.current === "stop") return;
@@ -376,10 +525,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     }
     streamActionRef.current = "stop";
     setIsStreaming(false);
+    setIsWanStream(false);
     setConnectionState('idle');
     cleanupPeerConnection();
+    stopFrameRender();
     stopCameraStream(camera.id).catch(() => {});
-  }, [camera.id, camera.name, stopCameraStream, cleanupPeerConnection]);
+  }, [camera.id, camera.name, stopCameraStream, cleanupPeerConnection, stopFrameRender]);
 
   handleStreamStartRef.current = handleStreamStart;
   handleStreamStopRef.current = handleStreamStop;
@@ -397,8 +548,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       if (watchdogIntervalRef.current) {
         clearInterval(watchdogIntervalRef.current);
       }
+      stopFrameRender();
     };
-  }, []);
+  }, [stopFrameRender]);
 
   useEffect(() => {
     let mountTimer: ReturnType<typeof setTimeout> | null = null;
@@ -456,7 +608,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
       visibilityDebounceRef.current = setTimeout(() => {
         if (!document.hidden && socketConnected && autoStart) {
-          // Check if stream is healthy
+          if (isWanStream) {
+            return;
+          }
           const isVideoPlaying = videoRef.current && !videoRef.current.paused && videoRef.current.readyState >= 3;
           const isStalled = Date.now() - lastVideoTimeUpdateRef.current > STALL_THRESHOLD_MS;
           
@@ -483,10 +637,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         clearTimeout(visibilityDebounceRef.current);
       }
     };
-  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamRestart, camera.name]);
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamRestart, camera.name, isWanStream]);
 
   useEffect(() => {
     const handleSocketReconnect = () => {
+      if (isWanStream && connectionState === 'reconnecting') {
+        setConnectionState('connected');
+        return;
+      }
       if (socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
         handleStreamStart();
       }
@@ -494,7 +652,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
     const unsubscribe = socketService.on('connect', handleSocketReconnect);
     return () => unsubscribe();
-  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart]);
+  }, [socketConnected, autoStart, isStreaming, connectionState, handleStreamStart, isWanStream]);
 
   useEffect(() => {
     let lastStateUpdate = 0;
@@ -557,8 +715,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   useEffect(() => {
     return () => {
       cleanupPeerConnection();
+      stopFrameRender();
     };
-  }, [cleanupPeerConnection]);
+  }, [cleanupPeerConnection, stopFrameRender]);
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -577,8 +736,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             playsInline
             muted
             className={cn(
-              "h-full w-full object-contain z-0 select-none touch-pan-y",
-              !isStreaming && 'hidden'
+              "h-full w-full object-cover z-0 select-none touch-pan-y",
+              (!isStreaming || isWanStream) && 'hidden'
             )}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -591,6 +750,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
               console.log(`[CameraStream:${camera.name}] Video waiting for data`);
               // Don't restart immediately on waiting, as it might just be a brief buffer
             }}
+          />
+
+          <canvas
+            ref={canvasRef}
+            className={cn(
+              "h-full w-full object-cover z-0 select-none",
+              (!isStreaming || !isWanStream) && 'hidden'
+            )}
           />
 
           {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
@@ -643,8 +810,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
                 {camera.name}
               </span>
               {connectionState === 'connected' && isStreaming && (
-                <span className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">
-                  LIVE
+                <span className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider",
+                  isWanStream ? "text-amber-500" : "text-red-500"
+                )}>
+                  {isWanStream ? "STREAM" : "LIVE"}
                 </span>
               )}
             </div>

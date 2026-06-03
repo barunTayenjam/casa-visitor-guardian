@@ -112,7 +112,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
     });
   }, []);
 
-  const hasNvidiaBoxes = boxes && boxes.length > 0 && showBoxes;
+  const hasNvidiaBoxes = boxes && boxes.length > 0 && showBoxes && imageScale.renderedW > 0;
 
   if (!event) return null;
 

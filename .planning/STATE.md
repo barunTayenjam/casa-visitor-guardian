@@ -203,3 +203,6 @@ Comprehensive audit of 131 features (docs/AUDIT-REPORT.md) identified 61 bugs ac
 
 *State updated: 2026-05-31 — Phase 10 Critical Bug Fixes complete (4/4 plans, 7/7 bugs). Phase 11 remaining.*
 | 2026-06-01 | fast | fix: only render focused camera in slideshow instead of hiding others with opacity-0 in 1x1 grid | ✅ |
+| 2026-06-01 | fast | fix: keep all cameras mounted in slideshow but use absolute positioning to prevent layout shift | ✅ |
+| 2026-06-01 | fast | lower person detection threshold to 0.30 and re-ran on motion_cam2 image | ✅ |
+| 2026-06-01 | fast | fix NVIDIA reasoning model chain-of-thought output + lower detection thresholds | ✅ |

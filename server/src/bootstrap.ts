@@ -96,8 +96,8 @@ async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
     } else {
       NotificationService.notifyMotionEvent(event).catch(() => {});
     }
-  } catch {
-    /* notification failures are non-blocking */
+  } catch (err) {
+    logger.debug('Notification dispatch failed (non-blocking)', 'BOOTSTRAP', err);
   }
 }
 
@@ -122,8 +122,8 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
   try {
     await authService.register({ username: 'admin', email: 'admin@security.local', password: process.env.SEED_ADMIN_PASSWORD!, role: 'admin' });
     await authService.register({ username: 'user', email: 'user@security.local', password: process.env.SEED_USER_PASSWORD!, role: 'user' });
-  } catch {
-    // Duplicate user errors are tolerable
+  } catch (err) {
+    logger.debug('Seed user registration failed (duplicates expected)', 'BOOTSTRAP', err);
   }
 
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -391,8 +391,8 @@ export async function gracefulShutdown(
         pythonWsClient.disconnect();
         logger.info('Python WebSocket client disconnected', 'BOOTSTRAP');
       }
-    } catch {
-      // Service may not have been initialized
+    } catch (err) {
+      logger.debug('Python WS client shutdown failed (may not be initialized)', 'BOOTSTRAP', err);
     }
 
     io.disconnectSockets(true);

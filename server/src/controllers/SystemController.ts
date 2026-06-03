@@ -71,7 +71,9 @@ export class SystemController extends BaseController {
       try {
         const visitorResult = await AppDataSource.query('SELECT COUNT(Distinct visitor_id) as count FROM visitor_timeline');
         knownVisitors = parseInt(visitorResult?.[0]?.count) || 0;
-      } catch {}
+      } catch (err) {
+        logger.warn('Failed to query visitor count', 'System', err);
+      }
 
 let storageUsed = 0;
     let storageTotal = 0;
@@ -85,9 +87,11 @@ let storageUsed = 0;
       const detectionsPath = config.storage.detectionsDir;
       if ((fs as any).existsSync(detectionsPath) && typeof (fs as any).statfsSync === 'function') {
         const stat = (fs as any).statfsSync(detectionsPath);
-        storageTotal = stat.blocks * stat.bsize;
+      storageTotal = stat.blocks * stat.bsize;
       }
-    } catch {}
+    } catch (err) {
+      logger.warn('Failed to query storage stats', 'System', err);
+    }
     this.ok(res, {
       stats: {
         totalEvents,
@@ -188,7 +192,9 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
           const stat = (fs as any).statfsSync(config.storage.detectionsDir);
           storageTotal = stat.blocks * stat.bsize;
         }
-      } catch {}
+      } catch (err) {
+        logger.warn('Failed to query storage stats in overview', 'System', err);
+      }
 
       const recentEvents = inMemoryState.getRecentEvents();
       const overview = {
@@ -234,7 +240,9 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
         const { AppDataSource } = await import('../database.js');
         await AppDataSource.query('SELECT 1');
         dbHealthy = true;
-      } catch {}
+      } catch (err) {
+        logger.warn('Database health check failed', 'System', err);
+      }
       if (!dbHealthy) issues.push('Database connectivity issue');
 
       const recentEvents = inMemoryState.getRecentEvents();

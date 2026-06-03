@@ -243,6 +243,8 @@ services:
       - "0.0.0.0:8555:8555/udp"
     volumes:
       - ./go2rtc.yaml:/config/go2rtc.yaml
+      - ./go2rtc-entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       - TZ=Asia/Kolkata
     restart: always

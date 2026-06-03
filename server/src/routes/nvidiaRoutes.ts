@@ -20,8 +20,8 @@ router.post('/analyze-event', authenticate(), validate({
   }
 }), (req, res) => nvidiaController.analyzeEvent(req, res));
 router.get('/health', (req, res) => nvidiaController.health(req, res));
-router.get('/results', (req, res) => nvidiaController.getResults(req, res));
-router.get('/models', (req, res) => nvidiaController.getModels(req, res));
+router.get('/results', authenticate(), (req, res) => nvidiaController.getResults(req, res));
+router.get('/models', authenticate(), (req, res) => nvidiaController.getModels(req, res));
 router.put('/config', authenticate(), validate({
   body: {}
 }), (req, res) => nvidiaController.updateConfig(req, res));

@@ -92,8 +92,8 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
 
   // Controller-delegated routes (unique paths that can't be grouped under /api prefix)
   app.get('/api/streaming/metrics', optionalAuth, (req, res) => streamController.getMetrics(req, res));
-  app.get('/snapshot/:cameraId.jpg', (req, res) => streamController.getSnapshot(req, res));
-  app.get('/stream/:cameraId/test', (req, res) => streamController.getMjpegStream(req, res));
+  app.get('/snapshot/:cameraId.jpg', optionalAuth, (req, res) => streamController.getSnapshot(req, res));
+  app.get('/stream/:cameraId/test', optionalAuth, (req, res) => streamController.getMjpegStream(req, res));
   app.get('/stream/:cameraId', optionalAuth, (req, res) => streamController.getMjpegStream(req, res));
 
   // System routes

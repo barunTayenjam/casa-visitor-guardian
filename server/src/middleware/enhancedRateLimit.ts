@@ -115,6 +115,16 @@ export const createStreamRateLimit = () => {
   return rateLimit.middleware();
 };
 
+export const createMfaRateLimit = () => {
+  const rateLimit = new EnhancedRateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // 10 MFA attempts per 15 minutes (TOTP brute-force protection)
+    message: 'Too many MFA attempts, please try again later',
+    keyGenerator: (req) => `mfa:${req.ip || 'unknown'}`
+  });
+  return rateLimit.middleware();
+};
+
 export const createDetectionRateLimit = () => {
   const rateLimit = new EnhancedRateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute

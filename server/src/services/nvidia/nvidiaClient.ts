@@ -107,8 +107,8 @@ export async function callNvidiaApi(
       }
 
       return await response.json();
-    } catch (err: any) {
-      lastError = err;
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < 3) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
         await new Promise(resolve => setTimeout(resolve, delay));

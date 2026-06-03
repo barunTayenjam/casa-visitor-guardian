@@ -19,7 +19,7 @@ export interface AuditLogEntry {
   ip: string;
   userAgent?: string;
   sessionId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   success?: boolean;
   errorMessage?: string;
   requestId?: string;

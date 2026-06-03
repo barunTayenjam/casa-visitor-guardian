@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.js';
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
@@ -20,8 +21,10 @@ export class AnalyticsController extends BaseController {
           const stat = fs.statfsSync(detectionsPath);
           storageTotal = stat.blocks * stat.bsize;
         }
-      } catch {}
-
+      } catch (err) {
+        logger.warn('Failed to get filesystem storage stats', 'Analytics', err);
+      }
+    
       this.ok(res, { storageUsed, storageTotal });
     } catch (error) {
       this.serverError(res, error, 'getStorageStats');

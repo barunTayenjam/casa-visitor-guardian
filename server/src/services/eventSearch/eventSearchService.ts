@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger.js';
 import { AppDataSource } from '../../database.js';
 import { Event } from '../../models/Event.js';
 import { DetectionDataNormalizer } from '../../utils/detectionDataNormalizer.js';
@@ -209,7 +210,7 @@ export class EventSearchService {
     }));
 
     let streamManager: ReturnType<typeof serviceRegistry.getStreamManager> | null = null;
-    try { streamManager = serviceRegistry.getStreamManager(); } catch { streamManager = null; }
+    try { streamManager = serviceRegistry.getStreamManager(); } catch (err) { logger.warn('Failed to get stream manager', 'EventSearch', err); streamManager = null; }
 
     const eventsWithCameraName = mapped.map((evt: Record<string, unknown>) => ({
       ...evt,
@@ -272,7 +273,7 @@ export class EventSearchService {
 
     const events = results.map((row: Record<string, unknown>) => {
       let metadata = row.metadata;
-      if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata as string); } catch { metadata = {}; } }
+      if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata as string); } catch (err) { logger.warn('Failed to parse event metadata JSON', 'EventSearch', err); metadata = {}; } }
       let confidence = 0.75;
       if (metadata && typeof metadata === 'object') {
         const m = metadata as Record<string, unknown>;
@@ -514,7 +515,8 @@ export class EventSearchService {
           object_detections = detectionData.persons || [];
           face_detections = detectionData.faces || [];
         }
-      } catch {
+      } catch (err) {
+        logger.warn('Failed to parse detection data JSON', 'EventSearch', err);
         object_detections = [];
         face_detections = [];
       }

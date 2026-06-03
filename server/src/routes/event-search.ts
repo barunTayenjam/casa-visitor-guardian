@@ -172,7 +172,9 @@ router.get('/image/:filename', optionalAuth, validate({
         }
         if (fs.existsSync(actualImagePath)) return res.sendFile(actualImagePath);
       }
-    } catch {}
+    } catch (err) {
+      logger.warn(`Failed to lookup event image path for ${filename}`, 'EventSearch', err);
+    }
 
     const cacheKey = `img:${filename}`;
     const cached = imagePathCache.get(cacheKey);

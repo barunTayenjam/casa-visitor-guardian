@@ -3,6 +3,7 @@ import { useCameras } from '@/contexts/CameraContext';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const StreamDashboard = () => {
   const { cameras } = useCameras();
@@ -27,7 +28,7 @@ const StreamDashboard = () => {
   }, [cameras, handleCameraFocus]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={cn("flex flex-col", focusedCameraId ? "absolute inset-0" : "h-full")}>
       {!focusedCameraId && (
         <div className="px-5 pt-6 pb-4 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
@@ -46,7 +47,7 @@ const StreamDashboard = () => {
       )}
       <div
         ref={containerRef}
-        className={`flex-1 min-h-0 ${focusedCameraId ? '' : 'px-4 pb-28'}`}
+        className={cn("flex-1 min-h-0", focusedCameraId ? "" : "px-4 pb-28")}
       >
         <div className={focusedCameraId ? 'h-full' : 'rounded-[4px] overflow-hidden'}>
           <AdaptiveCameraGrid

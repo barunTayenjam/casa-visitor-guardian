@@ -271,51 +271,7 @@ export const config: AppConfig = {
     password: process.env.MQTT_PASSWORD,
     qos: parseInt(process.env.MQTT_QOS || '0', 10) as 0 | 1 | 2
   },
-  cameras: (() => {
-    try {
-      let cameras: CameraConfig[] = [];
-
-      if (process.env.CAMERAS) {
-        const parsed = JSON.parse(process.env.CAMERAS);
-        cameras = parsed.map((camera: any) => {
-          if (camera.streams && Array.isArray(camera.streams)) {
-            return camera; // New format
-          }
-          return convertLegacyCameraConfig(camera); // Legacy format
-        });
-      } else {
-        const camerasPath = path.join(__dirname, '../../cameras.json');
-        if (fs.existsSync(camerasPath)) {
-          const camerasData = fs.readFileSync(camerasPath, 'utf8');
-          const parsed = JSON.parse(camerasData);
-          cameras = parsed.map((camera: any) => {
-            if (camera.streams && Array.isArray(camera.streams)) {
-              return camera; // New format
-            }
-            return convertLegacyCameraConfig(camera); // Legacy format
-          });
-        }
-      }
-
-      cameras = cameras.map(camera => ({
-        ...camera,
-        streams: camera.streams.map(stream => ({
-          ...stream,
-          path: decryptStreamPath(stream.path)
-        }))
-      }));
-
-      if (cameras.length === 0) {
-        logger.warn('Camera configuration loaded but resulted in 0 cameras. Check cameras.json format or CAMERAS env var. Server will start but no cameras will be active.', 'Config');
-      }
-
-      return cameras;
-    } catch (error) {
-      logger.error('Failed to load camera configuration', 'Config', error);
-      logger.warn('Camera configuration failed to load. Server starting with no cameras. Verify cameras.json exists and contains valid JSON.', 'Config');
-      return [];
-    }
-  })(),
+  cameras: [] as CameraConfig[],
   security: {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
     maxLoginAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5', 10),
@@ -358,6 +314,47 @@ export interface StreamingConfig {
 export const getCameraById = (id: string): CameraConfig | undefined => {
   return config.cameras.find(camera => camera.id === id);
 };
+
+export function setCameras(cameras: CameraConfig[]): void {
+  config.cameras = cameras;
+}
+
+export function loadCamerasFromFile(): CameraConfig[] {
+  try {
+    if (process.env.CAMERAS) {
+      const parsed = JSON.parse(process.env.CAMERAS);
+      return parsed.map((camera: any) => {
+        if (camera.streams && Array.isArray(camera.streams)) return camera;
+        return convertLegacyCameraConfig(camera);
+      }).map((camera: any) => ({
+        ...camera,
+        streams: camera.streams.map((stream: any) => ({
+          ...stream,
+          path: decryptStreamPath(stream.path)
+        }))
+      }));
+    }
+    const camerasPath = path.join(__dirname, '../../cameras.json');
+    if (fs.existsSync(camerasPath)) {
+      const camerasData = fs.readFileSync(camerasPath, 'utf8');
+      const parsed = JSON.parse(camerasData);
+      return parsed.map((camera: any) => {
+        if (camera.streams && Array.isArray(camera.streams)) return camera;
+        return convertLegacyCameraConfig(camera);
+      }).map((camera: any) => ({
+        ...camera,
+        streams: camera.streams.map((stream: any) => ({
+          ...stream,
+          path: decryptStreamPath(stream.path)
+        }))
+      }));
+    }
+    return [];
+  } catch (error) {
+    logger.warn('Failed to load cameras from file (non-critical, DB is primary source)', 'Config', error);
+    return [];
+  }
+}
 
 export const getDetectionsPath = (type: 'events' | 'snapshots' | 'batch' | 'temp', date: Date = new Date()): string => {
   const year = date.getFullYear();

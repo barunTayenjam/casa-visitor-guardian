@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { logger } from './utils/logger.js';
-import { config, getEventPath } from './config/index.js';
+import { config, getEventPath, setCameras, loadCamerasFromFile, CameraConfig } from './config/index.js';
 import { initializeDatabase, AppDataSource } from './database.js';
 import { setupRTSPStreams } from './streams/rtspManager.js';
 import { consolidatedDetectionService } from './detection/consolidatedDetectionService.js';
@@ -265,54 +265,50 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     process.exit(1);
   }
 
+  let cameras: CameraConfig[] = [];
+
+  try {
+    const dbRows = await AppDataSource.query('SELECT id, name, config, enabled FROM cameras ORDER BY created_at');
+    if (dbRows.length > 0) {
+      cameras = dbRows.map((row: any) => {
+        const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
+        return { ...cfg, enabled: row.enabled };
+      });
+      logger.info(`Loaded ${cameras.length} cameras from database`, 'BOOTSTRAP');
+    }
+  } catch (error) {
+    logger.warn(`Failed to load cameras from database: ${error}`, 'BOOTSTRAP');
+  }
+
+  if (cameras.length === 0) {
+    cameras = loadCamerasFromFile();
+    if (cameras.length > 0) {
+      logger.info(`Loaded ${cameras.length} cameras from cameras.json (first-time bootstrap)`, 'BOOTSTRAP');
+      try {
+        for (const cam of cameras) {
+          await AppDataSource.query(
+            'INSERT INTO cameras (id, name, config, enabled) VALUES ($1, $2, $3::jsonb, $4) ON CONFLICT (id) DO UPDATE SET name = $2, config = $3::jsonb, enabled = $4',
+            [cam.id, cam.name, JSON.stringify(cam), cam.enabled !== false]
+          );
+        }
+        logger.info('Bootstrapped cameras.json cameras into database', 'BOOTSTRAP');
+      } catch (error) {
+        logger.warn(`Failed to seed cameras to database: ${error}`, 'BOOTSTRAP');
+      }
+    }
+  }
+
+  setCameras(cameras);
+
   try {
     logger.info('Initializing stream manager...', 'BOOTSTRAP');
-    const streamManagerInstance = await setupRTSPStreams(io);
+    const streamManagerInstance = await setupRTSPStreams(io, cameras);
     serviceRegistry.setStreamManager(streamManagerInstance);
     NotificationService.loadCameraNames(streamManagerInstance);
     logger.info('Stream manager initialized successfully', 'BOOTSTRAP');
   } catch (error) {
     logger.error('FATAL: Stream manager initialization failed', 'BOOTSTRAP', error);
     process.exit(1);
-  }
-
-  try {
-    const dbCameras = await AppDataSource.query('SELECT COUNT(*) as count FROM cameras');
-    const cameraCount = parseInt(dbCameras[0]?.count || '0', 10);
-    if (cameraCount === 0 && config.cameras.length === 0) {
-      const seedConfig = [
-        {
-          id: 'cam1', name: 'Front Door', enabled: true,
-          streams: [{ path: 'rtsp://admin:password@192.168.1.100:554/stream1', roles: ['live', 'detect'], width: 1920, height: 1080, fps: 2 }],
-          detect: { enabled: true, type: 'opencv', interval: 3, resize_width: 640, resize_height: 360 },
-          objects: { track: ['person', 'car', 'dog', 'cat', 'package'] },
-          zones: [] as Array<{ id: string; name: string; coordinates: number[][]; objects: string[] }>
-        },
-        {
-          id: 'cam2', name: 'Back Door', enabled: true,
-          streams: [{ path: 'rtsp://admin:password@192.168.1.101:554/stream1', roles: ['live', 'detect'], width: 1920, height: 1080, fps: 2 }],
-          detect: { enabled: true, type: 'opencv', interval: 3, resize_width: 640, resize_height: 360 },
-          objects: { track: ['person', 'car', 'dog', 'cat'] },
-          zones: [] as Array<{ id: string; name: string; coordinates: number[][]; objects: string[] }>
-        }
-      ];
-      for (const cam of seedConfig) {
-        await AppDataSource.query(
-          'INSERT INTO cameras (id, name, config, enabled) VALUES ($1, $2, $3::jsonb, $4)',
-          [cam.id, cam.name, JSON.stringify(cam), true]
-        );
-      }
-      logger.info(`Seeded ${seedConfig.length} example cameras into database`, 'BOOTSTRAP');
-
-      const sm = serviceRegistry.getStreamManager();
-      if (sm) {
-        for (const cam of seedConfig) {
-          sm.addCamera(cam as any);
-        }
-      }
-    }
-  } catch (error) {
-    logger.warn(`Camera DB seed skipped (non-critical): ${error}`, 'BOOTSTRAP');
   }
 
   try {

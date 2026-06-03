@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import NotificationService from '../services/notificationService.js';
+import { AppDataSource } from '../database.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -16,7 +17,6 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-// Interface for motion events
 interface MotionEvent {
   id: string;
   cameraId: string;
@@ -34,20 +34,25 @@ async function generateDailyReport(io: SocketIOServer) {
     // Get the stream manager from the service registry
     const streamManager = serviceRegistry.getStreamManager();
     
-    // Get all motion events from in-memory storage
-    // In a real implementation, these would be stored in a database
-    const recentEvents: MotionEvent[] = [];
-    io.emit('getRecentEvents', {}, (events: MotionEvent[]) => {
-      recentEvents.push(...events);
-    });
-    
-    // Get events from the last 24 hours
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const eventsLast24Hours = recentEvents.filter(event => 
-      new Date(event.timestamp) > yesterday
-    );
+    let eventsLast24Hours: MotionEvent[] = [];
+    try {
+      const rows = await AppDataSource.query(
+        `SELECT id, camera_id, timestamp, file_path, confidence
+         FROM events
+         WHERE timestamp > NOW() - INTERVAL '24 hours'
+         ORDER BY timestamp DESC`
+      );
+      eventsLast24Hours = (rows || []).map((row: any) => ({
+        id: row.id,
+        cameraId: row.camera_id,
+        timestamp: row.timestamp,
+        imagePath: row.file_path,
+        confidence: row.confidence || 0,
+        duration: 0,
+      }));
+    } catch (dbError) {
+      logger.warn(`Failed to query recent events for daily report: ${dbError}`, 'Cron');
+    }
     
     // Group events by camera
     const eventsByCamera = eventsLast24Hours.reduce((acc, event) => {

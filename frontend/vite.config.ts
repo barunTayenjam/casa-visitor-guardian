@@ -98,6 +98,11 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/go2rtc/, ""),
       },
+      "/snapshot": {
+        target: process.env.VITE_BACKEND_URL || "http://localhost:9753",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   plugins: [

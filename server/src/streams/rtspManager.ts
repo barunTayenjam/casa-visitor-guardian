@@ -1,7 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import path from "path";
 import { promises as fsp } from "fs";
-import { fileURLToPath } from "url";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
 import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig } from "../config/index.js";
@@ -9,12 +8,9 @@ import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
 import { StreamHealthMonitor } from "./streamHealthMonitor.js";
 import { serviceRegistry } from "../services/serviceRegistry.js";
-import { encryptCredential } from "../services/credentialEncryption.js";
 import { getOpenCVClient } from "../services/opencvMicroserviceClient.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const CAMERAS_CONFIG_PATH = path.join(__dirname, '../../cameras.json');
+let configuredCameras: CameraConfig[] = [];
 
 export interface Camera {
   id: string;
@@ -27,8 +23,6 @@ export interface Camera {
   lastFrameEmitTime: number;
 }
 
-const configuredCameras: CameraConfig[] = config.cameras;
-
 export class StreamManager {
   cameras: Map<string, Camera>;
   io: SocketIOServer;
@@ -38,7 +32,6 @@ export class StreamManager {
   private readonly UNSUBSCRIBE_GRACE_MS = 30000;
   private activeSubscriptions: Set<string> = new Set();
   private initializing: boolean = true;
-  private encryptionWarningLogged: boolean = false;
 
   constructor(io: SocketIOServer) {
     this.cameras = new Map();
@@ -474,31 +467,6 @@ export class StreamManager {
 
   async persistCameras(): Promise<void> {
     try {
-      const encryptionKeyMissing = !process.env.CREDENTIAL_ENCRYPTION_KEY;
-      if (encryptionKeyMissing && !this.encryptionWarningLogged) {
-        this.encryptionWarningLogged = true;
-        logger.warn('CREDENTIAL_ENCRYPTION_KEY not configured — camera credentials will be stored in plaintext. Set this environment variable to encrypt credentials at rest.', 'StreamManager');
-      }
-
-      const serializable = Array.from(this.cameras.values()).map(camera => {
-        const cfg = camera.config;
-        return {
-          ...cfg,
-          streams: cfg.streams.map(stream => ({
-            ...stream,
-            path: encryptionKeyMissing ? stream.path : encryptCredential(stream.path)
-          }))
-        };
-      });
-      try {
-        const tmpPath = CAMERAS_CONFIG_PATH + '.tmp';
-        await fsp.writeFile(tmpPath, JSON.stringify(serializable, null, 2), 'utf8');
-        await fsp.rename(tmpPath, CAMERAS_CONFIG_PATH);
-        logger.info('Camera config persisted to cameras.json', 'StreamManager');
-      } catch (fileErr) {
-        logger.debug(`Skipping cameras.json write (${fileErr instanceof Error ? fileErr.message : fileErr})`, 'StreamManager');
-      }
-
       await this.persistCamerasToDb(Array.from(this.cameras.values()).map(camera => camera.config));
     } catch (error) {
       logger.error(`Failed to persist camera config: ${error}`, 'StreamManager');
@@ -654,20 +622,12 @@ let streamManager: StreamManager;
 
 export async function setupRTSPStreams(
   io: SocketIOServer,
+  cameras: CameraConfig[] = [],
 ): Promise<StreamManager> {
    logger.info("Setting up RTSP stream manager", 'STREAM');
 
-  if (configuredCameras.length === 0) {
-    const dbCameras = await StreamManager.loadCamerasFromDb();
-    if (dbCameras.length > 0) {
-      dbCameras.forEach(c => {
-        if (!configuredCameras.find(existing => existing.id === c.id)) {
-          configuredCameras.push(c);
-        }
-      });
-      logger.info(`Loaded ${dbCameras.length} cameras from database into config`, 'STREAM');
-    }
-  }
+  configuredCameras = cameras;
+  config.cameras = cameras;
 
   streamManager = new StreamManager(io);
 

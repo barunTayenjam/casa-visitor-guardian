@@ -9,7 +9,7 @@ export type GridLayout = 'adaptive' | '1x1' | '2x2' | '3x3';
 
 const SLOT_MANAGER_MAX = 4;
 
-const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotManager; onClick: () => void; onKeyDown: (e: React.KeyboardEvent) => void; gridKey: string; className?: string }> = ({ camera, slotManager, onClick, onKeyDown, gridKey, className }) => {
+const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotManager; onClick: () => void; onKeyDown: (e: React.KeyboardEvent) => void; gridKey: string; className?: string; absolute?: boolean }> = ({ camera, slotManager, onClick, onKeyDown, gridKey, className, absolute }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { isVisible } = useViewportStream(cardRef);
   const [slotAcquired, setSlotAcquired] = useState(false);
@@ -44,7 +44,11 @@ const ViewportCameraCard: React.FC<{ camera: Camera; slotManager: StreamSlotMana
   const shouldStream = isVisible && slotAcquired;
 
   return (
-    <div ref={cardRef} className={cn("relative overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]", className)}
+    <div ref={cardRef} className={cn(
+      "overflow-hidden cursor-pointer group h-full min-h-0 rounded-[0.75rem]",
+      !absolute && "relative",
+      className
+    )}
       onClick={onClick}
       role="button" tabIndex={0} aria-label={`${camera.name} camera feed`}
       onKeyDown={onKeyDown}
@@ -84,11 +88,14 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
 
   useEffect(() => {
     const handleFsChange = () => {
-      if (!document.fullscreenElement) onSlideshowChange?.(false);
+      if (!document.fullscreenElement) {
+        onSlideshowChange?.(false);
+        onCameraFocus?.(undefined);
+      }
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, [onSlideshowChange]);
+  }, [onSlideshowChange, onCameraFocus]);
 
   useEffect(() => {
     if (slideshowActive) {
@@ -239,6 +246,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
 
   const handleStopSlideshow = useCallback(() => {
     onSlideshowChange?.(false);
+    onCameraFocus?.(undefined);
     if (slideshowTimerRef.current) {
       clearInterval(slideshowTimerRef.current);
       slideshowTimerRef.current = null;
@@ -246,7 +254,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
-  }, [onSlideshowChange]);
+  }, [onSlideshowChange, onCameraFocus]);
 
   return (
     <div ref={focusedContainerRef} className="relative w-full h-full flex flex-col min-h-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -256,13 +264,14 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
             <div className="text-center"><p className="text-base">No Cameras Online</p><p className="text-sm mt-2">Add cameras to start viewing live streams</p></div>
           </div>
         ) : (
-          <div className={cn(focusedCameraId ? "relative w-full h-full bg-black" : getGridClasses())} role="group" aria-label="Camera grid">
+          <div className={cn(focusedCameraId ? "w-full h-full bg-black grid grid-cols-1 grid-rows-1 overflow-hidden auto-rows-[0]" : getGridClasses())} role="group" aria-label="Camera grid">
             {activeCameras.map((camera) => (
               <ViewportCameraCard
                 key={camera.id}
                 camera={camera}
                 slotManager={slotManagerRef.current}
                 gridKey={`grid-${camera.id}`}
+                absolute={!!focusedCameraId}
                 className={cn(
                   focusedCameraId && "absolute inset-0",
                   focusedCameraId && camera.id !== focusedCameraId && "opacity-0 pointer-events-none",

@@ -232,7 +232,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const startWatchdog = useCallback(() => {
     if (watchdogIntervalRef.current) clearInterval(watchdogIntervalRef.current);
     watchdogIntervalRef.current = setInterval(() => {
-      if (videoRef.current && isStreamingRef.current && !document.hidden) {
+      if (videoRef.current && isStreamingRef.current && !document.hidden && !isWanRef.current) {
         const now = Date.now();
 
         if (now - streamStartTimeRef.current < STARTUP_GRACE_PERIOD_MS) return;
@@ -641,10 +641,16 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   useEffect(() => {
     const handleSocketReconnect = () => {
-      if (isWanStream && connectionState === 'reconnecting') {
-        setConnectionState('connected');
-        return;
+      const video = videoRef.current;
+      const isVideoPlaying = video && !video.paused && video.readyState >= 2;
+
+      if (connectionState === 'reconnecting') {
+        if (isWanStream || isVideoPlaying) {
+          setConnectionState('connected');
+          return;
+        }
       }
+
       if (socketConnected && autoStart && !isStreaming && connectionState === 'idle') {
         handleStreamStart();
       }

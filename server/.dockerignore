@@ -103,15 +103,6 @@ docs/
 *.pdf
 *.txt
 
-# Frontend files (not needed in backend)
-../src/
-../public/
-../index.html
-../vite.config.ts
-../tailwind.config.ts
-../postcss.config.js
-../components.json
-
 # Test outputs
 test_output.*
 **/test_output.*

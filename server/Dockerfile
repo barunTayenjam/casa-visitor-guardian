@@ -18,11 +18,11 @@ WORKDIR /app
 
 # Install dependencies (copy package files first for better caching)
 COPY package*.json ./
-RUN npm install && \
+RUN npm install --no-audit --no-fund && \
+    npm cache clean --force && \
     chown -R node:node /app
 
 # Copy source code
-COPY server/ ./src
 COPY . .
 
 # Create non-root user and set ownership

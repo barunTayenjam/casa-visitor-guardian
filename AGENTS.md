@@ -12,10 +12,10 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 
 | Layer | Tech | Port |
 |-------|------|------|
-| Frontend | React 18, TypeScript (strict), Vite, TailwindCSS, Radix UI (shadcn/ui) | 5173 |
-| Backend | Express 5, TypeScript (strict), TypeORM, Socket.io | 9753 |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) | 5173 |
+| Backend | Express 5, TypeScript, TypeORM, Socket.io | 9753 |
 | OpenCV | Flask, OpenCV MOG2 + YOLOv4-tiny + face recognition | 8084 |
-| Database | PostgreSQL 15+ (28 migrations) | 5432 |
+| Database | PostgreSQL 15+ (26 migrations) | 5432 |
 | Cache | Redis with in-memory fallback | 6379 |
 
 **Data flow**: `Frontend → Backend API → OpenCV Service → PostgreSQL + Redis`
@@ -214,7 +214,7 @@ For a visual overview, see `docs/c4-streaming-pipeline.md`.
 
 ## Database
 
-28 SQL migrations in `database/migrations/`. Key tables:
+26 SQL migrations in `database/migrations/` (plus 2 disabled). Key tables:
 
 - **users, roles, user_sessions, password_history, audit_logs** — Auth
 - **events** — Core detection events (UUID PK, timestamp, camera_id, event_type, confidence, image_path, persons_detected, faces_detected, object_detections JSONB, face_detections JSONB)
@@ -228,7 +228,7 @@ For a visual overview, see `docs/c4-streaming-pipeline.md`.
 
 ## Conventions
 
-- **TypeScript strict mode** everywhere. No `any`.
+- **TypeScript** with `noImplicitAny` (backend) and permissive frontend config.
 - **File naming**: PascalCase components (`CameraGrid.tsx`), camelCase utils (`apiService.ts`)
 - **Import order**: external → internal → types
 - **API calls**: Use `services/api/baseClient.ts` (handles auth headers, refresh)
@@ -274,6 +274,7 @@ VITE_BACKEND_URL=http://localhost:9753
 | No motion detected | Check RTSP URLs in cameras.json, verify FFmpeg, check detection zones |
 | Frontend build errors | `rm -rf frontend/node_modules && cd frontend && npm install` |
 | Backend TS errors | `cd server && rm -rf dist && npm run build` |
+| Secrets in git history | Use `git filter-repo` — contact maintainer |
 
 ## Utility Scripts
 

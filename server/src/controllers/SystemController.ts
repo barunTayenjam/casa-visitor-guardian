@@ -102,7 +102,7 @@ let storageUsed = 0;
         storageTotal,
       }
     });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'stats');
     }
   }
@@ -128,7 +128,7 @@ let storageUsed = 0;
         freedBytes: result.freedBytes,
         freedMB: (result.freedBytes / 1024 / 1024).toFixed(2)
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'cleanupImages');
     }
   }
@@ -139,7 +139,7 @@ let storageUsed = 0;
       const cleanupService = AutomatedCleanupService.getInstance();
       await cleanupService.runAutomaticCleanup();
       res.json({ success: true, message: 'Full cleanup completed' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'runFullCleanup');
     }
   }

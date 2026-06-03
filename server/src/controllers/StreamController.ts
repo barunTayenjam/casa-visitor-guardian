@@ -244,7 +244,7 @@ export class StreamController extends BaseController {
       const camera = streamManager.getCamera(cameraId);
       if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
 
-      const streams: Record<string, any> = {
+      const streams = {
         live: {
           isActive: camera.isActive,
           fps: camera.adaptiveFps || 4,

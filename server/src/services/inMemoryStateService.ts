@@ -135,8 +135,9 @@ export class InMemoryStateService {
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [newAlert.id, newAlert.type, newAlert.severity, newAlert.message, newAlert.cameraId || null, false, newAlert.timestamp]
       );
-    } catch (error: any) {
-      logger.warn(`Failed to persist alert to database: ${error.message}`, 'InMemoryState');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to persist alert to database: ${msg}`, 'InMemoryState');
     }
   }
 
@@ -161,8 +162,9 @@ export class InMemoryStateService {
         cameraId: r.camera_id || undefined,
       }));
       logger.info(`Loaded ${this.alerts.length} alerts from database`, 'InMemoryState');
-    } catch (error: any) {
-      logger.warn(`Could not load alerts from database: ${error.message}`, 'InMemoryState');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Could not load alerts from database: ${msg}`, 'InMemoryState');
     }
   }
 
@@ -175,8 +177,9 @@ export class InMemoryStateService {
         'UPDATE alerts SET acknowledged = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
         [alertId]
       );
-    } catch (error: any) {
-      logger.warn(`Failed to persist alert acknowledgment to database: ${error.message}`, 'InMemoryState');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to persist alert acknowledgment to database: ${msg}`, 'InMemoryState');
     }
     return true;
   }
@@ -187,8 +190,9 @@ export class InMemoryStateService {
     this.alerts.splice(index, 1);
     try {
       await AppDataSource.query('DELETE FROM alerts WHERE id = $1', [alertId]);
-    } catch (error: any) {
-      logger.warn(`Failed to delete alert from database: ${error.message}`, 'InMemoryState');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to delete alert from database: ${msg}`, 'InMemoryState');
     }
     return true;
   }
@@ -197,8 +201,9 @@ export class InMemoryStateService {
     this.alerts = [];
     try {
       await AppDataSource.query('DELETE FROM alerts');
-    } catch (error: any) {
-      logger.warn(`Failed to clear alerts from database: ${error.message}`, 'InMemoryState');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to clear alerts from database: ${msg}`, 'InMemoryState');
     }
   }
 

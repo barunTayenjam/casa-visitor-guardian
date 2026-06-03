@@ -92,8 +92,9 @@ export class AutomatedCleanupService extends EventEmitter {
             deleted++;
             freedBytes += stats.size;
             break;
-          } catch (err: any) {
-            if (err.code !== 'ENOENT') logger.error(`Error deleting ${filePath}: ${err.message}`, 'CLEANUP');
+          } catch (err: unknown) {
+            const cleanupErr = err as { code?: string; message?: string };
+            if (cleanupErr.code !== 'ENOENT') logger.error(`Error deleting ${filePath}: ${cleanupErr.message}`, 'CLEANUP');
           }
         }
       }

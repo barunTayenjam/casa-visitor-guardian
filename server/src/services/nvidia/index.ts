@@ -69,22 +69,23 @@ export async function analyzeImage(
 
       return parseAIResponse(content, processingTime, model);
 
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
 
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         throw new Error(`NVIDIA API request timed out after ${timeout}ms`);
       }
       throw fetchError;
     }
 
-  } catch (error: any) {
-    logger.error('Analysis error: ' + error.message, 'NVIDIA');
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    logger.error('Analysis error: ' + errMsg, 'NVIDIA');
 
     const processingTime = Date.now() - startTime;
 
     return {
-      sceneDescription: `Analysis failed: ${error.message}`,
+      sceneDescription: `Analysis failed: ${errMsg}`,
       threatAssessment: {
         level: 'medium',
         factors: ['API error - unable to complete analysis'],
@@ -98,12 +99,12 @@ export async function analyzeImage(
         actions: []
       },
       recommendedActions: ['Check NVIDIA API configuration', 'Verify API key is valid'],
-      additionalObservations: [`Error: ${error.message}`],
+      additionalObservations: [`Error: ${errMsg}`],
       processingTime,
       modelUsed: model
     };
+    }
   }
-}
 
 export async function checkApiHealth(): Promise<{
   available: boolean;
@@ -138,11 +139,12 @@ export async function checkApiHealth(): Promise<{
         error: `API returned status ${response.status}`
       };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     return {
       available: false,
       model,
-      error: error.message
+      error: errMsg
     };
   }
 }
@@ -323,13 +325,14 @@ export async function analyzeWithBoundingBoxes(
       modelUsed: model
     };
 
-  } catch (error: any) {
-    logger.error('Bbox analysis error: ' + error.message, 'NVIDIA');
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    logger.error('Bbox analysis error: ' + errMsg, 'NVIDIA');
     const processingTime = Date.now() - startTime;
 
     return {
       boxes: [],
-      sceneDescription: `Analysis failed: ${error.message}`,
+      sceneDescription: `Analysis failed: ${errMsg}`,
       annotatedImage: '',
       rawAnalysis: { people: [], vehicles: [], objects: [], animals: [] },
       processingTime,
@@ -462,14 +465,15 @@ export async function analyzePersons(
       modelUsed: model
     };
 
-  } catch (error: any) {
-    logger.error('Person detection error: ' + error.message, 'NVIDIA');
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    logger.error('Person detection error: ' + errMsg, 'NVIDIA');
     const processingTime = Date.now() - startTime;
 
     return {
       count: 0,
       people: [],
-      sceneDescription: `Analysis failed: ${error.message}`,
+      sceneDescription: `Analysis failed: ${errMsg}`,
       processingTime,
       modelUsed: model
     };

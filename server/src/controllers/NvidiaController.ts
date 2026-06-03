@@ -51,7 +51,7 @@ export class NvidiaController extends BaseController {
         analysis: result,
         metadata: { processingTime: totalTime, timestamp: new Date().toISOString(), cameraId, cameraName }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'nvidia analyze');
     }
   }
@@ -257,7 +257,7 @@ export class NvidiaController extends BaseController {
         if (result.sceneDescription?.startsWith('Analysis failed:')) {
           throw new Error(result.sceneDescription.replace('Analysis failed: ', ''));
         }
-      } catch (nvidiaError: any) {
+      } catch (nvidiaError: unknown) {
         const axios = (await import('axios')).default;
         const { getOpenCVServiceUrl } = await import('../config/index.js');
         try {
@@ -267,8 +267,8 @@ export class NvidiaController extends BaseController {
           });
           const detections: any[] = opencvResponse.data.detections || [];
           result = this.buildOpenCVFallbackResult(detections, startTime);
-        } catch (opencvError: any) {
-          this.serverError(res, `Analysis failed: ${nvidiaError.message}. OpenCV fallback also failed.`);
+        } catch (opencvError: unknown) {
+          this.serverError(res, `Analysis failed: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}. OpenCV fallback also failed.`);
           return;
         }
       }
@@ -315,7 +315,7 @@ export class NvidiaController extends BaseController {
         success: true, analysis: result,
         event: { id: event.id, eventType: event.event_type, cameraId: event.camera_id, timestamp: event.timestamp }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'analyzeEvent');
     }
   }
@@ -324,7 +324,7 @@ export class NvidiaController extends BaseController {
     try {
       const healthResult = await checkApiHealth();
       res.json({ success: true, available: healthResult.available, model: healthResult.model, error: healthResult.error || null });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'nvidia health');
     }
   }
@@ -352,7 +352,7 @@ export class NvidiaController extends BaseController {
           modelUsed: r.model_used, processingTimeMs: r.processing_time_ms, analyzedAt: r.analyzed_at
         }))
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'nvidia getResults');
     }
   }
@@ -375,7 +375,7 @@ export class NvidiaController extends BaseController {
       if (!model) { this.badRequest(res, 'model is required'); return; }
       process.env.NVIDIA_MODEL = model;
       this.ok(res, { message: `Model updated to: ${model}`, note: 'This change is temporary for the current session' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'nvidia updateConfig');
     }
   }
@@ -405,7 +405,7 @@ export class NvidiaController extends BaseController {
         rawAnalysis: result.rawAnalysis,
         metadata: { processingTime: totalTime, modelUsed: result.modelUsed, timestamp: new Date().toISOString(), cameraId, cameraName }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'analyzeWithBboxes');
     }
   }
@@ -463,7 +463,7 @@ export class NvidiaController extends BaseController {
         success: true, count: result.count, people: result.people, sceneDescription: result.sceneDescription,
         metadata: { processingTime: totalTime, modelUsed: result.modelUsed, timestamp: new Date().toISOString(), cameraId, cameraName, triggeredOnMotion: onlyOnMotion || false }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'analyzePersons');
     }
   }
@@ -532,7 +532,7 @@ export class NvidiaController extends BaseController {
         event: { id: event.id, eventType: event.event_type, cameraId: event.camera_id, timestamp: event.timestamp },
         metadata: { processingTime: result.processingTime, modelUsed: result.modelUsed }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.serverError(res, error, 'analyzeEventWithBboxes');
     }
   }

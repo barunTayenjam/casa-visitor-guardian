@@ -425,8 +425,9 @@ export class StreamManager {
 
       await fsp.writeFile(filepath, frame);
       return filename;
-    } catch (error: any) {
-       logger.error(`Error saving snapshot for camera ${cameraId}: ${error.message}`, 'STREAM');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+       logger.error(`Error saving snapshot for camera ${cameraId}: ${msg}`, 'STREAM');
       return null;
     }
   }

@@ -43,9 +43,10 @@ router.get('/search', optionalAuth, validate({
     };
     const result = await eventSearchService.searchEvents(filters);
     res.json({ success: true, ...result });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
      logger.error('Error searching events', 'EventSearch', error);
-     res.status(500).json({ success: false, error: error.message || 'Failed to search events' });
+     res.status(500).json({ success: false, error: errMsg || 'Failed to search events' });
   }
 });
 

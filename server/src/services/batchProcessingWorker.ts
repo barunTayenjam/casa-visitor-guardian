@@ -114,7 +114,8 @@ class SimpleOpenCVClient {
       const result = await response.json();
        logger.info(`OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`, 'BatchWorker');
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
        logger.error('OpenCV batch detection failed', 'BatchWorker', error);
       return {
         success: false,
@@ -125,7 +126,7 @@ class SimpleOpenCVClient {
         results: [],
         totalProcessingTime: 0,
         averageProcessingTime: 0,
-        error: error.message
+        error: errMsg
       };
     }
   }

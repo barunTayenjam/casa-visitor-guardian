@@ -111,8 +111,9 @@ export class ConsolidatedDetectionService {
       }
 
       logger.info(`Loaded settings for ${rows.length} cameras from database`, 'Detection');
-    } catch (error: any) {
-      logger.warn(`Could not load settings from database: ${error.message}. Using defaults.`, 'Detection');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Could not load settings from database: ${msg}. Using defaults.`, 'Detection');
     }
   }
 
@@ -147,8 +148,9 @@ export class ConsolidatedDetectionService {
       } catch (pushError) {
         logger.warn(`Failed to push config to Python: ${pushError}`, 'Detection');
       }
-    } catch (error: any) {
-      logger.error(`Failed to save settings for camera ${cameraId}: ${error.message}`, 'Detection');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to save settings for camera ${cameraId}: ${msg}`, 'Detection');
     }
   }
 

@@ -43,9 +43,10 @@ router.get('/:date', optionalAuth, validate({
     });
 
     res.json({ success: true, date, sort, highlights, summary: { total: highlights.length, totalPersons: highlights.reduce((s: number, h: { personsDetected: number }) => s + h.personsDetected, 0), totalFaces: highlights.reduce((s: number, h: { facesDetected: number }) => s + h.facesDetected, 0), knownFaces: highlights.reduce((s: number, h: { knownFacesCount: number }) => s + h.knownFacesCount, 0) } });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Error fetching highlights', 'Highlights', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: errMsg });
   }
 });
 
@@ -67,9 +68,10 @@ router.get('/:date/summary', optionalAuth, validate({
 
     const hourly = Array.from({ length: 24 }, (_, i) => { const f = hourlyData.find((h: any) => parseInt(h.hour) === i); return { hour: i, count: f ? parseInt(f.count) : 0 }; });
     res.json({ success: true, date, summary: { totalEvents: parseInt(categoryResult[0].total), totalPersons: parseInt(categoryResult[0].total_persons) || 0, totalFaces: parseInt(categoryResult[0].total_faces) || 0, knownFaces: parseInt(categoryResult[0].total_known_faces) || 0, nightEvents: parseInt(categoryResult[0].night_events) || 0 }, hourly });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Error fetching highlights summary', 'Highlights', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: errMsg });
   }
 });
 

@@ -85,7 +85,7 @@ export class ReviewController extends BaseController {
     try {
       const timelineService = serviceRegistry.getTimelineService();
       const activeObjects = await timelineService.getActiveObjects(req.params.camera);
-      const result: Record<string, any> = {};
+      const result: Record<string, unknown> = {};
       for (const [id, obj] of activeObjects.entries()) {
         result[id] = { ...obj, lastSeen: obj.lastSeen.toISOString() };
       }

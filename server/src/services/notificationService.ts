@@ -23,7 +23,7 @@ interface NotificationPayload {
   image?: string;
   badge?: string;
   tag?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 interface PushSubscription {
@@ -172,8 +172,9 @@ export class NotificationService {
       });
 
       return true;
-    } catch (error: any) {
-      if (error.statusCode === 410) {
+    } catch (error: unknown) {
+      const notifErr = error as { statusCode?: number };
+      if (notifErr.statusCode === 410) {
         await notificationSubscriptionRepository.update(subscription.id, {
           isActive: false,
         });

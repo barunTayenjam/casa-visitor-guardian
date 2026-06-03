@@ -412,7 +412,7 @@ export class EventSearchService {
   }
 
   async getCalendarStats(year: number, month: number, cameraId?: string): Promise<{
-    data: Record<string, any>; summary: { totalEvents: number; totalPersons: number; avgConfidence: number }
+    data: Record<string, unknown>; summary: { totalEvents: number; totalPersons: number; avgConfidence: number }
   }> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -430,7 +430,7 @@ export class EventSearchService {
       FROM events e WHERE ${conditions.join(' AND ')} GROUP BY DATE(e.timestamp) ORDER BY date`, params
     );
 
-    const data: Record<string, any> = {};
+    const data: Record<string, unknown> = {};
     results.forEach((row: any) => {
       const dateKey = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
       data[dateKey] = {

@@ -104,8 +104,9 @@ export function parseAIResponse(
     }
 
     throw new Error('Failed to parse JSON from response');
-  } catch (parseError: any) {
-    logger.error('All JSON parse strategies failed: ' + parseError.message, 'NVIDIA');
+  } catch (parseError: unknown) {
+    const errMsg = parseError instanceof Error ? parseError.message : String(parseError);
+    logger.error('All JSON parse strategies failed: ' + errMsg, 'NVIDIA');
 
     if (responseContent.trim().length > 10) {
       return {
@@ -200,7 +201,7 @@ export async function drawBoundingBoxes(
       .toBuffer();
 
     return annotatedBuffer.toString('base64');
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error drawing bounding boxes', 'NVIDIA', error);
     const originalBuffer = await sharp(imagePath).jpeg().toBuffer();
     return originalBuffer.toString('base64');

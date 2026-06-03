@@ -132,15 +132,17 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
   try {
     await consolidatedDetectionService.loadSettingsFromDb();
     logger.info('Detection settings loaded from database', 'BOOTSTRAP');
-  } catch (error: any) {
-    logger.warn(`Could not load detection settings from DB: ${error.message}`, 'BOOTSTRAP');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(`Could not load detection settings from DB: ${msg}`, 'BOOTSTRAP');
   }
 
   try {
     await inMemoryState.loadAlertsFromDb();
     logger.info('Alerts loaded from database', 'BOOTSTRAP');
-  } catch (error: any) {
-    logger.warn(`Could not load alerts from DB: ${error.message}`, 'BOOTSTRAP');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(`Could not load alerts from DB: ${msg}`, 'BOOTSTRAP');
   }
 
   try {

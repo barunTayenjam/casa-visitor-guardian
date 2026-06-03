@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate, validateUserRegistration, validatePasswordChange, validateWithExpress } from '../middleware/validation.js';
-import { createAuthRateLimit, EnhancedRateLimit } from '../middleware/enhancedRateLimit.js';
+import { createAuthRateLimit, createMfaRateLimit, EnhancedRateLimit } from '../middleware/enhancedRateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import { authController } from '../controllers/AuthController.js';
 
@@ -48,6 +48,7 @@ router.post('/refresh',
 );
 
 router.post('/mfa/challenge',
+  createMfaRateLimit(),
   (req, res) => authController.mfaChallenge(req, res)
 );
 

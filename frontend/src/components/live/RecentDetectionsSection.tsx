@@ -45,7 +45,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
           return { id: ev.id, imageUrl: ev.imageUrl || ev.image_path || null, timestamp: new Date(ev.timestamp), objectType: primary.type, confidence: ev.confidence || 0 };
         });
         setDetections(items);
-      } catch { /* silent fail */ }
+      } catch (err) { console.error('Failed to fetch recent detections', err); }
       finally { if (!cancelled) setLoading(false); }
     };
     fetchRecent();

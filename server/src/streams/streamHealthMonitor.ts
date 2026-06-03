@@ -166,7 +166,9 @@ export class StreamHealthMonitor {
           pythonWs.connect();
           status.restartAttempts = 0;
         }
-      } catch {}
+      } catch (err) {
+        logger.warn('[HealthMonitor] Failed to force reconnect Python WS', 'HealthMonitor', err);
+      }
 
       return;
     }

@@ -6,7 +6,7 @@ Essential information for AI agents working on the SentryVision codebase.
 
 Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, Python OpenCV service.
 
-**Version**: 1.4.0 | **Timezone**: IST (UTC+5:30) | **Status**: Production
+**Version**: 1.6.0 | **Timezone**: IST (UTC+5:30) | **Status**: Production
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 |-------|------|------|
 | Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) — served by backend as static files | 9753 |
 | Backend | Express 5, TypeScript, TypeORM, Socket.io | 9753 |
-| OpenCV | Flask, OpenCV MOG2 + YOLOv4-tiny + face recognition | 8084 |
+| OpenCV | Flask, OpenCV MOG2 + YOLOv8n + InsightFace face recognition | 8084 |
 | Database | PostgreSQL 15+ (26 migrations) | 5432 |
 | Cache | In-memory (Redis optional, use `REDIS_DISABLED=true`) | — |
 

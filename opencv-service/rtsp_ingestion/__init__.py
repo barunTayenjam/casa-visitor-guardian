@@ -162,8 +162,8 @@ class RTSPService:
             'pipelines': [
                 {
                     'id': cid,
-                    'running': True,
-                    'live_active': p._live_reader.running if p._live_reader else False,
+                    'running': p._running,
+                    'live_active': p._running,
                 }
                 for cid, p in self._pipelines.items()
             ],

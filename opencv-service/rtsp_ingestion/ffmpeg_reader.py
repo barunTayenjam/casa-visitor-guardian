@@ -126,8 +126,6 @@ class FFmpegReader:
         cmd = [
             "ffmpeg",
             *FFMPEG_DEFAULT_ARGS,
-            "-hwaccel", "vaapi",
-            "-hwaccel_device", "/dev/dri/renderD128",
             "-i", self.rtsp_url,
         ]
         if self._scale:

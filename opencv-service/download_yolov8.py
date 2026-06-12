@@ -9,9 +9,9 @@ import urllib.request
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
 YOLOv8_URLS = [
+    "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n.onnx",
     "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.onnx",
     "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx",
-    "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.onnx",
 ]
 YOLOv8_PATH = os.path.join(MODELS_DIR, 'yolov8n.onnx')
 

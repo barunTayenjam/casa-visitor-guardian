@@ -1,79 +1,98 @@
 # SentryVision
 
-Home security system with real-time camera streaming, motion detection, facial recognition, and visitor analytics.
+> Version 1.6.0 — Resource-optimized home security with real-time AI detection.
 
-## Features
+Real-time camera security system: RTSP → go2rtc → Python (MOG2 + YOLOv8n + InsightFace) → PostgreSQL. Streams via WebRTC or MSE/Canvas fallback through any browser. Runs on 2GB RAM / 2-core hardware.
 
-- **Real-time Streaming**: RTSP → FFmpeg → WebSocket delivery with adaptive quality
-- **Motion Detection**: OpenCV MOG2 background subtraction with adaptive sensitivity and night mode
-- **Object Detection**: YOLOv4-tiny tracking (person, car, dog, cat, package)
-- **Facial Recognition**: Face detection, embedding, and known person matching via Python service
-- **Visitor Analytics**: Timeline views, review segments, and visitor tracking
-- **Multi-camera Support**: Zone-based detection with customizable tracking areas
-- **AI Analysis**: NVIDIA-powered scene analysis for events
-- **Notifications**: Push notification system with configurable preferences
-- **Auth**: JWT + refresh tokens, TOTP MFA, role-based access (admin/user/viewer)
+## One-Click Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anomalyco/home-security-non-docker/main/scripts/install.sh | bash
+```
+
+Or from a local clone:
+
+```bash
+bash scripts/install.sh
+```
+
+The script auto-detects your LAN IP, generates secure secrets, builds containers, and waits for everything to be healthy. Add cameras later from the web UI.
+
+**Default login**: `admin` / `admin123` (change on first login)
+
+---
 
 ## Architecture
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Frontend   │     │   Backend    │     │  OpenCV Svc  │
-│   React 18   │◄───►│   Express    │◄───►│   Flask      │
-│   :5173      │     │   :9753      │     │   :8084      │
-└──────────────┘     └──────┬───────┘     └──────────────┘
-                            │
-                  ┌─────────┴─────────┐
-                  │                   │
-            ┌─────▼─────┐      ┌─────▼─────┐
-            │ PostgreSQL│      │   Redis   │
-            │   :5432   │      │   :6379   │
-            └───────────┘      └───────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Browser    │◄───►│   Backend    │◄───►│  OpenCV Svc  │◄───►│    go2rtc    │
+│   WebRTC/MSE │     │   Express 5  │     │   Flask      │     │  RTSP proxy  │
+│    :9753     │     │   :9753      │     │   :8084      │     │  :8555/:1984 │
+└──────────────┘     └──────┬───────┘     └──────────────┘     └──────┬───────┘
+                            │                                         │
+                     ┌──────▼──────┐                          ┌──────▼──────┐
+                     │  PostgreSQL │                          │   Camera    │
+                     │   :5432     │                          │   RTSP      │
+                     └─────────────┘                          └─────────────┘
 ```
 
 | Service | Stack | Port |
 |---------|-------|------|
-| Frontend | React 18 + TypeScript + Vite + TailwindCSS + Radix UI | 5173 |
-| Backend | Node.js + Express 5 + TypeScript + TypeORM + Socket.io | 9753 |
-| OpenCV | Python Flask + OpenCV (MOG2, YOLOv4-tiny, face recognition) | 8084 |
-| Database | PostgreSQL 15+ with 28 migrations | 5432 |
-| Cache | Redis (in-memory fallback) | 6379 |
+| Backend (serves frontend + API) | Express 5 + TypeScript + TypeORM + Socket.io | 9753 |
+| Frontend (static, served by backend) | React 18 + TypeScript + Vite + TailwindCSS + Radix UI | 9753 |
+| OpenCV | Python Flask + MOG2 + YOLOv8n ONNX + InsightFace + ByteTracker | 8084 / 9090 |
+| go2rtc | RTSP → WebRTC bridge | 8555 (WebRTC) / 1984 (API) |
+| Database | PostgreSQL 15+ (26 migrations) | 5432 |
+| Cache | In-memory (Redis optional) | — |
+
+**Key design decisions:**
+- **Frontend merged into backend**: Single container serves both static files and API — one less container, simpler deployment.
+- **Redis removed by default**: In-memory cache replaces Redis — saves ~150MB RAM on low-end hardware. Set `REDIS_DISABLED=true`.
+- **go2rtc as RTSP gateway**: Cameras (especially TP-LINK) allow only 1 concurrent RTSP connection. go2rtc holds it; Python consumes the re-stream.
+- **Python for vision, Node.js for web**: Two-runtime architecture is correct — Python owns real-time OpenCV pipeline, Node.js owns API/DB/delivery.
+- **WebRTC → MSE → canvas fallback**: WebRTC works on LAN (lowest latency); MSE via WebSocket fMP4 works through Cloudflare Tunnel (TCP-only); canvas fallback from Python pipeline as last resort.
+
+### Detection Pipeline
+
+```
+Camera RTSP → go2rtc → FFmpegReader (BGR24) → MotionGate (MOG2)
+  → YOLOv8n ONNX (class whitelist: person/car/dog/cat/etc)
+  → ByteTracker (Kalman filter tracking)
+  → IdentityEnrichment (InsightFace ArcFace)
+  → WebSocketPublisher → Node.js → PostgreSQL
+```
+
+- **MotionGate**: MOG2 background subtraction (pixel threshold: 500, 10-frame warmup)
+- **YOLOv8n**: ~215ms inference, 80-class COCO filtered to security-relevant classes
+- **ByteTracker**: Kalman filter multi-object tracking with lifecycle management
+- **Face recognition**: InsightFace ArcFace with 30s identity cache
 
 ## Quick Start
 
-### Docker (Recommended)
+### Docker (Recommended — Production Mode)
 
 ```bash
-git clone <repository-url> && cd home-security-non-docker
-docker-compose up -d
-docker-compose ps
-docker-compose logs -f
+git clone <repo-url> && cd home-security-non-docker
+# Edit go2rtc.yaml or server/cameras.json with your RTSP URLs
+docker compose up -d --build
 ```
 
 ### Local Development
 
 ```bash
-npm install && cd server && npm install && cd ../frontend && npm install
+# Backend (handles both API + frontend serving in production)
+cd server
+npm install && npm run dev    # :9753
 
-createdb sentryvision
-cd database && npm run migrate
-
-npm run dev:full
+# Frontend (standalone dev server with HMR)
+cd frontend
+npm install && npm run dev    # :5173 (proxies API to :9753)
 ```
-
-### Service URLs
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:9753 |
-| OpenCV Service | http://localhost:8084 |
-
-## Configuration
 
 ### Camera Setup
 
-Edit `server/cameras.json` (see `server/cameras.example.json` for template):
+Add cameras via the web UI (Settings → Cameras) or edit `server/cameras.json` directly:
 
 ```json
 {
@@ -82,137 +101,85 @@ Edit `server/cameras.json` (see `server/cameras.example.json` for template):
   "streams": [{
     "path": "rtsp://user:pass@192.168.1.100:554/stream1",
     "roles": ["live", "detect", "record"],
-    "width": 1920, "height": 1080, "fps": 4
+    "width": 1920, "height": 1080, "fps": 2
   }],
-  "objects": { "track": ["person", "car", "dog", "cat", "package"] },
-  "zones": [
-    {
-      "id": "front_steps", "name": "Front Steps",
-      "coordinates": [[0.1, 0.5], [0.4, 0.3], [0.5, 0.4], [0.2, 0.7]],
-      "objects": ["person", "package"]
-    }
-  ]
+  "objects": { "track": ["person", "car", "dog", "cat"] }
 }
 ```
 
-### Timezone
+## Service URLs
 
-All services use **IST (Asia/Kolkata, UTC+5:30)** via `TZ=Asia/Kolkata`.
-
-## API Endpoints
-
-### Auth
-- `POST /api/auth/register` - Register user
-- `POST /api/auth/login` - Login with JWT
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - Invalidate session
-- `GET /api/auth/mfa/setup` - Setup MFA
-- `POST /api/auth/mfa/verify` - Verify TOTP code
-
-### Events
-- `GET /api/events/list` - List with pagination
-- `GET /api/events/list-enhanced` - Filtered list (type, camera, date range)
-- `GET /api/events/:id` - Event details
-- `GET /api/events/image/:filename` - Event image
-- `DELETE /api/events/:id` - Delete event
-
-### Visitors
-- `GET /api/visitors/list` - All visitors
-- `GET /api/visitors/timeline` - Visitor timeline
-- `GET /api/visitors/:id` - Visitor details
-- `PUT /api/visitors/:id` - Update visitor
-
-### Review
-- `GET /api/review/segments` - Review segments
-- `POST /api/review/segments/:id/dismiss` - Dismiss
-- `POST /api/review/segments/:id/confirm` - Confirm
-
-### Detection
-- `POST /api/detection/redo` - Re-run detection
-- `POST /api/detection/batch` - Batch detection
-- `GET /api/detection/status/:jobId` - Job status
-
-### System
-- `GET /api/health` - Health check
-- `GET /api/stats` - Statistics
-- `GET /api/cameras` - Camera list
-- `POST /api/cameras/:id/snapshot` - Capture snapshot
+| Service | URL |
+|---------|-----|
+| Web UI | http://localhost:9753 |
+| go2rtc admin | http://localhost:1984 |
+| OpenCV health | http://localhost:8084/health |
 
 ## Project Structure
 
 ```
-home-security-non-docker/
-├── frontend/                # React frontend
+├── frontend/                # React SPA (served by backend in production)
+├── server/                  # Express 5 backend (API + static files + Socket.io)
 │   └── src/
-│       ├── pages/           # Route pages (Events, Analytics, Settings, DayHighlights...)
-│       ├── components/      # UI components
-│       │   ├── live/        # Camera grid, stream panels
-│       │   ├── events/      # Event detail, filters, timeline
-│       │   ├── layout/      # AppLayout, MacDock navigation
-│       │   ├── settings/    # Motion/optimization settings
-│       │   └── ui/          # shadcn/ui (Radix primitives)
-│       ├── services/api/    # API clients (camera, event, detection, auth...)
-│       ├── contexts/        # Auth, Camera, Socket contexts
-│       └── types/           # TypeScript definitions
-├── server/                  # Node.js backend
-│   └── src/
-│       ├── controllers/     # MVC controllers (Camera, Stream, Auth, Detection...)
+│       ├── controllers/     # MVC controllers
 │       ├── routes/          # Express route definitions
-│       ├── services/        # Business logic (batch, retention, notifications...)
-│       ├── models/          # TypeORM entities (User, Event, Visitor, BatchJob...)
-│       ├── middleware/      # Auth, validation, rate limiting
-│       ├── detection/       # Motion detection (optimized, triggered, consolidated)
+│       ├── services/        # Business logic
+│       ├── models/          # TypeORM entities
+│       ├── middleware/       # Auth, validation, rate limiting
 │       ├── streams/         # RTSP manager, stream health monitor
-│       └── utils/           # Logger, encryption, cron jobs, audit logging
-├── opencv-service/          # Python OpenCV service
-│   ├── app.py               # Flask application
-│   ├── improved_face_recognition.py
-│   └── models/              # YOLO weights, face detection models
+│       └── index.ts         # Bootstrap (go2rtc proxy, WebSocket upgrade, CSP)
+├── opencv-service/          # Python OpenCV detection pipeline
+│   ├── rtsp_ingestion/      # Core pipeline (FFmpegReader, MotionGate, YOLO, Tracker)
+│   ├── models/              # ONNX weights
+│   └── download_yolov8.py   # Model download script
 ├── database/
-│   └── migrations/          # SQL migrations (001-028)
-├── scripts/                 # Utility scripts (deploy, health, backup, diagnose)
-└── docker-compose.yml
+│   └── migrations/          # PostgreSQL migrations (001-026)
+├── scripts/
+│   ├── install.sh           # One-click install script
+│   ├── diagnose.sh          # System diagnostics
+│   ├── health.sh            # Service health monitoring
+│   └── ...
+├── go2rtc.yaml              # RTSP stream definitions + WebRTC config
+├── docker-compose.yml       # 4 services (no separate frontend container)
+└── .env                     # Auto-generated by install.sh
 ```
+
+## Environment Variables
+
+Key variables in `.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_PASSWORD` | (required) | Database password |
+| `JWT_ACCESS_SECRET` | (required) | JWT signing secret |
+| `REDIS_DISABLED` | `true` | Skip Redis, use in-memory cache |
+| `LOW_RESOURCE_MODE` | `true` | Lower memory/CPU limits |
+| `DEFAULT_FPS` | `2` | Detection pipeline frames per second |
+| `SEED_ADMIN_PASSWORD` | `admin123` | First-run admin password |
 
 ## Commands
 
 ```bash
+# Docker
+docker compose up -d         # Start all services
+docker compose logs -f       # Follow logs
+docker compose down          # Stop
+bash scripts/install.sh      # One-click install or update
+
 # Development
-npm run dev                 # Frontend only (5173)
-npm run dev:server          # Backend only (9753)
-npm run dev:full            # Both
-npm run kill:ports          # Kill processes on 5173, 9753
+npm run dev                  # Frontend HMR (:5173)
+npm run dev:server           # Backend (:9753)
+npm run dev:full             # Both
 
-# Build
-npm run build               # Frontend
-npm run build:server        # Backend
-npm run build:full          # Both
+# Quality
+npm run lint                 # ESLint (frontend)
+npm run typecheck            # TypeScript check (frontend)
+npm run test                 # Jest (frontend)
 
-# Testing
-npm run lint                # ESLint (frontend)
-npm run typecheck           # TypeScript check (frontend)
-npm run test                # Jest (frontend)
-
-# Utility scripts
-scripts/health.sh           # Service health monitoring
-scripts/diagnose.sh         # System diagnostics
-scripts/test-opencv.sh      # Test OpenCV + backend + frontend
-scripts/backup.sh           # Database and file backups
-scripts/deploy.sh           # Production deployment
-scripts/sentryvision.sh     # Interactive management console
+# Diagnostics
+bash scripts/diagnose.sh     # Camera connectivity, ports, FFmpeg
+bash scripts/health.sh       # Service health monitoring
 ```
-
-## Database
-
-28 migrations creating tables across 5 domains:
-
-| Category | Tables |
-|----------|--------|
-| Users | `users`, `roles`, `user_sessions`, `password_history`, `audit_logs` |
-| Detection | `events`, `detection_config`, `processed_images`, `adaptive_regions`, `face_embeddings` |
-| Visitors | `visitor_timeline`, `timeline`, `unknown_faces` |
-| Review | `review_segments`, `user_review_status`, `batch_jobs` |
-| System | `retention_policies`, `storage_stats`, `system_settings`, `notification_*`, `security_events`, `rate_limit_counters`, `ai_analysis_results` |
 
 ## Security
 
@@ -225,22 +192,15 @@ scripts/sentryvision.sh     # Interactive management console
 - Helmet.js security headers
 - Full audit logging of sensitive operations
 
-## Deployment
+## Troubleshooting
 
-See `scripts/deploy.sh` for production deployment. Key steps:
-
-1. Configure `.env` with production secrets (never use defaults)
-2. Run `scripts/deploy.sh` or `docker-compose up -d`
-3. Set up SSL/TLS reverse proxy
-4. Configure PostgreSQL backups
-5. Monitor via `scripts/health.sh`
-
-## Documentation
-
-- **`AGENTS.md`** - Developer guidelines, architecture details, conventions
-- **`server/cameras.example.json`** - Camera config reference
-- **`.env.example`** - Environment variable template
+| Problem | Fix |
+|---------|-----|
+| No frames from camera | Camera may reject multiple RTSP connections. go2rtc holds the single slot; verify `go2rtc.yaml` is correct. |
+| OpenCV not connecting | `curl http://localhost:8084/health` — check Docker logs |
+| Port conflicts | Ensure ports 9753, 8084, 9090, 8555, 1984, 5432 are free |
+| WebRTC not working on LAN | Verify candidates in `go2rtc.yaml` match your LAN IP |
 
 ## License
 
-Private project
+Private project.

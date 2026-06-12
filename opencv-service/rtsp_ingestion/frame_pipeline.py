@@ -49,6 +49,7 @@ from .config import (
     JPEG_QUALITY,
     INFERENCE_BACKEND,
     INFERENCE_TARGET,
+    GO2RTC_RTSP_BASE,
 )
 from .queues import DropOldestQueue, DropIfFullQueue
 from .ffmpeg_reader import FFmpegReader
@@ -107,13 +108,20 @@ class InProcessYOLO:
         self._net = None
         self._model_type = None
         self._input_size = 640
-        self._confidence_threshold = 0.30
+        self._confidence_threshold = 0.25
         self._nms_threshold = 0.45
-        self._class_thresholds = {
-            "person": 0.45, "car": 0.50, "truck": 0.70, "bus": 0.50,
-            "motorcycle": 0.50, "bicycle": 0.50, "dog": 0.50, "cat": 0.50,
+        # Only these COCO classes are relevant for home security.
+        # Everything else is dropped regardless of confidence.
+        self._relevant_classes = {
+            "person", "car", "truck", "bus", "motorcycle", "bicycle",
+            "dog", "cat", "bird", "horse",
         }
-        self._default_threshold = 0.60
+        self._class_thresholds = {
+            "person": 0.30, "car": 0.35, "truck": 0.45, "bus": 0.40,
+            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.40, "cat": 0.40,
+            "bird": 0.40, "horse": 0.40,
+        }
+        self._default_threshold = 0.50
         self._min_box_area = 2500
         self._min_box_side = 50
         self._initialized = False
@@ -205,10 +213,10 @@ class InProcessYOLO:
         boxes, confidences, class_ids = [], [], []
         if self._model_type in ("yolov8", "yolov5"):
             output = outputs[0]
-            if output.shape[0] not in (1, output.shape[0]):
-                pass
             if len(output.shape) == 3 and output.shape[0] == 1:
                 output = output[0]
+            if self._model_type == "yolov8" and output.shape[0] < output.shape[1]:
+                output = output.transpose()
             num_classes = output.shape[-1] - (4 if self._model_type == "yolov8" else 5)
             for det in output:
                 if self._model_type == "yolov8":
@@ -219,21 +227,17 @@ class InProcessYOLO:
                 cid = int(np.argmax(scores))
                 conf = float(scores[cid])
                 cname = self._class_names[cid] if cid < len(self._class_names) else f"obj_{cid}"
+                if cname not in self._relevant_classes:
+                    continue
                 thresh = self._class_thresholds.get(cname, self._default_threshold)
                 if conf < thresh:
                     continue
                 cx, cy, bw, bh = det[0], det[1], det[2], det[3]
-                if self._model_type == "yolov5":
-                    sx, sy = w / self._input_size, h / self._input_size
-                    x = int((cx - bw / 2) * sx)
-                    y = int((cy - bh / 2) * sy)
-                    bw = int(bw * sx)
-                    bh = int(bh * sy)
-                else:
-                    x = int((cx - bw / 2) * w)
-                    y = int((cy - bh / 2) * h)
-                    bw = int(bw * w)
-                    bh = int(bh * h)
+                sx, sy = w / self._input_size, h / self._input_size
+                x = int((cx - bw / 2) * sx)
+                y = int((cy - bh / 2) * sy)
+                bw = int(bw * sx)
+                bh = int(bh * sy)
                 x, y = max(0, x), max(0, y)
                 bw, bh = min(w - x, bw), min(h - y, bh)
                 if bw >= self._min_box_side and bh >= self._min_box_side and bw * bh >= self._min_box_area:
@@ -377,39 +381,20 @@ class FramePipeline:
         self._detect_width = detect_cfg.get("width", DETECT_WIDTH)
         self._detect_height = detect_cfg.get("height", DETECT_HEIGHT)
 
-        live_stream = self._get_stream_by_role("live")
-        detect_stream = self._get_stream_by_role("detect")
+        # Single reader per camera — go2rtc re-streams the camera's sole RTSP
+        # connection to any number of consumers internally, so we only need
+        # one FFmpeg process. The live callback splits frames to both queues.
+        go2rtc_url = f"{GO2RTC_RTSP_BASE}/{self._camera_id}"
 
-        self._live_reader: Optional[FFmpegReader] = None
-        self._detect_reader: Optional[FFmpegReader] = None
-
-        if live_stream and detect_stream and live_stream["path"] != detect_stream["path"]:
-            self._live_reader = FFmpegReader(
-                rtsp_url=live_stream["path"],
-                camera_id=f"{self._camera_id}-live",
-                width=self._live_width,
-                height=self._live_height,
-                fps=live_cfg.get("fps", DEFAULT_FPS),
-                scale=False,
-            )
-            self._detect_reader = FFmpegReader(
-                rtsp_url=detect_stream["path"],
-                camera_id=f"{self._camera_id}-detect",
-                width=self._detect_width,
-                height=self._detect_height,
-                fps=detect_cfg.get("fps", DEFAULT_FPS),
-                scale=False,
-            )
-        else:
-            fallback = live_stream or detect_stream or self._get_primary_stream()
-            self._live_reader = FFmpegReader(
-                rtsp_url=fallback["path"],
-                camera_id=self._camera_id,
-                width=self._live_width,
-                height=self._live_height,
-                fps=live_cfg.get("fps", DEFAULT_FPS),
-                scale=False,
-            )
+        self._live_reader = FFmpegReader(
+            rtsp_url=go2rtc_url,
+            camera_id=self._camera_id,
+            width=self._live_width,
+            height=self._live_height,
+            fps=live_cfg.get("fps", DEFAULT_FPS),
+            scale=False,
+        )
+        self._detect_reader = None
 
         self._detection_thread: Optional[threading.Thread] = None
         self._running = False
@@ -462,28 +447,18 @@ class FramePipeline:
             daemon=True,
         )
         self._detection_thread.start()
-        if self._detect_reader:
-            self._detect_reader.start(self._on_detect_frame)
-        else:
-            self._live_reader.start(self._on_live_frame)
-        mode = "dual" if self._detect_reader else "single"
-        print(f"[FramePipeline:{self._camera_id}] Started ({mode}, detect-only, live=on-demand)")
+        self._live_reader.start(self._on_live_frame)
+        print(f"[FramePipeline:{self._camera_id}] Started (single reader, live+detect)")
 
     def start_live(self) -> None:
-        if self._live_reader and not self._live_reader.running:
-            self._live_reader.start(self._on_live_frame)
-            print(f"[FramePipeline:{self._camera_id}] Live reader started (on-demand)")
+        pass
 
     def stop_live(self) -> None:
-        if self._live_reader and self._live_reader.running:
-            self._live_reader.stop()
-            print(f"[FramePipeline:{self._camera_id}] Live reader stopped (no viewers)")
+        pass
 
     def stop(self) -> None:
         self._running = False
         self._live_reader.stop()
-        if self._detect_reader:
-            self._detect_reader.stop()
         if self._detection_thread:
             self._detection_thread.join(timeout=5)
         print(f"[FramePipeline:{self._camera_id}] Stopped")
@@ -497,17 +472,9 @@ class FramePipeline:
             if success:
                 self._live_queue.put(jpeg_buf.tobytes())
 
-        if not self._detect_reader:
-            small = cv2.resize(frame, (self._detect_width, self._detect_height), interpolation=cv2.INTER_AREA)
-            try:
-                self._detection_queue.put_nowait(small)
-            except queue.Full:
-                pass
-
-    def _on_detect_frame(self, frame_data: dict) -> None:
-        frame: np.ndarray = frame_data["data"]
+        small = cv2.resize(frame, (self._detect_width, self._detect_height), interpolation=cv2.INTER_AREA)
         try:
-            self._detection_queue.put_nowait(frame)
+            self._detection_queue.put_nowait(small)
         except queue.Full:
             pass
 

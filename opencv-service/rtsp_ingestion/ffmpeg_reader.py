@@ -16,6 +16,7 @@ Usage:
     reader.stop()
 """
 
+import json
 import subprocess
 import threading
 import time
@@ -35,8 +36,8 @@ class FFmpegReader:
     Attributes:
         camera_id:  Unique identifier for the camera (used in metadata).
         rtsp_url:   Full RTSP URL including credentials.
-        width:      Target decode width (FFmpeg `-vf scale`).
-        height:     Target decode height.
+        width:      Output frame width (native if scale=False).
+        height:     Output frame height (native if scale=False).
         fps:        Target frame rate (FFmpeg `-r`).
         running:    Whether the reader loop is active.
     """
@@ -48,19 +49,55 @@ class FFmpegReader:
         width: int = DEFAULT_WIDTH,
         height: int = DEFAULT_HEIGHT,
         fps: int = DEFAULT_FPS,
+        scale: bool = True,
     ):
         self.rtsp_url = rtsp_url
         self.camera_id = camera_id
-        self.width = width
-        self.height = height
         self.fps = fps
+        self._scale = scale
         self.running = False
         self._process: Optional[subprocess.Popen] = None
         self._thread: Optional[threading.Thread] = None
         self._callback = None
-        self._frame_size = width * height * 3  # BGR24
         self._reconnect_delay = 1.0
         self._max_reconnect_delay = 30.0
+
+        if scale:
+            self.width = width
+            self.height = height
+        else:
+            self.width, self.height = self._probe_resolution(width, height)
+
+        self._frame_size = self.width * self.height * 3
+
+    MAX_OUTPUT_WIDTH = 1280
+    MAX_OUTPUT_HEIGHT = 720
+
+    def _probe_resolution(self, fallback_w: int, fallback_h: int) -> tuple[int, int]:
+        try:
+            cmd = [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height",
+                "-of", "json",
+                "-rtsp_transport", "tcp",
+                self.rtsp_url,
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+            info = json.loads(result.stdout)
+            stream = info.get("streams", [{}])[0]
+            w = int(stream.get("width", fallback_w))
+            h = int(stream.get("height", fallback_h))
+            if w > self.MAX_OUTPUT_WIDTH or h > self.MAX_OUTPUT_HEIGHT:
+                print(f"[FFmpegReader:{self.camera_id}] Native {w}x{h} exceeds cap {self.MAX_OUTPUT_WIDTH}x{self.MAX_OUTPUT_HEIGHT}, will scale")
+                self._scale = True
+                scale = min(self.MAX_OUTPUT_WIDTH / w, self.MAX_OUTPUT_HEIGHT / h)
+                w, h = int(w * scale), int(h * scale)
+            print(f"[FFmpegReader:{self.camera_id}] Probed resolution: {w}x{h} (scale={'yes' if self._scale else 'no'})")
+            return w, h
+        except Exception as e:
+            print(f"[FFmpegReader:{self.camera_id}] Probe failed ({e}), using {fallback_w}x{fallback_h}")
+            return fallback_w, fallback_h
 
     def start(self, callback) -> None:
         """Start the reader thread.
@@ -86,17 +123,23 @@ class FFmpegReader:
 
     def _build_command(self) -> list[str]:
         """Build the FFmpeg command line for raw BGR24 output."""
-        return [
+        cmd = [
             "ffmpeg",
             *FFMPEG_DEFAULT_ARGS,
+            "-hwaccel", "vaapi",
+            "-hwaccel_device", "/dev/dri/renderD128",
             "-i", self.rtsp_url,
-            "-vf", f"scale={self.width}:{self.height}",
+        ]
+        if self._scale:
+            cmd += ["-vf", f"scale={self.width}:{self.height}"]
+        cmd += [
             "-r", str(self.fps),
             "-f", "rawvideo",
             "-pix_fmt", "bgr24",
             "-an",
             "pipe:1",
         ]
+        return cmd
 
     def _read_loop(self) -> None:
         """Main loop: spawn FFmpeg, read frames, handle reconnection."""

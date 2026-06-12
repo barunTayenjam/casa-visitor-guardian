@@ -79,8 +79,9 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
   useEffect(() => { return () => { if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current); }; }, []);
 
   useEffect(() => {
+    const slotManager = slotManagerRef.current;
     return () => {
-      slotManagerRef.current.releaseAll();
+      slotManager.releaseAll();
       if (slideshowTimerRef.current) clearInterval(slideshowTimerRef.current);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     };

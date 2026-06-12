@@ -43,10 +43,18 @@ export async function fetchWithRetry(url: string, options: RequestInit = {}, ret
   return response;
 }
 
-export const apiClient: any = {
-  get: () => Promise.resolve({}),
-  post: () => Promise.resolve({}),
-  put: () => Promise.resolve({}),
-  delete: () => Promise.resolve({}),
+interface ApiClient {
+  get: <T = unknown>(url: string, options?: RequestInit) => Promise<T>;
+  post: <T = unknown>(url: string, body?: unknown, options?: RequestInit) => Promise<T>;
+  put: <T = unknown>(url: string, body?: unknown, options?: RequestInit) => Promise<T>;
+  delete: <T = unknown>(url: string, options?: RequestInit) => Promise<T>;
+  fetchWithRetry: (url: string, options?: RequestInit, retries?: number) => Promise<Response>;
+}
+
+export const apiClient: ApiClient = {
+  get: () => Promise.resolve({} as never),
+  post: () => Promise.resolve({} as never),
+  put: () => Promise.resolve({} as never),
+  delete: () => Promise.resolve({} as never),
   fetchWithRetry,
 };

@@ -17,11 +17,11 @@ services:
       - TZ=Asia/Kolkata
     command: >
       postgres
-      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
+      -c shared_buffers=${POSTGRES_SHARED_BUFFERS:-64MB}
       -c max_connections=${POSTGRES_MAX_CONNECTIONS:-20}
-      -c work_mem=8MB
-      -c maintenance_work_mem=64MB
-      -c effective_cache_size=256MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c effective_cache_size=128MB
       -c huge_pages=off
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
@@ -38,21 +38,21 @@ services:
       resources:
         limits:
           cpus: ${POSTGRES_CPU_LIMIT:-0.5}
-          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          memory: ${POSTGRES_MEM_LIMIT:-256M}
         reservations:
           cpus: ${POSTGRES_CPU_RESERVE:-0.1}
-          memory: ${POSTGRES_MEM_RESERVE:-256M}
+          memory: ${POSTGRES_MEM_RESERVE:-128M}
 
-  # Backend API Server (Development Mode)
+  # Backend API Server (production mode, serves frontend static files)
   backend:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     container_name: sentryvision-backend
     ports:
       - "0.0.0.0:9753:9753"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=9753
       - DB_HOST=postgres
       - TZ=Asia/Kolkata
@@ -63,35 +63,25 @@ services:
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-dev-jwt-access-secret-change-me}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-me}
       - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-dev-credential-encryption-key-change}
-      - RATE_LIMIT_STANDARD_REQUESTS=100
-      - RATE_LIMIT_STANDARD_WINDOW=900000
-      - RATE_LIMIT_DETECTION_REQUESTS=10
-      - RATE_LIMIT_DETECTION_WINDOW=60000
-      - RATE_LIMIT_BATCH_REQUESTS=5
-      - RATE_LIMIT_BATCH_WINDOW=3600000
-      - DATABASE_URL=postgresql://sentryvision:${POSTGRES_PASSWORD:-changeme}@postgres:5432/sentryvision
       - OPENCV_SERVICE_URL=http://opencv:8084
       - DETECTIONS_DIR=/app/data/detections
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
-      # Resource optimization settings (for 1 core, 2GB RAM systems)
       - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-true}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
       - DEFAULT_FPS=${DEFAULT_FPS:-2}
       - DEFAULT_RESOLUTION=${DEFAULT_RESOLUTION:-640x360}
       - STREAM_INACTIVITY_TIMEOUT=${STREAM_INACTIVITY_TIMEOUT:-300000}
-      # Node.js memory optimization - increased to prevent OOM
       - PIPELINE_MODE=${PIPELINE_MODE:-python-only}
       - PYTHON_WS_URL=ws://opencv:9090
-      - NODE_OPTIONS=--max-old-space-size=${NODE_MAX_MEMORY:-2560}
+      - REDIS_DISABLED=true
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://argus.tayenjam.qzz.io}
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin123}
+      - SEED_USER_PASSWORD=${SEED_USER_PASSWORD:-user123}
     volumes:
-      - ./server:/app
-      - ./server/node_modules:/app/node_modules
       - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
-    working_dir: /app
-    command: ["sh", "-c", "npx tsx watch --clear-screen=false src/index.ts"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,78 +99,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${BACKEND_CPU_LIMIT:-1.5}
-          memory: ${BACKEND_MEM_LIMIT:-3584M}
+          cpus: ${BACKEND_CPU_LIMIT:-1.0}
+          memory: ${BACKEND_MEM_LIMIT:-512M}
         reservations:
-          cpus: ${BACKEND_CPU_RESERVE:-0.5}
-          memory: ${BACKEND_MEM_RESERVE:-512M}
+          cpus: ${BACKEND_CPU_RESERVE:-0.25}
+          memory: ${BACKEND_MEM_RESERVE:-256M}
 
-  # Frontend Development Server
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: sentryvision-frontend
-    ports:
-      - "0.0.0.0:5173:5173"
-    environment:
-      - NODE_ENV=development
-      - VITE_BACKEND_URL=http://backend:9753
-      - VITE_GO2RTC_URL=http://go2rtc:1984
-      - TZ=Asia/Kolkata
-    volumes:
-      - ./frontend:/app
-      # Use Docker image's node_modules (built for correct Node.js version) instead of host's
-      - /app/node_modules
-    working_dir: /app
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5173 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - sentryvision_network
-
-  # Redis (for caching and sessions)
-  redis:
-    image: "redis:7-alpine"
-    container_name: sentryvision-redis
-    # ports: - only internal network access
-    environment:
-      - TZ=Asia/Kolkata
-    volumes:
-      - redis_data:/data
-    command: >
-      redis-server
-      --maxmemory ${REDIS_MAX_MEMORY:-40mb}
-      --maxmemory-policy allkeys-lru
-      --maxmemory-samples 3
-      --save 300 10
-      --save 60 10000
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - sentryvision_network
-    deploy:
-      resources:
-        limits:
-          cpus: ${REDIS_CPU_LIMIT:-0.1}
-          memory: ${REDIS_MEM_LIMIT:-64M}
-        reservations:
-          cpus: ${REDIS_CPU_RESERVE:-0.05}
-          memory: ${REDIS_MEM_RESERVE:-32M}
-
-  # OpenCV Python Detection Service (Development Mode)
+  # OpenCV Python Detection Service
   opencv:
     build:
       context: ./opencv-service
@@ -191,7 +116,7 @@ services:
       - "0.0.0.0:9090:9090"
     environment:
       - PORT=8084
-      - FLASK_ENV=development
+      - FLASK_ENV=production
       - TZ=Asia/Kolkata
       - FLASK_DEBUG=0
       - POSTGRES_HOST=postgres
@@ -199,12 +124,10 @@ services:
       - POSTGRES_DB=sentryvision
       - POSTGRES_USER=sentryvision
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - DETECTIONS_DIR=/app/data/detections
+    devices:
+      - /dev/dri:/dev/dri
     volumes:
-      - ./opencv-service:/app
-      - ./opencv-service/node_modules:/app/node_modules
       - ./opencv-service/models:/app/models
       - ./opencv-service/data:/app/data
       - ./opencv-service/known_faces:/app/known_faces
@@ -213,8 +136,6 @@ services:
       - ./data/snapshots:/app/data/snapshots
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: always
     networks:
@@ -231,7 +152,7 @@ services:
           memory: ${OPENCV_MEM_LIMIT:-2048M}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.5}
-          memory: ${OPENCV_MEM_RESERVE:-512M}
+          memory: ${OPENCV_MEM_RESERVE:-256M}
 
   # go2rtc — RTSP to WebRTC bridge
   go2rtc:
@@ -254,7 +175,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 256M
+          memory: 128M
 
 networks:
   sentryvision_network:
@@ -262,4 +183,3 @@ networks:
 
 volumes:
   postgres_data:
-  redis_data:

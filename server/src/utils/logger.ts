@@ -30,14 +30,14 @@ const originalConsoleDebug = console.debug;
 
 // Configuration to control logging levels
 const LOGGING_CONFIG = {
-  enableInfo: false,      // Disable info logs to reduce overhead
-  enableWarn: true,       // Keep warnings
-  enableError: true,      // Keep errors
-  enableDebug: false,     // Disable debug logs to reduce overhead
-  enableServerStart: true, // Keep server start messages
-  enableMotionEvents: false, // Disable motion detection logs to reduce overhead
-  enableStreamLogs: false,   // Disable stream logs to reduce overhead
-  enableSocketLogs: false,   // Disable socket logs to reduce overhead
+  enableInfo: true,
+  enableWarn: true,
+  enableError: true,
+  enableDebug: false,
+  enableServerStart: true,
+  enableMotionEvents: false,
+  enableStreamLogs: true,
+  enableSocketLogs: true,
   enableFileLogging: false,  // Disable file logging temporarily to fix HTTP hanging
   enableDatabaseLogging: true, // Re-enabled after HTTP hanging fix
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size

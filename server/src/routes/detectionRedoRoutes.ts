@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { requireUser } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
 import { AppDataSource } from '../database.js';
 import * as fs from 'fs/promises';
@@ -51,7 +51,7 @@ function validateDetections(detections: any[]): any[] {
 const router = Router();
 
 // Endpoint to re-run detection on a specific image file
-router.post('/rerun-detection', authenticate, validate({
+router.post('/rerun-detection', requireUser, validate({
   body: {
     filename: { type: 'string' as const, required: false, maxLength: 255, custom: (v: unknown) => { if (typeof v === 'string' && v.includes('..')) return 'Path traversal not allowed'; return true; } },
     filepath: { type: 'string' as const, required: false, maxLength: 500, custom: (v: unknown) => { if (typeof v === 'string' && (v.includes('..') || v.startsWith('/'))) return 'Path traversal not allowed'; return true; } }
@@ -197,7 +197,7 @@ router.post('/rerun-detection', authenticate, validate({
 });
 
 // Endpoint to re-run detection on a specific event by ID
-router.post('/rerun-event-detection', authenticate, validate({
+router.post('/rerun-event-detection', requireUser, validate({
   body: {
     eventId: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
   }

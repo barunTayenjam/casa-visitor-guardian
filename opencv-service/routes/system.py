@@ -31,8 +31,8 @@ def health():
             'classCount': len(state.class_names)
         },
         'cache': {
-            'type': 'redis',
-            'connected': state.redis_client.ping() if state.redis_client else False
+            'type': 'memory',
+            'connected': True
         }
     })
 

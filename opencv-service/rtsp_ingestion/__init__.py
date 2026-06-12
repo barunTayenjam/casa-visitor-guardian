@@ -94,6 +94,7 @@ class RTSPService:
 
     async def _async_start(self) -> None:
         """Start WebSocket publisher and all camera pipelines."""
+        self._publisher.set_live_callbacks(self._on_live_start, self._on_live_stop)
         await self._publisher.start()
 
         for cam in self._cameras:
@@ -105,6 +106,16 @@ class RTSPService:
 
         active = [c['id'] for c in self._cameras if c.get('enabled', True)]
         print(f"[RTSPService] Started {len(active)} pipelines: {active}")
+
+    def _on_live_start(self, camera_id: str) -> None:
+        pipeline = self._pipelines.get(camera_id)
+        if pipeline:
+            pipeline.start_live()
+
+    def _on_live_stop(self, camera_id: str) -> None:
+        pipeline = self._pipelines.get(camera_id)
+        if pipeline:
+            pipeline.stop_live()
 
     async def _async_stop(self) -> None:
         """Stop all pipelines and the WebSocket server."""
@@ -149,11 +160,25 @@ class RTSPService:
         return {
             'running': self._loop is not None and self._loop.is_running(),
             'pipelines': [
-                {'id': cid, 'running': True}
-                for cid in self._pipelines
+                {
+                    'id': cid,
+                    'running': True,
+                    'live_active': p._live_reader.running if p._live_reader else False,
+                }
+                for cid, p in self._pipelines.items()
             ],
             'camera_count': len(self._pipelines),
         }
+
+    def start_live(self, camera_id: str) -> None:
+        pipeline = self._pipelines.get(camera_id)
+        if pipeline:
+            pipeline.start_live()
+
+    def stop_live(self, camera_id: str) -> None:
+        pipeline = self._pipelines.get(camera_id)
+        if pipeline:
+            pipeline.stop_live()
 
 
 def load_camera_config(path: str) -> list[dict]:

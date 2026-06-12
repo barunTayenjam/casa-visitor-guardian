@@ -1,9 +1,16 @@
 import '@testing-library/jest-dom';
 
-// Mock import.meta.env for Vitest-like environment in Jest
-// Note: This only works if the code handles potential undefined or if transformed
-if (typeof (import.meta as any).env === 'undefined') {
-  (import.meta as any).env = {
+interface ImportMetaEnv {
+  DEV: boolean;
+  PROD: boolean;
+  MODE: string;
+  BASE_URL: string;
+  [key: string]: unknown;
+}
+
+const env = (import.meta as Record<string, unknown>).env as ImportMetaEnv | undefined;
+if (!env) {
+  (import.meta as Record<string, unknown>).env = {
     DEV: true,
     PROD: false,
     MODE: 'development',

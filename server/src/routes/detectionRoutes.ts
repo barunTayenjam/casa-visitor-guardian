@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth.js';
+import { requireUser } from '../middleware/auth.js';
 import { createDetectionRateLimit } from '../middleware/enhancedRateLimit.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
@@ -32,7 +32,7 @@ const CameraDetectionConfigSchema = DetectionConfigSchema.extend({
   camera: z.string(),
 });
 
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', requireUser, async (req: Request, res: Response) => {
   try {
     const camera = typeof req.query.camera === 'string' ? req.query.camera : undefined;
     const globalConfig = await import('../services/detection/detectionService.js').then(m => m.detectionService?.getConfig(camera));
@@ -59,7 +59,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/', authenticate, async (req: Request, res: Response) => {
+router.put('/', requireUser, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -79,7 +79,7 @@ router.put('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/filter', authenticate, async (req: Request, res: Response) => {
+router.post('/filter', requireUser, async (req: Request, res: Response) => {
   try {
     const { detections, camera } = req.body;
 
@@ -101,7 +101,7 @@ router.post('/filter', authenticate, async (req: Request, res: Response) => {
 });
 
 // Get detection statistics
-router.get('/stats', authenticate, async (req: Request, res: Response) => {
+router.get('/stats', requireUser, async (req: Request, res: Response) => {
   try {
     const { cameraId } = req.query;
 

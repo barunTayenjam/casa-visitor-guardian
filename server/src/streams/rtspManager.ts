@@ -69,6 +69,7 @@ export class StreamManager {
       if (camera && camera.activeViewers.size === 0) {
         const pythonWs = serviceRegistry.getPythonWsClient();
         if (pythonWs && pythonWs.connected) {
+          pythonWs.send(JSON.stringify({ type: 'stop_live', cameraId }));
           pythonWs.unsubscribe(cameraId);
           this.activeSubscriptions.delete(cameraId);
         }
@@ -88,7 +89,8 @@ export class StreamManager {
   private wirePythonWsFrames(): void {
     const pythonWs = serviceRegistry.getPythonWsClient();
     if (pythonWs) {
-      // When the Python WebSocket client connects, subscribe to all cameras to keep streams always on.
+      // When the Python WebSocket client connects, subscribe to all cameras.
+      // Live FFmpegReaders start on-demand when the first viewer subscribes.
       pythonWs.on('connected', () => {
         this.cameras.forEach((camera, camId) => {
           if (!this.activeSubscriptions.has(camId)) {
@@ -158,7 +160,9 @@ export class StreamManager {
   }
 
   private setupConnectionTracking(): void {
+    logger.info('Setting up Socket.io connection tracking', 'STREAM');
     this.io.on('connection', (socket) => {
+      logger.info(`Socket.io client connected: ${socket.id}`, 'STREAM');
       socket.on('requestStream', (data: { cameraId: string; role?: 'live' | 'detect' | 'record'; tier?: 'HIGH' | 'MEDIUM' | 'LOW' }) => {
         const { cameraId, role = 'live', tier = 'MEDIUM' } = data;
          logger.info(`Received requestStream for camera ${cameraId} role ${role} tier ${tier}`, 'STREAM');
@@ -182,6 +186,10 @@ export class StreamManager {
         if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
           pythonWs.subscribe(cameraId);
           this.activeSubscriptions.add(cameraId);
+        }
+
+        if (viewerCount === 1 && pythonWs && pythonWs.connected) {
+          pythonWs.send(JSON.stringify({ type: 'start_live', cameraId }));
         }
 
         socket.emit('streamStarted', {

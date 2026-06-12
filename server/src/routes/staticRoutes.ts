@@ -80,11 +80,19 @@ staticRoutes.use('/snapshots', express.static(path.join(process.cwd(), 'data', '
 
 staticRoutes.use('/public', express.static('public'));
 
-const distPath = path.join(process.cwd(), 'dist');
-if (fs.existsSync(distPath)) {
-  staticRoutes.use(express.static(distPath));
+const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');
+if (fs.existsSync(frontendDistPath)) {
+  staticRoutes.use(express.static(frontendDistPath, {
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, path) => {
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    }
+  }));
 } else {
-  logger.info(`Frontend dist directory not found at ${distPath}, skipping static file serving`, 'StaticRoutes');
+  logger.info(`Frontend dist directory not found at ${frontendDistPath}, skipping static file serving`, 'StaticRoutes');
 }
 
 staticRoutes.get('/health', (_req, res) => {

@@ -46,6 +46,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const mseWsRef = useRef<WebSocket | null>(null);
+  const mseMediaSourceRef = useRef<MediaSource | null>(null);
+  const mseSettledRef = useRef(false);
 
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
@@ -201,7 +204,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const handlePointerUp = useCallback(() => {
     if (swipeDetectionRef.current && !swipeDetectionRef.current.moved) {
-      setPanelOpen(prev => !prev);
+      const video = videoRef.current;
+      if (video) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          video.requestFullscreen().catch(() => {});
+        }
+      }
     }
     swipeDetectionRef.current = null;
   }, []);
@@ -242,6 +252,17 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             console.warn(`[CameraStream:${camera.name}] ICE disconnected too long, restarting`);
             failureCountRef.current++;
             handleStreamRestart();
+          }
+          return;
+        }
+
+        if (connectionStateRef.current === 'connecting' || connectionStateRef.current === 'reconnecting') {
+          const video = videoRef.current;
+          if (video.currentTime > 0 && video.readyState >= 2 && !mseSettledRef.current) {
+            console.log(`[CameraStream:${camera.name}] Video playing but connection never settled — forcing connected`);
+            if (connectionTimeoutRef.current) { clearTimeout(connectionTimeoutRef.current); connectionTimeoutRef.current = null; }
+            setConnectionState('connected');
+            mseSettledRef.current = true;
           }
           return;
         }
@@ -362,6 +383,106 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       })();
     });
   }, [camera.id, camera.name, cleanupPeerConnection, handleStreamRestart]);
+
+  const cleanupMSE = useCallback(() => {
+    mseSettledRef.current = false;
+    if (mseWsRef.current) {
+      mseWsRef.current.close();
+      mseWsRef.current = null;
+    }
+    if (mseMediaSourceRef.current) {
+      try { if (mseMediaSourceRef.current.readyState === 'open') mseMediaSourceRef.current.endOfStream(); } catch { /* ended */ }
+      mseMediaSourceRef.current = null;
+    }
+  }, []);
+
+  const startMSE = useCallback((): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      cleanupMSE();
+      console.log(`[CameraStream:${camera.name}] Starting MSE stream via go2rtc`);
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}${GO2RTC_BASE}/api/ws?src=${camera.id}`;
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      mseWsRef.current = ws;
+
+      mseSettledRef.current = false;
+      let sourceBuffer: SourceBuffer | null = null;
+      const queue: ArrayBuffer[] = [];
+      let isUpdating = false;
+
+      const drainQueue = () => {
+        if (!sourceBuffer || isUpdating || queue.length === 0) return;
+        isUpdating = true;
+        try { sourceBuffer.appendBuffer(queue.shift()!); } catch { isUpdating = false; }
+      };
+
+      const settleMse = () => {
+        if (mseSettledRef.current) return;
+        mseSettledRef.current = true;
+        lastFrameTimeRef.current = Date.now();
+        lastVideoTimeRef.current = 0;
+        lastVideoTimeUpdateRef.current = Date.now();
+        if (connectionTimeoutRef.current) { clearTimeout(connectionTimeoutRef.current); connectionTimeoutRef.current = null; }
+        const elapsed = Date.now() - streamStartTimeRef.current;
+        setMetrics(prev => ({ ...prev, latency: elapsed }));
+        connectionAttemptsRef.current = 0;
+        setConnectionState('connected');
+        resolve();
+      };
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'mse', value: 'video' }));
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'mse' && msg.value) {
+              const ms = new MediaSource();
+              mseMediaSourceRef.current = ms;
+              ms.addEventListener('sourceopen', () => {
+                try {
+                  sourceBuffer = ms.addSourceBuffer(msg.value);
+                  sourceBuffer.mode = 'segments';
+                  sourceBuffer.addEventListener('updateend', () => { isUpdating = false; drainQueue(); });
+                  sourceBuffer.addEventListener('error', () => { isUpdating = false; });
+                  if (queue.length > 0) settleMse();
+                } catch (err) {
+                  if (!mseSettledRef.current) { mseSettledRef.current = true; reject(err); }
+                }
+              });
+              if (videoRef.current) {
+                videoRef.current.src = URL.createObjectURL(ms);
+                videoRef.current.play().catch(e => {
+                  if (e.name !== 'AbortError') console.warn('Video play failed:', e);
+                });
+              }
+            }
+          } catch { /* parse error */ }
+          return;
+        }
+
+        if (event.data instanceof ArrayBuffer) {
+          queue.push(event.data);
+          if (sourceBuffer) settleMse();
+          drainQueue();
+        }
+      };
+
+      ws.onerror = () => { if (!settled) { settled = true; reject(new Error('MSE WebSocket error')); } };
+      ws.onclose = () => {
+        if (!settled) { settled = true; reject(new Error('MSE WebSocket closed')); }
+        else if (connectionStateRef.current === 'connected') {
+          console.log(`[CameraStream:${camera.name}] MSE WebSocket closed unexpectedly`);
+          setConnectionState('reconnecting');
+          failureCountRef.current++;
+          handleStreamRestart();
+        }
+      };
+    });
+  }, [camera.id, camera.name, cleanupMSE, handleStreamRestart]);
 
   const stopFrameRender = useCallback(() => {
     if (renderRafRef.current) {
@@ -493,10 +614,22 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         isWanRef.current = false;
         startWatchdog();
       } catch {
-        console.log(`[CameraStream:${camera.name}] WebRTC failed, falling back to WAN canvas`);
+        console.log(`[CameraStream:${camera.name}] WebRTC failed, trying MSE...`);
         cleanupPeerConnection();
-        isWanRef.current = true;
-        setupWanStream();
+        try {
+          const mseTimeout = new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('MSE timeout')), 15000)
+          );
+          await Promise.race([startMSE(), mseTimeout]);
+          isWanRef.current = false;
+          console.log(`[CameraStream:${camera.name}] MSE connected`);
+          startWatchdog();
+        } catch {
+          console.log(`[CameraStream:${camera.name}] MSE failed, falling back to WAN canvas`);
+          cleanupMSE();
+          isWanRef.current = true;
+          setupWanStream();
+        }
       }
     } catch (err) {
       failureCountRef.current++;
@@ -510,10 +643,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       setIsStreaming(false);
       setIsWanStream(false);
       cleanupPeerConnection();
+      cleanupMSE();
       stopFrameRender();
       streamActionRef.current = null;
     }
-  }, [camera.id, camera.name, startCameraStream, startWebRTC, cleanupPeerConnection, stopFrameRender, setupWanStream, startWatchdog]);
+  }, [camera.id, camera.name, startCameraStream, startWebRTC, startMSE, cleanupPeerConnection, cleanupMSE, stopFrameRender, setupWanStream, startWatchdog]);
 
   const handleStreamStop = useCallback(() => {
     if (streamActionRef.current === "stop") return;
@@ -528,9 +662,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     setIsWanStream(false);
     setConnectionState('idle');
     cleanupPeerConnection();
+    cleanupMSE();
     stopFrameRender();
     stopCameraStream(camera.id).catch(() => {});
-  }, [camera.id, camera.name, stopCameraStream, cleanupPeerConnection, stopFrameRender]);
+  }, [camera.id, camera.name, stopCameraStream, cleanupPeerConnection, cleanupMSE, stopFrameRender]);
 
   handleStreamStartRef.current = handleStreamStart;
   handleStreamStopRef.current = handleStreamStop;
@@ -583,10 +718,11 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         clearTimeout(connectionTimeoutRef.current);
       }
       cleanupPeerConnection();
+      cleanupMSE();
       streamActionRef.current = null;
       stopCameraStream(camera.id).catch(() => {});
     };
-  }, [camera.id, stopCameraStream, cleanupPeerConnection]);
+  }, [camera.id, stopCameraStream, cleanupPeerConnection, cleanupMSE]);
 
   useEffect(() => {
     if (!socketConnected && isStreaming && connectionState === 'connected') {
@@ -721,9 +857,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   useEffect(() => {
     return () => {
       cleanupPeerConnection();
+      cleanupMSE();
       stopFrameRender();
     };
-  }, [cleanupPeerConnection, stopFrameRender]);
+  }, [cleanupPeerConnection, cleanupMSE, stopFrameRender]);
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -742,7 +879,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             playsInline
             muted
             className={cn(
-              "h-full w-full object-cover z-0 select-none touch-pan-y",
+              "h-full w-full object-contain z-0 select-none touch-pan-y bg-black",
               (!isStreaming || isWanStream) && 'hidden'
             )}
             onPointerDown={handlePointerDown}
@@ -761,7 +898,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           <canvas
             ref={canvasRef}
             className={cn(
-              "h-full w-full object-cover z-0 select-none",
+              "h-full w-full object-contain z-0 select-none bg-black",
               (!isStreaming || !isWanStream) && 'hidden'
             )}
           />

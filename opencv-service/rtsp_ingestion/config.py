@@ -48,6 +48,12 @@ LIVE_HEIGHT = 720
 DETECT_WIDTH = 640
 DETECT_HEIGHT = 360
 
+# go2rtc RTSP proxy base URL
+# Python reads from go2rtc instead of directly from cameras to respect
+# the camera's single-RTSP-connection limit (TP-LINK). go2rtc already
+# holds the one allowed connection and re-streams it internally.
+GO2RTC_RTSP_BASE = "rtsp://go2rtc:8554"
+
 # Metrics latency buckets (milliseconds)
 METRICS_WS_LATENCY_BUCKETS = [10, 25, 50, 100, 200, 500]
 

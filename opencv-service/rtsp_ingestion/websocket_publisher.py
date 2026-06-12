@@ -41,6 +41,12 @@ class WebSocketPublisher:
         self._server: Optional[websockets.WebSocketServer] = None
         self._tasks: dict[str, asyncio.Task] = {}
         self._running = False
+        self._on_live_start = None
+        self._on_live_stop = None
+
+    def set_live_callbacks(self, on_start, on_stop) -> None:
+        self._on_live_start = on_start
+        self._on_live_stop = on_stop
 
     def add_frame_queue(self, camera_id: str) -> DropOldestQueue:
         if camera_id not in self._frame_queues:
@@ -88,6 +94,12 @@ class WebSocketPublisher:
                 elif msg_type == "unsubscribe" and camera_id:
                     await self._unsubscribe(ws, camera_id)
                     client_subs.discard(camera_id)
+                elif msg_type == "start_live" and camera_id:
+                    if self._on_live_start:
+                        self._on_live_start(camera_id)
+                elif msg_type == "stop_live" and camera_id:
+                    if self._on_live_stop:
+                        self._on_live_stop(camera_id)
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
@@ -107,9 +119,12 @@ class WebSocketPublisher:
     async def _unsubscribe(self, ws: WebSocketServerProtocol, camera_id: str) -> None:
         self._subscriptions.get(camera_id, set()).discard(ws)
         print(f"[WebSocketPublisher] {ws.remote_address} unsubscribed from {camera_id}")
-        if camera_id in self._tasks and not self._subscriptions.get(camera_id):
-            self._tasks[camera_id].cancel()
-            del self._tasks[camera_id]
+        if not self._subscriptions.get(camera_id):
+            if self._on_live_stop:
+                self._on_live_stop(camera_id)
+            if camera_id in self._tasks:
+                self._tasks[camera_id].cancel()
+                del self._tasks[camera_id]
 
     async def _broadcast(self, camera_id: str, metadata: dict, binary: bytes = b"") -> None:
         subs = self._subscriptions.get(camera_id)

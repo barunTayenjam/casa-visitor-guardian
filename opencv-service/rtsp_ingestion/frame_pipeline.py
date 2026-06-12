@@ -390,6 +390,7 @@ class FramePipeline:
                 width=self._live_width,
                 height=self._live_height,
                 fps=live_cfg.get("fps", DEFAULT_FPS),
+                scale=False,
             )
             self._detect_reader = FFmpegReader(
                 rtsp_url=detect_stream["path"],
@@ -397,6 +398,7 @@ class FramePipeline:
                 width=self._detect_width,
                 height=self._detect_height,
                 fps=detect_cfg.get("fps", DEFAULT_FPS),
+                scale=False,
             )
         else:
             fallback = live_stream or detect_stream or self._get_primary_stream()
@@ -406,6 +408,7 @@ class FramePipeline:
                 width=self._live_width,
                 height=self._live_height,
                 fps=live_cfg.get("fps", DEFAULT_FPS),
+                scale=False,
             )
 
         self._detection_thread: Optional[threading.Thread] = None
@@ -459,11 +462,22 @@ class FramePipeline:
             daemon=True,
         )
         self._detection_thread.start()
-        self._live_reader.start(self._on_live_frame)
         if self._detect_reader:
             self._detect_reader.start(self._on_detect_frame)
+        else:
+            self._live_reader.start(self._on_live_frame)
         mode = "dual" if self._detect_reader else "single"
-        print(f"[FramePipeline:{self._camera_id}] Started ({mode}, live={self._live_width}x{self._live_height}, detect={self._detect_width}x{self._detect_height})")
+        print(f"[FramePipeline:{self._camera_id}] Started ({mode}, detect-only, live=on-demand)")
+
+    def start_live(self) -> None:
+        if self._live_reader and not self._live_reader.running:
+            self._live_reader.start(self._on_live_frame)
+            print(f"[FramePipeline:{self._camera_id}] Live reader started (on-demand)")
+
+    def stop_live(self) -> None:
+        if self._live_reader and self._live_reader.running:
+            self._live_reader.stop()
+            print(f"[FramePipeline:{self._camera_id}] Live reader stopped (no viewers)")
 
     def stop(self) -> None:
         self._running = False

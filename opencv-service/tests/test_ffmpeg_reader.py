@@ -22,6 +22,7 @@ class TestFFmpegReader:
             width=640,
             height=360,
             fps=5,
+            scale=True,
         )
 
     def test_initial_state(self, reader):
@@ -83,12 +84,28 @@ class TestFFmpegReader:
             width=1920,
             height=1080,
             fps=2,
+            scale=True,
         )
         cmd = reader._build_command()
         assert "scale=1920:1080" in cmd
         assert "-r" in cmd
         idx_r = cmd.index("-r")
         assert cmd[idx_r + 1] == "2"
+
+    def test_build_command_no_scale(self):
+        """Command omits -vf scale when scale=False."""
+        reader = FFmpegReader(
+            rtsp_url="rtsp://test:test@127.0.0.1:554/stream1",
+            camera_id="cam-ns",
+            width=1280,
+            height=720,
+            fps=2,
+            scale=False,
+        )
+        cmd = reader._build_command()
+        assert "-vf" not in cmd
+        assert "scale=" not in cmd
+        assert "pipe:1" in cmd
 
     def test_callback_receives_correct_camera_id(self, reader):
         """Callback dict contains the reader's camera_id."""

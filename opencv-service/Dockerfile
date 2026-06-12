@@ -1,35 +1,32 @@
-# OpenCV Python Service Dockerfile (Development Mode)
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install runtime system dependencies
-# Install runtime system dependencies and a C++ compiler needed for building the
-# `insightface` wheel (which provides optional face‑recognition functionality).
-# The application can operate without `insightface`, but the build must succeed.
+# ---- Build stage ----
+FROM python:3.11-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    g++ \
-    libgl1-mesa-dri \
-    libglx-mesa0 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Copy requirements and install Python dependencies
+    g++ gcc \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download ArcFace model for faster startup
-RUN python3 -c "import insightface; insightface.model_zoo.get_model('buffalo_s', download=True, download_zip=True)" 2>/dev/null || echo "Model will download at first inference"
+# ---- Runtime stage ----
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    curl \
+    libgl1-mesa-dri \
+    libglx-mesa0 \
+    libglib2.0-0 \
+    intel-media-va-driver \
+    i965-va-driver \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy source code
+WORKDIR /app
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
 COPY . .
 
-# Expose ports
 EXPOSE 8084
 EXPOSE 9090
 
-# Start Flask development server with debug and auto-reload
 CMD ["python", "-u", "-m", "flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "8084"]

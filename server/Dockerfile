@@ -1,39 +1,44 @@
-# Backend Dockerfile with tsx pre-installed for development
-FROM node:20-alpine
+# ---- Frontend build stage ----
+FROM node:20-alpine AS frontend-builder
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm install --force --no-audit --no-fund
+COPY frontend/ .
+RUN npm run build
 
-# Install dependencies for native modules and timezone support
+# ---- Backend build stage ----
+FROM node:20-alpine AS backend-builder
+RUN apk add --no-cache python3 make g++
+WORKDIR /build
+COPY server/package*.json ./
+RUN npm install --no-audit --no-fund
+COPY server/ .
+RUN npm run build
+
+# ---- Runtime stage ----
+FROM node:20-alpine
 RUN apk add --no-cache \
     curl \
     ffmpeg \
-    python3 \
-    make \
-    g++ \
     postgresql-client \
     tzdata
 
-# Set timezone
-ENV TZ=Asia/Kolkata
+ENV TZ=Asia/Kolkata \
+    NODE_ENV=production
 
 WORKDIR /app
 
-# Install dependencies (copy package files first for better caching)
-COPY package*.json ./
-RUN npm install --no-audit --no-fund && \
-    npm cache clean --force && \
-    chown -R node:node /app
+COPY --from=backend-builder /build/dist ./dist
+COPY --from=backend-builder /build/node_modules ./node_modules
+COPY --from=frontend-builder /build/dist ./public
+COPY server/package*.json ./
 
-# Copy source code
-COPY . .
-
-# Create non-root user and set ownership
 RUN chown -R node:node /app
 
-# Switch to non-root user
 USER node
 
-# Expose ports
 EXPOSE 9753
 
-# Start development server with watch mode
-CMD ["npx", "tsx", "watch", "--clear-screen=false", "src/index.ts"]
-ENV NODE_OPTIONS="--max-old-space-size=2560"
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
+CMD ["node", "dist/index.js"]

@@ -1,6 +1,8 @@
-export const logger = {
-  info: (..._args: any[]) => {},
-  warn: (..._args: any[]) => {},
-  error: (..._args: any[]) => {},
-  debug: (..._args: any[]) => {},
+type LogFn = (...args: unknown[]) => void;
+
+export const logger: Record<string, LogFn> = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
 };

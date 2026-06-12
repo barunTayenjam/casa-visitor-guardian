@@ -12,13 +12,13 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 
 | Layer | Tech | Port |
 |-------|------|------|
-| Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) | 5173 |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) — served by backend as static files | 9753 |
 | Backend | Express 5, TypeScript, TypeORM, Socket.io | 9753 |
 | OpenCV | Flask, OpenCV MOG2 + YOLOv4-tiny + face recognition | 8084 |
 | Database | PostgreSQL 15+ (26 migrations) | 5432 |
-| Cache | Redis with in-memory fallback | 6379 |
+| Cache | In-memory (Redis optional, use `REDIS_DISABLED=true`) | — |
 
-**Data flow**: `Frontend → Backend API → OpenCV Service → PostgreSQL + Redis`
+**Data flow**: `Frontend → Backend API → OpenCV Service → PostgreSQL`
 
 ## Commands
 

@@ -22,6 +22,7 @@ type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'confidence';
 type AnalysisEntry = {
   sceneDescription?: string; summary?: string;
+  sceneContext?: { environment: string; weather?: string; lighting?: string; };
   threatAssessment?: { level: string; factors: string[]; confidence: number };
   detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
   recommendedActions?: string[]; processingTime?: number; modelUsed?: string;
@@ -129,6 +130,7 @@ const EventsPage = () => {
         const boxes = boxesResult.status === 'fulfilled' ? boxesResult.value.boxes : undefined;
         setAnalysisByEvent(prev => ({ ...prev, [eventId]: {
           sceneDescription: a.sceneDescription || a.overall_summary || a.summary || '',
+          sceneContext: a.sceneContext,
           summary: a.summary,
           threatAssessment: a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
           detectedEntities: a.detectedEntities || {
@@ -244,6 +246,7 @@ const EventsPage = () => {
           const a = event.analysis;
           persistedAnalysis[event.id] = {
             sceneDescription: a.sceneDescription || '',
+            sceneContext: a.sceneContext,
             summary: a.sceneDescription || '',
             threatAssessment: a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
             detectedEntities: a.detectedEntities || { people: [], vehicles: [], animals: [], objects: [] },

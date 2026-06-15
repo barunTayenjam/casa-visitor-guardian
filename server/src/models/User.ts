@@ -1,6 +1,5 @@
 // File: server/src/models/User.ts
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
-import { Exclude } from 'class-transformer';
 
 import { AuditLog } from './AuditLog.js';
 import { PasswordHistory } from './PasswordHistory.js';
@@ -22,7 +21,6 @@ export class User {
   email!: string;
 
   @Column({ name: 'password_hash', type: 'varchar', length: 255 })
-  @Exclude()
   passwordHash!: string;
 
   @Column({ name: 'role_id', type: 'uuid', nullable: true })
@@ -45,11 +43,9 @@ export class User {
   mfaEnabled!: boolean;
 
   @Column({ name: 'mfa_secret', type: 'varchar', length: 32, nullable: true })
-  @Exclude()
   mfaSecret!: string | null;
 
   @Column({ name: 'backup_codes', type: 'text', array: true, nullable: true })
-  @Exclude()
   backupCodes!: string[] | null;
 
   @Column({ name: 'last_login', type: 'timestamp', nullable: true })
@@ -81,4 +77,12 @@ export class User {
 
   @OneToMany(() => PasswordHistory, passwordHistory => passwordHistory.user)
   passwordHistory!: PasswordHistory[];
+
+  /**
+   * Safe serialization: strip sensitive fields
+   */
+  toJSON() {
+    const { passwordHash, mfaSecret, backupCodes, ...user } = this;
+    return user;
+  }
 }

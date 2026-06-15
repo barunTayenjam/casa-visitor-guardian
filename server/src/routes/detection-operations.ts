@@ -1,24 +1,21 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
+import { z } from 'zod';
+import { validateBody, validateQuery, validateParams } from '../middleware/zodValidation.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
-import eventSearchService from '../services/eventSearchService.js';
-import visitorService from '../services/visitorService.js';
-import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
+import { optionalAuth, requireUser } from '../middleware/auth.js';
 
 const CAMERA_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 function validateCameraId(cameraId: string): boolean { return CAMERA_ID_PATTERN.test(cameraId) && cameraId.length <= 100; }
 
 const router = Router();
 
-router.post('/person/:cameraId/trigger', requireUser, validate({
-  params: {
-    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/person/:cameraId/trigger', requireUser, validateParams(z.object({
+  cameraId: z.string().regex(/^[a-zA-Z0-9_-]+$/).min(1).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const streamManager = serviceRegistry.getStreamManager();
     const cameraId = req.params.cameraId;
@@ -53,11 +50,9 @@ router.post('/person/:cameraId/trigger', requireUser, validate({
   }
 });
 
-router.post('/face/:cameraId/trigger', requireUser, validate({
-  params: {
-    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/face/:cameraId/trigger', requireUser, validateParams(z.object({
+  cameraId: z.string().regex(/^[a-zA-Z0-9_-]+$/).min(1).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const streamManager = serviceRegistry.getStreamManager();
     const cameraId = req.params.cameraId;
@@ -91,11 +86,9 @@ router.post('/face/:cameraId/trigger', requireUser, validate({
   }
 });
 
-router.get('/person/settings', optionalAuth, validate({
-  query: {
-    camera: { type: 'string' as const, required: false, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/person/settings', optionalAuth, validateQuery(z.object({
+  camera: z.string().max(100).optional()
+})), async (req: Request, res: Response) => {
   try {
     const cameraId = (req.query.camera as string) || 'default';
     const settings = consolidatedDetectionService.getObjectDetectionSettings(cameraId);
@@ -106,13 +99,11 @@ router.get('/person/settings', optionalAuth, validate({
   }
 });
 
-router.put('/person/settings', requireUser, validate({
-  body: {
-    minConfidence: { type: 'number' as const, required: false, min: 0, max: 1 },
-    maxDetections: { type: 'number' as const, required: false, min: 1, max: 100 },
-    targetClasses: { type: 'array' as const, required: false }
-  }
-}), async (req: Request, res: Response) => {
+router.put('/person/settings', requireUser, validateBody(z.object({
+  minConfidence: z.number().min(0).max(1).optional(),
+  maxDetections: z.number().min(1).max(100).optional(),
+  targetClasses: z.array(z.any()).optional()
+})), async (req: Request, res: Response) => {
   try {
     const { minConfidence, maxDetections, targetClasses } = req.body;
     const updated = consolidatedDetectionService.updateObjectDetectionSettings('default', { minConfidence: minConfidence || 0.5, maxDetections: maxDetections || 10, targetClasses: targetClasses || ['person', 'dog', 'cat'] });
@@ -133,12 +124,10 @@ router.get('/face/settings', optionalAuth, async (req: Request, res: Response) =
   }
 });
 
-router.put('/face/settings', requireUser, validate({
-  body: {
-    recognitionThreshold: { type: 'number' as const, required: false, min: 0, max: 1 },
-    minFaceSize: { type: 'number' as const, required: false, min: 16, max: 500 }
-  }
-}), async (req: Request, res: Response) => {
+router.put('/face/settings', requireUser, validateBody(z.object({
+  recognitionThreshold: z.number().min(0).max(1).optional(),
+  minFaceSize: z.number().min(16).max(500).optional()
+})), async (req: Request, res: Response) => {
   try {
     const { recognitionThreshold, minFaceSize } = req.body;
     const updated = consolidatedDetectionService.updateFacialRecognitionSettings({ recognitionThreshold: recognitionThreshold || 0.6, minFaceSize: minFaceSize || 48 });
@@ -151,11 +140,9 @@ router.put('/face/settings', requireUser, validate({
 
 // ==================== MOTION SETTINGS ====================
 
-router.get('/motion/settings', optionalAuth, validate({
-  query: {
-    cameraId: { type: 'string' as const, required: true, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/motion/settings', optionalAuth, validateQuery(z.object({
+  cameraId: z.string().min(1).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const cameraId = req.query.cameraId as string;
     const settings = consolidatedDetectionService.getMotionSettings(cameraId);
@@ -166,16 +153,14 @@ router.get('/motion/settings', optionalAuth, validate({
   }
 });
 
-router.put('/motion/settings', requireUser, validate({
-  body: {
-    cameraId: { type: 'string' as const, required: true, maxLength: 100 },
-    sensitivity: { type: 'number' as const, required: false, min: 1, max: 100 },
-    requiredConsecutiveFrames: { type: 'number' as const, required: false, min: 1, max: 20 },
-    minContourArea: { type: 'number' as const, required: false, min: 50, max: 10000 },
-    useGaussianBlur: { type: 'boolean' as const, required: false },
-    blurKernelSize: { type: 'number' as const, required: false, min: 1, max: 31 },
-  }
-}), async (req: Request, res: Response) => {
+router.put('/motion/settings', requireUser, validateBody(z.object({
+  cameraId: z.string().min(1).max(100),
+  sensitivity: z.number().min(1).max(100).optional(),
+  requiredConsecutiveFrames: z.number().min(1).max(20).optional(),
+  minContourArea: z.number().min(50).max(10000).optional(),
+  useGaussianBlur: z.boolean().optional(),
+  blurKernelSize: z.number().min(1).max(31).optional(),
+})), async (req: Request, res: Response) => {
   try {
     const { cameraId, ...settings } = req.body;
     consolidatedDetectionService.updateMotionSettings(cameraId, settings);

@@ -1,7 +1,8 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { validateBody, validateQuery, validateParams } from '../middleware/zodValidation.js';
 import { requireUser } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 import { AppDataSource } from '../database.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -51,12 +52,10 @@ function validateDetections(detections: any[]): any[] {
 const router = Router();
 
 // Endpoint to re-run detection on a specific image file
-router.post('/rerun-detection', requireUser, validate({
-  body: {
-    filename: { type: 'string' as const, required: false, maxLength: 255, custom: (v: unknown) => { if (typeof v === 'string' && v.includes('..')) return 'Path traversal not allowed'; return true; } },
-    filepath: { type: 'string' as const, required: false, maxLength: 500, custom: (v: unknown) => { if (typeof v === 'string' && (v.includes('..') || v.startsWith('/'))) return 'Path traversal not allowed'; return true; } }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/rerun-detection', requireUser, validateBody(z.object({
+  filename: z.string().max(255).optional().refine(v => !(v && v.includes('..')), 'Path traversal not allowed'),
+  filepath: z.string().max(500).optional().refine(v => !(v && (v.includes('..') || v.startsWith('/'))), 'Path traversal not allowed')
+})), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -197,11 +196,9 @@ router.post('/rerun-detection', requireUser, validate({
 });
 
 // Endpoint to re-run detection on a specific event by ID
-router.post('/rerun-event-detection', requireUser, validate({
-  body: {
-    eventId: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/rerun-event-detection', requireUser, validateBody(z.object({
+  eventId: z.string().min(1).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -283,7 +280,7 @@ router.post('/rerun-event-detection', requireUser, validate({
 
     // Update event in database
     await AppDataSource.query(
-      `UPDATE events SET 
+      `UPDATE events SET
         persons_detected = $1,
         faces_detected = $2,
         object_detections = $3,

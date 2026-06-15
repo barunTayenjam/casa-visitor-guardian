@@ -120,10 +120,21 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     }
   }
   try {
-    await authService.register({ username: 'admin', email: 'admin@security.local', password: process.env.SEED_ADMIN_PASSWORD!, role: 'admin' });
+    await authService.register({ username: 'barun', email: 'barun@security.local', password: process.env.SEED_ADMIN_PASSWORD!, role: 'admin' });
     await authService.register({ username: 'user', email: 'user@security.local', password: process.env.SEED_USER_PASSWORD!, role: 'user' });
   } catch (err) {
     logger.debug('Seed user registration failed (duplicates expected)', 'BOOTSTRAP', err);
+  }
+
+  // Auto-import disk detections on restart so events survive volume wipes
+  try {
+    const { exec } = await import('node:child_process');
+    exec('python3 /app/import-events.py', (err) => {
+      if (err) logger.warn('Background event re-import failed', 'BOOTSTRAP');
+      else logger.info('Event re-import completed', 'BOOTSTRAP');
+    });
+  } catch (err) {
+    logger.debug('Background event re-import failed', 'BOOTSTRAP', err);
   }
 
   serviceRegistry.setAppDataSource(AppDataSource);

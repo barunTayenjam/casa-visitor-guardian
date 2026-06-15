@@ -1,10 +1,35 @@
 import { Router } from 'express';
-import { validate, validateUserRegistration, validatePasswordChange, validateWithExpress } from '../middleware/validation.js';
+import { z } from 'zod';
+import { validateBody } from '../middleware/zodValidation.js';
 import { createAuthRateLimit, createMfaRateLimit, EnhancedRateLimit } from '../middleware/enhancedRateLimit.js';
 import { authenticate } from '../middleware/auth.js';
 import { authController } from '../controllers/AuthController.js';
 
 const router = Router();
+
+// Validation Schemas
+const registerSchema = z.object({
+  username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens'),
+  email: z.string().email(),
+  password: z.string()
+    .min(8)
+    .max(128)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 'Password must contain uppercase, lowercase, number, and special character'),
+  role: z.enum(['admin', 'user', 'viewer']).optional()
+});
+
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1)
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string()
+    .min(8)
+    .max(128)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 'Password must contain uppercase, lowercase, number, and special character'),
+});
 
 const authRateLimit = createAuthRateLimit();
 const registerRateLimit = new EnhancedRateLimit({
@@ -16,18 +41,13 @@ const registerRateLimit = new EnhancedRateLimit({
 router.post('/register',
   registerRateLimit,
   authenticate({ roles: ['admin'] }),
-  validateWithExpress(validateUserRegistration),
+  validateBody(registerSchema),
   (req, res) => authController.register(req, res)
 );
 
 router.post('/login',
   authRateLimit,
-  validate({
-    body: {
-      username: { type: 'string' as const, required: true, minLength: 1 },
-      password: { type: 'string' as const, required: true, minLength: 1 }
-    }
-  }),
+  validateBody(loginSchema),
   (req, res) => authController.login(req, res)
 );
 
@@ -38,7 +58,7 @@ router.get('/profile',
 
 router.post('/change-password',
   authenticate(),
-  validateWithExpress(validatePasswordChange),
+  validateBody(changePasswordSchema),
   (req, res) => authController.changePassword(req, res)
 );
 

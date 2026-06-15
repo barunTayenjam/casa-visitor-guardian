@@ -1,20 +1,30 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { validateQuery, validateParams, validateBody } from '../middleware/zodValidation.js';
 import { Server as SocketIOServer } from 'socket.io';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { consolidatedDetectionService } from '../detection/consolidatedDetectionService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { optionalAuth, requireUser, requireAdmin } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
-router.get('/events', optionalAuth, validate({
-  query: {
-    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
-  }
-}), async (req: Request, res: Response) => {
+const limitQuerySchema = z.object({
+  limit: z.preprocess(v => (v ? parseInt(v as string, 10) : undefined), z.number().min(1).max(1000).optional())
+});
+
+const cameraIdParamsSchema = z.object({
+  cameraId: z.string().regex(/^[a-zA-Z0-9_-]+$/)
+});
+
+const analyzeBodySchema = z.object({
+  enablePersonDetection: z.boolean().optional(),
+  enableFaceDetection: z.boolean().optional()
+});
+
+router.get('/events', optionalAuth, validateQuery(limitQuerySchema), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
     const events = await eventSearchService.getMotionEvents(limit);
@@ -25,14 +35,7 @@ router.get('/events', optionalAuth, validate({
   }
 });
 
-router.get('/:cameraId/events', optionalAuth, validate({
-  params: {
-    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
-  },
-  query: {
-    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/:cameraId/events', optionalAuth, validateParams(cameraIdParamsSchema), validateQuery(limitQuerySchema), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 1000);
     const events = await eventSearchService.getCameraMotionEvents(req.params.cameraId, limit);
@@ -43,11 +46,7 @@ router.get('/:cameraId/events', optionalAuth, validate({
   }
 });
 
-router.post('/:cameraId/simulate', requireAdmin, validate({
-  params: {
-    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
-  }
-}), (req: Request, res: Response) => {
+router.post('/:cameraId/simulate', requireAdmin, validateParams(cameraIdParamsSchema), (req: Request, res: Response) => {
   try {
     const streamManager = serviceRegistry.getStreamManager();
     const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.cameraId);
@@ -60,15 +59,7 @@ router.post('/:cameraId/simulate', requireAdmin, validate({
   }
 });
 
-router.post('/:cameraId/analyze', requireUser, validate({
-  params: {
-    cameraId: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/ }
-  },
-  body: {
-    enablePersonDetection: { type: 'boolean' as const, required: false },
-    enableFaceDetection: { type: 'boolean' as const, required: false }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/:cameraId/analyze', requireUser, validateParams(cameraIdParamsSchema), validateBody(analyzeBodySchema), async (req: Request, res: Response) => {
   try {
     const streamManager = serviceRegistry.getStreamManager();
     const cameraId = req.params.cameraId;

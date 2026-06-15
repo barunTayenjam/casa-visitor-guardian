@@ -15,5 +15,5 @@ LICENSE
 __pycache__
 *.pyc
 .npmrc
-scripts/
+scripts/install.sh
 docs/

@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BaseController } from './BaseController.js';
-import { analyzeImage, checkApiHealth, analyzeWithBoundingBoxes, analyzePersons } from '../services/nvidiaAnalysisService.js';
+import { analyzeImage, checkApiHealth, analyzeWithBoundingBoxes, analyzePersons } from '../services/nvidia/index.js';
 
 export class NvidiaController extends BaseController {
   async analyze(req: Request, res: Response): Promise<void> {
@@ -37,10 +37,10 @@ export class NvidiaController extends BaseController {
       try {
         const entities = result.detectedEntities || { people: [], vehicles: [], animals: [], objects: [], actions: [] };
         await AppDataSource.query(
-          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
-           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, analyzed_at = NOW()`,
-          [eventIdentifier, imgPath?.split('/').pop() || null, cameraName || cameraId || null, result.sceneDescription || null, result.threatAssessment?.level || 'low', result.threatAssessment?.confidence || 0, JSON.stringify(entities.people || []), JSON.stringify(entities.vehicles || []), JSON.stringify(entities.objects || []), '[]', JSON.stringify(result.recommendedActions || []), result.additionalObservations || null, result.modelUsed, totalTime]
+          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, analyzed_at = NOW()`,
+          [eventIdentifier, imgPath?.split('/').pop() || null, cameraName || cameraId || null, result.sceneDescription || null, JSON.stringify(result.sceneContext || null), result.threatAssessment?.level || 'low', result.threatAssessment?.confidence || 0, JSON.stringify(entities.people || []), JSON.stringify(entities.vehicles || []), JSON.stringify(entities.objects || []), '[]', JSON.stringify(result.recommendedActions || []), result.additionalObservations || null, result.modelUsed, totalTime]
         );
        } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);
@@ -49,7 +49,13 @@ export class NvidiaController extends BaseController {
       res.json({
         success: true,
         analysis: result,
-        metadata: { processingTime: totalTime, timestamp: new Date().toISOString(), cameraId, cameraName }
+        metadata: {
+          processingTime: totalTime,
+          timestamp: new Date().toISOString(),
+          cameraId,
+          cameraName,
+          sceneContext: result.sceneContext
+        }
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'nvidia analyze');
@@ -298,10 +304,10 @@ export class NvidiaController extends BaseController {
         const threatLevel = result.threatAssessment?.level || 'low';
         const threatConfidence = result.threatAssessment?.confidence || 0;
         await AppDataSource.query(
-          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, detected_animals, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
-           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, detected_vehicles = EXCLUDED.detected_vehicles, detected_objects = EXCLUDED.detected_objects, detected_animals = EXCLUDED.detected_animals, recommended_actions = EXCLUDED.recommended_actions, model_used = EXCLUDED.model_used, processing_time_ms = EXCLUDED.processing_time_ms, analyzed_at = NOW()`,
-          [eventId, filename, event.camera_id, result.overall_summary || result.sceneDescription || '', threatLevel, threatConfidence,
+          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, detected_animals, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, detected_vehicles = EXCLUDED.detected_vehicles, detected_objects = EXCLUDED.detected_objects, detected_animals = EXCLUDED.detected_animals, recommended_actions = EXCLUDED.recommended_actions, model_used = EXCLUDED.model_used, processing_time_ms = EXCLUDED.processing_time_ms, analyzed_at = NOW()`,
+          [eventId, filename, event.camera_id, result.overall_summary || result.sceneDescription || '', JSON.stringify(result.sceneContext || null), threatLevel, threatConfidence,
            JSON.stringify(entities.people || result.persons || []), JSON.stringify(entities.vehicles || result.vehicles || []),
            JSON.stringify(entities.objects || []), JSON.stringify(entities.animals || []),
            JSON.stringify(result.recommendedActions || []), result.additionalObservations || null,
@@ -403,6 +409,7 @@ export class NvidiaController extends BaseController {
         success: true, boxes: result.boxes, sceneDescription: result.sceneDescription,
         annotatedImage: result.annotatedImage ? `data:image/jpeg;base64,${result.annotatedImage}` : null,
         rawAnalysis: result.rawAnalysis,
+        sceneContext: result.sceneContext,
         metadata: { processingTime: totalTime, modelUsed: result.modelUsed, timestamp: new Date().toISOString(), cameraId, cameraName }
       });
     } catch (error: unknown) {
@@ -450,10 +457,10 @@ export class NvidiaController extends BaseController {
 
       try {
         await AppDataSource.query(
-          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, model_used, processing_time_ms, analyzed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
-           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, bounding_boxes = EXCLUDED.bounding_boxes, analyzed_at = NOW()`,
-          [eventIdentifier, imgPath?.split('/').pop() || null, cameraId || cameraName || null, result.sceneDescription || null, 'low', result.people?.length > 0 ? 70 : 30, JSON.stringify(result.people || []), '[]', '[]', JSON.stringify(result.people?.map((p: any) => p.position) || []), JSON.stringify(['Review if person detected']), result.modelUsed, totalTime]
+          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, model_used, processing_time_ms, analyzed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, bounding_boxes = EXCLUDED.bounding_boxes, analyzed_at = NOW()`,
+          [eventIdentifier, imgPath?.split('/').pop() || null, cameraId || cameraName || null, result.sceneDescription || null, JSON.stringify(result.sceneContext || null), 'low', result.people?.length > 0 ? 70 : 30, JSON.stringify(result.people || []), '[]', '[]', JSON.stringify(result.people?.map((p: any) => p.position) || []), JSON.stringify(['Review if person detected']), result.modelUsed, totalTime]
         );
       } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);

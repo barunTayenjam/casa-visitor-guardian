@@ -1,21 +1,23 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import path from 'node:path';
+import { validateParams, validateQuery } from '../middleware/zodValidation.js';
 import { AppDataSource } from '../database.js';
 import { optionalAuth } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
-router.get('/:date', optionalAuth, validate({
-  params: {
-    date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ }
-  },
-  query: {
-    sort: { type: 'string' as const, required: false, enum: ['recent', 'persons', 'faces', 'unknown', 'confidence'] },
-    limit: { type: 'number' as const, required: false, min: 1, max: 1000 }
-  }
-}), async (req: Request, res: Response) => {
+const dateParamsSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+});
+
+const highlightsQuerySchema = z.object({
+  sort: z.enum(['recent', 'persons', 'faces', 'unknown', 'confidence']).optional(),
+  limit: z.preprocess(v => (v ? parseInt(v as string, 10) : undefined), z.number().min(1).max(1000).optional())
+});
+
+router.get('/:date', optionalAuth, validateParams(dateParamsSchema), validateQuery(highlightsQuerySchema), async (req: Request, res: Response) => {
   try {
     const { date } = req.params;
     const { sort = 'recent', limit } = req.query;
@@ -50,11 +52,7 @@ router.get('/:date', optionalAuth, validate({
   }
 });
 
-router.get('/:date/summary', optionalAuth, validate({
-  params: {
-    date: { type: 'string' as const, required: true, pattern: /^\d{4}-\d{2}-\d{2}$/ }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/:date/summary', optionalAuth, validateParams(dateParamsSchema), async (req: Request, res: Response) => {
   try {
     const { date } = req.params;
     const startDate = new Date(`${date}T00:00:00+05:30`);

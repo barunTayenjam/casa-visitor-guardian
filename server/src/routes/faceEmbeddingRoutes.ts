@@ -1,25 +1,54 @@
 import { logger } from '../utils/logger.js';
 import express from 'express';
+import { z } from 'zod';
+import { validateBody, validateParams, validateQuery } from '../middleware/zodValidation.js';
 import { AppDataSource } from '../database.js';
 import { FaceEmbedding } from '../models/FaceEmbedding.js';
 import { requireUser, optionalAuth } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
+
 const router = express.Router();
 router.use(optionalAuth);
 router.post('/', requireUser);
 router.delete('/:id', requireUser);
 const faceEmbeddingRepository = AppDataSource.getRepository(FaceEmbedding);
 
+const createEmbeddingSchema = z.object({
+  visitorId: z.string().min(1),
+  embeddingVector: z.array(z.number()).refine(v => [128, 512].includes(v.length), 'Embedding vector must be 128 or 512-dimensional'),
+  qualityScore: z.number().optional(),
+  cameraId: z.string().optional(),
+  embeddingVersion: z.enum(['128', '512']).optional(),
+  sharpness: z.number().optional(),
+  brightness: z.number().optional(),
+  faceWidth: z.number().optional(),
+  faceHeight: z.number().optional(),
+  faceArea: z.number().optional(),
+  faceConfidence: z.number().optional(),
+  imagePath: z.string().optional(),
+  detectionMethod: z.string().optional()
+});
+
+const visitorEmbeddingsParamsSchema = z.object({
+  visitorId: z.string().min(1)
+});
+
+const visitorEmbeddingsQuerySchema = z.object({
+  minQuality: z.preprocess(v => (v ? parseFloat(v as string) : undefined), z.number().min(0).max(100).optional()),
+  version: z.enum(['128', '512']).optional()
+});
+
+const highQualityQuerySchema = z.object({
+  visitorId: z.string().optional(),
+  minQuality: z.preprocess(v => (v ? parseFloat(v as string) : undefined), z.number().min(0).max(100).optional()),
+  limit: z.preprocess(v => (v ? parseInt(v as string, 10) : undefined), z.number().min(1).max(50).optional())
+});
+
+const deleteEmbeddingParamsSchema = z.object({
+  id: z.string().min(1)
+});
+
 // POST /api/face-embeddings - Store new embedding with quality metadata
-router.post('/', validate({
-  body: {
-    visitorId: { type: 'string' as const, required: true },
-    embeddingVector: { type: 'array' as const, required: true },
-    qualityScore: { type: 'number' as const, required: false },
-    cameraId: { type: 'string' as const, required: false },
-    embeddingVersion: { type: 'string' as const, required: false, enum: ['128', '512'] }
-  }
-}), async (req, res) => {
+router.post('/', validateBody(createEmbeddingSchema), async (req, res) => {
   try {
     const {
       visitorId,
@@ -36,12 +65,6 @@ router.post('/', validate({
       detectionMethod,
       embeddingVersion = '512'
     } = req.body;
-
-    // Validate embedding vector dimension
-    const validDims = [128, 512];
-    if (!Array.isArray(embeddingVector) || !validDims.includes(embeddingVector.length)) {
-      return res.status(400).json({ error: 'Embedding vector must be 128 or 512-dimensional' });
-    }
 
     // Create embedding record
     const embedding = faceEmbeddingRepository.create({
@@ -74,18 +97,10 @@ router.post('/', validate({
 });
 
 // GET /api/face-embeddings/visitor/:visitorId - Get all embeddings for a visitor
-router.get('/visitor/:visitorId', validate({
-  params: {
-    visitorId: { type: 'string' as const, required: true, minLength: 1 }
-  },
-  query: {
-    minQuality: { type: 'number' as const, required: false, min: 0, max: 100 },
-    version: { type: 'string' as const, required: false, enum: ['128', '512'] }
-  }
-}), async (req, res) => {
+router.get('/visitor/:visitorId', validateParams(visitorEmbeddingsParamsSchema), validateQuery(visitorEmbeddingsQuerySchema), async (req, res) => {
   try {
     const { visitorId } = req.params;
-    const { minQuality = 50, version } = req.query;
+    const { minQuality = 50, version } = req.query as any;
 
     const whereClause: Record<string, unknown> = {
       visitorId,
@@ -129,15 +144,9 @@ router.get('/visitor/:visitorId', validate({
 });
 
 // GET /api/face-embeddings/high-quality - Get high-quality embeddings for recognition
-router.get('/high-quality', validate({
-  query: {
-    visitorId: { type: 'string' as const, required: false },
-    minQuality: { type: 'number' as const, required: false, min: 0, max: 100 },
-    limit: { type: 'number' as const, required: false, min: 1, max: 50 }
-  }
-}), async (req, res) => {
+router.get('/high-quality', validateQuery(highQualityQuerySchema), async (req, res) => {
   try {
-    const { visitorId, minQuality = 70, limit = 10 } = req.query;
+    const { visitorId, minQuality = 70, limit = 10 } = req.query as any;
 
     const queryBuilder = faceEmbeddingRepository.createQueryBuilder('fe')
       .where('fe.isActive = :isActive', { isActive: true })
@@ -168,11 +177,7 @@ router.get('/high-quality', validate({
 });
 
 // DELETE /api/face-embeddings/:id - Soft delete an embedding
-router.delete('/:id', validate({
-  params: {
-    id: { type: 'string' as const, required: true, minLength: 1 }
-  }
-}), async (req, res) => {
+router.delete('/:id', validateParams(deleteEmbeddingParamsSchema), async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -1,23 +1,45 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { validateBody, validateQuery } from '../middleware/zodValidation.js';
 import { AppDataSource } from '../database.js';
 import { NotificationSubscription } from '../models/NotificationSubscription.js';
 import { NotificationLog } from '../models/NotificationLog.js';
 import { NotificationPreferences } from '../models/NotificationPreferences.js';
 import NotificationService from '../services/notificationService.js';
 import { authenticate } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 
 const router = Router();
 
 router.use(authenticate());
 
-router.post('/subscribe', validate({
-  body: {
-    endpoint: { type: 'url' as const, required: true, maxLength: 500 },
-    keys: { type: 'object' as const, required: true }
-  }
-}), async (req: Request, res: Response) => {
+const subscribeSchema = z.object({
+  endpoint: z.string().url().max(500),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1)
+  })
+});
+
+const unsubscribeSchema = z.object({
+  endpoint: z.string().url().max(500)
+});
+
+const logsQuerySchema = z.object({
+  limit: z.preprocess(v => (v ? parseInt(v as string, 10) : undefined), z.number().min(1).max(100).optional())
+});
+
+const preferencesSchema = z.object({
+  motion_enabled: z.boolean().optional(),
+  face_enabled: z.boolean().optional(),
+  object_enabled: z.boolean().optional(),
+  quiet_hours_enabled: z.boolean().optional(),
+  quiet_hours_start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  quiet_hours_end: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  quiet_hours_timezone: z.string().max(50).optional()
+});
+
+router.post('/subscribe', validateBody(subscribeSchema), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const { endpoint, keys } = req.body;
@@ -44,11 +66,7 @@ router.post('/subscribe', validate({
   }
 });
 
-router.delete('/unsubscribe', validate({
-  body: {
-    endpoint: { type: 'url' as const, required: true, maxLength: 500 }
-  }
-}), async (req: Request, res: Response) => {
+router.delete('/unsubscribe', validateBody(unsubscribeSchema), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const { endpoint } = req.body;
@@ -66,12 +84,7 @@ router.delete('/unsubscribe', validate({
   }
 });
 
-router.post('/resubscribe', validate({
-  body: {
-    endpoint: { type: 'url' as const, required: true, maxLength: 500 },
-    keys: { type: 'object' as const, required: true }
-  }
-}), async (req: Request, res: Response) => {
+router.post('/resubscribe', validateBody(subscribeSchema), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const { endpoint, keys } = req.body;
@@ -132,11 +145,7 @@ router.get('/vapid-public-key', (req: Request, res: Response) => {
   res.json({ publicKey: vapidPublicKey });
 });
 
-router.get('/logs', validate({
-  query: {
-    limit: { type: 'number' as const, required: false, min: 1, max: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/logs', validateQuery(logsQuerySchema), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const limit = parseInt(req.query.limit as string) || 50;
@@ -219,17 +228,7 @@ router.get('/preferences', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/preferences', validate({
-  body: {
-    motion_enabled: { type: 'boolean' as const, required: false },
-    face_enabled: { type: 'boolean' as const, required: false },
-    object_enabled: { type: 'boolean' as const, required: false },
-    quiet_hours_enabled: { type: 'boolean' as const, required: false },
-    quiet_hours_start: { type: 'string' as const, required: false, pattern: /^\d{2}:\d{2}$/ },
-    quiet_hours_end: { type: 'string' as const, required: false, pattern: /^\d{2}:\d{2}$/ },
-    quiet_hours_timezone: { type: 'string' as const, required: false, maxLength: 50 }
-  }
-}), async (req: Request, res: Response) => {
+router.put('/preferences', validateBody(preferencesSchema), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const preferencesRepository = AppDataSource.getRepository(NotificationPreferences);

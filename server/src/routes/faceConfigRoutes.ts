@@ -1,11 +1,20 @@
 import { logger } from '../utils/logger.js';
 import express from 'express';
+import { z } from 'zod';
+import { validateParams, validateBody } from '../middleware/zodValidation.js';
 import { AppDataSource } from '../database.js';
 import { requireUser } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 
 const router = express.Router();
 router.use(requireUser);
+
+const configKeySchema = z.object({
+  key: z.string().min(1).max(100)
+});
+
+const configUpdateSchema = z.object({
+  value: z.number()
+});
 
 // GET /api/face-config - Get all face recognition configuration
 router.get('/', async (req, res) => {
@@ -36,11 +45,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/face-config/:key - Get specific configuration value
-router.get('/:key', validate({
-  params: {
-    key: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
-  }
-}), async (req, res) => {
+router.get('/:key', validateParams(configKeySchema), async (req, res) => {
   try {
     const { key } = req.params;
 
@@ -71,14 +76,7 @@ router.get('/:key', validate({
 });
 
 // PUT /api/face-config/:key - Update configuration value
-router.put('/:key', validate({
-  params: {
-    key: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
-  },
-  body: {
-    value: { type: 'number' as const, required: true }
-  }
-}), async (req, res) => {
+router.put('/:key', validateParams(configKeySchema), validateBody(configUpdateSchema), async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;

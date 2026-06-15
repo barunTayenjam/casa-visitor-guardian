@@ -17,6 +17,7 @@ function buildResult(parsed: any, processingTime: number, model: string): Nvidia
 
   return {
     sceneDescription: p.scene_description || p.sceneDescription || 'No description available',
+    sceneContext: p.scene_context || p.sceneContext || { environment: 'unknown' },
     threatAssessment: {
       level: p.threat_assessment?.level || p.threatAssessment?.level || 'low',
       factors: p.threat_assessment?.reasoning ? [p.threat_assessment.reasoning] : (p.threat_assessment?.factors || p.threatAssessment?.factors || []),
@@ -27,7 +28,7 @@ function buildResult(parsed: any, processingTime: number, model: string): Nvidia
       vehicles: normalizeEntityArray(p.detected_entities?.vehicles || p.detectedEntities?.vehicles, 'vehicle'),
       animals: normalizeEntityArray(p.detected_entities?.animals || p.detectedEntities?.animals, 'animal'),
       objects: normalizeEntityArray(p.detected_entities?.objects || p.detectedEntities?.objects, 'object'),
-      actions: []
+      actions: normalizeEntityArray(p.detected_entities?.actions || p.detectedEntities?.actions, 'action')
     },
     recommendedActions: p.recommended_actions || p.recommendedActions || [],
     additionalObservations: p.additional_observations || p.additionalObservations || [],

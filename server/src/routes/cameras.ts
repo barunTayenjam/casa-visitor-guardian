@@ -1,13 +1,24 @@
 import { Router } from 'express';
-import { validate, commonSchemas } from '../middleware/validation.js';
+import { z } from 'zod';
+import { validateBody } from '../middleware/zodValidation.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
 import { cameraController } from '../controllers/CameraController.js';
 
 const router = Router();
 
+const createCameraSchema = z.object({
+  name: z.string().min(1).max(100),
+  rtspUrl: z.string().refine(v => v.startsWith('rtsp://') || v.startsWith('rtsps://'), 'RTSP URL must start with rtsp:// or rtsps://'),
+  username: z.string().max(100).optional(),
+  password: z.string().max(100).optional(),
+  frameRate: z.number().int().min(1).max(60).optional(),
+  resolution: z.string().regex(/^\d+x\d+$/, 'Resolution must be WIDTHxHEIGHT').optional(),
+  nightMode: z.boolean().optional()
+});
+
 router.get('/', optionalAuth, (req, res) => cameraController.listAll(req, res));
 router.get('/:id', optionalAuth, (req, res) => cameraController.getById(req, res));
-router.post('/', requireUser, validate(commonSchemas.createCamera), (req, res) => cameraController.create(req, res));
+router.post('/', requireUser, validateBody(createCameraSchema), (req, res) => cameraController.create(req, res));
 router.put('/:id', requireUser, (req, res) => cameraController.update(req, res));
 router.delete('/:id', requireUser, (req, res) => cameraController.remove(req, res));
 

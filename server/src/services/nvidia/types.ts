@@ -33,6 +33,11 @@ export interface PersonDetectionResult {
 export interface BboxAnalysisResult {
   boxes: BoundingBox[];
   sceneDescription: string;
+  sceneContext?: {
+    environment: string;
+    weather?: string;
+    lighting?: string;
+  };
   annotatedImage: string;
   rawAnalysis: {
     people: string[];
@@ -46,6 +51,12 @@ export interface BboxAnalysisResult {
 
 export interface NvidianalysisResult {
   sceneDescription: string;
+  sceneContext?: {
+    environment: 'indoor' | 'outdoor' | 'unknown';
+    weather?: string;
+    lighting?: string;
+    timeOfDay?: string;
+  };
   threatAssessment: {
     level: 'low' | 'medium' | 'high' | 'critical';
     factors: string[];

@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    salt VARCHAR(32) NOT NULL,
     role_id UUID REFERENCES roles(id),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended', 'locked')),
     mfa_enabled BOOLEAN DEFAULT FALSE,

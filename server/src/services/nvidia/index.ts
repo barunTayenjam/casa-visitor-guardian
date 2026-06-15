@@ -260,6 +260,7 @@ export async function analyzeWithBoundingBoxes(
       animals: [] as string[]
     };
     let sceneDescription = '';
+    let sceneContext: BboxAnalysisResult['sceneContext'] = undefined;
 
     try {
       let jsonStr = content.trim();
@@ -296,6 +297,7 @@ export async function analyzeWithBoundingBoxes(
       rawAnalysis.objects = parsed.objects || [];
       rawAnalysis.animals = parsed.animals || [];
       sceneDescription = parsed.scene_description || '';
+      sceneContext = parsed.scene_context;
     } catch (parseError) {
       logger.error('Failed to parse bbox response', 'NVIDIA', parseError);
       sceneDescription = content.substring(0, 500);
@@ -319,6 +321,7 @@ export async function analyzeWithBoundingBoxes(
     return {
       boxes: detectedBoxes,
       sceneDescription,
+      sceneContext,
       annotatedImage,
       rawAnalysis,
       processingTime,

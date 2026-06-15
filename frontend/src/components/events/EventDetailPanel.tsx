@@ -10,6 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AIAnalysis {
   sceneDescription?: string;
+  sceneContext?: {
+    environment: string;
+    weather?: string;
+    lighting?: string;
+  };
   threatAssessment?: { level: string; factors: string[]; confidence: number; };
   detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[]; };
   recommendedActions?: string[]; processingTime?: number; modelUsed?: string;
@@ -420,9 +425,12 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     )}
                   </div>
 
-                  {/* Scene Description */}
-                  {analysis.sceneDescription && (
-                    <p className="text-sm text-white/80 leading-relaxed">{analysis.sceneDescription}</p>
+                  {analysis.sceneContext && (
+                    <div className="flex flex-wrap gap-2 text-[10px] text-white/50 mb-4">
+                      {analysis.sceneContext.environment && <span className="bg-white/5 px-2 py-0.5 rounded">Env: {analysis.sceneContext.environment}</span>}
+                      {analysis.sceneContext.weather && <span className="bg-white/5 px-2 py-0.5 rounded">Weather: {analysis.sceneContext.weather}</span>}
+                      {analysis.sceneContext.lighting && <span className="bg-white/5 px-2 py-0.5 rounded">Lighting: {analysis.sceneContext.lighting}</span>}
+                    </div>
                   )}
 
                   {/* Threat Assessment */}

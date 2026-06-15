@@ -256,7 +256,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           return;
         }
 
-        if (connectionStateRef.current === 'connecting' || connectionStateRef.current === 'reconnecting') {
+        if (connectionStateRef.current === 'connecting' || connectionStateRef.current === 'reconnecting' as string) {
           const video = videoRef.current;
           if (video.currentTime > 0 && video.readyState >= 2 && !mseSettledRef.current) {
             console.log(`[CameraStream:${camera.name}] Video playing but connection never settled — forcing connected`);
@@ -471,9 +471,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         }
       };
 
-      ws.onerror = () => { if (!settled) { settled = true; reject(new Error('MSE WebSocket error')); } };
+      ws.onerror = () => { mseSettledRef.current = true; reject(new Error('MSE WebSocket error')); };
       ws.onclose = () => {
-        if (!settled) { settled = true; reject(new Error('MSE WebSocket closed')); }
+        if (mseSettledRef.current) { return; }
         else if (connectionStateRef.current === 'connected') {
           console.log(`[CameraStream:${camera.name}] MSE WebSocket closed unexpectedly`);
           setConnectionState('reconnecting');

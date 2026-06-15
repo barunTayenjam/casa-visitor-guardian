@@ -152,7 +152,7 @@ export class EventSearchService {
         e.file_path, e.metadata, e.persons_detected, e.faces_detected,
         e.known_faces_count, e.object_detections, e.face_detections,
         e.unknown_faces_count,
-        a.scene_description, a.threat_level, a.threat_confidence,
+        a.scene_description, a.scene_context, a.threat_level, a.threat_confidence,
         a.detected_people, a.detected_vehicles, a.detected_objects,
         a.detected_animals, a.recommended_actions, a.additional_observations,
         a.model_used, a.processing_time_ms, a.analyzed_at
@@ -199,6 +199,7 @@ export class EventSearchService {
           : rawDesc;
         return {
           sceneDescription: plainDesc,
+          sceneContext: row.scene_context,
           threatAssessment: { level: row.threat_level || 'low', factors: [] as string[], confidence: row.threat_confidence || 0 },
           detectedEntities: { people: safeJson(row.detected_people), vehicles: safeJson(row.detected_vehicles), objects: safeJson(row.detected_objects), animals: safeJson(row.detected_animals) },
           recommendedActions: safeJson(row.recommended_actions),

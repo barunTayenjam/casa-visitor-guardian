@@ -26,8 +26,8 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 COPY . .
 
-# Download YOLOv8n ONNX model for better detection accuracy
-RUN python3 download_yolov8.py
+# Download models for better detection accuracy
+RUN python3 download_all_models.py
 
 EXPOSE 8084
 EXPOSE 9090

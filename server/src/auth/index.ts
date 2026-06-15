@@ -18,15 +18,6 @@ export interface User {
   updatedAt: Date;
 }
 
-// JWT Payload interface
-export interface JWTPayload {
-  userId: string;
-  username: string;
-  role: string;
-  iat?: number;
-  exp?: number;
-}
-
 // Authentication result interface
 export interface AuthResult {
   success: boolean;
@@ -38,94 +29,14 @@ export interface AuthResult {
   pendingToken?: string;
 }
 
-// Seed default users to database (runs once on startup)
-async function seedDefaultUsers() {
-  if (config.nodeEnv !== 'development') {
-    return;
-  }
-
-  try {
-    if (!AppDataSource.isInitialized) {
-      logger.warn('Database not initialized, skipping user seed', 'AuthService');
-      return;
-    }
-
-    const userRepository = AppDataSource.getRepository('users');
-    const roleRepository = AppDataSource.getRepository('roles');
-
-    const existingUsers = await userRepository.count();
-    if (existingUsers > 0) {
-      logger.info(`Database has ${existingUsers} users, skipping seed`, 'AuthService');
-      return;
-    }
-
-    let adminRole = await roleRepository.findOne({ where: { name: 'admin' } });
-    if (!adminRole) {
-      adminRole = await roleRepository.save({
-        name: 'admin',
-        description: 'Administrator role',
-        permissions: ['*'],
-        isActive: true
-      });
-    }
-
-    let userRole = await roleRepository.findOne({ where: { name: 'user' } });
-    if (!userRole) {
-      userRole = await roleRepository.save({
-        name: 'user',
-        description: 'Standard user role',
-        permissions: ['read:own', 'write:own'],
-        isActive: true
-      });
-    }
-
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-    const userPassword = process.env.SEED_USER_PASSWORD;
-
-    if (!adminPassword || !userPassword) {
-      logger.warn('SEED_ADMIN_PASSWORD and/or SEED_USER_PASSWORD not set — skipping seed', 'AuthService');
-      return;
-    }
-
-    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-    const userPasswordHash = await bcrypt.hash(userPassword, 12);
-
-    await userRepository.save({
-      username: 'admin',
-      email: 'admin@security.local',
-      password_hash: adminPasswordHash,
-      role_id: adminRole.id,
-      status: 'active',
-      mfa_enabled: false,
-      email_verified: true,
-      failed_login_attempts: 0,
-      created_at: new Date(),
-      updated_at: new Date()
-    });
-
-    await userRepository.save({
-      username: 'user',
-      email: 'user@security.local',
-      password_hash: userPasswordHash,
-      role_id: userRole.id,
-      status: 'active',
-      mfa_enabled: false,
-      email_verified: true,
-      failed_login_attempts: 0,
-      created_at: new Date(),
-      updated_at: new Date()
-    });
-
-    logger.warn('Default development users seeded to database. Change passwords in production!', 'AuthService');
-  } catch (error) {
-    logger.error(`Failed to seed default users: ${error}`, 'AuthService');
-  }
+// JWT Payload interface
+export interface JWTPayload {
+  userId: string;
+  username: string;
+  role: string;
+  iat?: number;
+  exp?: number;
 }
-
-seedDefaultUsers().catch(err => {
-  logger.error(`Failed to seed default users: ${err}`, 'AuthService');
-});
-
 export class AuthService {
   // Generate a long‑lived refresh token (default 7 days)
   generateRefreshToken(user: User): string {

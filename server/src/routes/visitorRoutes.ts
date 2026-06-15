@@ -1,7 +1,8 @@
 import { logger } from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { validateBody, validateQuery, validateParams } from '../middleware/zodValidation.js';
 import { optionalAuth, requireUser } from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js';
 import visitorService from '../services/visitorService.js';
 
 const router = Router();
@@ -26,11 +27,9 @@ router.get('/timeline', optionalAuth, async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/:id', optionalAuth, validate({
-  params: {
-    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.get('/:id', optionalAuth, validateParams(z.object({
+  id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const persons = await visitorService.getKnownPersons();
     const person = persons.find((p: any) => p.id === req.params.id || p.person_id === req.params.id);
@@ -45,14 +44,11 @@ router.get('/:id', optionalAuth, validate({
   }
 });
 
-router.put('/:id', requireUser, validate({
-  params: {
-    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
-  },
-  body: {
-    name: { type: 'string' as const, required: true, minLength: 1, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.put('/:id', requireUser, validateParams(z.object({
+  id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)
+})), validateBody(z.object({
+  name: z.string().min(1).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const { name } = req.body;
 const updated = await visitorService.updatePerson(req.params.id, { name });
@@ -67,11 +63,9 @@ const updated = await visitorService.updatePerson(req.params.id, { name });
   }
 });
 
-router.delete('/:id', requireUser, validate({
-  params: {
-    id: { type: 'string' as const, required: true, pattern: /^[a-zA-Z0-9_-]+$/, maxLength: 100 }
-  }
-}), async (req: Request, res: Response) => {
+router.delete('/:id', requireUser, validateParams(z.object({
+  id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)
+})), async (req: Request, res: Response) => {
   try {
     const deleted = await visitorService.deleteFace(req.params.id);
     if (!deleted) {

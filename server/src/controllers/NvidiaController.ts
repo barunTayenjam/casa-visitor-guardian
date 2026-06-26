@@ -9,7 +9,7 @@ export class NvidiaController extends BaseController {
   async analyze(req: Request, res: Response): Promise<void> {
     try {
       const startTime = Date.now();
-      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp } = req.body;
+      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp, yoloDetections } = req.body;
 
       if (!image && !imgPath) {
         this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required');
@@ -27,7 +27,7 @@ export class NvidiaController extends BaseController {
         }
       }
 
-      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString() };
+      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString(), yoloDetections };
 
       const result = await analyzeImage(imageInput!, context);
       const totalTime = Date.now() - startTime;
@@ -251,7 +251,8 @@ export class NvidiaController extends BaseController {
         eventType: event.event_type,
         detectedObjects: event.object_detections.map(d => d.class),
         confidence: event.confidence,
-        timestamp: event.timestamp.toString()
+        timestamp: event.timestamp.toString(),
+        yoloDetections: event.object_detections
       };
 
       let result: any;
@@ -284,6 +285,7 @@ export class NvidiaController extends BaseController {
         const normalizedDesc = this.normalizeSceneDescription(rawDesc);
         result = {
           sceneDescription: normalizedDesc,
+          sceneContext: result.sceneContext || { environment: 'unknown' },
           summary: normalizedDesc,
           persons: result.detectedEntities?.people || result.persons || [],
           vehicles: result.detectedEntities?.vehicles || result.vehicles || [],
@@ -389,7 +391,7 @@ export class NvidiaController extends BaseController {
   async analyzeWithBboxes(req: Request, res: Response): Promise<void> {
     try {
       const startTime = Date.now();
-      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp } = req.body;
+      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp, yoloDetections } = req.body;
 
       if (!image && !imgPath) { this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required'); return; }
 
@@ -401,7 +403,7 @@ export class NvidiaController extends BaseController {
         if (!fs.existsSync(imageInput)) { this.badRequest(res, `Image file not found: ${imgPath}`); return; }
       }
 
-      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString() };
+      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString(), yoloDetections };
       const result = await analyzeWithBoundingBoxes(imageInput!, context);
       const totalTime = Date.now() - startTime;
 
@@ -527,7 +529,8 @@ export class NvidiaController extends BaseController {
         eventType: event.event_type,
         detectedObjects: event.object_detections.map(d => d.class),
         confidence: event.confidence,
-        timestamp: event.timestamp.toString()
+        timestamp: event.timestamp.toString(),
+        yoloDetections: event.object_detections
       };
 
       const result = await analyzeWithBoundingBoxes(imagePath, context);

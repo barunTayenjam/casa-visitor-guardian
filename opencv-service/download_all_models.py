@@ -18,14 +18,23 @@ DOWNLOAD_TIMEOUT = 300  # 5 minutes timeout
 
 # Model definitions with URLs and checksums (when available)
 MODELS = {
-    # YOLOv8n ONNX - Best balance of speed and accuracy for home security
+    # YOLOv8s ONNX - Better accuracy for scene understanding (preferred)
+    'yolov8s.onnx': {
+        'urls': [
+            "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8s.onnx",
+        ],
+        'description': 'YOLOv8 Small ONNX - Best accuracy for scene understanding',
+        'size_mb': 43.0,
+        'required': False
+    },
+
+    # YOLOv8n ONNX - Fast fallback
     'yolov8n.onnx': {
         'urls': [
-            "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.onnx",
-            "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx",
+            "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8n.onnx",
         ],
-        'description': 'YOLOv8 Nano ONNX - Fast and accurate',
-        'size_mb': 6.0,  # Expected size in MB
+        'description': 'YOLOv8 Nano ONNX - Fast fallback',
+        'size_mb': 6.0,
         'required': False
     },
     
@@ -257,7 +266,7 @@ def main():
     print_info(f"Optional models: {success_count - required_success}/{optional_count}")
     
     # Check critical models
-    critical_models = ['yolov8n.onnx', 'res10_300x300_ssd_iter_140000_fp16.caffemodel', 'deploy.prototxt']
+    critical_models = ['yolov8s.onnx', 'yolov8n.onnx', 'res10_300x300_ssd_iter_140000_fp16.caffemodel', 'deploy.prototxt']
     all_critical = all(os.path.exists(os.path.join(MODELS_DIR, m)) for m in critical_models)
     
     print()

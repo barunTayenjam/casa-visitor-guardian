@@ -150,7 +150,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${OPENCV_CPU_LIMIT:-7.0}
+          cpus: ${OPENCV_CPU_LIMIT:-6.0}
           memory: ${OPENCV_MEM_LIMIT:-4096M}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.5}

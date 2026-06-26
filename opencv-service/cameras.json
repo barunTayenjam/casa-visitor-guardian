@@ -27,7 +27,7 @@
         "live": {
             "width": 1280,
             "height": 720,
-            "fps": 2
+            "fps": 1
         },
         "record": {
             "enabled": true,
@@ -145,7 +145,7 @@
         "live": {
             "width": 1280,
             "height": 720,
-            "fps": 2
+            "fps": 1
         },
         "record": {
             "enabled": true,

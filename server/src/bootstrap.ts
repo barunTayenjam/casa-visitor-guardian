@@ -233,6 +233,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
             bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
             ts: now,
           });
+          return;
         }
 
         persistedTracks.add(trackKey);

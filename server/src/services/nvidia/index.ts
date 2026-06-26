@@ -428,6 +428,7 @@ export async function analyzePersons(
     let people: PersonDetectionResult['people'] = [];
     let count = 0;
     let sceneDescription = '';
+    let sceneContext: PersonDetectionResult['sceneContext'] = undefined;
 
     try {
       let jsonStr = content.trim();
@@ -439,6 +440,7 @@ export async function analyzePersons(
 
       count = parsed.count || 0;
       sceneDescription = parsed.scene_description || '';
+      sceneContext = parsed.scene_context;
 
       if (parsed.people && Array.isArray(parsed.people)) {
         people = parsed.people.map((p: any) => ({
@@ -464,6 +466,7 @@ export async function analyzePersons(
       count,
       people,
       sceneDescription,
+      sceneContext,
       processingTime,
       modelUsed: model
     };
@@ -477,6 +480,7 @@ export async function analyzePersons(
       count: 0,
       people: [],
       sceneDescription: `Analysis failed: ${errMsg}`,
+      sceneContext: undefined,
       processingTime,
       modelUsed: model
     };

@@ -12,6 +12,7 @@ import redis
 
 import state
 from utils import MODELS_DIR, load_class_names
+from threat_detector import ThreatDetector
 
 
 class DetectionCache:
@@ -165,15 +166,13 @@ class YOLOObjectDetector:
         self.dnn_face_detector = None
 
         self.class_thresholds = {
-            'person': 0.30,
-            'car': 0.50,
-            'truck': 0.70,
-            'bus': 0.50,
-            'motorcycle': 0.50,
-            'bicycle': 0.50,
-            'dog': 0.35,
-            'cat': 0.35,
-            'bird': 0.30,
+            'person': 0.12,
+            'dog': 0.20, 'cat': 0.20, 'bird': 0.20,
+            'car': 0.40,
+            'truck': 0.40,
+            'bus': 0.40,
+            'motorcycle': 0.40,
+            'bicycle': 0.40,
             'horse': 0.40,
             'sheep': 0.30,
             'cow': 0.30,
@@ -181,96 +180,74 @@ class YOLOObjectDetector:
             'bear': 0.30,
             'zebra': 0.30,
             'giraffe': 0.30,
-            'backpack': 0.30,
-            'umbrella': 0.50,
-            'handbag': 0.50,
-            'tie': 0.50,
-            'suitcase': 0.50,
+            'backpack': 0.40,
+            'umbrella': 0.45,
+            'handbag': 0.45,
+            'suitcase': 0.45,
             'frisbee': 0.50,
-            'skis': 0.50,
-            'snowboard': 0.50,
-            'sports ball': 0.50,
-            'kite': 0.50,
-            'baseball bat': 0.50,
-            'baseball glove': 0.50,
             'skateboard': 0.50,
-            'surfboard': 0.50,
-            'tennis racket': 0.50,
-            'bottle': 0.65,
-            'wine glass': 0.65,
-            'cup': 0.65,
-            'fork': 0.65,
-            'knife': 0.65,
-            'spoon': 0.65,
-            'bowl': 0.65,
-            'banana': 0.65,
-            'apple': 0.65,
-            'sandwich': 0.65,
-            'orange': 0.65,
-            'broccoli': 0.65,
-            'carrot': 0.65,
-            'hot dog': 0.65,
-            'pizza': 0.65,
-            'donut': 0.65,
-            'cake': 0.65,
-            'chair': 0.60,
-            'couch': 0.60,
-            'potted plant': 0.65,
-            'bed': 0.60,
-            'dining table': 0.60,
-            'toilet': 0.60,
-            'tv': 0.60,
-            'laptop': 0.60,
-            'mouse': 0.60,
-            'remote': 0.60,
-            'keyboard': 0.60,
-            'cell phone': 0.60,
-            'microwave': 0.60,
-            'oven': 0.60,
-            'toaster': 0.60,
-            'sink': 0.60,
-            'refrigerator': 0.60,
-            'book': 0.60,
-            'clock': 0.60,
+            'sports ball': 0.50,
+            'bottle': 0.45,
+            'cup': 0.45,
+            'bowl': 0.35,
+            'cell phone': 0.45,
+            'chair': 0.45,
+            'couch': 0.45,
+            'potted plant': 0.50,
+            'bed': 0.50,
+            'dining table': 0.50,
+            'tv': 0.45,
+            'laptop': 0.45,
+            'book': 0.45,
+            'clock': 0.45,
             'vase': 0.45,
-            'scissors': 0.45,
             'teddy bear': 0.45,
-            'hair drier': 0.45,
-            'toothbrush': 0.45,
+            'traffic light': 0.40,
+            'stop sign': 0.40,
+            'parking meter': 0.45,
+            'bench': 0.45,
+            'fire hydrant': 0.45,
         }
 
-        self.min_box_area = 2500
-        self.min_box_width = 50
-        self.min_box_height = 50
+        self.min_box_area = 800
+        self.min_box_width = 25
+        self.min_box_height = 25
 
     def initialize(self):
         if self.initialized:
             return
 
-        try:
-            yolov8_path = os.path.join(MODELS_DIR, 'yolov8n.onnx')
+        variants = [
+            ('yolov8m.onnx', 'YOLOv8m'),
+        ]
 
-            if os.path.exists(yolov8_path):
-                print(f"OpenCV Service: Loading YOLOv8n ONNX model from {yolov8_path}")
-                self.net = cv2.dnn.readNet(yolov8_path)
+        for filename, label in variants:
+            model_path = os.path.join(MODELS_DIR, filename)
+            if not os.path.exists(model_path):
+                continue
+            try:
+                print(f"OpenCV Service: Loading {label} ONNX model from {model_path}")
+                self.net = cv2.dnn.readNet(model_path)
                 self.model_type = 'yolov8'
-
                 try:
                     if cv2.cuda.getCudaEnabledDeviceCount() > 0:
                         self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
                         self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-                        print("OpenCV Service: Using YOLOv8n with CUDA")
+                        print(f"OpenCV Service: Using {label} with CUDA")
                     else:
                         raise RuntimeError("No CUDA devices")
                 except Exception:
                     self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
                     self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                    print("OpenCV Service: Using YOLOv8n with CPU")
-
+                    print(f"OpenCV Service: Using {label} with CPU")
                 self.initialized = True
-                print("OpenCV Service: YOLOv8n detection initialized successfully")
+                print(f"OpenCV Service: {label} detection initialized successfully")
                 return
+            except Exception as e:
+                print(f"OpenCV Service: Failed to load {label}: {e}")
+                continue
 
+        try:
             yolov5_path = os.path.join(MODELS_DIR, 'yolov5n.onnx')
 
             if os.path.exists(yolov5_path):
@@ -322,6 +299,7 @@ class YOLOObjectDetector:
 
             self.initialized = True
             print("OpenCV Service: YOLO detection initialized successfully")
+            return
 
         except Exception as e:
             print(f"OpenCV Service: Failed to initialize YOLO: {e}")
@@ -381,11 +359,20 @@ class YOLOObjectDetector:
                 'error': str(e)
             }
 
-    def _perform_yolo_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+    def _perform_yolo_detection(self, image: np.ndarray, frame_id: Optional[int] = None) -> List[Dict[str, Any]]:
         detections = []
 
         try:
             height, width = image.shape[:2]
+
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            mean_brightness = np.mean(gray)
+            is_low_light = mean_brightness < 120
+            if is_low_light:
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                enhanced_gray = clahe.apply(gray)
+                enhanced = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
+                image = cv2.addWeighted(image, 0.3, enhanced, 0.7, 0)
 
             if self.net is not None:
                 blob = cv2.dnn.blobFromImage(
@@ -439,10 +426,10 @@ class YOLOObjectDetector:
                             box_w = float(detection[2])
                             box_h = float(detection[3])
 
-                            x = int((x_center - box_w / 2) * width)
-                            y = int((y_center - box_h / 2) * height)
-                            box_w = int(box_w * width)
-                            box_h = int(box_h * height)
+                            x = int((x_center - box_w / 2) * width / self.input_size)
+                            y = int((y_center - box_h / 2) * height / self.input_size)
+                            box_w = int(box_w * width / self.input_size)
+                            box_h = int(box_h * height / self.input_size)
 
                             x = max(0, x)
                             y = max(0, y)
@@ -552,15 +539,92 @@ class YOLOObjectDetector:
                             }
                         })
 
+            persons_in_yolo = any(d['class'] == 'person' for d in detections)
+            if is_low_light and not persons_in_yolo:
+                hog_persons = self._hog_person_detection(image)
+                if hog_persons:
+                    existing_boxes = [
+                        (d['bbox']['x'], d['bbox']['y'],
+                         d['bbox']['x'] + d['bbox']['width'],
+                         d['bbox']['y'] + d['bbox']['height'])
+                        for d in detections
+                    ]
+                    for hp in hog_persons:
+                        bx, by, bw, bh = hp['bbox']['x'], hp['bbox']['y'], hp['bbox']['width'], hp['bbox']['height']
+                        overlap = False
+                        for ex1, ey1, ex2, ey2 in existing_boxes:
+                            ix1, iy1 = max(bx, ex1), max(by, ey1)
+                            ix2, iy2 = min(bx + bw, ex2), min(by + bh, ey2)
+                            if ix2 > ix1 and iy2 > iy1:
+                                inter = (ix2 - ix1) * (iy2 - iy1)
+                                union = bw * bh + (ey2 - ey1) * (ex2 - ex1) - inter
+                                if union > 0 and inter / union > 0.3:
+                                    overlap = True
+                                    break
+                        if not overlap:
+                            detections.append(hp)
+
+            if not is_low_light:
                 classes_found = [d['class'] for d in detections]
                 print(f"OpenCV Service: Detected {len(detections)} objects: {classes_found}")
+            elif persons_in_yolo or any(d['class'] == 'person' for d in detections):
+                print(f"OpenCV Service: Detected {len(detections)} objects: {[d['class'] for d in detections]}")
             else:
-                detections = self._fallback_detection(image)
-
+                print(f"OpenCV Service: Detected {len(detections)} objects (low-light, YOLO no persons, HOG supplement)")
             return detections
 
         except Exception as e:
             print(f"OpenCV Service: YOLO detection error: {e}")
+            return []
+
+    def _hog_person_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        results = []
+        try:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+
+            hog = cv2.HOGDescriptor()
+            hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+            for scale, stride in [(1.05, 8), (1.03, 4)]:
+                (rects, weights) = hog.detectMultiScale(
+                    enhanced, winStride=(stride, stride),
+                    padding=(8, 8), scale=scale,
+                )
+                for (x, y, w, h), weight in zip(rects, weights):
+                    conf = min(100, max(15, weight * 100))
+                    if conf >= 20:
+                        results.append({
+                            'class': 'person',
+                            'confidence': round(conf, 1),
+                            'bbox': {'x': int(x), 'y': int(y), 'width': int(w), 'height': int(h)}
+                        })
+
+            deduped = []
+            for r in results:
+                bx, by, bw, bh = r['bbox']['x'], r['bbox']['y'], r['bbox']['width'], r['bbox']['height']
+                duplicate = False
+                for d in deduped:
+                    dx, dy, dw, dh = d['bbox']['x'], d['bbox']['y'], d['bbox']['width'], d['bbox']['height']
+                    ix = max(bx, dx)
+                    iy = max(by, dy)
+                    ix2 = min(bx + bw, dx + dw)
+                    iy2 = min(by + bh, dy + dh)
+                    if ix2 > ix and iy2 > iy:
+                        inter = (ix2 - ix) * (iy2 - iy)
+                        union = bw * bh + dw * dh - inter
+                        if union > 0 and inter / union > 0.5:
+                            duplicate = True
+                            break
+                if not duplicate:
+                    deduped.append(r)
+
+            if deduped:
+                print(f"  [HOG] Supplemented {len(deduped)} person(s) missed by YOLO")
+            return deduped
+        except Exception as e:
+            print(f"  [HOG] Error: {e}")
             return []
 
     def _fallback_detection(self, image: np.ndarray) -> List[Dict[str, Any]]:
@@ -860,6 +924,12 @@ def start_rtsp_service():
 
             for pipeline in state._rtsp_service._pipelines.values():
                 pipeline.set_face_recognition(_face_rec_fn)
+
+            try:
+                from routes.detection import _set_threat_camera_config
+                _set_threat_camera_config(cameras[0] if cameras else None)
+            except Exception:
+                pass
 
             print(f"[pipeline.py] RTSPService started with {len(cameras)} cameras")
         else:

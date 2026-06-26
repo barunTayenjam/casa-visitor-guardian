@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
-import type { AnalysisContext } from './types.js';
+import type { AnalysisContext, NormalizedDetection } from './types.js';
 
 export function normalizeEntityArray(input: unknown, type: string): string[] {
   if (!input) return [];
@@ -48,16 +48,21 @@ export async function callNvidiaApi(
     throw new Error('NVIDIA_API_KEY environment variable is not set');
   }
 
+  const yoloInfo = context.yoloDetections?.length
+    ? `YOLO Detections: ${context.yoloDetections.map(d => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
+    : null;
+
   const contextInfo = [
     context.cameraName ? `Camera: ${context.cameraName}` : null,
     context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
     context.eventType ? `Event Type: ${context.eventType}` : null,
     context.detectedObjects?.length ? `Detected Objects: ${context.detectedObjects.join(', ')}` : null,
+    yoloInfo,
     context.timestamp ? `Timestamp: ${context.timestamp}` : null,
   ].filter(Boolean).join(' | ');
 
   const userMessage = contextInfo
-    ? `Context: ${contextInfo}\n\nAnalyze this image. Respond with only valid JSON: {`
+    ? `Context: ${contextInfo}\n\nAnalyze this image and compare with YOLO detections above. Note any discrepancies. Respond with only valid JSON: {`
     : 'Analyze this image. Respond with only valid JSON: {';
 
   const requestBody = {

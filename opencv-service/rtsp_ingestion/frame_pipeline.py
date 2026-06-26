@@ -55,6 +55,9 @@ from .queues import DropOldestQueue, DropIfFullQueue
 from .ffmpeg_reader import FFmpegReader
 from .websocket_publisher import WebSocketPublisher
 from .byte_tracker import ByteTracker
+from scene_analyzer import SceneAnalyzer
+from person_analyzer import PersonAnalyzer
+from threat_detector import ThreatDetector
 
 
 class MotionGate:
@@ -108,22 +111,34 @@ class InProcessYOLO:
         self._net = None
         self._model_type = None
         self._input_size = 640
-        self._confidence_threshold = 0.25
+        self._confidence_threshold = 0.12
         self._nms_threshold = 0.45
-        # Only these COCO classes are relevant for home security.
-        # Everything else is dropped regardless of confidence.
+        # Expanded relevant classes for richer scene understanding.
         self._relevant_classes = {
             "person", "car", "truck", "bus", "motorcycle", "bicycle",
             "dog", "cat", "bird", "horse",
+            "backpack", "umbrella", "handbag", "suitcase",
+            "frisbee", "skateboard",
+            "bottle", "cup", "cell phone",
+            "chair", "couch", "potted plant", "bed", "dining table",
+            "tv", "laptop", "keyboard", "mouse", "remote", "book",
+            "vase", "clock", "teddy bear",
+            "traffic light", "stop sign", "parking meter", "bench",
+            "fire hydrant",
         }
         self._class_thresholds = {
-            "person": 0.30, "car": 0.35, "truck": 0.45, "bus": 0.40,
-            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.40, "cat": 0.40,
-            "bird": 0.40, "horse": 0.40,
+            "person": 0.12, "car": 0.35, "truck": 0.40, "bus": 0.40,
+            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.20, "cat": 0.20,
+            "bird": 0.20, "horse": 0.40, "backpack": 0.40, "umbrella": 0.45,
+            "handbag": 0.45, "suitcase": 0.45, "cell phone": 0.45,
+            "chair": 0.45, "couch": 0.45, "potted plant": 0.50,
+            "tv": 0.45, "laptop": 0.45, "book": 0.45, "clock": 0.45,
+            "bowl": 0.35, "bottle": 0.45,
+            "traffic light": 0.40, "stop sign": 0.40, "bench": 0.40,
         }
         self._default_threshold = 0.50
-        self._min_box_area = 2500
-        self._min_box_side = 50
+        self._min_box_area = 800
+        self._min_box_side = 25
         self._initialized = False
         self._class_names = self._load_class_names()
         self._backend_label = 'CPU'
@@ -154,7 +169,7 @@ class InProcessYOLO:
     def initialize(self) -> bool:
         if self._initialized:
             return True
-        for filename, mtype in [("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
+        for filename, mtype in [("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
             path = os.path.join(self._models_dir, filename)
             if os.path.exists(path):
                 self._net = cv2.dnn.readNet(path)
@@ -191,6 +206,14 @@ class InProcessYOLO:
             return []
         
         with self._inference_lock:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            orig_mean = np.mean(gray)
+            if orig_mean < 120:
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                enhanced_gray = clahe.apply(gray)
+                enhanced = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
+                frame = cv2.addWeighted(frame, 0.3, enhanced, 0.7, 0)
+
             h, w = frame.shape[:2]
             blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
             self._net.setInput(blob)
@@ -279,7 +302,73 @@ class InProcessYOLO:
                     "class": cname,
                     "class_id": class_ids[i],
                 })
+
+        has_person = any(r["class"] == "person" for r in results)
+        if orig_mean < 120 and not has_person:
+            hog_persons = self._hog_person_supplement(frame)
+            for hp in hog_persons:
+                bx, by, bw, bh = hp["bbox"]
+                overlap = False
+                for r in results:
+                    rx, ry, rw, rh = r["bbox"]
+                    ix1, iy1 = max(bx, rx), max(by, ry)
+                    ix2, iy2 = min(bx + bw, rx + rw), min(by + bh, ry + rh)
+                    if ix2 > ix1 and iy2 > iy1:
+                        inter = (ix2 - ix1) * (iy2 - iy1)
+                        union = bw * bh + rw * rh - inter
+                        if union > 0 and inter / union > 0.3:
+                            overlap = True
+                            break
+                if not overlap:
+                    results.append(hp)
+                    print(f"  [InProcessYOLO] HOG supplement: person at {hp['bbox']}")
         return results
+
+    def _hog_person_supplement(self, frame: np.ndarray) -> List[Dict]:
+        results = []
+        try:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+
+            hog = cv2.HOGDescriptor()
+            hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+            for scale, stride in [(1.05, 8), (1.03, 4)]:
+                rects, weights = hog.detectMultiScale(
+                    enhanced, winStride=(stride, stride),
+                    padding=(8, 8), scale=scale,
+                )
+                for (x, y, w, h), weight in zip(rects, weights):
+                    score = min(0.99, max(0.15, weight))
+                    if score >= 0.20:
+                        results.append({
+                            "bbox": [int(x), int(y), int(w), int(h)],
+                            "score": round(score, 4),
+                            "class": "person",
+                            "class_id": 0,
+                        })
+
+            deduped = []
+            for r in results:
+                bx, by, bw, bh = r["bbox"]
+                dup = False
+                for d in deduped:
+                    dx, dy, dw, dh = d["bbox"]
+                    ix, iy = max(bx, dx), max(by, dy)
+                    ix2, iy2 = min(bx + bw, dx + dw), min(by + bh, dy + dh)
+                    if ix2 > ix and iy2 > iy:
+                        inter = (ix2 - ix) * (iy2 - iy)
+                        union = bw * bh + dw * dh - inter
+                        if union > 0 and inter / union > 0.5:
+                            dup = True
+                            break
+                if not dup:
+                    deduped.append(r)
+            return deduped
+        except Exception as e:
+            print(f"[InProcessYOLO] HOG error: {e}")
+            return []
 
     def get_metrics(self) -> dict:
         return {
@@ -372,6 +461,14 @@ class FramePipeline:
         self._tracker = ByteTracker(track_thresh=0.25, match_thresh=0.8, track_buffer=30, frame_rate=DETECTION_FPS)
         self._identity_cache = IdentityCache(ttl=30.0)
         self._face_recognition_fn = None
+        self._scene_analyzer = SceneAnalyzer()
+        self._scene_analysis_interval = 30
+        self._scene_frame_counter = 0
+        self._last_scene_context = {}
+        self._person_analyzer = PersonAnalyzer()
+        self._threat_detector = ThreatDetector()
+        self._threat_detector.set_camera_config(camera_config)
+        self._last_threat: Dict[str, Any] = {}
 
         live_cfg = self._config.get("live", {})
         self._live_width = live_cfg.get("width", LIVE_WIDTH)
@@ -513,10 +610,36 @@ class FramePipeline:
             print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections")
             return
 
+        self._scene_frame_counter += 1
+        if self._scene_frame_counter % self._scene_analysis_interval == 0:
+            self._last_scene_context = self._scene_analyzer.analyze(frame, detections)
+            print(f"[FramePipeline:{self._camera_id}] Scene: {self._last_scene_context['scene_context']}")
+
         print(f"[FramePipeline:{self._camera_id}] YOLO: {len(detections)} detections: {[d['class'] for d in detections]}")
         tracked = self._tracker.update(detections)
         events = self._enrich_with_identity(tracked, frame)
+
+        person_attrs = []
+        for ev in events:
+            if ev.get("class") == "person" and ev.get("clothing"):
+                person_attrs.append(ev)
+
+        threat = self._threat_detector.assess(
+            detections=tracked,
+            scene_context=self._last_scene_context.get("scene_context", {}),
+            person_attributes=person_attrs,
+            camera_id=self._camera_id,
+            frame=frame,
+        )
+        self._last_threat = threat
+
         if events:
+            for ev in events:
+                ev["scene_context"] = self._last_scene_context.get("scene_context", {})
+                ev["detection_summary"] = self._last_scene_context.get("detection_summary", {})
+                ev["threat_assessment"] = threat
+            if threat["level"] != "low":
+                print(f"[FramePipeline:{self._camera_id}] THREAT: {threat['level']} ({threat['confidence']}%) — {threat['reasoning'][:100]}")
             print(f"[FramePipeline:{self._camera_id}] {len(detections)} detections → {len(tracked)} tracked → {len(events)} events")
         for ev in events:
             self._event_queue.put(ev)
@@ -533,29 +656,54 @@ class FramePipeline:
 
     def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
         results = []
+        person_attrs_cache = {}
         for obj in tracked:
             if obj.get("event") == "track_ended":
                 self._identity_cache.invalidate(obj["track_id"])
                 results.append(obj)
                 continue
             tid = obj["track_id"]
-            if obj.get("event") == "track_started" and self._face_recognition_fn and len(obj.get("bbox", [])) == 4:
+            bbox = obj.get("bbox", [0, 0, 0, 0])
+            if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+                x, y, w_b, h_b = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+            else:
+                x, y, w_b, h_b = 0, 0, 0, 0
+
+            if obj.get("event") == "track_started" and self._face_recognition_fn and w_b > 20 and h_b > 20:
                 cached = self._identity_cache.get(tid)
                 if cached:
                     obj["identity"] = cached.get("name")
                     obj["identity_confidence"] = cached.get("confidence", 0)
                 else:
-                    bbox = obj["bbox"]
-                    x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
-                    if w > 20 and h > 20:
-                        try:
-                            face_roi = frame[y : y + h, x : x + w]
-                            name, conf = self._face_recognition_fn(face_roi)
-                            self._identity_cache.put(tid, {"name": name, "confidence": conf})
-                            obj["identity"] = name
-                            obj["identity_confidence"] = conf
-                        except Exception:
-                            pass
+                    try:
+                        face_roi = frame[y : y + h_b, x : x + w_b]
+                        name, conf = self._face_recognition_fn(face_roi)
+                        self._identity_cache.put(tid, {"name": name, "confidence": conf})
+                        obj["identity"] = name
+                        obj["identity_confidence"] = conf
+                    except Exception:
+                        pass
+
+            if obj.get("class") == "person" and w_b > 20 and h_b > 20:
+                cache_key = tid if tid else str(id(obj))
+                if cache_key not in person_attrs_cache:
+                    try:
+                        person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
+                        if person_roi.size > 0:
+                            analysis = self._person_analyzer.analyze_persons(frame, [obj])
+                            if analysis["people"]:
+                                person_attrs_cache[cache_key] = analysis["people"][0]
+                    except Exception:
+                        pass
+                if cache_key in person_attrs_cache:
+                    attrs = person_attrs_cache[cache_key]
+                    obj["clothing"] = attrs.get("clothing", "unknown")
+                    obj["clothing_colors"] = attrs.get("clothing_colors", [])
+                    obj["facing"] = attrs.get("facing", "unknown")
+                    obj["distance"] = attrs.get("estimatedAge", "unknown")
+                    obj["carrying_item"] = attrs.get("carryingItem", "none")
+                    obj["body_language"] = attrs.get("bodyLanguage", "neutral")
+
             elif obj.get("identity") is None:
                 cached = self._identity_cache.get(tid)
                 if cached:

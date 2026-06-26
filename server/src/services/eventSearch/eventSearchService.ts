@@ -199,7 +199,7 @@ export class EventSearchService {
           : rawDesc;
         return {
           sceneDescription: plainDesc,
-          sceneContext: row.scene_context,
+          sceneContext: row.scene_context ? (typeof row.scene_context === 'string' ? JSON.parse(row.scene_context) : row.scene_context) : { environment: 'unknown' },
           threatAssessment: { level: row.threat_level || 'low', factors: [] as string[], confidence: row.threat_confidence || 0 },
           detectedEntities: { people: safeJson(row.detected_people), vehicles: safeJson(row.detected_vehicles), objects: safeJson(row.detected_objects), animals: safeJson(row.detected_animals) },
           recommendedActions: safeJson(row.recommended_actions),

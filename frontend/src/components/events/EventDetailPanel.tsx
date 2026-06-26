@@ -433,6 +433,11 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     </div>
                   )}
 
+                  {/* Scene Description */}
+                  {analysis.sceneDescription && (
+                    <p className="text-sm text-white/80 leading-relaxed mb-4">{analysis.sceneDescription}</p>
+                  )}
+
                   {/* Threat Assessment */}
                   {analysis.threatAssessment && (
                     <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">

@@ -81,6 +81,7 @@ server/temp/
 
 # ML Model weights (too large for GitHub, download separately)
 *.weights
+*.onnx
 
 # Python
 __pycache__/

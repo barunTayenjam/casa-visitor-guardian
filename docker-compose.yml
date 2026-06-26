@@ -102,7 +102,7 @@ services:
       resources:
         limits:
           cpus: ${BACKEND_CPU_LIMIT:-1.0}
-          memory: ${BACKEND_MEM_LIMIT:-512M}
+          memory: ${BACKEND_MEM_LIMIT:-1024M}
         reservations:
           cpus: ${BACKEND_CPU_RESERVE:-0.25}
           memory: ${BACKEND_MEM_RESERVE:-256M}
@@ -151,7 +151,7 @@ services:
       resources:
         limits:
           cpus: ${OPENCV_CPU_LIMIT:-2.0}
-          memory: ${OPENCV_MEM_LIMIT:-2048M}
+          memory: ${OPENCV_MEM_LIMIT:-4096M}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.5}
           memory: ${OPENCV_MEM_RESERVE:-256M}

@@ -1,3 +1,14 @@
+export interface NormalizedDetection {
+  class: string;
+  confidence: number;
+  bbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 export interface AnalysisContext {
   cameraId?: string;
   cameraName?: string;
@@ -6,6 +17,7 @@ export interface AnalysisContext {
   eventType?: string;
   detectedObjects?: string[];
   confidence?: number;
+  yoloDetections?: NormalizedDetection[];
 }
 
 export interface BoundingBox {
@@ -26,6 +38,11 @@ export interface PersonDetectionResult {
     actions?: string[];
   }[];
   sceneDescription: string;
+  sceneContext?: {
+    environment: string;
+    weather?: string;
+    lighting?: string;
+  };
   processingTime: number;
   modelUsed: string;
 }

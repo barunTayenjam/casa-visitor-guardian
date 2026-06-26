@@ -6,11 +6,43 @@ import hashlib
 import time
 import tempfile
 import json
+from typing import Optional, Dict, Any
 
 import state
 from utils import draw_detections
+from scene_analyzer import SceneAnalyzer
+from person_analyzer import PersonAnalyzer
+from threat_detector import ThreatDetector
 
 detection_bp = Blueprint('detection', __name__)
+
+_scene_analyzer = None
+_person_analyzer = None
+_threat_detector = None
+_threat_camera_config: Optional[Dict] = None
+
+def _get_scene_analyzer():
+    global _scene_analyzer
+    if _scene_analyzer is None:
+        _scene_analyzer = SceneAnalyzer()
+    return _scene_analyzer
+
+def _get_person_analyzer():
+    global _person_analyzer
+    if _person_analyzer is None:
+        _person_analyzer = PersonAnalyzer()
+    return _person_analyzer
+
+def _get_threat_detector():
+    global _threat_detector
+    if _threat_detector is None:
+        _threat_detector = ThreatDetector()
+    return _threat_detector
+
+def _set_threat_camera_config(config: Optional[Dict]) -> None:
+    global _threat_camera_config
+    _threat_camera_config = config
+    _get_threat_detector().set_camera_config(config)
 
 
 @detection_bp.route('/detect-motion', methods=['POST'])
@@ -151,11 +183,135 @@ def detect_objects_route():
         })
 
     except Exception as e:
-        print(f"OpenCV Service: Object detection error: {e}")
+        print(f"OpenCV Service: Batch detection error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
+@detection_bp.route('/analyze-scene', methods=['POST'])
+def analyze_scene_route():
+    try:
+        if 'image' not in request.files and not request.data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        if request.files.get('image'):
+            image_file = request.files['image']
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+        else:
+            image_data = np.frombuffer(request.data, np.uint8)
+
+        image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        detections = state.detector._perform_yolo_detection(image)
+
+        analyzer = _get_scene_analyzer()
+        scene = analyzer.analyze(image, detections)
+
+        return jsonify({
+            'success': True,
+            'scene_context': scene['scene_context'],
+            'scene_complexity': scene['complexity'],
+            'dominant_colors': scene['dominant_colors'],
+            'person_actions': scene['person_actions'],
+            'detection_summary': scene['detection_summary'],
+            'detections': detections,
+        })
+
+    except Exception as e:
+        print(f"OpenCV Service: Scene analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@detection_bp.route('/analyze-persons', methods=['POST'])
+def analyze_persons_route():
+    try:
+        if 'image' not in request.files and not request.data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        if request.files.get('image'):
+            image_file = request.files['image']
+            image_data = np.frombuffer(image_file.read(), np.uint8)
+        else:
+            image_data = np.frombuffer(request.data, np.uint8)
+
+        image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        detections = state.detector._perform_yolo_detection(image)
+
+        analyzer = _get_person_analyzer()
+        result = analyzer.analyze_persons(image, detections)
+
+        return jsonify({
+            'success': True,
+            'count': result['count'],
+            'people': result['people'],
+            'sceneDescription': result['sceneDescription'],
+            'sceneContext': result['sceneContext'],
+        })
+
+    except Exception as e:
+        print(f"OpenCV Service: Person analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@detection_bp.route('/analyze-threat', methods=['POST'])
+def analyze_threat_route():
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        image_file = request.files['image']
+        image_data = np.frombuffer(image_file.read(), np.uint8)
+        image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'}), 400
+
+        scene_json = request.form.get('scene_context')
+        scene_context = json.loads(scene_json) if scene_json else {}
+
+        person_json = request.form.get('person_attributes')
+        person_attributes = json.loads(person_json) if person_json else None
+
+        detections = state.detector._perform_yolo_detection(image)
+        camera_id = request.form.get('cameraId', 'rest-api')
+
+        detection_results = []
+        for d in detections:
+            if d.get('class') == 'person':
+                detection_results.append({
+                    'class': d['class'],
+                    'confidence': d.get('confidence', 0),
+                    'bbox': d.get('bbox', {}),
+                })
+
+        td = _get_threat_detector()
+        threat = td.assess(
+            detections=detections,
+            scene_context=scene_context,
+            person_attributes=person_attributes,
+            camera_id=camera_id,
+            frame=image,
+        )
+
+        return jsonify({
+            'success': True,
+            'threat_assessment': threat,
+            'person_count': threat.get('person_count', 0),
+            'vehicle_count': threat.get('vehicle_count', 0),
+            'detections': detections,
+        })
+
+    except Exception as e:
+        print(f"OpenCV Service: Threat analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @detection_bp.route('/detect-and-draw', methods=['POST'])

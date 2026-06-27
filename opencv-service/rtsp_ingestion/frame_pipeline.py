@@ -111,7 +111,7 @@ class InProcessYOLO:
         self._net = None
         self._model_type = None
         self._input_size = 640
-        self._confidence_threshold = 0.12
+        self._confidence_threshold = 0.15
         self._nms_threshold = 0.45
         # Expanded relevant classes for richer scene understanding.
         self._relevant_classes = {
@@ -127,7 +127,7 @@ class InProcessYOLO:
             "fire hydrant",
         }
         self._class_thresholds = {
-            "person": 0.12, "car": 0.35, "truck": 0.40, "bus": 0.40,
+            "person": 0.20, "car": 0.35, "truck": 0.40, "bus": 0.40,
             "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.20, "cat": 0.20,
             "bird": 0.20, "horse": 0.40, "backpack": 0.40, "umbrella": 0.45,
             "handbag": 0.45, "suitcase": 0.45, "cell phone": 0.45,
@@ -137,8 +137,8 @@ class InProcessYOLO:
             "traffic light": 0.40, "stop sign": 0.40, "bench": 0.40,
         }
         self._default_threshold = 0.50
-        self._min_box_area = 800
-        self._min_box_side = 25
+        self._min_box_area = 1500
+        self._min_box_side = 35
         self._initialized = False
         self._class_names = self._load_class_names()
         self._backend_label = 'CPU'
@@ -169,7 +169,7 @@ class InProcessYOLO:
     def initialize(self) -> bool:
         if self._initialized:
             return True
-        for filename, mtype in [("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
+        for filename, mtype in [("yolov8n.onnx", "yolov8"), ("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
             path = os.path.join(self._models_dir, filename)
             if os.path.exists(path):
                 self._net = cv2.dnn.readNet(path)
@@ -445,7 +445,7 @@ class FramePipeline:
         self,
         camera_config: dict,
         publisher: WebSocketPublisher,
-        frame_skip: int = 1,
+        frame_skip: int = 2,
     ):
         self._config = camera_config
         self._publisher = publisher
@@ -462,7 +462,7 @@ class FramePipeline:
         self._identity_cache = IdentityCache(ttl=30.0)
         self._face_recognition_fn = None
         self._scene_analyzer = SceneAnalyzer()
-        self._scene_analysis_interval = 30
+        self._scene_analysis_interval = 60
         self._scene_frame_counter = 0
         self._last_scene_context = {}
         self._person_analyzer = PersonAnalyzer()

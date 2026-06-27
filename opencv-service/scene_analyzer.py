@@ -77,6 +77,7 @@ class SceneAnalyzer:
     def _classify_environment(self, gray: np.ndarray, color: np.ndarray) -> str:
         edges = cv2.Canny(gray, 50, 150)
         edge_density = np.count_nonzero(edges) / (gray.shape[0] * gray.shape[1])
+        mean_brightness = np.mean(gray)
 
         hsv = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
         top_third = hsv[:hsv.shape[0] // 3, :]

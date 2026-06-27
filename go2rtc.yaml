@@ -1,10 +1,8 @@
 streams:
   cam1:
     - rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream1
-    - ffmpeg:cam1#video=h264
   cam2:
     - rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream1
-    - ffmpeg:cam2#video=h264
 
 api:
   listen: ":1984"

@@ -48,9 +48,11 @@ app.use(helmet({
       workerSrc: ["'self'", "blob:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
+      upgradeInsecureRequests: null,
     }
   },
   crossOriginEmbedderPolicy: false,
+  strictTransportSecurity: false,
 }));
 
 app.use(staticRoutes);

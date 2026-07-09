@@ -193,4 +193,11 @@
   .bezel-inner {
     @apply rounded-[3px] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)];
   }
+
+  :fullscreen, :-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100dvh;
+    background-color: #000;
+  }
 }

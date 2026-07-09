@@ -87,16 +87,18 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
     };
   }, []);
 
+  const slideshowActiveRef = useRef(slideshowActive);
+  useEffect(() => { slideshowActiveRef.current = slideshowActive; }, [slideshowActive]);
+
   useEffect(() => {
     const handleFsChange = () => {
-      if (!document.fullscreenElement) {
-        onSlideshowChange?.(false);
-        onCameraFocus?.(undefined);
-      }
+      if (document.fullscreenElement) return;
+      if (slideshowActiveRef.current) return;
+      onCameraFocus?.(undefined);
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, [onSlideshowChange, onCameraFocus]);
+  }, [onCameraFocus]);
 
   useEffect(() => {
     if (slideshowActive) {
@@ -242,10 +244,14 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
 
   const handleStartSlideshow = useCallback(() => {
     onSlideshowChange?.(true);
-    document.documentElement.requestFullscreen();
+    slideshowActiveRef.current = true;
+    const target = focusedContainerRef.current ?? document.documentElement;
+    const requestFs = target.requestFullscreen?.();
+    if (requestFs?.catch) requestFs.catch(() => {});
   }, [onSlideshowChange]);
 
   const handleStopSlideshow = useCallback(() => {
+    slideshowActiveRef.current = false;
     onSlideshowChange?.(false);
     onCameraFocus?.(undefined);
     if (slideshowTimerRef.current) {

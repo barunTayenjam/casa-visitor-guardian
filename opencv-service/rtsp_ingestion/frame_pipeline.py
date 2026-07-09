@@ -34,6 +34,13 @@ import hashlib
 import threading
 from typing import Optional, Dict, Any, List
 
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("[FramePipeline] psutil not available, frame skipping disabled")
+
 from .config import (
     DEFAULT_WIDTH,
     DEFAULT_HEIGHT,
@@ -95,6 +102,38 @@ class MotionGate:
         motion_detected = motion_pixels > self._pixel_threshold
         confidence = min(100.0, motion_percentage * 10)
         return {"motion_detected": motion_detected, "motion_pixels": motion_pixels, "confidence": round(confidence, 2)}
+
+
+class AdaptiveFrameProcessor:
+    """Dynamically skip detection frames under high CPU load."""
+
+    def __init__(self):
+        self.cpu_threshold_high = 80
+        self.cpu_threshold_low = 60
+        self.skip_interval = 3
+        self.frame_count = 0
+        self.is_skipping = False
+        self.resume_timer = 0
+
+    def should_process_frame(self) -> bool:
+        if not PSUTIL_AVAILABLE:
+            return True
+
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+
+        if cpu_usage > self.cpu_threshold_high:
+            self.is_skipping = True
+            self.resume_timer = 0
+        elif cpu_usage < self.cpu_threshold_low:
+            self.resume_timer += 1
+            if self.resume_timer > 5:
+                self.is_skipping = False
+
+        if self.is_skipping:
+            self.frame_count += 1
+            return self.frame_count % self.skip_interval == 0
+
+        return True
 
 
 class InProcessYOLO:
@@ -169,34 +208,52 @@ class InProcessYOLO:
     def initialize(self) -> bool:
         if self._initialized:
             return True
-        for filename, mtype in [("yolov8n.onnx", "yolov8"), ("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]:
-            path = os.path.join(self._models_dir, filename)
-            if os.path.exists(path):
-                self._net = cv2.dnn.readNet(path)
-                backend, target, label = self._detect_backend()
-                self._net.setPreferableBackend(backend)
-                self._net.setPreferableTarget(target)
-                self._backend_label = label
-                self._model_type = mtype
-                self._initialized = True
-                print(f"[InProcessYOLO] {mtype} initialized with {label} backend")
-                return True
-        weights = os.path.join(self._models_dir, "yolov4-tiny.weights")
-        cfg = os.path.join(self._models_dir, "yolov4-tiny.cfg")
-        if os.path.exists(weights) and os.path.exists(cfg):
-            self._net = cv2.dnn.readNet(weights, cfg)
-            self._model_type = "yolov4"
-            try:
-                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-                self._backend_label = 'CUDA'
-            except Exception:
-                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                self._backend_label = 'CPU'
-            self._initialized = True
-            print(f"[InProcessYOLO] yolov4 initialized with {self._backend_label} backend")
-            return True
+
+        free_memory_gb = 0
+        if PSUTIL_AVAILABLE:
+            free_memory_gb = psutil.virtual_memory().available / (1024**3)
+
+        gpu_available = False
+        try:
+            device_count = cv2.cuda.getCudaEnabledDeviceCount()
+            gpu_available = device_count > 0
+        except (AttributeError, cv2.error):
+            pass
+
+        if gpu_available:
+            model_priority = [("yolov8n.onnx", "yolov8"), ("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]
+        elif free_memory_gb > 2.0:
+            model_priority = [("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]
+        else:
+            model_priority = [("yolov5n.onnx", "yolov5"), ("yolov4-tiny.weights", "yolov4")]
+
+        for filename, mtype in model_priority:
+            if mtype == "yolov4":
+                weights = os.path.join(self._models_dir, filename)
+                cfg = os.path.join(self._models_dir, "yolov4-tiny.cfg")
+                if os.path.exists(weights) and os.path.exists(cfg):
+                    self._net = cv2.dnn.readNet(weights, cfg)
+                    self._model_type = mtype
+                    backend, target, label = self._detect_backend()
+                    self._net.setPreferableBackend(backend)
+                    self._net.setPreferableTarget(target)
+                    self._backend_label = label
+                    self._initialized = True
+                    print(f"[InProcessYOLO] {mtype} initialized with {label} backend (free RAM: {free_memory_gb:.1f}GB)")
+                    return True
+            else:
+                path = os.path.join(self._models_dir, filename)
+                if os.path.exists(path):
+                    self._net = cv2.dnn.readNet(path)
+                    backend, target, label = self._detect_backend()
+                    self._net.setPreferableBackend(backend)
+                    self._net.setPreferableTarget(target)
+                    self._backend_label = label
+                    self._model_type = mtype
+                    self._initialized = True
+                    print(f"[InProcessYOLO] {mtype} initialized with {label} backend (free RAM: {free_memory_gb:.1f}GB)")
+                    return True
+
         return False
 
     _inference_lock = __import__("threading").Lock()
@@ -469,6 +526,7 @@ class FramePipeline:
         self._threat_detector = ThreatDetector()
         self._threat_detector.set_camera_config(camera_config)
         self._last_threat: Dict[str, Any] = {}
+        self._adaptive_frame_processor = AdaptiveFrameProcessor()
 
         live_cfg = self._config.get("live", {})
         self._live_width = live_cfg.get("width", LIVE_WIDTH)
@@ -596,6 +654,9 @@ class FramePipeline:
                 traceback.print_exc()
 
     def _process_detection(self, frame: np.ndarray) -> None:
+        if not self._adaptive_frame_processor.should_process_frame():
+            return
+
         motion_result = self._motion_gate.detect(frame)
         self._detect_frame_count = getattr(self, '_detect_frame_count', 0) + 1
         if self._detect_frame_count <= 10 or self._detect_frame_count % 100 == 0:

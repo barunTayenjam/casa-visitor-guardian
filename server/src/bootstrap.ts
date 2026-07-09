@@ -11,11 +11,13 @@ import { ReviewService } from './services/review/reviewService.js';
 import { TimelineService } from './services/timeline/timelineService.js';
 import { DetectionService } from './services/detection/detectionService.js';
 import { PreviewService } from './services/preview/previewService.js';
+import { TimelapseService } from './services/timelapse/timelapseService.js';
+import { setTimelapseService } from './routes/timelapse.js';
 import { retentionPolicyService } from './services/retentionPolicyService.js';
 import { automatedCleanupService } from './services/automatedCleanupService.js';
 import NotificationService from './services/notificationService.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
-import { startCronJobs, runStartupCleanup } from './utils/cronJobs.js';
+import { startCronJobs, runStartupCleanup, runStartupTimelapseCatchup } from './utils/cronJobs.js';
 import { inMemoryState } from './services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from './services/pythonWsClient.js';
 import authService from './auth/index.js';
@@ -335,13 +337,16 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
     const timelineServiceInstance = new TimelineService(timelineRepo, regionRepo);
     const previewServiceInstance = new PreviewService(timelineServiceInstance);
+    const timelapseServiceInstance = new TimelapseService();
+    setTimelapseService(timelapseServiceInstance);
     const detectionServiceInstance = new DetectionService();
     const reviewServiceInstance = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineServiceInstance, previewServiceInstance);
 
     serviceRegistry.setTimelineService(timelineServiceInstance);
+    serviceRegistry.setTimelapseService(timelapseServiceInstance);
     serviceRegistry.setDetectionConfigService(detectionServiceInstance);
     serviceRegistry.setReviewService(reviewServiceInstance);
-    logger.info('Review, timeline and detection services initialized successfully', 'BOOTSTRAP');
+    logger.info('Review, timeline, timelapse and detection services initialized successfully', 'BOOTSTRAP');
   } catch (error) {
     logger.error('Review/timeline/detection services failed (non-critical)', 'BOOTSTRAP', error);
   }
@@ -352,6 +357,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     serviceRegistry.setNotificationService(NotificationService);
     startCronJobs(io);
     runStartupCleanup();
+    runStartupTimelapseCatchup();
     logger.info('Notification service initialized successfully', 'BOOTSTRAP');
   } catch (error) {
     logger.error('Notification service failed (non-critical)', 'BOOTSTRAP', error);
@@ -407,6 +413,14 @@ export async function gracefulShutdown(
       }
     } catch (err) {
       logger.debug('Python WS client shutdown failed (may not be initialized)', 'BOOTSTRAP', err);
+    }
+
+    try {
+      const timelapseService = serviceRegistry.getTimelapseService();
+      timelapseService.shutdown();
+      logger.info('Timelapse service shut down', 'BOOTSTRAP');
+    } catch (err) {
+      logger.debug('Timelapse service shutdown skipped (may not be initialized)', 'BOOTSTRAP', err);
     }
 
     io.disconnectSockets(true);

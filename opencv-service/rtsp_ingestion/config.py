@@ -16,8 +16,8 @@ WS_HOST = os.getenv('WS_HOST', '0.0.0.0')
 WS_PORT = int(os.getenv('WS_PORT', '9090'))
 
 # Default camera settings
-DEFAULT_WIDTH = 640
-DEFAULT_HEIGHT = 360
+DEFAULT_WIDTH = 480
+DEFAULT_HEIGHT = 480
 DEFAULT_FPS = 5
 DETECTION_FPS = 4
 
@@ -27,7 +27,7 @@ MOG2_VAR_THRESHOLD = 16
 MOTION_PIXEL_THRESHOLD = 150
 
 # JPEG encoding
-JPEG_QUALITY = 80
+JPEG_QUALITY = 60
 JPEG_OPTIMIZE = 1
 
 # FFmpeg default arguments for RTSP ingestion
@@ -45,8 +45,8 @@ FFMPEG_DEFAULT_ARGS = [
 
 LIVE_WIDTH = 1280
 LIVE_HEIGHT = 720
-DETECT_WIDTH = 640
-DETECT_HEIGHT = 360
+DETECT_WIDTH = 480
+DETECT_HEIGHT = 480
 
 # go2rtc RTSP proxy base URL
 # Python reads from go2rtc instead of directly from cameras to respect

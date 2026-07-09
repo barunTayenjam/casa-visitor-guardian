@@ -55,8 +55,6 @@ app.use(helmet({
   strictTransportSecurity: false,
 }));
 
-app.use(staticRoutes);
-
 const server = http.createServer(app);
 
 const go2rtcParsed = new URL(go2rtcUrl);
@@ -116,6 +114,8 @@ await initializeServices(io);
 configureRoutes(app, io);
 
 logger.info('Routes configured successfully', 'SERVER');
+
+app.use(staticRoutes);
 
 // SPA fallback: after all API routes, serve index.html for client-side routing
 const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');

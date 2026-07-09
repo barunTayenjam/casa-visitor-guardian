@@ -34,12 +34,16 @@ class DetectionCache:
         try:
             self.connection_pool = pool.SimpleConnectionPool(
                 minconn=1,
-                maxconn=5,
+                maxconn=3,
                 host=self.db_host,
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
+                connect_timeout=5,
+                keepalives=1,
+                keepalives_idle=30,
+                options='-c statement_timeout=5000'
             )
             print(f"DetectionCache: PostgreSQL connection pool initialized")
         except Exception as e:

@@ -29,7 +29,7 @@ import faceEmbeddingRoutes from './faceEmbeddingRoutes.js';
 import faceConfigRoutes from './faceConfigRoutes.js';
 import detectionRedoRoutes from './detectionRedoRoutes.js';
 import highlightsRoutes from './highlights.js';
-import visitorRoutes from './visitorRoutes.js';
+import timelapseRoutes, { setTimelapseService } from './timelapse.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -197,7 +197,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.use('/api/face-config', faceConfigRoutes);
   app.use('/api/detection-redo', detectionRedoRoutes);
   app.use('/api/highlights', highlightsRoutes);
-  app.use('/api/visitors', visitorRoutes);
+  app.use('/api/timelapse', timelapseRoutes);
 
   app.use(createApiRateLimit());
 }

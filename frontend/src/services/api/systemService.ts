@@ -212,13 +212,13 @@ export const systemService = {
   async getDaySummary(date: string): Promise<{
     success: boolean;
     date: string;
-    summary: { totalEvents: number; totalPersons: number; totalFaces: number; knownFaces: number; nightEvents: number };
+    summary: { totalEvents: number; totalPersons: number; totalFaces: number; knownFaces: number; knownEvents: number; unknownEvents: number; nightEvents: number };
     hourly: Array<{ hour: number; count: number }>;
   }> {
     try {
       const response = await apiClient.get<{
         success: boolean; date: string;
-        summary: { totalEvents: number; totalPersons: number; totalFaces: number; knownFaces: number; nightEvents: number };
+        summary: { totalEvents: number; totalPersons: number; totalFaces: number; knownFaces: number; knownEvents: number; unknownEvents: number; nightEvents: number };
         hourly: Array<{ hour: number; count: number }>;
       }>(`/highlights/${date}/summary`);
 
@@ -227,6 +227,53 @@ export const systemService = {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError('Failed to get day summary', 500, 'GET_DAY_SUMMARY_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    }
+  },
+
+  async getTimelapses(date: string): Promise<{ success: boolean; date: string; timelapses: Array<{ cameraId: string; path: string }> }> {
+    try {
+      const response = await apiClient.get<{ success: boolean; date: string; timelapses: Array<{ cameraId: string; path: string }> }>(`/timelapse/list/${date}`);
+      if (response.success) return response;
+      throw new ApiError('Failed to get timelapses', 400, 'GET_TIMELAPSE_LIST_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to get timelapses', 500, 'GET_TIMELAPSE_LIST_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    }
+  },
+
+  async generateTimelapse(cameraId: string, date: string): Promise<{ success: boolean; message: string; frames: number; skipped: number; path: string; source: string }> {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+    try {
+      const response = await fetch(`${API_URL}/timelapse/generate/${cameraId}/${date}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          message: data.message,
+          frames: data.frames,
+          skipped: data.skipped ?? 0,
+          path: data.path,
+          source: data.source ?? 'unknown',
+        };
+      }
+      throw new ApiError(data.error || `HTTP ${response.status}`, response.status, 'GENERATE_TIMELAPSE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiError('Timelapse generation timed out (10min)', 0, 'GENERATE_TIMELAPSE_TIMEOUT');
+      }
+      throw new ApiError('Failed to generate timelapse', 500, 'GENERATE_TIMELAPSE_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+    } finally {
+      clearTimeout(timeout);
     }
   },
 };

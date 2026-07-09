@@ -60,12 +60,12 @@ router.get('/:date/summary', optionalAuth, validateParams(dateParamsSchema), asy
 
     const [hourlyData, categoryResult] = await Promise.all([
       AppDataSource.query(`SELECT EXTRACT(HOUR FROM e.timestamp) as hour, COUNT(*) as count FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0 GROUP BY EXTRACT(HOUR FROM e.timestamp) ORDER BY hour`, [startDate, endDate]),
-      AppDataSource.query(`SELECT COUNT(*) as total, SUM(e.persons_detected) as total_persons, SUM(e.faces_detected) as total_faces, SUM(e.known_faces_count) as total_known_faces, COUNT(CASE WHEN EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6 THEN 1 END) as night_events FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0`, [startDate, endDate])
+      AppDataSource.query(`SELECT COUNT(*) as total, SUM(e.persons_detected) as total_persons, SUM(e.faces_detected) as total_faces, SUM(e.known_faces_count) as total_known_faces, COUNT(*) FILTER (WHERE COALESCE(e.known_faces_count, 0) > 0) as known_events, COUNT(*) FILTER (WHERE COALESCE(e.unknown_faces_count, 0) > 0) as unknown_events, COUNT(CASE WHEN EXTRACT(HOUR FROM e.timestamp) >= 22 OR EXTRACT(HOUR FROM e.timestamp) <= 6 THEN 1 END) as night_events FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0`, [startDate, endDate])
     ]);
 
 
     const hourly = Array.from({ length: 24 }, (_, i) => { const f = hourlyData.find((h: any) => parseInt(h.hour) === i); return { hour: i, count: f ? parseInt(f.count) : 0 }; });
-    res.json({ success: true, date, summary: { totalEvents: parseInt(categoryResult[0].total), totalPersons: parseInt(categoryResult[0].total_persons) || 0, totalFaces: parseInt(categoryResult[0].total_faces) || 0, knownFaces: parseInt(categoryResult[0].total_known_faces) || 0, nightEvents: parseInt(categoryResult[0].night_events) || 0 }, hourly });
+    res.json({ success: true, date, summary: { totalEvents: parseInt(categoryResult[0].total), totalPersons: parseInt(categoryResult[0].total_persons) || 0, totalFaces: parseInt(categoryResult[0].total_faces) || 0, knownFaces: parseInt(categoryResult[0].total_known_faces) || 0, knownEvents: parseInt(categoryResult[0].known_events) || 0, unknownEvents: parseInt(categoryResult[0].unknown_events) || 0, nightEvents: parseInt(categoryResult[0].night_events) || 0 }, hourly });
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Error fetching highlights summary', 'Highlights', error);

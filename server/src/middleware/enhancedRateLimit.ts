@@ -86,7 +86,7 @@ export class EnhancedRateLimit {
 export const createApiRateLimit = () => {
   const rateLimit = new EnhancedRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // 1000 requests per 15 minutes
+    max: 200, // 200 requests per 15 minutes (down from 1000)
     message: 'Too many API requests, please try again later'
   });
   return rateLimit.middleware();
@@ -105,7 +105,7 @@ export const createAuthRateLimit = () => {
 export const createStreamRateLimit = () => {
   const rateLimit = new EnhancedRateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 30, // 30 stream requests per minute
+    max: 10, // 10 stream requests per minute (down from 30)
     message: 'Too many stream requests, please reduce frequency',
     keyGenerator: (req) => {
       const ip = req.ip || req.connection.remoteAddress || 'unknown';

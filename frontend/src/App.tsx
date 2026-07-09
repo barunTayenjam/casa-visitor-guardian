@@ -14,7 +14,8 @@ const Login = lazy(() => import("./pages/Login"));
 const StreamDashboard = lazy(() => import("./pages/StreamDashboard"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
-const AnalyticsPage = lazy(() => import("./pages/Analytics"));
+const TimelapsePage = lazy(() => import("./pages/TimelapsePage"));
+
 const DayHighlightsPage = lazy(() => import("./pages/DayHighlights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -178,11 +179,11 @@ const App = () => {
                               </AppLayout>
                             </ProtectedRoute>
                           } />
-                          <Route path="/app/analytics" element={
+                          <Route path="/app/timelapse" element={
                             <ProtectedRoute>
                               <AppLayout>
                                 <ErrorBoundary fallback={ErrorFallback}>
-                                  <AnalyticsPage />
+                                  <TimelapsePage />
                                 </ErrorBoundary>
                               </AppLayout>
                             </ProtectedRoute>

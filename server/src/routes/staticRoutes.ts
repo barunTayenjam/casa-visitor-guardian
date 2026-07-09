@@ -78,6 +78,7 @@ staticRoutes.use('/snapshots', express.static(path.join(process.cwd(), 'data', '
   setHeaders: imageHeaders,
 }));
 
+staticRoutes.use('/timelapse', express.static(path.join(process.cwd(), 'public', 'timelapse')));
 staticRoutes.use('/public', express.static('public'));
 
 const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');

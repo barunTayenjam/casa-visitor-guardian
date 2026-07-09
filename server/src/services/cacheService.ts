@@ -15,14 +15,14 @@ class CacheService {
   private connectionAttempted: boolean = false;
   private redisAvailable: boolean = false;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
-  private static readonly MAX_MEMORY_CACHE_SIZE = 2000;
+  private static readonly MAX_MEMORY_CACHE_SIZE = parseInt(process.env.CACHE_MAX_SIZE || '500');
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
-      ttl: parseInt(process.env.CACHE_TTL || '3600'), // 1 hour default
+      ttl: parseInt(process.env.CACHE_TTL || '1800'), // 30 min default (down from 1 hour)
       ...config
     };
   }
@@ -80,7 +80,7 @@ class CacheService {
       this.client = null;
     }
 
-    this.cleanupTimer = setInterval(() => this.cleanupMemoryCache(), 120000);
+    this.cleanupTimer = setInterval(() => this.cleanupMemoryCache(), parseInt(process.env.CACHE_CLEANUP_INTERVAL || '60000'));
   }
 
   async disconnect(): Promise<void> {

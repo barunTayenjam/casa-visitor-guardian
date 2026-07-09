@@ -8,6 +8,7 @@ import NotificationService from './notificationService.js';
 import { RetentionPolicyService } from './retentionPolicyService.js';
 import { AutomatedCleanupService } from './automatedCleanupService.js';
 import { PreviewService } from './preview/previewService.js';
+import { TimelapseService } from './timelapse/timelapseService.js';
 import { PythonWsClient } from './pythonWsClient.js';
 
 /**
@@ -118,6 +119,16 @@ class ServiceRegistry {
 
   getPreviewService(): PreviewService {
     return this.getRequired<PreviewService>('previewService');
+  }
+
+  // ── TimelapseService ──
+
+  setTimelapseService(service: TimelapseService): void {
+    this.services.set('timelapseService', service);
+  }
+
+  getTimelapseService(): TimelapseService {
+    return this.getRequired<TimelapseService>('timelapseService');
   }
 
   // ── PythonWsClient ──

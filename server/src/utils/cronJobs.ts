@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
+import { TimelapseService } from '../services/timelapse/timelapseService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import NotificationService from '../services/notificationService.js';
 import { AppDataSource } from '../database.js';
@@ -128,7 +129,32 @@ export function startCronJobs(io: SocketIOServer) {
     cleanupOldFiles();
   });
 
-  // Schedule periodic camera health check
+  // Stitch yesterday's raw timelapse frames into MP4s at 00:01 daily
+  cron.schedule('1 0 * * *', async () => {
+    try {
+      const timelapseService = serviceRegistry.getTimelapseService();
+      const results = await timelapseService.stitchYesterday();
+      const ok = results.filter((r) => r.ok).length;
+      const failed = results.filter((r) => !r.ok && r.error !== 'No raw frames captured');
+      logger.info(`Nightly stitch: ${ok}/${results.length} cameras ok, ${failed.length} failures`, 'Cron');
+      if (failed.length > 0) {
+        logger.warn(`Stitch failures: ${JSON.stringify(failed)}`, 'Cron');
+      }
+    } catch (err) {
+      logger.error(`Nightly timelapse stitch failed: ${err}`, 'Cron');
+    }
+  });
+
+  // Delete timelapse files older than 30 days at 00:30
+  cron.schedule('30 0 * * *', async () => {
+    try {
+      const timelapseService = serviceRegistry.getTimelapseService();
+      const deleted = await timelapseService.cleanupOldFiles(30);
+      logger.info(`Timelapse cleanup removed ${deleted} files`, 'Cron');
+    } catch (err) {
+      logger.error(`Timelapse cleanup failed: ${err}`, 'Cron');
+    }
+  });
   cron.schedule('*/30 * * * *', () => { // Every 30 minutes
     // Health check log disabled - console.log('Running camera health check');
     checkCameraHealth(io);
@@ -154,6 +180,23 @@ export async function runStartupCleanup(): Promise<void> {
     logger.info(`Startup cleanup removed ${cleaned} expired subscriptions`, 'Cron');
   } catch (error) {
     logger.error('Startup cleanup failed:', 'Cron', error);
+  }
+}
+
+// Start the live frame sampler and stitch any past days whose raws weren't processed
+export async function runStartupTimelapseCatchup(): Promise<void> {
+  try {
+    const timelapseService = serviceRegistry.getTimelapseService();
+    timelapseService.startSampler();
+
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const results = await timelapseService.stitchDate(yesterday);
+    const stitched = results.filter((r) => r.ok && r.count > 0).length;
+    if (stitched > 0) {
+      logger.info(`Startup catchup stitched ${stitched} cameras for ${yesterday}`, 'Cron');
+    }
+  } catch (error) {
+    logger.error('Startup timelapse catchup failed:', 'Cron', error);
   }
 }
 

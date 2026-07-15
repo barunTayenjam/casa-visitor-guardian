@@ -235,9 +235,11 @@ The SentryVision codebase uses a **layered architecture with a microservice for 
 - **Threading:** Node.js single-threaded event loop; Python uses `threaded=True` in Flask; OpenCV pipeline uses `asyncio` for WebSocket publisher + per-camera threads for FFmpeg reads
 - **Global state:** `serviceRegistry` (singleton Map), `cacheService`, `inMemoryState`, `streamManager` — all module-level singletons in the backend. In Python, `state.py` is a global module for detector/recognizer/cache instances
 - **Pipeline mode:** Backend supports `legacy`, `dual`, or `python-only` detection modes via `PIPELINE_MODE` env var. In `python-only` mode, all detection is delegated to the Python microservice
-- **No Pub/Sub:** There is no message queue — real-time events flow through Socket.io directly and through PythonWsClient EventEmitter internally
+- **EventBus:** `server/src/events/eventBus.ts` exists but is an **empty stub** (0 lines). There is no message queue — real-time events flow through Socket.io directly and through PythonWsClient EventEmitter internally
 - **WebSocket binary protocol:** Python → Node.js frames use a two-message pattern: text metadata JSON first, then binary JPEG bytes
 - **Data directory structure:** Detections stored under `data/detections/YYYY-MM/events/{motion,faces}/`, snapshots in `data/detections/YYYY-MM/snapshots/` — all date-partitioned
+
+> ⚠️ **Overlap with CONCERNS.md:** The anti-patterns below are structural concerns documented here for architectural context. See `.planning/codebase/CONCERNS.md` for the full technical debt catalog (including `any` typing, fire-and-forget promises, god files, and missing formatter).
 
 ## Anti-Patterns
 

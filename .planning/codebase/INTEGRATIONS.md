@@ -13,7 +13,7 @@
 **Database connection details:**
 - Database name: `sentryvision`
 - User: `sentryvision`
-- 26 SQL migrations in `database/migrations/`
+- 27 SQL migrations in `database/migrations/`
 - OpenCV service connects directly to PostgreSQL for detection caching (`DetectionCache` in `opencv-service/pipeline.py`)
 - Redis is disabled by default in Docker Compose (`REDIS_DISABLED=true`) — application falls back to in-memory cache
 
@@ -92,11 +92,11 @@
 | Detection events | Node.js backend | Browser clients | Socket.io events |
 | System events | Node.js internal | Browser clients | Socket.io events |
 
-**Outgoing webhook configuration** (configured via `.env.example` but not implemented in code):
-- `WEBHOOK_URL` — generic webhook endpoint
-- `SLACK_WEBHOOK` — Slack integration
-- `DISCORD_WEBHOOK` — Discord integration
-- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram bot
+**Outgoing webhook configuration** ⚠️ **Dead config** — configured in `.env.example` but **not implemented in code**:
+- `WEBHOOK_URL` — generic webhook endpoint (dead)
+- `SLACK_WEBHOOK` — Slack integration (dead)
+- `DISCORD_WEBHOOK` — Discord integration (dead)
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Telegram bot (dead)
 
 ## Integration Patterns
 
@@ -112,7 +112,7 @@
   - `express-rate-limit` middleware for API endpoints (`server/src/middleware/enhancedRateLimit.ts`)
   - `flask-limiter` for OpenCV Service Python endpoints
   - Redis-backed rate limit counters with in-memory fallback
-- **Circuit breaking:** Not detected (no formal circuit breaker implementation — retry patterns only)
+- **Circuit breaking:** `server/src/services/circuitBreaker.ts` exists but is an **empty stub** (0 lines). No formal circuit breaker implementation — retry patterns only.
 - **Caching strategy:**
   - Redis (primary) → in-memory Map (fallback) for both Node.js and Python services
   - TTL: 30min default (Node.js), 5min (Python detection cache)

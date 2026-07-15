@@ -180,7 +180,7 @@ sentryvision/
 │
 ├── database/                     # Database management
 │   ├── migrations/               # SQL migration files (27 numbered)
-│   │   └── backup/               # Renumbered backup copies
+│   │   └── backup/               # 26 renumbered copies (not executed — used during schema reconciliation)
 │   ├── init/                     # Init scripts
 │   ├── run-migrations.ts         # TypeScript migration runner
 │   ├── migrate-sqlite.js
@@ -257,7 +257,7 @@ sentryvision/
 
 **`database/migrations/`:**
 - Purpose: Ordered SQL migration files (001-027) for schema evolution
-- Contains: 27 numbered SQL files + backup copies
+- Contains: 27 numbered SQL files (active) + 26 in `backup/` (not executed)
 - Pattern: Files are sorted by prefix number and executed in order by `run-migrations.ts`
 
 ## Module Organization
@@ -295,6 +295,7 @@ sentryvision/
 | Backend env | `server/.env` (gitignored) | dotenv key=value |
 | Frontend env | `frontend/.env` (gitignored) | dotenv VITE_* |
 | Root env | `./.env` (gitignored) | dotenv |
+| Env reference (378 lines) | `.env.example` | dotenv (many vars undocumented/may be stale) |
 | Cameras | `server/cameras.json` (gitignored) | JSON array of CameraConfig |
 | Example cameras | `server/cameras.example.json` | JSON template |
 | Migration config | `database/.env` (gitignored) | dotenv |

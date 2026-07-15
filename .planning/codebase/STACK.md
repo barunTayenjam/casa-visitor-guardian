@@ -34,6 +34,8 @@
 | pg | PostgreSQL native driver | ^8.16.3 | `server/package.json` |
 | ioredis | Redis client | ^5.10.1 | `server/package.json` |
 | ws | WebSocket client (Python bridge) | ^8.18.3 | `server/package.json` |
+
+**Note:** Both `redis` and `ioredis` are installed — redundant. Consolidate to one client.
 | node-cron | Scheduled task runner | ^4.2.1 | `server/package.json` |
 | sharp | Image processing | ^0.34.5 | `server/package.json` |
 | helmet | Security HTTP headers | ^8.1.0 | `server/package.json` |
@@ -145,6 +147,7 @@
 | vaul | ^0.9.9 | Drawer component |
 | cmdk | ^1.0.0 | Command menu |
 | input-otp | ^1.2.4 | OTP input |
+| speakeasy | ^2.0.0 | TOTP (unused — server-side only; remove from frontend) |
 | embla-carousel-react | ^8.3.0 | Carousel |
 | react-day-picker | ^8.10.1 | Date picker |
 | react-resizable-panels | ^2.1.9 | Resizable panels |
@@ -207,6 +210,15 @@
 - **Cache:** In-memory (primary), Redis (optional, disabled by default via `REDIS_DISABLED=true`)
 - **Queue/Streaming:** Socket.io (real-time browser), WebSocket (Python↔Node bridge on port 9090), go2rtc (RTSP→WebRTC on port 8555)
 - **Storage:** Local filesystem (`./data/detections`, `./public/events`, `./public/snapshots`, `./public/timelapse`)
+
+## Version Mismatches
+
+| Package | Installed Version | Type Definitions | Issue |
+|---------|------------------|------------------|-------|
+| Express | `^5.2.1` | `@types/express ^4.17.25` | Express 5 API differs (immutable `req.query`, changed route params). `@types/express` v4 types provide false safety. |
+| Socket.io | `^4.7.2` | `@types/socket.io ^3.0.1` | Socket.io v4 ships its own types; external `@types/socket.io` v3 are outdated. |
+| Redis | `redis ^5.10.0` + `ioredis ^5.10.1` | — | Both Redis clients installed. Consolidate to one. |
+| speakeasy | `^2.0.0` | `@types/speakeasy ^2.0.10` | Duplicated in both `frontend/` and `server/` — only needed server-side. |
 
 ## Feature Toggles & Configurable Options
 

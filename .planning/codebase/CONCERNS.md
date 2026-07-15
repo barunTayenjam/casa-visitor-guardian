@@ -47,6 +47,27 @@
 - **Priority:** Medium
 - **Estimated effort:** 2-3 days (extract focused modules from each god file)
 
+### Area: No Code Formatter Enforced
+- **Location:** Root `package.json`, `server/`, `frontend/`
+- **Issue:** No Prettier config detected anywhere. Code formatting is inconsistent — some files use 2-space indentation, others use tabs. No `format` script exists in any `package.json`.
+- **Impact:** Diff noise from formatting changes; inconsistent readability; no automated formatting gate in CI.
+- **Priority:** Low
+- **Estimated effort:** 1 hour (add Prettier config, run once across codebase)
+
+### Area: Disabled ESLint Rules
+- **Location:** `frontend/eslint.config.js`
+- **Issue:** Two key rules are explicitly disabled: `@typescript-eslint/no-unused-vars` is **off** and `react-refresh/only-export-components` is **off**. Server has no ESLint config at all.
+- **Impact:** Dead code and unused imports go undetected; components may be mis-exported without warning.
+- **Priority:** Medium
+- **Estimated effort:** 1 day (reenable and fix violations)
+
+### Area: Empty Stub Files
+- **Location:** `server/src/services/circuitBreaker.ts` (0 lines), `server/src/events/eventBus.ts` (0 lines)
+- **Issue:** Two zero-byte stub files exist with no implementation. INTEGRATIONS.md and ARCHITECTURE.md previously misreported their state.
+- **Impact:** Misleading directory navigation; future developers may be unaware these are unimplemented.
+- **Priority:** Low
+- **Estimated effort:** 1 hour (implement or remove)
+
 ### Area: `simulateMotionDetection` in Production Routes
 - **Location:** `server/src/routes/motion.ts` (line 49), `server/src/streams/rtspManager.ts` (line 529)
 - **Issue:** A test/mock endpoint remains wired into production route definitions. `POST /:cameraId/simulate` triggers `simulateMotionDetection()` which generates synthetic events. Guarded by `requireAdmin` but still exposes a debug path.

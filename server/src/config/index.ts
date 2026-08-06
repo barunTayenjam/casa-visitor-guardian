@@ -47,14 +47,18 @@ function decryptStreamPath(streamPath: string | EncryptedCredential): string {
       logSecurityEventDeferred('CREDENTIAL_DECRYPTION_FAILED', {
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
-      }).catch(() => {});
+      }).catch((err: unknown) => {
+        logger.error('Deferred security log (decryption failed) failed', 'Config', err);
+      });
       throw error;
     }
   } else {
     logger.warn('Detected plaintext RTSP credential in configuration', 'Config');
     logSecurityEventDeferred('PLAINTEXT_CREDENTIALS_DETECTED', {
       timestamp: new Date().toISOString()
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.error('Deferred security log (plaintext) failed', 'Config', err);
+    });
     return streamPath;
   }
 }

@@ -5,16 +5,25 @@ import { NormalizedDetection, NormalizedFaceDetection } from '../utils/detection
 @Entity('events')
 @Index(['event_type'])
 @Index(['timestamp'])
+@Index(['severity'])
 export class Event {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ 
-    type: 'varchar', 
+  @Column({
+    type: 'varchar',
     length: 50,
     comment: 'Type of event, e.g., motion, person, car'
   })
   event_type!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'info',
+    comment: 'Severity tier: alert, detection, info'
+  })
+  severity!: 'alert' | 'detection' | 'info';
 
   @Column({ 
     type: 'varchar',

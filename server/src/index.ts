@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { configureRoutes } from './routes/index.js';
 import { staticRoutes } from './routes/staticRoutes.js';
@@ -16,6 +17,7 @@ import { logger } from './utils/logger.js';
 dotenv.config({ path: './.env' });
 
 const app = express();
+app.use(compression());
 
 const corsOrigins = (() => {
   if (process.env.CORS_ORIGIN) return process.env.CORS_ORIGIN.split(',');
@@ -37,6 +39,10 @@ app.use('/go2rtc', createProxyMiddleware({
 
 app.use(express.json());
 app.use(helmet({
+  strictTransportSecurity: process.env.NODE_ENV === 'production' ? {
+    maxAge: 31536000,
+    includeSubDomains: true,
+  } : false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -48,11 +54,9 @@ app.use(helmet({
       workerSrc: ["'self'", "blob:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: null,
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     }
   },
-  crossOriginEmbedderPolicy: false,
-  strictTransportSecurity: false,
 }));
 
 const server = http.createServer(app);

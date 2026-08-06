@@ -86,14 +86,19 @@ COMMENT ON TABLE adaptive_regions IS 'Spatial grid for detection optimization - 
 COMMENT ON COLUMN adaptive_regions.camera IS 'Camera name';
 COMMENT ON COLUMN adaptive_regions.grid IS 'Region grid data with cell coordinates and last update time';
 
--- Create detection_config table (already exists with config JSONB column)
--- Add comments for existing detection_config table
-COMMENT ON TABLE detection_config IS 'Per-camera detection thresholds and label mappings';
-COMMENT ON COLUMN detection_config.camera IS 'Camera name (null for global config)';
-COMMENT ON COLUMN detection_config.config IS 'Detection configuration including thresholds and labelmap';
-COMMENT ON COLUMN detection_config.config.thresholds IS 'Minimum score and threshold per label type';
-COMMENT ON COLUMN detection_config.config.labelmap IS 'Label mapping for consolidating similar types';
-COMMENT ON COLUMN detection_config.config.score_history_length IS 'Number of scores to maintain for median filtering';
+-- detection_config table is not created by these migrations; only apply comments if it exists.
+DO $do$
+BEGIN
+    IF to_regclass('public.detection_config') IS NOT NULL THEN
+        EXECUTE 'COMMENT ON TABLE detection_config IS ''Per-camera detection thresholds and label mappings''';
+        EXECUTE 'COMMENT ON COLUMN detection_config.camera IS ''Camera name (null for global config)''';
+        EXECUTE 'COMMENT ON COLUMN detection_config.config IS ''Detection configuration including thresholds and labelmap''';
+        EXECUTE 'COMMENT ON COLUMN detection_config.config.thresholds IS ''Minimum score and threshold per label type''';
+        EXECUTE 'COMMENT ON COLUMN detection_config.config.labelmap IS ''Label mapping for consolidating similar types''';
+        EXECUTE 'COMMENT ON COLUMN detection_config.config.score_history_length IS ''Number of scores to maintain for median filtering''';
+    END IF;
+END
+$do$;
 
 -- Create retention_policies table
 CREATE TABLE IF NOT EXISTS retention_policies (

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS ai_analysis_results (
     
     -- Scene analysis
     scene_description TEXT,
+    scene_context JSONB,
     threat_level VARCHAR(20) DEFAULT 'low',
     threat_confidence INTEGER DEFAULT 0,
     

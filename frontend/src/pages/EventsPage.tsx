@@ -7,16 +7,21 @@ import { EventTimeline } from '@/components/events/EventTimeline';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
-import { Calendar, Clock, User, Grid, List, Archive, Download, Brain } from 'lucide-react';
+import { Calendar, Clock, User, Grid, List, Archive, Download, Brain, Film, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Play, Pause, SkipBack, SkipForward, X, AlertTriangle, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
+import { systemService } from '@/services/api/systemService';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'newest' | 'oldest' | 'confidence';
@@ -48,6 +53,7 @@ function formatConfidence(value: number): string {
 interface ApiEvent {
   id: string; cameraId: string; cameraName?: string; timestamp: string;
   imageUrl?: string; filename?: string; confidence: number; event_type: string;
+  severity?: 'alert' | 'detection' | 'info';
   metadata: Record<string, unknown>; labels?: string[]; persons_detected: number;
   faces_detected: number; known_faces_count: number; unknown_faces_count: number;
   object_detections: unknown[]; face_detections: unknown[];
@@ -91,6 +97,8 @@ function readSortFromParams(searchParams: URLSearchParams): SortOption {
   return 'newest';
 }
 
+type CategoryFilter = 'all' | 'persons' | 'known' | 'unknown' | 'night';
+
 const EventsPage = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
@@ -116,6 +124,23 @@ const EventsPage = () => {
 
   const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
   const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, AnalysisEntry>>({});
+
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [severityFilter, setSeverityFilter] = useState<'all' | 'alert' | 'detection' | 'info'>('all');
+  const [daySummary, setDaySummary] = useState<{ totalEvents: number; totalPersons: number; totalFaces: number; knownFaces: number; knownEvents: number; unknownEvents: number; nightEvents: number } | null>(null);
+  const [showTimelapse, setShowTimelapse] = useState(false);
+  const [timelapseList, setTimelapseList] = useState<Array<{ cameraId: string; path: string }>>([]);
+  const [activeTimelapseCam, setActiveTimelapseCam] = useState<string | null>(null);
+  const [timelapseLoading, setTimelapseLoading] = useState(false);
+
+  const [showSlideshow, setShowSlideshow] = useState(false);
+  const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [slideshowPlaying, setSlideshowPlaying] = useState(true);
+  const [slideshowSpeed, setSlideshowSpeed] = useState(2);
+  const slideshowIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const slideshowPreloadRef = React.useRef<Set<string>>(new Set());
+
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
   const handleAnalyzeEvent = async (eventId: string) => {
     setAnalyzingEventId(eventId);
@@ -176,8 +201,79 @@ const EventsPage = () => {
     }},
   ], []);
 
-  const selectedEvent = events.find(e => e.id === selectedEventId) || null;
-  const cameraList = cameras.map(c => ({id: c.id, name: c.name}));
+  const isSingleDay = useMemo(() => {
+    return filters.dateRange.start && filters.dateRange.end && format(filters.dateRange.start, 'yyyy-MM-dd') === format(filters.dateRange.end, 'yyyy-MM-dd');
+  }, [filters]);
+
+  const dateStr = useMemo(() => isSingleDay ? format(filters.dateRange.start!, 'yyyy-MM-dd') : null, [isSingleDay, filters.dateRange.start]);
+
+  const loadSummaryAndTimelapse = useCallback(async () => {
+    if (!dateStr) {
+      setDaySummary(null);
+      setTimelapseList([]);
+      return;
+    }
+    setTimelapseLoading(true);
+    try {
+      const [summaryRes, timelapseRes] = await Promise.all([
+        systemService.getDaySummary(dateStr),
+        systemService.getTimelapses(dateStr)
+      ]);
+      if (summaryRes.success) setDaySummary(summaryRes.summary);
+      if (timelapseRes.success) setTimelapseList(timelapseRes.timelapses);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimelapseLoading(false);
+    }
+  }, [dateStr]);
+
+  useEffect(() => {
+    loadSummaryAndTimelapse();
+  }, [loadSummaryAndTimelapse]);
+
+  const applyCategoryFilters = useCallback((evs: MotionEvent[]) => {
+    return evs.filter(h => {
+      if (severityFilter !== 'all' && h.severity !== severityFilter) return false;
+      if (categoryFilter === 'all') return true;
+      if (categoryFilter === 'persons') return h.personCount > 0;
+      if (categoryFilter === 'known') return h.knownFaces > 0;
+      if (categoryFilter === 'unknown') return h.unknownFaces > 0;
+      if (categoryFilter === 'night') {
+        const hour = h.timestamp.getHours();
+        return hour >= 22 || hour <= 6;
+      }
+      return true;
+    });
+  }, [categoryFilter, severityFilter]);
+
+  useEffect(() => {
+    setFilteredEvents(applyCategoryFilters(events));
+  }, [events, categoryFilter, applyCategoryFilters]);
+
+  useEffect(() => {
+    if (slideshowPlaying && filteredEvents.length > 0) {
+      slideshowIntervalRef.current = setInterval(() => {
+        setSlideshowIndex(prev => (prev + 1) % filteredEvents.length);
+      }, slideshowSpeed * 1000);
+    } else {
+      if (slideshowIntervalRef.current) clearInterval(slideshowIntervalRef.current);
+    }
+    return () => { if (slideshowIntervalRef.current) clearInterval(slideshowIntervalRef.current); };
+  }, [slideshowPlaying, filteredEvents.length, slideshowSpeed]);
+
+  useEffect(() => {
+    if (filteredEvents.length === 0) return;
+    const N = 6;
+    for (let i = 1; i <= N; i++) {
+      const idx = (slideshowIndex + i) % filteredEvents.length;
+      const url = filteredEvents[idx]?.imageUrl;
+      if (url && !slideshowPreloadRef.current.has(url)) {
+        slideshowPreloadRef.current.add(url);
+        new Image().src = url;
+      }
+    }
+  }, [slideshowIndex, filteredEvents]);
 
   const syncUrl = useCallback((f: FilterState, s: SortOption, page: number) => {
     const params = new URLSearchParams();
@@ -236,7 +332,7 @@ const EventsPage = () => {
         location: event.cameraName || `Camera ${event.cameraId}`, duration: 0, archived: false,
         metadata: event.metadata || {}, detections: [], personCount: event.persons_detected || 0,
         faceCount: event.faces_detected || 0, knownFaces: event.known_faces_count || 0,
-        unknownFaces: event.unknown_faces_count || 0,
+        unknownFaces: event.unknown_faces_count || 0, severity: event.severity,
       }));
       setEvents(transformedEvents);
       setFilteredEvents(transformedEvents);
@@ -392,9 +488,13 @@ const EventsPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const selectedEvent = events.find(e => e.id === selectedEventId) || null;
+  const cameraList = cameras.map(c => ({ id: c.id, name: c.name }));
+
   const stats = { total: totalEvents, today: todayEvents };
 
   return (
+    <>
     <div className="w-full min-h-[100dvh] flex flex-col">
       <div className="px-5 pt-6 pb-2 animate-fade-in">
         <div className="flex items-center justify-between mb-5">
@@ -405,16 +505,25 @@ const EventsPage = () => {
             <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-3 mr-2">
+            {isSingleDay && daySummary && (
+              <div className="hidden md:flex items-center gap-6 bg-white/[0.04] border border-white/[0.08] rounded-[1.25rem] px-5 py-2">
+                <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase">Persons</span><span className="text-sm font-semibold">{daySummary.totalPersons}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase">Faces</span><span className="text-sm font-semibold">{daySummary.totalFaces}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase">Known</span><span className="text-sm font-semibold text-green-400">{daySummary.knownFaces}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] text-muted-foreground uppercase">Night</span><span className="text-sm font-semibold text-purple-400">{daySummary.nightEvents}</span></div>
+              </div>
+            )}
+            <div className="flex items-center gap-3 mr-2">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 <span className="text-xs text-muted-foreground">{stats.total} total</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span className="text-xs text-muted-foreground">{stats.today} today</span>
-              </div>
             </div>
+            {isSingleDay && timelapseList.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setShowTimelapse(true)} className="text-xs">
+                <Film className="w-3.5 h-3.5 mr-1.5" /> Timelapse
+              </Button>
+            )}
             {showBulkActions ? (
               <div className="flex items-center gap-2 bg-white/[0.08] border border-white/[0.14] rounded-[1.25rem] px-3 py-1">
                 <span className="text-xs text-foreground">{selectedEventIds.size} selected</span>
@@ -459,6 +568,47 @@ const EventsPage = () => {
       </div>
 
       <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
+
+      {filteredEvents.length > 0 && (
+        <div className="px-5 py-2 flex items-center gap-2 flex-wrap">
+          <Button onClick={() => setCategoryFilter('all')} variant={categoryFilter === 'all' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            All <Badge variant="outline" className="ml-1.5 text-[9px] h-4 px-1.5 rounded-full">{filteredEvents.length}</Badge>
+          </Button>
+          <Button onClick={() => setCategoryFilter('persons')} variant={categoryFilter === 'persons' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <Users className="w-3 h-3 mr-1" /> Persons
+          </Button>
+          <Button onClick={() => setCategoryFilter('known')} variant={categoryFilter === 'known' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <UserCheck className="w-3 h-3 mr-1" /> Known
+          </Button>
+          <Button onClick={() => setCategoryFilter('unknown')} variant={categoryFilter === 'unknown' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <User className="w-3 h-3 mr-1" /> Unknown
+          </Button>
+          <Button onClick={() => setCategoryFilter('night')} variant={categoryFilter === 'night' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <Moon className="w-3 h-3 mr-1" /> Night
+          </Button>
+          <div className="w-px h-5 bg-white/[0.1]" />
+          <Button onClick={() => setSeverityFilter('all')} variant={severityFilter === 'all' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            All Severity
+          </Button>
+          <Button onClick={() => setSeverityFilter('alert')} variant={severityFilter === 'alert' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <ShieldAlert className="w-3 h-3 mr-1" /> Alerts
+          </Button>
+          <Button onClick={() => setSeverityFilter('detection')} variant={severityFilter === 'detection' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <AlertTriangle className="w-3 h-3 mr-1" /> Detections
+          </Button>
+          <Button onClick={() => setSeverityFilter('info')} variant={severityFilter === 'info' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 rounded-full">
+            <Info className="w-3 h-3 mr-1" /> Info
+          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setShowSlideshow(true); setSlideshowIndex(0); setSlideshowPlaying(true); }} className="text-xs h-7 rounded-full" title="Present">
+              <Play className="w-3 h-3 mr-1" /> Present
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowKeyboardHelp(true)} className="text-xs h-7 rounded-full">
+              <span className="text-xs">⌨</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {(() => {
         const pageSize = 100;
@@ -518,10 +668,23 @@ const EventsPage = () => {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]" />
                       {event.labels && event.labels.length > 0 && (
-                        <div className="absolute top-2 left-2 z-10">
+                        <div className="absolute top-2 left-2 z-10 flex gap-1">
                           <div className="px-2 py-1 rounded-full text-[10px] font-semibold text-white backdrop-blur-md" style={{ backgroundColor: `#${getLabelColor(event.labels[0])}DD` }}>
                             {event.labels[0]}
                           </div>
+                          {event.severity && (
+                            <div className={cn(
+                              "px-2 py-1 rounded-full text-[10px] font-semibold backdrop-blur-md flex items-center gap-1",
+                              event.severity === 'alert' ? "bg-red-500/80 text-white" :
+                              event.severity === 'detection' ? "bg-yellow-500/80 text-black" :
+                              "bg-blue-500/60 text-white"
+                            )}>
+                              {event.severity === 'alert' ? <ShieldAlert className="w-2.5 h-2.5" /> :
+                               event.severity === 'detection' ? <AlertTriangle className="w-2.5 h-2.5" /> :
+                               <Info className="w-2.5 h-2.5" />}
+                              <span>{event.severity === 'alert' ? 'Alert' : event.severity === 'detection' ? 'Detect' : 'Info'}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       {event.confidence > 0 && (
@@ -767,8 +930,71 @@ const EventsPage = () => {
           </>
         )}
       </div>
-    </div>
+      </div>
+
+      {/* Timelapse Modal */}
+      {showTimelapse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowTimelapse(false)}>
+          <div className="bg-black/90 border border-white/[0.14] rounded-[1.25rem] w-full max-w-4xl max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center justify-between hairline-bottom">
+              <h2 className="text-lg font-semibold flex items-center gap-2"><Film className="w-5 h-5 text-purple-400" /> Daily Timelapse</h2>
+              <Button size="icon-sm" variant="ghost" onClick={() => setShowTimelapse(false)}><X className="w-4 h-4" /></Button>
+            </div>
+            <div className="p-4 flex flex-wrap gap-2">
+              {timelapseList.map(t => (
+                <Button key={t.cameraId} onClick={() => setActiveTimelapseCam(t.cameraId)} variant={activeTimelapseCam === t.cameraId ? 'default' : 'outline'} size="sm">
+                  {cameras.find(c => c.id === t.cameraId)?.name || t.cameraId}
+                </Button>
+              ))}
+            </div>
+            <div className="aspect-video bg-black flex items-center justify-center">
+              {activeTimelapseCam ? (
+                <video key={activeTimelapseCam} src={timelapseList.find(t => t.cameraId === activeTimelapseCam)?.path} controls autoPlay loop className="w-full h-full object-contain" />
+              ) : <p className="text-muted-foreground">Select a camera</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slideshow Modal */}
+      {showSlideshow && filteredEvents.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black" onClick={() => setShowSlideshow(false)}>
+          <div className="relative w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+            <Button size="icon" variant="ghost" onClick={() => setShowSlideshow(false)} className="absolute top-4 right-4 text-white hover:text-white"><X className="w-8 h-8" /></Button>
+            <div className="relative w-full max-h-[80vh] flex items-center justify-center">
+              <ProgressiveImage src={filteredEvents[slideshowIndex].imageUrl || ''} alt="" className="max-w-full max-h-[80vh] object-contain" />
+            </div>
+            <div className="absolute bottom-10 flex items-center gap-4 p-4 rounded-full bg-black/40 backdrop-blur-md">
+              <Button size="icon" variant="ghost" className="text-white hover:text-white" onClick={e => { e.stopPropagation(); setSlideshowIndex(prev => (prev - 1 + filteredEvents.length) % filteredEvents.length); }}><SkipBack className="w-6 h-6" /></Button>
+              <Button size="icon" variant="ghost" className="text-white hover:text-white" onClick={e => { e.stopPropagation(); setSlideshowPlaying(!slideshowPlaying); }}>
+                {slideshowPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+              </Button>
+              <Button size="icon" variant="ghost" className="text-white hover:text-white" onClick={e => { e.stopPropagation(); setSlideshowIndex(prev => (prev + 1) % filteredEvents.length); }}><SkipForward className="w-6 h-6" /></Button>
+              <div className="w-32">
+                <Slider value={[slideshowSpeed]} onValueChange={v => setSlideshowSpeed(v[0])} min={0.5} max={5} step={0.5} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Help Modal */}
+      {showKeyboardHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowKeyboardHelp(false)}>
+          <div className="bg-black/90 border border-white/[0.14] rounded-[1.25rem] w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Brain className="w-5 h-5 text-blue-400" /> Keyboard Shortcuts</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Present Play/Pause</span><kbd className="px-2 py-1 bg-white/10 rounded">Space</kbd></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Present Next</span><kbd className="px-2 py-1 bg-white/10 rounded">→ / ←</kbd></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Close Modal</span><kbd className="px-2 py-1 bg-white/10 rounded">Esc</kbd></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Shortcuts</span><kbd className="px-2 py-1 bg-white/10 rounded">?</kbd></div>
+            </div>
+            <Button onClick={() => setShowKeyboardHelp(false)} variant="outline" className="w-full mt-6 rounded-full">Close</Button>
+          </div>
+        </div>
+      )}
+    </>
   );
-};
+}
 
 export default EventsPage;

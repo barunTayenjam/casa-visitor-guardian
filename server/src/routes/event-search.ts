@@ -153,6 +153,12 @@ router.get('/image/:filename', optionalAuth, validateParams(z.object({
     const publicImagePath = path.join(config.storage.eventsDir, filename);
     if (fs.existsSync(publicImagePath)) return res.sendFile(publicImagePath);
 
+    const cacheKey = `img:${filename}`;
+    const cached = imagePathCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      if (fs.existsSync(cached.path)) return res.sendFile(cached.path);
+    }
+
     try {
       const storagePath = await eventSearchService.lookupEventImagePath(filename);
       if (storagePath) {
@@ -160,16 +166,14 @@ router.get('/image/:filename', optionalAuth, validateParams(z.object({
         if (!path.isAbsolute(actualImagePath)) {
           actualImagePath = path.join(config.storage.detectionsDir, actualImagePath);
         }
-        if (fs.existsSync(actualImagePath)) return res.sendFile(actualImagePath);
+        if (fs.existsSync(actualImagePath)) {
+          if (imagePathCache.size >= CACHE_MAX) imagePathCache.clear();
+          imagePathCache.set(cacheKey, { path: actualImagePath, timestamp: Date.now() });
+          return res.sendFile(actualImagePath);
+        }
       }
     } catch (err) {
       logger.warn(`Failed to lookup event image path for ${filename}`, 'EventSearch', err);
-    }
-
-    const cacheKey = `img:${filename}`;
-    const cached = imagePathCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      if (fs.existsSync(cached.path)) return res.sendFile(cached.path);
     }
 
     const fallbackPath = path.join(config.storage.detectionsDir, filename);

@@ -18,7 +18,7 @@ This release fundamentally re-architects the SentryVision stack for low-resource
 
 ### One-Click Install (`scripts/install.sh`)
 - Zero-interaction install: detects LAN IP, generates secure secrets (`openssl rand`), writes `.env`, creates empty camera configs, builds and starts everything.
-- `curl -fsSL https://raw.githubusercontent.com/anomalyco/home-security-non-docker/main/scripts/install.sh | bash`
+- `curl -fsSL https://raw.githubusercontent.com/barunTayenjam/sentryvision/main/scripts/install.sh | bash`
 - Cameras are added later through the web UI — no terminal editing required.
 - Re-runnable: running again detects the existing install and rebuilds if needed.
 
@@ -122,5 +122,5 @@ bash scripts/install.sh
 Or the one-liner:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/anomalyco/home-security-non-docker/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/barunTayenjam/sentryvision/main/scripts/install.sh | bash
 ```

@@ -43,7 +43,7 @@ async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
     if (frame) {
       const now = new Date();
       const ts = now.toISOString().replace(/[:.]/g, '-');
-      const filename = `motion_${cameraId}_${ts}.jpg`;
+      const filename = `motion_${cameraId}_${ts}_t${trackId}.jpg`;
       const dir = getEventPath('motion', now);
       await fsp.mkdir(dir, { recursive: true });
       filePath = path.join(dir, filename);
@@ -53,8 +53,12 @@ async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
     logger.warn(`[Bootstrap] Failed to save snapshot for event on ${cameraId}`, 'BOOTSTRAP', err);
   }
 
+  const isVehicle = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(className);
+  const severity: 'alert' | 'detection' | 'info' = isPerson ? 'alert' : isVehicle ? 'detection' : 'info';
+
   const event = new Event();
   event.event_type = eventTypeStr;
+  event.severity = severity;
   event.camera_id = cameraId;
   event.file_path = filePath;
   event.timestamp = typeof ev.timestamp === 'number'
@@ -92,11 +96,17 @@ async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
 
   try {
     if (eventTypeStr === 'person') {
-      NotificationService.notifyObjectDetected(event, [className]).catch(() => {});
+      NotificationService.notifyObjectDetected(event, [className]).catch((err: unknown) => {
+        logger.error('Object detection notification failed', 'BOOTSTRAP', err);
+      });
     } else if (eventTypeStr === 'face') {
-      NotificationService.notifyUnknownFace(event).catch(() => {});
+      NotificationService.notifyUnknownFace(event).catch((err: unknown) => {
+        logger.error('Unknown face notification failed', 'BOOTSTRAP', err);
+      });
     } else {
-      NotificationService.notifyMotionEvent(event).catch(() => {});
+      NotificationService.notifyMotionEvent(event).catch((err: unknown) => {
+        logger.error('Motion notification failed', 'BOOTSTRAP', err);
+      });
     }
   } catch (err) {
     logger.debug('Notification dispatch failed (non-blocking)', 'BOOTSTRAP', err);
@@ -128,15 +138,21 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     logger.debug('Seed user registration failed (duplicates expected)', 'BOOTSTRAP', err);
   }
 
-  // Auto-import disk detections on restart so events survive volume wipes
+  // Auto-import disk detections on restart so events survive volume wipes.
+  // Skip when the DB already has events (normal restart) to keep boot fast.
   try {
-    const { exec } = await import('node:child_process');
-    exec('python3 /app/import-events.py', (err) => {
-      if (err) logger.warn('Background event re-import failed', 'BOOTSTRAP');
-      else logger.info('Event re-import completed', 'BOOTSTRAP');
-    });
+    const [{ count }] = await AppDataSource.query('SELECT COUNT(*) AS count FROM events');
+    if (Number(count) > 0) {
+      logger.info(`Skipping event re-import (${count} events already in DB)`, 'BOOTSTRAP');
+    } else {
+      const { exec } = await import('node:child_process');
+      exec('python3 /app/import-events.py', (err) => {
+        if (err) logger.warn('Background event re-import failed', 'BOOTSTRAP');
+        else logger.info('Event re-import completed', 'BOOTSTRAP');
+      });
+    }
   } catch (err) {
-    logger.debug('Background event re-import failed', 'BOOTSTRAP', err);
+    logger.debug('Background event re-import check failed', 'BOOTSTRAP', err);
   }
 
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -235,6 +251,12 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
             bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
             ts: now,
           });
+          return;
+        }
+
+        const minPersonConfidence = parseFloat(process.env.PERSON_MIN_CONFIDENCE || '0.45');
+        if ((score ?? 0) < minPersonConfidence) {
+          persistedTracks.add(trackKey);
           return;
         }
 

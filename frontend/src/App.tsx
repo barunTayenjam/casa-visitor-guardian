@@ -16,7 +16,6 @@ const EventsPage = lazy(() => import("./pages/EventsPage"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const TimelapsePage = lazy(() => import("./pages/TimelapsePage"));
 
-const DayHighlightsPage = lazy(() => import("./pages/DayHighlights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthRedirect = () => {
@@ -184,18 +183,6 @@ const App = () => {
                               <AppLayout>
                                 <ErrorBoundary fallback={ErrorFallback}>
                                   <TimelapsePage />
-                                </ErrorBoundary>
-                              </AppLayout>
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/app/highlights" element={
-                            <Navigate to={`/app/highlights/${new Date().toISOString().split('T')[0]}`} replace />
-                          } />
-                          <Route path="/app/highlights/:date" element={
-                            <ProtectedRoute>
-                              <AppLayout>
-                                <ErrorBoundary fallback={ErrorFallback}>
-                                  <DayHighlightsPage />
                                 </ErrorBoundary>
                               </AppLayout>
                             </ProtectedRoute>

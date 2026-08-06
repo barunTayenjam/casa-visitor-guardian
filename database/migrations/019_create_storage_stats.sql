@@ -17,6 +17,20 @@ CREATE TABLE IF NOT EXISTS storage_stats (
   CONSTRAINT chk_category_valid CHECK (category IN ('alerts', 'detections', 'previews', 'snapshots', 'events', 'global'))
 );
 
+-- Migration 003 creates storage_stats with a different shape; reconcile columns so the
+-- indexes/comments below don't abort the chain. Migration 020 drops+recreates this table
+-- with the canonical schema regardless.
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS camera VARCHAR(50);
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS category VARCHAR(20) NOT NULL DEFAULT 'global';
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS total_bytes BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS file_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS oldest_file_days INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS growth_rate_mb_per_day DECIMAL(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS breakdown JSONB;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS last_calculated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE storage_stats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
 -- Create indexes for efficient querying
 CREATE INDEX idx_storage_stats_camera ON storage_stats(camera);
 CREATE INDEX idx_storage_stats_category ON storage_stats(category);

@@ -230,8 +230,9 @@ export async function analyzeWithBoundingBoxes(
     if (!apiKey) {
       throw new Error('NVIDIA_API_KEY not configured');
     }
+    const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -403,8 +404,9 @@ export async function analyzePersons(
     if (!apiKey) {
       throw new Error('NVIDIA_API_KEY not configured');
     }
+    const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

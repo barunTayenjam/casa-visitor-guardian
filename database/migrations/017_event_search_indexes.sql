@@ -27,14 +27,12 @@ CREATE INDEX IF NOT EXISTS idx_events_event_type
 CREATE INDEX IF NOT EXISTS idx_events_confidence
   ON events(confidence);
 
--- Partial index for recent events (last 7 days) - useful for common queries
-CREATE INDEX IF NOT EXISTS idx_events_recent
-  ON events(timestamp DESC)
-  WHERE timestamp >= NOW() - INTERVAL '7 days';
+-- Partial index with NOW() in predicate removed: NOW() is not IMMUTABLE, so Postgres
+-- rejects it in an index predicate, and a fixed "last 7 days" window would not slide anyway.
+-- The composite indexes above already cover recent-event queries efficiently.
 
 -- Add comments
 COMMENT ON INDEX idx_events_timestamp_camera IS 'Optimizes date range + camera filter queries';
 COMMENT ON INDEX idx_events_type_timestamp IS 'Optimizes event type + date range queries';
 COMMENT ON INDEX idx_events_confidence_timestamp IS 'Optimizes confidence level + date queries';
 COMMENT ON INDEX idx_events_face_status IS 'Optimizes face recognition status queries';
-COMMENT ON INDEX idx_events_recent IS 'Optimizes queries for recent events (last 7 days)';

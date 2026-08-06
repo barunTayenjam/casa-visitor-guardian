@@ -57,6 +57,7 @@ export interface MotionEvent {
   timestamp: Date;
   imageUrl: string | null;
   confidence: number;
+  severity?: 'alert' | 'detection' | 'info';
   labels: string[];
   location: string;
   duration: number;

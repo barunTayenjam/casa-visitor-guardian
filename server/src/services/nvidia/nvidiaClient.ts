@@ -43,6 +43,7 @@ export async function callNvidiaApi(
   systemPrompt: string
 ): Promise<any> {
   const apiKey = process.env.NVIDIA_API_KEY;
+  const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
 
   if (!apiKey) {
     throw new Error('NVIDIA_API_KEY environment variable is not set');
@@ -97,7 +98,7 @@ export async function callNvidiaApi(
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

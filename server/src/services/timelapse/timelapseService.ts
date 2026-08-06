@@ -66,9 +66,13 @@ export class TimelapseService {
 
   startSampler(): void {
     if (this.sampleTimer) return;
-    this.sampleTimer = setInterval(() => { this.sampleOnce().catch(() => {}); }, SAMPLE_INTERVAL_MS);
+    this.sampleTimer = setInterval(() => { this.sampleOnce().catch((err: unknown) => {
+      logger.error('Timelapse sampler interval sample failed', 'TimelapseService', err);
+    }); }, SAMPLE_INTERVAL_MS);
     logger.info(`Timelapse sampler started (every ${SAMPLE_INTERVAL_MS / 1000}s)`, 'TimelapseService');
-    this.sampleOnce().catch(() => {});
+    this.sampleOnce().catch((err: unknown) => {
+      logger.error('Initial timelapse sample failed', 'TimelapseService', err);
+    });
   }
 
   stopSampler(): void {
@@ -149,8 +153,12 @@ export class TimelapseService {
     const dir = this.getRawDir(cameraId, date);
     try {
       const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.jpg'));
-      await Promise.all(files.map((f) => fs.unlink(path.join(dir, f)).catch(() => {})));
-      await fs.rmdir(dir).catch(() => {});
+      await Promise.all(files.map((f) => fs.unlink(path.join(dir, f)).catch((err: unknown) => {
+        logger.warn(`Failed to delete raw JPEG ${f}`, 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
+      })));
+      await fs.rmdir(dir).catch((err: unknown) => {
+        logger.warn(`Failed to remove raw dir ${dir}`, 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
+      });
       return files.length;
     } catch {
       return 0;
@@ -310,7 +318,9 @@ export class TimelapseService {
       let stderr = '';
       ffmpeg.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
       ffmpeg.on('close', (code: number) => {
-        fs.unlink(listPath).catch(() => {});
+        fs.unlink(listPath).catch((err: unknown) => {
+          logger.warn('Failed to cleanup timelapse list file', 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
+        });
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg exited ${code}: ${stderr.substring(0, 500)}`));
       });

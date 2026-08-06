@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, AlertTriangle } from 'lucide-react';
+import { Play, AlertTriangle, Volume2, VolumeX } from 'lucide-react';
 import { useCameras } from '@/contexts/CameraContext';
 import { useSocketContext } from '@/contexts/SocketContext';
 import socketService from '@/services/SocketService';
@@ -43,6 +43,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [isWanStream, setIsWanStream] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -855,6 +856,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   }, [camera.id]);
 
   useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
     return () => {
       cleanupPeerConnection();
       cleanupMSE();
@@ -877,7 +882,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             ref={videoRef}
             autoPlay
             playsInline
-            muted
+            muted={isMuted}
             className={cn(
               "h-full w-full object-contain z-0 select-none touch-pan-y bg-black",
               (!isStreaming || isWanStream) && 'hidden'
@@ -933,8 +938,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             />
           )}
 
-          <div className="absolute top-3 left-3 z-10">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10">
+          <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10 pointer-events-auto">
               <div className={cn(
                 "w-2 h-2 rounded-full",
                 connectionState === 'connected' && isStreaming ? "bg-green-500" :
@@ -961,6 +966,16 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
                 </span>
               )}
             </div>
+            {!isWanStream && connectionState === 'connected' && isStreaming && (
+              <button
+                className="pointer-events-auto min-h-[36px] min-w-[36px] h-9 w-9 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}
+                title={isMuted ? 'Unmute' : 'Mute'}
+                aria-label={isMuted ? 'Unmute audio' : 'Mute audio'}
+              >
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            )}
           </div>
 
           {error && connectionState === 'error' && !showFullOverlay && (

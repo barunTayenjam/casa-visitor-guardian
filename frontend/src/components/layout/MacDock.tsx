@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield,
   Bell,
-  BarChart3,
   Settings,
   LogOut,
   PlayCircle,
@@ -27,9 +26,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/app/streams', label: 'Streams', icon: Shield },
   { href: '/app/events', label: 'Timeline', icon: Bell },
-  { href: '/app/highlights', label: 'Day View', icon: PlayCircle },
   { href: '/app/timelapse', label: 'Timelapse', icon: Film },
-  { href: '/app/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
 

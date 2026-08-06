@@ -7,7 +7,7 @@ Real-time camera security system: RTSP → go2rtc → Python (MOG2 + YOLOv8n + I
 ## One-Click Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/anomalyco/home-security-non-docker/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/barunTayenjam/sentryvision/main/scripts/install.sh | bash
 ```
 
 Or from a local clone:
@@ -73,7 +73,7 @@ Camera RTSP → go2rtc → FFmpegReader (BGR24) → MotionGate (MOG2)
 ### Docker (Recommended — Production Mode)
 
 ```bash
-git clone <repo-url> && cd home-security-non-docker
+git clone <repo-url> && cd sentryvision
 # Edit go2rtc.yaml or server/cameras.json with your RTSP URLs
 docker compose up -d --build
 ```

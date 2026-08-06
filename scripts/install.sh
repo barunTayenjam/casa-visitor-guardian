@@ -25,7 +25,7 @@ elif git rev-parse --git-dir &>/dev/null 2>&1; then
   info "Using repository at $PROJECT_DIR"
 else
   step "Downloading SentryVision"
-  git clone https://github.com/anomalyco/home-security-non-docker.git "$PROJECT_DIR"
+  git clone https://github.com/barunTayenjam/sentryvision.git "$PROJECT_DIR"
   info "Downloaded to $PROJECT_DIR"
 fi
 

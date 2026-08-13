@@ -8,7 +8,7 @@ export class ApiError extends Error {
     message: string,
     public status?: number,
     public code?: string,
-    public details?: Record<string, unknown>
+    public details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -62,7 +62,7 @@ async function attemptTokenRefresh(): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`,
+        Authorization: `Bearer ${currentToken}`,
       },
     });
     const data = await response.json();
@@ -82,7 +82,7 @@ export async function fetchWithRetry(
   url: string,
   options: RequestInit = {},
   retries = 3,
-  isRetryAfterRefresh = false
+  isRetryAfterRefresh = false,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout for AI analysis
@@ -94,7 +94,7 @@ export async function fetchWithRetry(
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     });
@@ -148,11 +148,11 @@ export async function fetchWithRetry(
       console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
 
       if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       } else if (error.message.includes('ECONNRESET') || error.message.includes('fetch')) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       return fetchWithRetry(url, options, retries - 1, isRetryAfterRefresh);
@@ -162,9 +162,7 @@ export async function fetchWithRetry(
       throw error;
     }
 
-    throw new NetworkError(
-      error instanceof Error ? error.message : 'Network error occurred'
-    );
+    throw new NetworkError(error instanceof Error ? error.message : 'Network error occurred');
   } finally {
     clearTimeout(timeout);
   }
@@ -176,7 +174,7 @@ export async function apiGet<T>(endpoint: string, params?: Record<string, unknow
   let url = `${API_URL}${endpoint}`;
   if (params) {
     const filteredParams: Record<string, string> = {};
-    Object.keys(params).forEach(key => {
+    Object.keys(params).forEach((key) => {
       const value = params[key];
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {

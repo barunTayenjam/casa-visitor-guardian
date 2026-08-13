@@ -22,24 +22,24 @@ describe('Role Model', () => {
 
   it('should create role entity', () => {
     const role = new Role();
-    
+
     role.name = 'admin';
     role.permissions = JSON.stringify(['read', 'write', 'delete']);
-    
+
     expect(role.name).toBe('admin');
     expect(role.permissions).toBeDefined();
   });
 
   it('should validate required fields', () => {
     const role = new Role();
-    
+
     role.name = '';
     expect(role.name).toBe('');
   });
 
   it('should handle default values', () => {
     const role = new Role();
-    
+
     role.createdAt = new Date('2024-01-01T00:00:00Z');
     role.updatedAt = new Date('2024-01-01T00:00:00Z');
 

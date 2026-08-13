@@ -34,13 +34,13 @@ export class AuthController extends BaseController {
           ip: auditLogger.getClientIP(req),
           userAgent: req.get('User-Agent'),
           details: { email, role: role || 'user' },
-          success: true
+          success: true,
         });
         logger.info(`User registered successfully: ${username}`, 'AuthRoutes');
         this.created(res, {
           message: 'User registered successfully',
           user: result.user as Record<string, unknown>,
-          token: result.token
+          token: result.token,
         });
       } else {
         auditLogger.log({
@@ -51,7 +51,7 @@ export class AuthController extends BaseController {
           ip: auditLogger.getClientIP(req),
           userAgent: req.get('User-Agent'),
           details: { email, error: result.error },
-          success: false
+          success: false,
         });
         this.badRequest(res, result.error || 'Registration failed');
       }
@@ -75,17 +75,23 @@ export class AuthController extends BaseController {
           ip: auditLogger.getClientIP(req),
           userAgent: req.get('User-Agent'),
           details: { loginMethod: 'password' },
-          success: true
+          success: true,
         });
         if (result.user?.id && result.token) {
-      const sessionIp1 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
+          const sessionIp1 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
           const refreshTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
           const accessTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
           await AppDataSource.query(
             `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
              VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-            [result.user.id, refreshTokenHash, accessTokenHash, sessionIp1, req.get('User-Agent') || '']
-          ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+            [
+              result.user.id,
+              refreshTokenHash,
+              accessTokenHash,
+              sessionIp1,
+              req.get('User-Agent') || '',
+            ],
+          ).catch((err) => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
         }
         if (result.mfaRequired) {
           this.ok(res, {
@@ -100,7 +106,7 @@ export class AuthController extends BaseController {
         this.ok(res, {
           message: 'Login successful',
           user: result.user as Record<string, unknown>,
-          token: result.token
+          token: result.token,
         });
       } else {
         auditLogger.log({
@@ -111,7 +117,7 @@ export class AuthController extends BaseController {
           ip: auditLogger.getClientIP(req),
           userAgent: req.get('User-Agent'),
           details: { error: result.error },
-          success: false
+          success: false,
         });
         res.status(401).json({ success: false, error: result.error });
       }
@@ -151,7 +157,7 @@ export class AuthController extends BaseController {
       const result = await this.authService.changePassword(
         req.user.userId,
         currentPassword,
-        newPassword
+        newPassword,
       );
 
       if (result.success) {
@@ -217,13 +223,14 @@ export class AuthController extends BaseController {
         username: req.user?.username,
         ip: auditLogger.getClientIP(req),
         userAgent: req.get('User-Agent'),
-        success: true
+        success: true,
       });
       if (req.user?.userId) {
-        await AppDataSource.query(
-          'DELETE FROM user_sessions WHERE user_id = $1',
-          [req.user.userId]
-        ).catch(err => logger.error(`Failed to delete user sessions on logout: ${err}`, 'AuthRoutes'));
+        await AppDataSource.query('DELETE FROM user_sessions WHERE user_id = $1', [
+          req.user.userId,
+        ]).catch((err) =>
+          logger.error(`Failed to delete user sessions on logout: ${err}`, 'AuthRoutes'),
+        );
         invalidateSessionCache(req.user.userId);
       }
       logger.info(`User logged out: ${req.user?.username}`, 'AuthRoutes');
@@ -238,7 +245,7 @@ export class AuthController extends BaseController {
         ip: auditLogger.getClientIP(req),
         userAgent: req.get('User-Agent'),
         details: { error: error instanceof Error ? error.message : 'Unknown error' },
-        success: false
+        success: false,
       });
       this.serverError(res, error, 'logout');
     }
@@ -254,7 +261,7 @@ export class AuthController extends BaseController {
 
       await AppDataSource.query(
         'UPDATE users SET mfa_enabled = false, mfa_secret = NULL, updated_at = NOW() WHERE id = $1',
-        [userId]
+        [userId],
       );
 
       auditLogger.log({
@@ -289,7 +296,7 @@ export class AuthController extends BaseController {
 
       await AppDataSource.query(
         'UPDATE users SET mfa_secret = $1, updated_at = NOW() WHERE id = $2',
-        [secret.base32, userId]
+        [secret.base32, userId],
       );
 
       const qrCode = await QRCode.toDataURL(secret.otpauth_url || '');
@@ -313,7 +320,10 @@ export class AuthController extends BaseController {
 
       let payload: { userId: string; purpose: string };
       try {
-        const decoded = jwt.verify(pendingToken, config.jwtSecret) as { userId: string; purpose: string };
+        const decoded = jwt.verify(pendingToken, config.jwtSecret) as {
+          userId: string;
+          purpose: string;
+        };
         payload = decoded;
       } catch {
         res.status(401).json({ success: false, error: 'Invalid or expired pending token' });
@@ -327,7 +337,7 @@ export class AuthController extends BaseController {
 
       const [user] = await AppDataSource.query(
         'SELECT mfa_secret, username, email FROM users WHERE id = $1',
-        [payload.userId]
+        [payload.userId],
       );
 
       if (!user || !user.mfa_secret) {
@@ -361,7 +371,7 @@ export class AuthController extends BaseController {
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
          WHERE u.id = $1`,
-        [payload.userId]
+        [payload.userId],
       );
 
       const dbUser = result[0];
@@ -370,7 +380,7 @@ export class AuthController extends BaseController {
         username: dbUser.username,
         email: dbUser.email,
         password: '',
-        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        role: (dbUser.role_name as 'admin' | 'user' | 'viewer') || 'user',
         isActive: dbUser.status === 'active',
         createdAt: dbUser.created_at,
         updatedAt: dbUser.updated_at,
@@ -393,10 +403,10 @@ export class AuthController extends BaseController {
       const refreshTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
       const accessTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
       await AppDataSource.query(
-         `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
+        `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}'::jsonb, true, NOW() + INTERVAL '7 days')`,
-         [dbUser.id, refreshTokenHash2, accessTokenHash2, sessionIp2, req.get('User-Agent') || '']
-      ).catch(err => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+        [dbUser.id, refreshTokenHash2, accessTokenHash2, sessionIp2, req.get('User-Agent') || ''],
+      ).catch((err) => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
 
       const { password: _, ...userWithoutPassword } = userForToken;
       this.ok(res, {
@@ -425,7 +435,7 @@ export class AuthController extends BaseController {
 
       const [user] = await AppDataSource.query(
         'SELECT mfa_secret, mfa_enabled FROM users WHERE id = $1',
-        [userId]
+        [userId],
       );
 
       if (!user || !user.mfa_secret) {
@@ -444,7 +454,7 @@ export class AuthController extends BaseController {
         if (!user.mfa_enabled) {
           await AppDataSource.query(
             'UPDATE users SET mfa_enabled = true, updated_at = NOW() WHERE id = $1',
-            [userId]
+            [userId],
           );
         }
 

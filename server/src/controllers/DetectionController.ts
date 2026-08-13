@@ -17,7 +17,7 @@ export class DetectionController {
     if (!camera) return res.status(404).json({ success: false, error: 'Camera not found' });
     const currentFrame = streamManager.getCurrentFrame(cameraId);
     if (!currentFrame) return res.status(400).json({ success: false, error: 'No frame' });
-    
+
     const result = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
     res.json({ success: true, detections: result.detections });
   }

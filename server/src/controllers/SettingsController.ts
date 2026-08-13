@@ -6,24 +6,69 @@ import { inMemoryState, SystemSettings } from '../services/inMemoryStateService.
 import { AppDataSource } from '../database.js';
 
 const defaultSystemSettings: SystemSettings = {
-  general: { systemName: 'Security System', timezone: 'UTC', language: 'en', theme: 'system', autoBackup: true, backupFrequency: 'daily' },
-  storage: { retentionDays: 7, maxStorageGB: 100, autoCleanup: true, compressionEnabled: true, compressionQuality: 80 },
-  notifications: { emailEnabled: false, emailAddress: '', pushEnabled: true, pushSoundEnabled: true, quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '07:00' },
+  general: {
+    systemName: 'Security System',
+    timezone: 'UTC',
+    language: 'en',
+    theme: 'system',
+    autoBackup: true,
+    backupFrequency: 'daily',
+  },
+  storage: {
+    retentionDays: 7,
+    maxStorageGB: 100,
+    autoCleanup: true,
+    compressionEnabled: true,
+    compressionQuality: 80,
+  },
+  notifications: {
+    emailEnabled: false,
+    emailAddress: '',
+    pushEnabled: true,
+    pushSoundEnabled: true,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+  },
 };
 
 async function loadSystemSettings(): Promise<SystemSettings> {
   const cached = inMemoryState.getSystemSettings();
-  if (cached !== defaultSystemSettings && cached.general.systemName !== 'Security System') return cached;
+  if (cached !== defaultSystemSettings && cached.general.systemName !== 'Security System')
+    return cached;
 
   try {
     if (!AppDataSource.isInitialized) return defaultSystemSettings;
-    const result = await AppDataSource.query(`SELECT * FROM system_settings ORDER BY created_at DESC LIMIT 1`);
+    const result = await AppDataSource.query(
+      `SELECT * FROM system_settings ORDER BY created_at DESC LIMIT 1`,
+    );
     if (result && result.length > 0) {
       const db = result[0];
       const settings: SystemSettings = {
-        general: { systemName: db.system_name || 'Security System', timezone: db.timezone || 'UTC', language: db.language || 'en', theme: db.theme || 'system', autoBackup: db.auto_backup !== false, backupFrequency: db.backup_frequency || 'daily' },
-        storage: { retentionDays: db.retention_days || 30, maxStorageGB: parseFloat(db.max_storage_gb) || 100, autoCleanup: db.auto_cleanup !== false, compressionEnabled: db.compression_enabled !== false, compressionQuality: db.compression_quality || 80 },
-        notifications: { emailEnabled: db.email_enabled === true, emailAddress: db.email_address || '', pushEnabled: db.push_enabled !== false, pushSoundEnabled: db.push_sound_enabled !== false, quietHoursEnabled: db.quiet_hours_enabled === true, quietHoursStart: db.quiet_hours_start || '22:00', quietHoursEnd: db.quiet_hours_end || '07:00' },
+        general: {
+          systemName: db.system_name || 'Security System',
+          timezone: db.timezone || 'UTC',
+          language: db.language || 'en',
+          theme: db.theme || 'system',
+          autoBackup: db.auto_backup !== false,
+          backupFrequency: db.backup_frequency || 'daily',
+        },
+        storage: {
+          retentionDays: db.retention_days || 30,
+          maxStorageGB: parseFloat(db.max_storage_gb) || 100,
+          autoCleanup: db.auto_cleanup !== false,
+          compressionEnabled: db.compression_enabled !== false,
+          compressionQuality: db.compression_quality || 80,
+        },
+        notifications: {
+          emailEnabled: db.email_enabled === true,
+          emailAddress: db.email_address || '',
+          pushEnabled: db.push_enabled !== false,
+          pushSoundEnabled: db.push_sound_enabled !== false,
+          quietHoursEnabled: db.quiet_hours_enabled === true,
+          quietHoursStart: db.quiet_hours_start || '22:00',
+          quietHoursEnd: db.quiet_hours_end || '07:00',
+        },
       };
       inMemoryState.setSystemSettings(settings);
       return settings;
@@ -50,7 +95,26 @@ async function saveSystemSettings(settings: SystemSettings): Promise<boolean> {
          push_sound_enabled = EXCLUDED.push_sound_enabled, quiet_hours_enabled = EXCLUDED.quiet_hours_enabled,
          quiet_hours_start = EXCLUDED.quiet_hours_start, quiet_hours_end = EXCLUDED.quiet_hours_end,
          updated_at = NOW()`,
-      [settings.general.systemName, settings.general.timezone, settings.general.language, settings.general.theme, settings.general.autoBackup, settings.general.backupFrequency, settings.storage.retentionDays, settings.storage.maxStorageGB, settings.storage.autoCleanup, settings.storage.compressionEnabled, settings.storage.compressionQuality, settings.notifications.emailEnabled, settings.notifications.emailAddress, settings.notifications.pushEnabled, settings.notifications.pushSoundEnabled, settings.notifications.quietHoursEnabled, settings.notifications.quietHoursStart, settings.notifications.quietHoursEnd]
+      [
+        settings.general.systemName,
+        settings.general.timezone,
+        settings.general.language,
+        settings.general.theme,
+        settings.general.autoBackup,
+        settings.general.backupFrequency,
+        settings.storage.retentionDays,
+        settings.storage.maxStorageGB,
+        settings.storage.autoCleanup,
+        settings.storage.compressionEnabled,
+        settings.storage.compressionQuality,
+        settings.notifications.emailEnabled,
+        settings.notifications.emailAddress,
+        settings.notifications.pushEnabled,
+        settings.notifications.pushSoundEnabled,
+        settings.notifications.quietHoursEnabled,
+        settings.notifications.quietHoursStart,
+        settings.notifications.quietHoursEnd,
+      ],
     );
     inMemoryState.setSystemSettings(settings);
     return true;
@@ -76,7 +140,8 @@ export class SettingsController extends BaseController {
       const { general, storage, notifications } = req.body;
       if (general) currentSettings.general = { ...currentSettings.general, ...general };
       if (storage) currentSettings.storage = { ...currentSettings.storage, ...storage };
-      if (notifications) currentSettings.notifications = { ...currentSettings.notifications, ...notifications };
+      if (notifications)
+        currentSettings.notifications = { ...currentSettings.notifications, ...notifications };
 
       const saved = await saveSystemSettings(currentSettings);
       if (saved) {
@@ -99,10 +164,15 @@ export class SettingsController extends BaseController {
         res.json({
           success: true,
           data: {
-            thresholds: { person: { min_score: 0.3, threshold: 0.5 }, car: { min_score: 0.4, threshold: 0.6 }, dog: { min_score: 0.3, threshold: 0.4 }, package: { min_score: 0.25, threshold: 0.35 } },
+            thresholds: {
+              person: { min_score: 0.3, threshold: 0.5 },
+              car: { min_score: 0.4, threshold: 0.6 },
+              dog: { min_score: 0.3, threshold: 0.4 },
+              package: { min_score: 0.25, threshold: 0.35 },
+            },
             labelmap: { truck: 'car', bus: 'car', motorcycle: 'car' },
             score_history_length: 7,
-          }
+          },
         });
         return;
       }
@@ -114,7 +184,11 @@ export class SettingsController extends BaseController {
     try {
       const detectionConfigService = serviceRegistry.getDetectionConfigService();
       const { camera, thresholds, labelmap, score_history_length } = req.body;
-      await detectionConfigService.updateConfig(camera, { thresholds, labelmap, score_history_length });
+      await detectionConfigService.updateConfig(camera, {
+        thresholds,
+        labelmap,
+        score_history_length,
+      });
       this.ok(res, {});
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {

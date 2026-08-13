@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, CreateDateColumn, Index, ManyToOne, OneToMany, JoinTable } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  JoinColumn,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  OneToMany,
+  JoinTable,
+} from 'typeorm';
 import { User } from './User.js';
 
 @Entity('user_sessions')

@@ -1,6 +1,18 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { MotionEvent } from '@/types/security';
-import { X, Download, Trash2, Share2, ChevronLeft, ChevronRight, Brain, AlertTriangle, Car, User, Eye } from 'lucide-react';
+import {
+  X,
+  Download,
+  Trash2,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  Brain,
+  AlertTriangle,
+  Car,
+  User,
+  Eye,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
@@ -15,9 +27,11 @@ interface AIAnalysis {
     weather?: string;
     lighting?: string;
   };
-  threatAssessment?: { level: string; factors: string[]; confidence: number; };
-  detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[]; };
-  recommendedActions?: string[]; processingTime?: number; modelUsed?: string;
+  threatAssessment?: { level: string; factors: string[]; confidence: number };
+  detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
+  recommendedActions?: string[];
+  processingTime?: number;
+  modelUsed?: string;
 }
 
 interface NvidiaBox {
@@ -43,8 +57,18 @@ interface EventDetailPanelProps {
   boxes?: NvidiaBox[];
 }
 
-interface DetectionBoxV1 { x: number; y: number; w: number; h: number; }
-interface DetectionBoxV2 { xmin: number; ymin: number; xmax: number; ymax: number; }
+interface DetectionBoxV1 {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+interface DetectionBoxV2 {
+  xmin: number;
+  ymin: number;
+  xmax: number;
+  ymax: number;
+}
 interface DetectionEntry {
   boundingBox?: { x: number; y: number; width: number; height: number };
   box?: DetectionBoxV1;
@@ -52,10 +76,17 @@ interface DetectionEntry {
   [key: string]: unknown;
 }
 
-function normalizeBoundingBox(detection: DetectionEntry): { x: number; y: number; width: number; height: number } | null {
+function normalizeBoundingBox(
+  detection: DetectionEntry,
+): { x: number; y: number; width: number; height: number } | null {
   if (detection.boundingBox) return detection.boundingBox;
   if (detection.box) {
-    return { x: detection.box.x, y: detection.box.y, width: detection.box.w, height: detection.box.h };
+    return {
+      x: detection.box.x,
+      y: detection.box.y,
+      width: detection.box.w,
+      height: detection.box.h,
+    };
   }
   if (detection.bounding_box) {
     return {
@@ -75,11 +106,28 @@ function formatConfidence(value: number): string {
 }
 
 export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
-  event, events, onClose, onNext, onPrevious, onDelete, onDownload, onAnalyze, analysis, analyzing, boxes,
+  event,
+  events,
+  onClose,
+  onNext,
+  onPrevious,
+  onDelete,
+  onDownload,
+  onAnalyze,
+  analysis,
+  analyzing,
+  boxes,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
-  const [imageScale, setImageScale] = useState<{ scaleX: number; scaleY: number; offsetX: number; offsetY: number; renderedW: number; renderedH: number }>({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, renderedW: 0, renderedH: 0 });
+  const [imageScale, setImageScale] = useState<{
+    scaleX: number;
+    scaleY: number;
+    offsetX: number;
+    offsetY: number;
+    renderedW: number;
+    renderedH: number;
+  }>({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, renderedW: 0, renderedH: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -121,7 +169,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
   if (!event) return null;
 
-  const currentIndex = events.findIndex(e => e.id === event.id);
+  const currentIndex = events.findIndex((e) => e.id === event.id);
   const hasNext = currentIndex < events.length - 1;
   const hasPrevious = currentIndex > 0;
 
@@ -136,7 +184,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   };
 
   const handleDelete = () => {
-    if (onDelete && window.confirm('Are you sure you want to delete this event?')) onDelete(event.id);
+    if (onDelete && window.confirm('Are you sure you want to delete this event?'))
+      onDelete(event.id);
   };
 
   const handleShare = async () => {
@@ -159,10 +208,14 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
   const getDetectionColor = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'person': return '#22c55e';
-      case 'face': return '#8b5cf6';
-      case 'vehicle': return '#3b82f6';
-      default: return '#f59e0b';
+      case 'person':
+        return '#22c55e';
+      case 'face':
+        return '#8b5cf6';
+      case 'vehicle':
+        return '#3b82f6';
+      default:
+        return '#f59e0b';
     }
   };
 
@@ -175,7 +228,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           <div className="flex items-center justify-between px-5 py-4 hairline-bottom">
             <div className="flex items-center gap-3">
               <h2 className="text-base font-semibold">Event Details</h2>
-              <Badge variant="glass" className="text-[10px] uppercase tracking-[0.08em]"
+              <Badge
+                variant="glass"
+                className="text-[10px] uppercase tracking-[0.08em]"
                 style={{
                   backgroundColor: `${getDetectionColor(event.labels?.[0] || 'motion')}15`,
                   borderColor: `${getDetectionColor(event.labels?.[0] || 'motion')}30`,
@@ -187,15 +242,37 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 mr-2">
-                <Button size="icon-sm" variant="ghost" onClick={onPrevious} disabled={!hasPrevious} className="text-white/60 hover:text-white" aria-label="Previous event">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={onPrevious}
+                  disabled={!hasPrevious}
+                  className="text-white/60 hover:text-white"
+                  aria-label="Previous event"
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-xs text-white/60">{currentIndex + 1} / {events.length}</span>
-                <Button size="icon-sm" variant="ghost" onClick={onNext} disabled={!hasNext} className="text-white/60 hover:text-white" aria-label="Next event">
+                <span className="text-xs text-white/60">
+                  {currentIndex + 1} / {events.length}
+                </span>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={onNext}
+                  disabled={!hasNext}
+                  className="text-white/60 hover:text-white"
+                  aria-label="Next event"
+                >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-              <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={onClose}
+                aria-label="Close"
+                className="text-white/60 hover:text-white"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -206,30 +283,42 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             {/* Event Image */}
             <div className="relative aspect-video bg-black" ref={imageContainerRef}>
               {!imageError && event.imageUrl ? (
-                <ProgressiveImage src={event.imageUrl} alt={`Event from ${event.cameraName}`} className="w-full h-full" onError={() => setImageError(true)} onLoad={handleImageLoad} />
+                <ProgressiveImage
+                  src={event.imageUrl}
+                  alt={`Event from ${event.cameraName}`}
+                  className="w-full h-full"
+                  onError={() => setImageError(true)}
+                  onLoad={handleImageLoad}
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center"><p className="text-white/60 text-sm">Image not available</p></div>
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-white/60 text-sm">Image not available</p>
+                </div>
               )}
-              {(event.detections && event.detections.length > 0) && (
+              {event.detections && event.detections.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none">
                   {event.detections.map((detection: DetectionEntry, index) => {
-                     const box = normalizeBoundingBox(detection);
-                     if (!box) return null;
-                     const detType = String(detection.type || 'motion');
-                     const conf = typeof detection.confidence === 'number' ? detection.confidence : 0;
-                     const displayConf = conf <= 1 ? conf * 100 : conf;
-                     return (
-                       <div key={index} className="absolute border-2"
-                         style={{
-                           left: `${box.x * imageScale.scaleX + imageScale.offsetX}px`,
-                           top: `${box.y * imageScale.scaleY + imageScale.offsetY}px`,
-                           width: `${box.width * imageScale.scaleX}px`,
-                           height: `${box.height * imageScale.scaleY}px`,
-                           borderColor: getDetectionColor(detType),
-                           boxShadow: `0 0 10px ${getDetectionColor(detType)}40`,
-                         }}
-                       >
-                        <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
+                    const box = normalizeBoundingBox(detection);
+                    if (!box) return null;
+                    const detType = String(detection.type || 'motion');
+                    const conf =
+                      typeof detection.confidence === 'number' ? detection.confidence : 0;
+                    const displayConf = conf <= 1 ? conf * 100 : conf;
+                    return (
+                      <div
+                        key={index}
+                        className="absolute border-2"
+                        style={{
+                          left: `${box.x * imageScale.scaleX + imageScale.offsetX}px`,
+                          top: `${box.y * imageScale.scaleY + imageScale.offsetY}px`,
+                          width: `${box.width * imageScale.scaleX}px`,
+                          height: `${box.height * imageScale.scaleY}px`,
+                          borderColor: getDetectionColor(detType),
+                          boxShadow: `0 0 10px ${getDetectionColor(detType)}40`,
+                        }}
+                      >
+                        <div
+                          className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
                           style={{ backgroundColor: getDetectionColor(detType) }}
                         >
                           {detType} • {formatConfidence(displayConf)}
@@ -242,20 +331,37 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {analysis && analysis.detectedEntities && (
                 <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none">
                   {analysis.detectedEntities.people?.map((person, i) => (
-                    <div key={`person-${i}`} className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-green-500/80 text-white shadow-lg backdrop-blur-sm">👤 {person}</div>
+                    <div
+                      key={`person-${i}`}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-green-500/80 text-white shadow-lg backdrop-blur-sm"
+                    >
+                      👤 {person}
+                    </div>
                   ))}
                   {analysis.detectedEntities.vehicles?.map((vehicle, i) => (
-                    <div key={`vehicle-${i}`} className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-blue-500/80 text-white shadow-lg backdrop-blur-sm">🚗 {vehicle}</div>
+                    <div
+                      key={`vehicle-${i}`}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-blue-500/80 text-white shadow-lg backdrop-blur-sm"
+                    >
+                      🚗 {vehicle}
+                    </div>
                   ))}
                   {analysis.detectedEntities.animals?.map((animal, i) => (
-                    <div key={`animal-${i}`} className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-amber-500/80 text-white shadow-lg backdrop-blur-sm">🐾 {animal}</div>
+                    <div
+                      key={`animal-${i}`}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-amber-500/80 text-white shadow-lg backdrop-blur-sm"
+                    >
+                      🐾 {animal}
+                    </div>
                   ))}
                 </div>
               )}
               {hasNvidiaBoxes && (
                 <div className="absolute inset-0 pointer-events-none" key="nvidia-boxes">
                   {boxes.map((box, i) => (
-                    <div key={i} className="absolute border-2"
+                    <div
+                      key={i}
+                      className="absolute border-2"
                       style={{
                         left: `${(box.x / 100) * imageScale.renderedW + imageScale.offsetX}px`,
                         top: `${(box.y / 100) * imageScale.renderedH + imageScale.offsetY}px`,
@@ -265,7 +371,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         boxShadow: `0 0 10px ${getDetectionColor(box.label)}40`,
                       }}
                     >
-                      <div className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full whitespace-nowrap"
+                      <div
+                        className="absolute -top-6 left-0 px-2 py-0.5 text-[10px] font-semibold text-white rounded-full whitespace-nowrap"
                         style={{ backgroundColor: getDetectionColor(box.label) }}
                       >
                         {box.label} • {formatConfidence(box.confidence)}
@@ -277,15 +384,23 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {analysis ? (
                 <div className="absolute top-3 right-3 flex items-center gap-2">
                   <button
-                    onClick={() => setShowBoxes(v => !v)}
+                    onClick={() => setShowBoxes((v) => !v)}
                     className="p-[1px] rounded-full bg-white/[0.08] hover:bg-white/[0.12] transition-all duration-500"
                     title={showBoxes ? 'Hide bounding boxes' : 'Show bounding boxes'}
                   >
-                    <div className={cn(
-                      "rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1",
-                      showBoxes ? "text-green-400" : "text-white/40"
-                    )}>
-                      <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <div
+                      className={cn(
+                        'rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1',
+                        showBoxes ? 'text-green-400' : 'text-white/40',
+                      )}
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
                         <rect x="1" y="1" width="14" height="14" rx="2" />
                         <line x1="1" y1="5" x2="15" y2="5" />
                         <line x1="1" y1="11" x2="15" y2="11" />
@@ -301,23 +416,30 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     </div>
                   </div>
                 </div>
-              ) : onAnalyze && (
-                <div className="absolute top-3 right-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onAnalyze(event.id); }}
-                    disabled={analyzing}
-                    className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] disabled:opacity-50"
-                  >
-                    <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
-                      {analyzing ? (
-                        <span className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-                      ) : (
-                        <Brain className="h-3 w-3 text-blue-400" />
-                      )}
-                      <span className="text-[10px] font-medium text-blue-400">{analyzing ? 'Analyzing...' : 'Analyze'}</span>
-                    </div>
-                  </button>
-                </div>
+              ) : (
+                onAnalyze && (
+                  <div className="absolute top-3 right-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAnalyze(event.id);
+                      }}
+                      disabled={analyzing}
+                      className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] disabled:opacity-50"
+                    >
+                      <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
+                        {analyzing ? (
+                          <span className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+                        ) : (
+                          <Brain className="h-3 w-3 text-blue-400" />
+                        )}
+                        <span className="text-[10px] font-medium text-blue-400">
+                          {analyzing ? 'Analyzing...' : 'Analyze'}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                )
               )}
             </div>
 
@@ -331,13 +453,22 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {/* Key Stats */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Confidence', value: formatConfidence(typeof event.confidence === 'number' && event.confidence <= 1 ? event.confidence * 100 : event.confidence) },
+                  {
+                    label: 'Confidence',
+                    value: formatConfidence(
+                      typeof event.confidence === 'number' && event.confidence <= 1
+                        ? event.confidence * 100
+                        : event.confidence,
+                    ),
+                  },
                   { label: 'Persons', value: event.personCount || 0 },
                   { label: 'Faces', value: event.faceCount || 0 },
                 ].map((stat, i) => (
                   <div key={i} className="p-[1px] rounded-[0.75rem] bg-white/[0.08]">
                     <div className="rounded-[calc(0.75rem-1px)] bg-black/40 px-3 py-2.5 text-center">
-                      <p className="text-[10px] uppercase tracking-[0.08em] text-white/60 mb-0.5">{stat.label}</p>
+                      <p className="text-[10px] uppercase tracking-[0.08em] text-white/60 mb-0.5">
+                        {stat.label}
+                      </p>
                       <p className="text-base font-semibold">{stat.value}</p>
                     </div>
                   </div>
@@ -347,10 +478,15 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {/* Detection Labels */}
               {event.labels && event.labels.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">Detections</h4>
+                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">
+                    Detections
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {event.labels.map((label, index) => (
-                      <Badge key={index} variant="glass" className="text-xs"
+                      <Badge
+                        key={index}
+                        variant="glass"
+                        className="text-xs"
                         style={{
                           backgroundColor: `${getDetectionColor(label)}15`,
                           borderColor: `${getDetectionColor(label)}30`,
@@ -367,13 +503,23 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {/* Additional Metadata */}
               {event.metadata && Object.keys(event.metadata).length > 0 && (
                 <div>
-                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">Additional Info</h4>
+                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">
+                    Additional Info
+                  </h4>
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     {event.metadata.lightLevel !== undefined && (
-                      <><dt className="text-white/60">Light Level</dt><dd className="text-white">{String(event.metadata.lightLevel)}</dd></>
+                      <>
+                        <dt className="text-white/60">Light Level</dt>
+                        <dd className="text-white">{String(event.metadata.lightLevel)}</dd>
+                      </>
                     )}
                     {event.metadata.motionArea !== undefined && (
-                      <><dt className="text-white/60">Motion Area</dt><dd className="text-white">{Number(event.metadata.motionArea).toLocaleString()} px</dd></>
+                      <>
+                        <dt className="text-white/60">Motion Area</dt>
+                        <dd className="text-white">
+                          {Number(event.metadata.motionArea).toLocaleString()} px
+                        </dd>
+                      </>
                     )}
                   </dl>
                 </div>
@@ -382,7 +528,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
               {/* Face Recognition */}
               {(event.knownFaces || 0) > 0 || (event.unknownFaces || 0) > 0 ? (
                 <div>
-                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">Face Recognition</h4>
+                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">
+                    Face Recognition
+                  </h4>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
@@ -405,7 +553,6 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             {analysis && (
               <div className="mx-5 mb-5 p-[1px] rounded-[1.25rem] bg-gradient-to-br from-blue-500/20 via-purple-500/15 to-indigo-500/20 shadow-[0_0_30px_rgba(59,130,246,0.06)]">
                 <div className="rounded-[calc(1.25rem-1px)] bg-black/70 backdrop-blur-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] p-5 space-y-5">
-
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -427,15 +574,29 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
                   {analysis.sceneContext && (
                     <div className="flex flex-wrap gap-2 text-[10px] text-white/50 mb-4">
-                      {analysis.sceneContext.environment && <span className="bg-white/5 px-2 py-0.5 rounded">Env: {analysis.sceneContext.environment}</span>}
-                      {analysis.sceneContext.weather && <span className="bg-white/5 px-2 py-0.5 rounded">Weather: {analysis.sceneContext.weather}</span>}
-                      {analysis.sceneContext.lighting && <span className="bg-white/5 px-2 py-0.5 rounded">Lighting: {analysis.sceneContext.lighting}</span>}
+                      {analysis.sceneContext.environment && (
+                        <span className="bg-white/5 px-2 py-0.5 rounded">
+                          Env: {analysis.sceneContext.environment}
+                        </span>
+                      )}
+                      {analysis.sceneContext.weather && (
+                        <span className="bg-white/5 px-2 py-0.5 rounded">
+                          Weather: {analysis.sceneContext.weather}
+                        </span>
+                      )}
+                      {analysis.sceneContext.lighting && (
+                        <span className="bg-white/5 px-2 py-0.5 rounded">
+                          Lighting: {analysis.sceneContext.lighting}
+                        </span>
+                      )}
                     </div>
                   )}
 
                   {/* Scene Description */}
                   {analysis.sceneDescription && (
-                    <p className="text-sm text-white/80 leading-relaxed mb-4">{analysis.sceneDescription}</p>
+                    <p className="text-sm text-white/80 leading-relaxed mb-4">
+                      {analysis.sceneDescription}
+                    </p>
                   )}
 
                   {/* Threat Assessment */}
@@ -443,32 +604,54 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
                       <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-2.5">
                         <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "p-[1px] rounded-full",
-                            analysis.threatAssessment.level === 'high' ? 'bg-red-500/40' :
-                            analysis.threatAssessment.level === 'medium' ? 'bg-amber-500/30' : 'bg-green-500/30'
-                          )}>
+                          <div
+                            className={cn(
+                              'p-[1px] rounded-full',
+                              analysis.threatAssessment.level === 'high'
+                                ? 'bg-red-500/40'
+                                : analysis.threatAssessment.level === 'medium'
+                                  ? 'bg-amber-500/30'
+                                  : 'bg-green-500/30',
+                            )}
+                          >
                             <div className="rounded-full bg-black/60 p-1.5">
-                              <AlertTriangle className={cn(
-                                "h-3.5 w-3.5",
-                                analysis.threatAssessment.level === 'high' ? 'text-red-400' :
-                                analysis.threatAssessment.level === 'medium' ? 'text-amber-400' : 'text-green-400'
-                              )} />
+                              <AlertTriangle
+                                className={cn(
+                                  'h-3.5 w-3.5',
+                                  analysis.threatAssessment.level === 'high'
+                                    ? 'text-red-400'
+                                    : analysis.threatAssessment.level === 'medium'
+                                      ? 'text-amber-400'
+                                      : 'text-green-400',
+                                )}
+                              />
                             </div>
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-xs font-medium text-white/70">Threat Level</span>
-                              <div className={cn(
-                                "p-[1px] rounded-full",
-                                analysis.threatAssessment.level === 'high' ? 'bg-red-500/30' :
-                                analysis.threatAssessment.level === 'medium' ? 'bg-amber-500/30' : 'bg-green-500/30'
-                              )}>
-                                <div className={cn(
-                                  "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]",
-                                  analysis.threatAssessment.level === 'high' ? 'bg-red-500/15 text-red-400' :
-                                  analysis.threatAssessment.level === 'medium' ? 'bg-amber-500/15 text-amber-400' : 'bg-green-500/15 text-green-400'
-                                )}>
+                              <span className="text-xs font-medium text-white/70">
+                                Threat Level
+                              </span>
+                              <div
+                                className={cn(
+                                  'p-[1px] rounded-full',
+                                  analysis.threatAssessment.level === 'high'
+                                    ? 'bg-red-500/30'
+                                    : analysis.threatAssessment.level === 'medium'
+                                      ? 'bg-amber-500/30'
+                                      : 'bg-green-500/30',
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]',
+                                    analysis.threatAssessment.level === 'high'
+                                      ? 'bg-red-500/15 text-red-400'
+                                      : analysis.threatAssessment.level === 'medium'
+                                        ? 'bg-amber-500/15 text-amber-400'
+                                        : 'bg-green-500/15 text-green-400',
+                                  )}
+                                >
                                   {analysis.threatAssessment.level}
                                 </div>
                               </div>
@@ -477,14 +660,19 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                               <div className="flex-1 h-[2px] rounded-full bg-white/[0.06] overflow-hidden">
                                 <div
                                   className={cn(
-                                    "h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                                    analysis.threatAssessment.level === 'high' ? 'bg-red-500' :
-                                    analysis.threatAssessment.level === 'medium' ? 'bg-amber-500' : 'bg-green-500'
+                                    'h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                                    analysis.threatAssessment.level === 'high'
+                                      ? 'bg-red-500'
+                                      : analysis.threatAssessment.level === 'medium'
+                                        ? 'bg-amber-500'
+                                        : 'bg-green-500',
                                   )}
                                   style={{ width: `${analysis.threatAssessment.confidence}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] font-mono text-white/60">{analysis.threatAssessment.confidence}%</span>
+                              <span className="text-[10px] font-mono text-white/60">
+                                {analysis.threatAssessment.confidence}%
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -506,7 +694,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   {/* Detected Entities */}
                   {analysis.detectedEntities && (
                     <div className="space-y-3">
-                      <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60">Detected Entities</p>
+                      <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60">
+                        Detected Entities
+                      </p>
                       {analysis.detectedEntities.people?.length > 0 && (
                         <div className="flex items-start gap-2.5">
                           <div className="p-[1px] rounded-full bg-green-500/20 mt-0.5">
@@ -565,7 +755,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         <div className="flex items-start gap-2.5">
                           <div className="p-[1px] rounded-full bg-purple-500/20 mt-0.5">
                             <div className="rounded-full bg-purple-500/10 p-1">
-                              <span className="block h-3 w-3 text-[10px] text-purple-400 leading-none text-center">◇</span>
+                              <span className="block h-3 w-3 text-[10px] text-purple-400 leading-none text-center">
+                                ◇
+                              </span>
                             </div>
                           </div>
                           <div className="flex-1 flex flex-wrap gap-1.5">
@@ -586,7 +778,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   {(analysis.recommendedActions?.length ?? 0) > 0 && (
                     <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
                       <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60 mb-2.5">Recommended Actions</p>
+                        <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60 mb-2.5">
+                          Recommended Actions
+                        </p>
                         <div className="space-y-1.5">
                           {analysis.recommendedActions?.map((action, i) => (
                             <div key={i} className="flex items-start gap-2.5">
@@ -633,14 +827,25 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 
           {/* Footer */}
           <div className="flex items-center justify-between px-5 py-4 hairline-top">
-            <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={handleDelete}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={handleDelete}
+            >
               <Trash2 className="h-4 w-4 mr-2" /> Delete
             </Button>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="text-xs" onClick={handleShare}>
                 <Share2 className="h-3.5 w-3.5 mr-1.5" /> Share
               </Button>
-              <Button variant="outline" size="sm" className="text-xs" onClick={handleDownload} disabled={!event.imageUrl}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={handleDownload}
+                disabled={!event.imageUrl}
+              >
                 <Download className="h-3.5 w-3.5 mr-1.5" /> Download
               </Button>
             </div>

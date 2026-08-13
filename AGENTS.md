@@ -10,20 +10,21 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 
 ## Architecture
 
-| Layer | Tech | Port |
-|-------|------|------|
+| Layer    | Tech                                                                                              | Port |
+| -------- | ------------------------------------------------------------------------------------------------- | ---- |
 | Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) — served by backend as static files | 9753 |
-| Backend | Express 5, TypeScript, TypeORM, Socket.io | 9753 |
-| OpenCV | Flask, OpenCV MOG2 + YOLOv8n + InsightFace face recognition | 8084 |
-| Database | PostgreSQL 15+ (26 migrations) | 5432 |
-| Cache | In-memory (Redis optional, use `REDIS_DISABLED=true`) | — |
+| Backend  | Express 5, TypeScript, TypeORM, Socket.io                                                         | 9753 |
+| OpenCV   | Flask, OpenCV MOG2 + YOLOv8n + InsightFace face recognition                                       | 8084 |
+| Database | PostgreSQL 15+ (26 migrations)                                                                    | 5432 |
+| Cache    | In-memory (Redis optional, use `REDIS_DISABLED=true`)                                             | —    |
 
 **Data flow**: `Frontend → Backend API → OpenCV Service → PostgreSQL`
-  
-  **Real-time detection pipeline**:
-  - Python OpenCV Service detects motion/objects and publishes events via WebSocket to `/nvidia/analyze-event` and `/nvidia/analyze-event-with-bboxes` endpoints
-  - Frontend AI analysis uses `detectionService.analyzeEvent(eventId)` to analyze detection events
-  - Events UI uses Socket.io for real-time updates
+
+**Real-time detection pipeline**:
+
+- Python OpenCV Service detects motion/objects and publishes events via WebSocket to `/nvidia/analyze-event` and `/nvidia/analyze-event-with-bboxes` endpoints
+- Frontend AI analysis uses `detectionService.analyzeEvent(eventId)` to analyze detection events
+- Events UI uses Socket.io for real-time updates
 
 ## Commands
 
@@ -216,13 +217,13 @@ For a visual overview, see `docs/c4-streaming-pipeline.md`.
 
 ## Key Configuration
 
-| File | Purpose |
-|------|---------|
-| `server/cameras.json` | Camera RTSP URLs, zones, tracked objects (gitignored) |
-| `server/cameras.example.json` | Camera config template |
-| `frontend/vite.config.ts` | Vite build + API proxy to :9753 |
-| `docker-compose.yml` | All 5 services |
-| `.env.example` | Environment variable reference |
+| File                          | Purpose                                               |
+| ----------------------------- | ----------------------------------------------------- |
+| `server/cameras.json`         | Camera RTSP URLs, zones, tracked objects (gitignored) |
+| `server/cameras.example.json` | Camera config template                                |
+| `frontend/vite.config.ts`     | Vite build + API proxy to :9753                       |
+| `docker-compose.yml`          | All 5 services                                        |
+| `.env.example`                | Environment variable reference                        |
 
 ## Database
 
@@ -278,27 +279,27 @@ VITE_BACKEND_URL=http://localhost:9753
 
 ## Common Issues
 
-| Issue | Fix |
-|-------|-----|
-| Port in use | `npm run kill:ports` |
-| DB connection | Verify postgres running, check credentials, run migrations |
-| OpenCV down | `curl http://localhost:8084/health` |
-| No motion detected | Check RTSP URLs in cameras.json, verify FFmpeg, check detection zones |
-| Frontend build errors | `rm -rf frontend/node_modules && cd frontend && npm install` |
-| Backend TS errors | `cd server && rm -rf dist && npm run build` |
-| Secrets in git history | Use `git filter-repo` — contact maintainer |
+| Issue                  | Fix                                                                   |
+| ---------------------- | --------------------------------------------------------------------- |
+| Port in use            | `npm run kill:ports`                                                  |
+| DB connection          | Verify postgres running, check credentials, run migrations            |
+| OpenCV down            | `curl http://localhost:8084/health`                                   |
+| No motion detected     | Check RTSP URLs in cameras.json, verify FFmpeg, check detection zones |
+| Frontend build errors  | `rm -rf frontend/node_modules && cd frontend && npm install`          |
+| Backend TS errors      | `cd server && rm -rf dist && npm run build`                           |
+| Secrets in git history | Use `git filter-repo` — contact maintainer                            |
 
 ## Utility Scripts
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/health.sh` | Service health monitoring |
-| `scripts/diagnose.sh` | System diagnostics (cameras, ports, FFmpeg) |
-| `scripts/test-opencv.sh` | End-to-end test (OpenCV + backend + frontend) |
-| `scripts/backup.sh` | Database and file backups |
-| `scripts/deploy.sh` | Production deployment |
-| `scripts/sentryvision.sh` | Interactive management console |
-| `scripts/batch-detect-and-update.py` | Python batch detection |
-| `scripts/reindex-detection-files.cjs` | Reindex detection files |
-| `scripts/cleanup-orphaned-files.cjs` | Remove orphaned detection files |
-| `scripts/find-missing-db-records.cjs` | Reconcile files vs DB records |
+| Script                                | Purpose                                       |
+| ------------------------------------- | --------------------------------------------- |
+| `scripts/health.sh`                   | Service health monitoring                     |
+| `scripts/diagnose.sh`                 | System diagnostics (cameras, ports, FFmpeg)   |
+| `scripts/test-opencv.sh`              | End-to-end test (OpenCV + backend + frontend) |
+| `scripts/backup.sh`                   | Database and file backups                     |
+| `scripts/deploy.sh`                   | Production deployment                         |
+| `scripts/sentryvision.sh`             | Interactive management console                |
+| `scripts/batch-detect-and-update.py`  | Python batch detection                        |
+| `scripts/reindex-detection-files.cjs` | Reindex detection files                       |
+| `scripts/cleanup-orphaned-files.cjs`  | Remove orphaned detection files               |
+| `scripts/find-missing-db-records.cjs` | Reconcile files vs DB records                 |

@@ -1,18 +1,18 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { initTheme } from './lib/theme'
-import { logger } from './lib/logger.js'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { initTheme } from './lib/theme';
+import { logger } from './lib/logger.js';
 
 // Apply saved theme before React renders to prevent flash
-initTheme()
+initTheme();
 
 // Error handling for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
   logger.error('Unhandled promise rejection', 'GLOBAL', event.reason, {
     type: 'promise',
-    promise: event.promise
+    promise: event.promise,
   });
 });
 
@@ -22,7 +22,7 @@ window.addEventListener('error', (event) => {
     filename: event.filename,
     lineno: event.lineno,
     colno: event.colno,
-    message: event.message
+    message: event.message,
   });
 });
 
@@ -35,12 +35,12 @@ if (import.meta.env.DEV) {
         const loadTime = navEntry.loadEventEnd - navEntry.fetchStart;
         logger.performance('Page Load Time', loadTime, 'ms', {
           domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
-          domComplete: navEntry.domComplete - navEntry.fetchStart
+          domComplete: navEntry.domComplete - navEntry.fetchStart,
         });
       }
     }
   });
-  
+
   observer.observe({ entryTypes: ['navigation'] });
 }
 
@@ -48,14 +48,14 @@ if (import.meta.env.DEV) {
 logger.info('React application initializing', 'APP', {
   mode: import.meta.env.MODE,
   dev: import.meta.env.DEV,
-  prod: import.meta.env.PROD
+  prod: import.meta.env.PROD,
 });
 
 // Get the root element
-const rootElement = document.getElementById("root");
+const rootElement = document.getElementById('root');
 if (!rootElement) {
   logger.error('Root element not found', 'APP', new Error('Root element not found'), {
-    selector: '#root'
+    selector: '#root',
   });
   throw new Error('Root element not found');
 }
@@ -68,17 +68,20 @@ logger.info('Creating React root and rendering app', 'APP');
 root.render(
   <StrictMode>
     <App />
-  </StrictMode>
+  </StrictMode>,
 );
 
 logger.info('Application successfully started', 'APP');
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then((reg) => {
-      logger.info('Service worker registered', 'SW', { scope: reg.scope });
-    }).catch((err) => {
-      logger.error('Service worker registration failed', 'SW', err);
-    });
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        logger.info('Service worker registered', 'SW', { scope: reg.scope });
+      })
+      .catch((err) => {
+        logger.error('Service worker registration failed', 'SW', err);
+      });
   });
 }

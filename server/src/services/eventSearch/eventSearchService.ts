@@ -3,17 +3,28 @@ import { AppDataSource } from '../../database.js';
 import { Event } from '../../models/Event.js';
 import { DetectionDataNormalizer } from '../../utils/detectionDataNormalizer.js';
 import { serviceRegistry } from '../serviceRegistry.js';
-import type { EventSearchFilters, EventSearchResponse, ListEnhancedFilters, HistoryFilters, LegacySearchFilters, DetectionEventFilters } from './types.js';
+import type {
+  EventSearchFilters,
+  EventSearchResponse,
+  ListEnhancedFilters,
+  HistoryFilters,
+  LegacySearchFilters,
+  DetectionEventFilters,
+} from './types.js';
 
 export class EventSearchService {
   private eventRepository = AppDataSource.getRepository(Event);
 
   private getConfidenceThreshold(level: string): number {
     switch (level) {
-      case 'low': return 0;
-      case 'medium': return 0.5;
-      case 'high': return 0.8;
-      default: return 0;
+      case 'low':
+        return 0;
+      case 'medium':
+        return 0.5;
+      case 'high':
+        return 0.8;
+      default:
+        return 0;
     }
   }
 
@@ -31,17 +42,24 @@ export class EventSearchService {
   async searchEvents(filters: EventSearchFilters): Promise<EventSearchResponse> {
     const query = this.eventRepository.createQueryBuilder('event');
 
-    if (filters.startDate) query.andWhere('event.timestamp >= :startDate', { startDate: filters.startDate });
-    if (filters.endDate) query.andWhere('event.timestamp <= :endDate', { endDate: filters.endDate });
-    if (filters.cameraId) query.andWhere('event.camera_id = :cameraId', { cameraId: filters.cameraId });
-    if (filters.eventType) query.andWhere('event.event_type = :eventType', { eventType: filters.eventType });
+    if (filters.startDate)
+      query.andWhere('event.timestamp >= :startDate', { startDate: filters.startDate });
+    if (filters.endDate)
+      query.andWhere('event.timestamp <= :endDate', { endDate: filters.endDate });
+    if (filters.cameraId)
+      query.andWhere('event.camera_id = :cameraId', { cameraId: filters.cameraId });
+    if (filters.eventType)
+      query.andWhere('event.event_type = :eventType', { eventType: filters.eventType });
 
     if (filters.confidence) {
-      query.andWhere('event.confidence >= :minConfidence', { minConfidence: this.getConfidenceThreshold(filters.confidence) });
+      query.andWhere('event.confidence >= :minConfidence', {
+        minConfidence: this.getConfidenceThreshold(filters.confidence),
+      });
     }
 
     if (filters.faceStatus === 'recognized') query.andWhere('event.known_faces_count > 0');
-    else if (filters.faceStatus === 'unknown') query.andWhere('event.faces_detected > 0').andWhere('event.known_faces_count = 0');
+    else if (filters.faceStatus === 'unknown')
+      query.andWhere('event.faces_detected > 0').andWhere('event.known_faces_count = 0');
     else if (filters.faceStatus === 'none') query.andWhere('event.faces_detected = 0');
 
     const page = filters.page || 1;
@@ -75,7 +93,9 @@ export class EventSearchService {
         metadata: event.metadata ? JSON.parse(event.metadata) : null,
       })),
       pagination: {
-        page, pageSize, totalEvents,
+        page,
+        pageSize,
+        totalEvents,
         totalPages: Math.ceil(totalEvents / pageSize),
         hasNext: page < Math.ceil(totalEvents / pageSize),
         hasPrevious: page > 1,
@@ -88,16 +108,27 @@ export class EventSearchService {
     pagination: { totalEvents: number; currentPage: number; pageSize: number; totalPages: number };
   }> {
     const {
-      page = '1', pageSize = '100', event_type, camera_id,
-      start_date, end_date, searchQuery, sortBy = 'newest',
-      min_confidence, max_confidence, face_status
+      page = '1',
+      pageSize = '100',
+      event_type,
+      camera_id,
+      start_date,
+      end_date,
+      searchQuery,
+      sortBy = 'newest',
+      min_confidence,
+      max_confidence,
+      face_status,
     } = filters;
 
     const currentPage = Math.max(1, parseInt(page));
     const size = Math.min(500, Math.max(1, parseInt(pageSize)));
     const offset = (currentPage - 1) * size;
 
-    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')", "e.file_path IS NOT NULL AND e.file_path != ''"];
+    const conditions: string[] = [
+      "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
+      "e.file_path IS NOT NULL AND e.file_path != ''",
+    ];
     const queryParams: unknown[] = [];
     let paramIndex = 1;
 
@@ -121,8 +152,12 @@ export class EventSearchService {
     if (event_type && event_type !== 'all') {
       if (event_type === 'face') conditions.push(`COALESCE(e.faces_detected, 0) > 0`);
       else if (event_type === 'person') conditions.push(`COALESCE(e.persons_detected, 0) > 0`);
-      else if (event_type === 'vehicle') conditions.push(`e.object_detections IS NOT NULL AND e.object_detections::jsonb @> ANY(ARRAY['[{"class":"car"}]','[{"class":"truck"}]','[{"class":"motorcycle"}]','[{"class":"bicycle"}]','[{"class":"bus"}]','[{"class":"van"}]','[{"class":"suv"}]']::jsonb[])`);
-      else if (event_type === 'motion') conditions.push(`e.event_type IN ('motion', 'event_motion')`);
+      else if (event_type === 'vehicle')
+        conditions.push(
+          `e.object_detections IS NOT NULL AND e.object_detections::jsonb @> ANY(ARRAY['[{"class":"car"}]','[{"class":"truck"}]','[{"class":"motorcycle"}]','[{"class":"bicycle"}]','[{"class":"bus"}]','[{"class":"van"}]','[{"class":"suv"}]']::jsonb[])`,
+        );
+      else if (event_type === 'motion')
+        conditions.push(`e.event_type IN ('motion', 'event_motion')`);
     }
     if (min_confidence) {
       conditions.push(`(COALESCE(e.confidence, 0) >= $${paramIndex++})`);
@@ -134,17 +169,35 @@ export class EventSearchService {
     }
     if (face_status && face_status !== 'all') {
       switch (face_status) {
-        case 'has_faces': conditions.push(`COALESCE(e.faces_detected, 0) > 0`); break;
-        case 'known_faces': conditions.push(`COALESCE(e.known_faces_count, 0) > 0`); break;
-        case 'unknown_faces': conditions.push(`COALESCE(e.faces_detected, 0) > 0 AND COALESCE(e.known_faces_count, 0) = 0`); break;
-        case 'no_faces': conditions.push(`(COALESCE(e.faces_detected, 0) = 0 OR e.faces_detected IS NULL)`); break;
+        case 'has_faces':
+          conditions.push(`COALESCE(e.faces_detected, 0) > 0`);
+          break;
+        case 'known_faces':
+          conditions.push(`COALESCE(e.known_faces_count, 0) > 0`);
+          break;
+        case 'unknown_faces':
+          conditions.push(
+            `COALESCE(e.faces_detected, 0) > 0 AND COALESCE(e.known_faces_count, 0) = 0`,
+          );
+          break;
+        case 'no_faces':
+          conditions.push(`(COALESCE(e.faces_detected, 0) = 0 OR e.faces_detected IS NULL)`);
+          break;
       }
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const orderClause = sortBy === 'oldest' ? 'ORDER BY e.timestamp ASC' : sortBy === 'confidence' ? 'ORDER BY e.confidence DESC, e.timestamp DESC' : 'ORDER BY e.timestamp DESC';
+    const orderClause =
+      sortBy === 'oldest'
+        ? 'ORDER BY e.timestamp ASC'
+        : sortBy === 'confidence'
+          ? 'ORDER BY e.confidence DESC, e.timestamp DESC'
+          : 'ORDER BY e.timestamp DESC';
 
-    const countResult = await AppDataSource.query(`SELECT COUNT(*) as total FROM events e ${whereClause}`, queryParams);
+    const countResult = await AppDataSource.query(
+      `SELECT COUNT(*) as total FROM events e ${whereClause}`,
+      queryParams,
+    );
     const totalEvents = parseInt(countResult[0]?.total || '0');
 
     const events = await AppDataSource.query(
@@ -159,12 +212,16 @@ export class EventSearchService {
       FROM events e
       LEFT JOIN ai_analysis_results a ON e.id::text = a.event_id
       ${whereClause} ${orderClause} LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-      [...queryParams, size, offset]
+      [...queryParams, size, offset],
     );
 
     const safeJson = (val: any) => {
       if (!val) return [];
-      try { return typeof val === 'object' ? val : JSON.parse(val); } catch { return []; }
+      try {
+        return typeof val === 'object' ? val : JSON.parse(val);
+      } catch {
+        return [];
+      }
     };
 
     const mapped = events.map((row: Record<string, unknown>) => ({
@@ -172,55 +229,99 @@ export class EventSearchService {
       event_type: row.event_type,
       cameraId: row.camera_id || 'unknown',
       timestamp: row.timestamp,
-      imageUrl: row.file_path ? `/api/events/image/${String(row.file_path).split('/').pop()}` : null,
+      imageUrl: row.file_path
+        ? `/api/events/image/${String(row.file_path).split('/').pop()}`
+        : null,
       confidence: row.confidence || 0,
       persons_detected: row.persons_detected || 0,
       faces_detected: row.faces_detected || 0,
       known_faces_count: row.known_faces_count || 0,
       label: row.label,
       is_read: row.is_read,
-      object_detections: typeof row.object_detections === 'string' ? JSON.parse(row.object_detections as string) : row.object_detections,
-      face_detections: typeof row.face_detections === 'string' ? JSON.parse(row.face_detections as string) : row.face_detections,
-      analysis: row.scene_description ? (() => {
-        const rawDesc = row.scene_description || '';
-        const plainDesc = typeof rawDesc === 'string' && rawDesc.trim().startsWith('{')
-          ? (() => {
-              try {
-                const p = JSON.parse(rawDesc.trim());
-                return p.scene_description || p.sceneDescription || p.description || p.summary || p.overall_summary || rawDesc;
-              } catch {
-                try {
-                  const match = rawDesc.trim().match(/"scene_description"\s*:\s*"((?:[^\n"\\]|\\.)*)"/);
-                  if (match) return match[1];
-                } catch {}
-                return rawDesc;
-              }
-            })()
-          : rawDesc;
-        return {
-          sceneDescription: plainDesc,
-          sceneContext: row.scene_context ? (typeof row.scene_context === 'string' ? JSON.parse(row.scene_context) : row.scene_context) : { environment: 'unknown' },
-          threatAssessment: { level: row.threat_level || 'low', factors: [] as string[], confidence: row.threat_confidence || 0 },
-          detectedEntities: { people: safeJson(row.detected_people), vehicles: safeJson(row.detected_vehicles), objects: safeJson(row.detected_objects), animals: safeJson(row.detected_animals) },
-          recommendedActions: safeJson(row.recommended_actions),
-          modelUsed: row.model_used,
-          processingTime: row.processing_time_ms,
-          analyzedAt: row.analyzed_at,
-        };
-      })() : null,
+      object_detections:
+        typeof row.object_detections === 'string'
+          ? JSON.parse(row.object_detections as string)
+          : row.object_detections,
+      face_detections:
+        typeof row.face_detections === 'string'
+          ? JSON.parse(row.face_detections as string)
+          : row.face_detections,
+      analysis: row.scene_description
+        ? (() => {
+            const rawDesc = row.scene_description || '';
+            const plainDesc =
+              typeof rawDesc === 'string' && rawDesc.trim().startsWith('{')
+                ? (() => {
+                    try {
+                      const p = JSON.parse(rawDesc.trim());
+                      return (
+                        p.scene_description ||
+                        p.sceneDescription ||
+                        p.description ||
+                        p.summary ||
+                        p.overall_summary ||
+                        rawDesc
+                      );
+                    } catch {
+                      try {
+                        const match = rawDesc
+                          .trim()
+                          .match(/"scene_description"\s*:\s*"((?:[^\n"\\]|\\.)*)"/);
+                        if (match) return match[1];
+                      } catch {}
+                      return rawDesc;
+                    }
+                  })()
+                : rawDesc;
+            return {
+              sceneDescription: plainDesc,
+              sceneContext: row.scene_context
+                ? typeof row.scene_context === 'string'
+                  ? JSON.parse(row.scene_context)
+                  : row.scene_context
+                : { environment: 'unknown' },
+              threatAssessment: {
+                level: row.threat_level || 'low',
+                factors: [] as string[],
+                confidence: row.threat_confidence || 0,
+              },
+              detectedEntities: {
+                people: safeJson(row.detected_people),
+                vehicles: safeJson(row.detected_vehicles),
+                objects: safeJson(row.detected_objects),
+                animals: safeJson(row.detected_animals),
+              },
+              recommendedActions: safeJson(row.recommended_actions),
+              modelUsed: row.model_used,
+              processingTime: row.processing_time_ms,
+              analyzedAt: row.analyzed_at,
+            };
+          })()
+        : null,
     }));
 
     let streamManager: ReturnType<typeof serviceRegistry.getStreamManager> | null = null;
-    try { streamManager = serviceRegistry.getStreamManager(); } catch (err) { logger.warn('Failed to get stream manager', 'EventSearch', err); streamManager = null; }
+    try {
+      streamManager = serviceRegistry.getStreamManager();
+    } catch (err) {
+      logger.warn('Failed to get stream manager', 'EventSearch', err);
+      streamManager = null;
+    }
 
     const eventsWithCameraName = mapped.map((evt: Record<string, unknown>) => ({
       ...evt,
-      cameraName: streamManager?.getCamera(evt.cameraId as string)?.name || `Camera ${evt.cameraId}`,
+      cameraName:
+        streamManager?.getCamera(evt.cameraId as string)?.name || `Camera ${evt.cameraId}`,
     }));
 
     return {
       events: eventsWithCameraName,
-      pagination: { totalEvents, currentPage, pageSize: size, totalPages: Math.ceil(totalEvents / size) }
+      pagination: {
+        totalEvents,
+        currentPage,
+        pageSize: size,
+        totalPages: Math.ceil(totalEvents / size),
+      },
     };
   }
 
@@ -229,16 +330,24 @@ export class EventSearchService {
     pagination: { totalEvents: number; currentPage: number; pageSize: number; totalPages: number };
   }> {
     const {
-      limit = '50', page = '1', pageSize = '50', cameraId: cameraIdFilter,
-      event_type: detectionType, startDate: startDateStr, endDate: endDateStr,
-      searchQuery, sortBy = 'newest',
+      limit = '50',
+      page = '1',
+      pageSize = '50',
+      cameraId: cameraIdFilter,
+      event_type: detectionType,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      searchQuery,
+      sortBy = 'newest',
     } = filters;
 
     const currentPage = Math.max(1, parseInt(page));
     const size = Math.min(500, Math.max(1, parseInt(limit) || parseInt(pageSize)));
     const offsetCount = (currentPage - 1) * size;
 
-    const conditions: string[] = ["e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
+    const conditions: string[] = [
+      "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
+    ];
     const values: unknown[] = [];
     let paramIndex = 1;
 
@@ -247,21 +356,40 @@ export class EventSearchService {
       values.push(cameraIdFilter);
     }
     if (detectionType && detectionType !== 'all') {
-      if (detectionType === 'face') conditions.push(`e.event_type IN ('face', 'event_face', 'recognition')`);
-      else if (detectionType === 'person') conditions.push(`e.event_type IN ('person', 'visitor', 'recognition') OR COALESCE(e.persons_detected, 0) > 0`);
-      else if (detectionType === 'motion') conditions.push(`e.event_type IN ('motion', 'event_motion')`);
+      if (detectionType === 'face')
+        conditions.push(`e.event_type IN ('face', 'event_face', 'recognition')`);
+      else if (detectionType === 'person')
+        conditions.push(
+          `e.event_type IN ('person', 'visitor', 'recognition') OR COALESCE(e.persons_detected, 0) > 0`,
+        );
+      else if (detectionType === 'motion')
+        conditions.push(`e.event_type IN ('motion', 'event_motion')`);
     }
-    if (startDateStr) { conditions.push(`e.timestamp >= $${paramIndex++}`); values.push(new Date(startDateStr)); }
-    if (endDateStr) { conditions.push(`e.timestamp <= $${paramIndex++}`); values.push(new Date(endDateStr)); }
+    if (startDateStr) {
+      conditions.push(`e.timestamp >= $${paramIndex++}`);
+      values.push(new Date(startDateStr));
+    }
+    if (endDateStr) {
+      conditions.push(`e.timestamp <= $${paramIndex++}`);
+      values.push(new Date(endDateStr));
+    }
     if (searchQuery?.trim()) {
       conditions.push(`(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++})`);
       values.push(`%${searchQuery.toLowerCase()}%`, `%${searchQuery.toLowerCase()}%`);
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const orderClause = sortBy === 'oldest' ? 'ORDER BY e.timestamp ASC' : sortBy === 'confidence' ? 'ORDER BY e.confidence DESC, e.timestamp DESC' : 'ORDER BY e.timestamp DESC';
+    const orderClause =
+      sortBy === 'oldest'
+        ? 'ORDER BY e.timestamp ASC'
+        : sortBy === 'confidence'
+          ? 'ORDER BY e.confidence DESC, e.timestamp DESC'
+          : 'ORDER BY e.timestamp DESC';
 
-    const countResult = await AppDataSource.query(`SELECT COUNT(*) as total FROM events e ${whereClause}`, values);
+    const countResult = await AppDataSource.query(
+      `SELECT COUNT(*) as total FROM events e ${whereClause}`,
+      values,
+    );
     const totalEvents = parseInt(countResult[0]?.total || '0');
 
     const results = await AppDataSource.query(
@@ -269,39 +397,58 @@ export class EventSearchService {
        FROM events e
        LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
        ${whereClause} ${orderClause} LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-      [...values, size, offsetCount]
+      [...values, size, offsetCount],
     );
 
     const events = results.map((row: Record<string, unknown>) => {
       let metadata = row.metadata;
-      if (typeof metadata === 'string') { try { metadata = JSON.parse(metadata as string); } catch (err) { logger.warn('Failed to parse event metadata JSON', 'EventSearch', err); metadata = {}; } }
+      if (typeof metadata === 'string') {
+        try {
+          metadata = JSON.parse(metadata as string);
+        } catch (err) {
+          logger.warn('Failed to parse event metadata JSON', 'EventSearch', err);
+          metadata = {};
+        }
+      }
       let confidence = 0.75;
       if (metadata && typeof metadata === 'object') {
         const m = metadata as Record<string, unknown>;
         if (m.confidence !== undefined) confidence = m.confidence as number;
-        else if (Array.isArray(m.persons) && m.persons.length > 0) confidence = (m.persons[0] as Record<string, unknown>).confidence as number || 0.75;
-        else if (Array.isArray(m.faces) && m.faces.length > 0) confidence = (m.faces[0] as Record<string, unknown>).confidence as number || 0.75;
+        else if (Array.isArray(m.persons) && m.persons.length > 0)
+          confidence = ((m.persons[0] as Record<string, unknown>).confidence as number) || 0.75;
+        else if (Array.isArray(m.faces) && m.faces.length > 0)
+          confidence = ((m.faces[0] as Record<string, unknown>).confidence as number) || 0.75;
       }
       if (confidence > 1) confidence = confidence / 100;
       let labels = ['motion'];
       const fileType = row.file_type as string;
       if (fileType === 'face') labels = ['face'];
       else if (fileType === 'motion') labels = ['motion'];
-      const fp = row.storage_path as string || row.file_path as string || '';
+      const fp = (row.storage_path as string) || (row.file_path as string) || '';
       const imagePathForFrontend = fp.split('/').pop() || '';
       return {
-        id: row.file_uuid || row.id, cameraId: row.camera_id || 'unknown',
+        id: row.file_uuid || row.id,
+        cameraId: row.camera_id || 'unknown',
         timestamp: new Date(row.timestamp as string).toISOString(),
-        imagePath: imagePathForFrontend, imageUrl: `/events/${imagePathForFrontend}`,
-        confidence, labels, location: `Camera ${row.camera_id || 'unknown'}`,
-        duration: 0, cameraName: `Camera ${row.camera_id || 'unknown'}`,
+        imagePath: imagePathForFrontend,
+        imageUrl: `/events/${imagePathForFrontend}`,
+        confidence,
+        labels,
+        location: `Camera ${row.camera_id || 'unknown'}`,
+        duration: 0,
+        cameraName: `Camera ${row.camera_id || 'unknown'}`,
         event_type: fileType,
       };
     });
 
     return {
       events,
-      pagination: { totalEvents, currentPage, pageSize: size, totalPages: Math.ceil(totalEvents / size) }
+      pagination: {
+        totalEvents,
+        currentPage,
+        pageSize: size,
+        totalPages: Math.ceil(totalEvents / size),
+      },
     };
   }
 
@@ -315,15 +462,23 @@ export class EventSearchService {
       FROM events e
       LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
       WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
-      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $1`, [limit]
+      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $1`,
+      [limit],
     );
     return results.map((row: any) => {
       const confidence = this.extractConfidence(row.metadata);
       return {
-        id: row.file_uuid, cameraId: row.camera_id || 'unknown',
-        timestamp: row.capture_timestamp ? new Date(row.capture_timestamp).toISOString() : new Date().toISOString(),
-        imagePath: row.storage_path, confidence, duration: 0,
-        cameraName: row.camera_id, labels: [] as string[], location: 'Unknown'
+        id: row.file_uuid,
+        cameraId: row.camera_id || 'unknown',
+        timestamp: row.capture_timestamp
+          ? new Date(row.capture_timestamp).toISOString()
+          : new Date().toISOString(),
+        imagePath: row.storage_path,
+        confidence,
+        duration: 0,
+        cameraName: row.camera_id,
+        labels: [] as string[],
+        location: 'Unknown',
       };
     });
   }
@@ -339,25 +494,40 @@ export class EventSearchService {
       LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
       WHERE COALESCE(df.file_type, e.event_type) IN ('event_motion', 'event_face')
         AND COALESCE(df.camera_id, e.camera_id) = $1
-      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $2`, [cameraId, limit]
+      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $2`,
+      [cameraId, limit],
     );
     return results.map((row: any) => {
       const confidence = this.extractConfidence(row.metadata);
       let labels = ['motion'];
       if (row.file_type === 'event_face') labels = ['face'];
       return {
-        id: row.id, cameraId: row.cameraid || 'unknown',
-        timestamp: new Date(row.timestamp).toISOString(), imagePath: `/events/${row.imagepath?.split('/').pop() || ''}`,
-        confidence, duration: 0, cameraName: `Camera ${row.cameraid || 'unknown'}`,
-        labels, location: `Camera ${row.cameraid || 'unknown'}`, imageUrl: `/events/${row.imagepath?.split('/').pop() || ''}`
+        id: row.id,
+        cameraId: row.cameraid || 'unknown',
+        timestamp: new Date(row.timestamp).toISOString(),
+        imagePath: `/events/${row.imagepath?.split('/').pop() || ''}`,
+        confidence,
+        duration: 0,
+        cameraName: `Camera ${row.cameraid || 'unknown'}`,
+        labels,
+        location: `Camera ${row.cameraid || 'unknown'}`,
+        imageUrl: `/events/${row.imagepath?.split('/').pop() || ''}`,
       };
     });
   }
 
   async searchEventsLegacy(filters: LegacySearchFilters): Promise<{
-    events: any[]; pagination: { totalEvents: number; totalPages: number; currentPage: number; pageSize: number }
+    events: any[];
+    pagination: { totalEvents: number; totalPages: number; currentPage: number; pageSize: number };
   }> {
-    const { page = 1, pageSize: rawPageSize = 20, cameraId: cameraIdFilter, searchQuery, startDate: startDateStr, endDate: endDateStr } = filters;
+    const {
+      page = 1,
+      pageSize: rawPageSize = 20,
+      cameraId: cameraIdFilter,
+      searchQuery,
+      startDate: startDateStr,
+      endDate: endDateStr,
+    } = filters;
     const pageSize = Math.min(rawPageSize, 100);
 
     const conditions: string[] = ["e.event_type IN ('event_motion', 'event_face')"];
@@ -368,22 +538,34 @@ export class EventSearchService {
       conditions.push(`e.camera_id = $${paramIndex++}`);
       values.push(cameraIdFilter);
     }
-    if (startDateStr) { conditions.push(`e.timestamp >= $${paramIndex++}`); values.push(new Date(startDateStr)); }
-    if (endDateStr) { conditions.push(`e.timestamp <= $${paramIndex++}`); values.push(new Date(endDateStr)); }
+    if (startDateStr) {
+      conditions.push(`e.timestamp >= $${paramIndex++}`);
+      values.push(new Date(startDateStr));
+    }
+    if (endDateStr) {
+      conditions.push(`e.timestamp <= $${paramIndex++}`);
+      values.push(new Date(endDateStr));
+    }
     if (searchQuery) {
-      conditions.push(`(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++} OR e.metadata::text ILIKE $${paramIndex++})`);
+      conditions.push(
+        `(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++} OR e.metadata::text ILIKE $${paramIndex++})`,
+      );
       values.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
     const countResult = await AppDataSource.query(
-      `SELECT COUNT(*) as total FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause}`, values);
+      `SELECT COUNT(*) as total FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause}`,
+      values,
+    );
     const totalEvents = parseInt(countResult[0].total);
     const offset = (page - 1) * pageSize;
     values.push(pageSize, offset);
 
     const results = await AppDataSource.query(
-      `SELECT COALESCE(df.file_uuid::text, e.id::text) as id, COALESCE(df.camera_id, e.camera_id) as cameraId, COALESCE(df.capture_timestamp, e.timestamp) as timestamp, COALESCE(df.storage_path, e.file_path) as imagePath, COALESCE(df.metadata, e.metadata) as metadata FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause} ORDER BY e.timestamp DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`, values);
+      `SELECT COALESCE(df.file_uuid::text, e.id::text) as id, COALESCE(df.camera_id, e.camera_id) as cameraId, COALESCE(df.capture_timestamp, e.timestamp) as timestamp, COALESCE(df.storage_path, e.file_path) as imagePath, COALESCE(df.metadata, e.metadata) as metadata FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause} ORDER BY e.timestamp DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+      values,
+    );
 
     const events = results.map((row: any) => {
       const confidence = this.extractConfidence(row.metadata);
@@ -391,35 +573,57 @@ export class EventSearchService {
       if (row.file_type === 'event_face') labels = ['face'];
       const filename = row.imagepath?.split('/').pop() || '';
       return {
-        id: row.id, cameraId: row.cameraid || 'unknown',
+        id: row.id,
+        cameraId: row.cameraid || 'unknown',
         timestamp: new Date(row.timestamp).toISOString(),
-        imagePath: filename, imageUrl: `/events/${filename}`,
-        confidence, labels, location: `Camera ${row.cameraid || 'unknown'}`,
-        duration: 0, cameraName: `Camera ${row.cameraid || 'unknown'}`
+        imagePath: filename,
+        imageUrl: `/events/${filename}`,
+        confidence,
+        labels,
+        location: `Camera ${row.cameraid || 'unknown'}`,
+        duration: 0,
+        cameraName: `Camera ${row.cameraid || 'unknown'}`,
       };
     });
 
     return {
       events,
-      pagination: { totalEvents, totalPages: Math.ceil(totalEvents / pageSize), currentPage: page, pageSize }
+      pagination: {
+        totalEvents,
+        totalPages: Math.ceil(totalEvents / pageSize),
+        currentPage: page,
+        pageSize,
+      },
     };
   }
 
   async getTodayEventCount(): Promise<number> {
     const result = await AppDataSource.query(
-      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata' AND e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`
+      `SELECT COUNT(*) as count FROM events e WHERE e.timestamp >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata' AND e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`,
     );
     return parseInt(result[0].count);
   }
 
-  async getCalendarStats(year: number, month: number, cameraId?: string): Promise<{
-    data: Record<string, unknown>; summary: { totalEvents: number; totalPersons: number; avgConfidence: number }
+  async getCalendarStats(
+    year: number,
+    month: number,
+    cameraId?: string,
+  ): Promise<{
+    data: Record<string, unknown>;
+    summary: { totalEvents: number; totalPersons: number; avgConfidence: number };
   }> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
-    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
+    let conditions = [
+      'e.timestamp >= $1',
+      'e.timestamp <= $2',
+      "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
+    ];
     const params: any[] = [startDate.toISOString(), endDate.toISOString()];
-    if (cameraId && cameraId !== 'all') { conditions.push(`e.camera_id = $${params.length + 1}`); params.push(cameraId); }
+    if (cameraId && cameraId !== 'all') {
+      conditions.push(`e.camera_id = $${params.length + 1}`);
+      params.push(cameraId);
+    }
 
     const results = await AppDataSource.query(
       `SELECT DATE(e.timestamp) as date, COUNT(*) as count,
@@ -428,16 +632,22 @@ export class EventSearchService {
         COUNT(CASE WHEN e.persons_detected > 0 THEN 1 END) as person_count,
         SUM(e.persons_detected) as total_persons,
         AVG(e.confidence) as avg_confidence
-      FROM events e WHERE ${conditions.join(' AND ')} GROUP BY DATE(e.timestamp) ORDER BY date`, params
+      FROM events e WHERE ${conditions.join(' AND ')} GROUP BY DATE(e.timestamp) ORDER BY date`,
+      params,
     );
 
     const data: Record<string, unknown> = {};
     results.forEach((row: any) => {
-      const dateKey = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+      const dateKey =
+        row.date instanceof Date
+          ? row.date.toISOString().split('T')[0]
+          : String(row.date).split('T')[0];
       data[dateKey] = {
-        count: parseInt(row.count), motion: parseInt(row.motion_count) || 0,
-        face: parseInt(row.face_count) || 0, persons: parseInt(row.total_persons) || 0,
-        avgConfidence: parseFloat(row.avg_confidence) || 0
+        count: parseInt(row.count),
+        motion: parseInt(row.motion_count) || 0,
+        face: parseInt(row.face_count) || 0,
+        persons: parseInt(row.total_persons) || 0,
+        avgConfidence: parseFloat(row.avg_confidence) || 0,
       };
     });
 
@@ -445,11 +655,16 @@ export class EventSearchService {
       data,
       summary: {
         totalEvents: results.reduce((acc: number, r: any) => acc + parseInt(r.count), 0),
-        totalPersons: results.reduce((acc: number, r: any) => acc + (parseInt(r.total_persons) || 0), 0),
-        avgConfidence: results.length > 0
-          ? results.reduce((acc: number, r: any) => acc + parseFloat(r.avg_confidence || 0), 0) / results.length
-          : 0
-      }
+        totalPersons: results.reduce(
+          (acc: number, r: any) => acc + (parseInt(r.total_persons) || 0),
+          0,
+        ),
+        avgConfidence:
+          results.length > 0
+            ? results.reduce((acc: number, r: any) => acc + parseFloat(r.avg_confidence || 0), 0) /
+              results.length
+            : 0,
+      },
     };
   }
 
@@ -458,9 +673,16 @@ export class EventSearchService {
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
-    let conditions = ["e.timestamp >= $1", "e.timestamp <= $2", "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')"];
+    let conditions = [
+      'e.timestamp >= $1',
+      'e.timestamp <= $2',
+      "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
+    ];
     const params: any[] = [start.toISOString(), end.toISOString()];
-    if (cameraId && cameraId !== 'all') { conditions.push(`e.camera_id = $${params.length + 1}`); params.push(cameraId); }
+    if (cameraId && cameraId !== 'all') {
+      conditions.push(`e.camera_id = $${params.length + 1}`);
+      params.push(cameraId);
+    }
 
     const result = await AppDataSource.query(
       `SELECT COUNT(*) as total_count,
@@ -469,22 +691,30 @@ export class EventSearchService {
         SUM(e.persons_detected) as total_persons, SUM(e.faces_detected) as total_faces,
         SUM(e.known_faces_count) as known_faces, SUM(e.unknown_faces_count) as unknown_faces,
         AVG(e.confidence) as avg_confidence
-      FROM events e WHERE ${conditions.join(' AND ')}`, params
+      FROM events e WHERE ${conditions.join(' AND ')}`,
+      params,
     );
     const row = result[0];
     return {
-      totalEvents: parseInt(row.total_count) || 0, motionEvents: parseInt(row.motion_count) || 0,
-      faceEvents: parseInt(row.face_count) || 0, totalPersons: parseInt(row.total_persons) || 0,
-      totalFaces: parseInt(row.total_faces) || 0, knownFaces: parseInt(row.known_faces) || 0,
-      unknownFaces: parseInt(row.unknown_faces) || 0, avgConfidence: parseFloat(row.avg_confidence) || 0
+      totalEvents: parseInt(row.total_count) || 0,
+      motionEvents: parseInt(row.motion_count) || 0,
+      faceEvents: parseInt(row.face_count) || 0,
+      totalPersons: parseInt(row.total_persons) || 0,
+      totalFaces: parseInt(row.total_faces) || 0,
+      knownFaces: parseInt(row.known_faces) || 0,
+      unknownFaces: parseInt(row.unknown_faces) || 0,
+      avgConfidence: parseFloat(row.avg_confidence) || 0,
     };
   }
 
   async listEventFiles(): Promise<string[]> {
     const results = await AppDataSource.query(
-      `SELECT e.file_path FROM events e WHERE e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face') ORDER BY e.timestamp DESC LIMIT 1000`
+      `SELECT e.file_path FROM events e WHERE e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face') ORDER BY e.timestamp DESC LIMIT 1000`,
     );
-    return results.map((row: any) => { const p = row.file_path.split('/'); return p[p.length - 1]; });
+    return results.map((row: any) => {
+      const p = row.file_path.split('/');
+      return p[p.length - 1];
+    });
   }
 
   async getEventDetails(id: string): Promise<any> {
@@ -504,7 +734,7 @@ export class EventSearchService {
         const processedResults = await AppDataSource.query(
           `SELECT person_count, face_count, known_face_count, unknown_face_count, detection_json
            FROM processed_images WHERE filename = $1 AND status = 'success' ORDER BY processed_at DESC LIMIT 1`,
-          [filename]
+          [filename],
         );
         if (processedResults.length > 0) {
           const p = processedResults[0];
@@ -512,7 +742,8 @@ export class EventSearchService {
           faces_detected = p.face_count || 0;
           known_faces_count = p.known_face_count || 0;
           unknown_faces_count = p.unknown_face_count || 0;
-          const detectionData = typeof p.detection_json === 'string' ? JSON.parse(p.detection_json) : p.detection_json;
+          const detectionData =
+            typeof p.detection_json === 'string' ? JSON.parse(p.detection_json) : p.detection_json;
           object_detections = detectionData.persons || [];
           face_detections = detectionData.faces || [];
         }
@@ -524,12 +755,16 @@ export class EventSearchService {
     }
 
     const normalizedData = DetectionDataNormalizer.createDetectionStorageFormat(
-      object_detections || [], face_detections || []
+      object_detections || [],
+      face_detections || [],
     );
 
     return {
-      id: event.id, event_type: event.event_type, filename,
-      timestamp: event.timestamp, cameraId: event.camera_id,
+      id: event.id,
+      event_type: event.event_type,
+      filename,
+      timestamp: event.timestamp,
+      cameraId: event.camera_id,
       confidence: event.confidence || 0,
       metadata: event.metadata ? JSON.parse(event.metadata) : null,
       persons_detected: normalizedData.persons_detected,
@@ -543,42 +778,58 @@ export class EventSearchService {
 
   async lookupEventImagePath(filename: string): Promise<string | null> {
     let results = await AppDataSource.query(
-      `SELECT file_path as storage_path FROM events WHERE file_path LIKE '%' || $1 LIMIT 1`, [filename]
+      `SELECT file_path as storage_path FROM events WHERE file_path LIKE '%' || $1 LIMIT 1`,
+      [filename],
     );
     if (results.length === 0) {
       results = await AppDataSource.query(
-        `SELECT file_path as storage_path FROM events WHERE file_path = $1 LIMIT 1`, [filename]
+        `SELECT file_path as storage_path FROM events WHERE file_path = $1 LIMIT 1`,
+        [filename],
       );
     }
     return results.length > 0 ? results[0].storage_path : null;
   }
 
-  async getDetectionEvents(filters: DetectionEventFilters): Promise<{ events: any[]; count: number }> {
+  async getDetectionEvents(
+    filters: DetectionEventFilters,
+  ): Promise<{ events: any[]; count: number }> {
     const { limit = 50, type, cameraId, startDate, endDate } = filters;
     const conditions: string[] = ['timestamp IS NOT NULL'];
     const values: any[] = [];
     let paramIndex = 1;
 
     if (type) {
-      if (type === 'person') { 
-        conditions.push(`(event_type IN ('person', 'visitor', 'recognition') OR COALESCE(persons_detected, 0) > 0)`); 
-      }
-      else if (type === 'face') { 
-        conditions.push(`(event_type IN ('face', 'event_face', 'recognition') OR COALESCE(faces_detected, 0) > 0)`); 
-      }
-      else if (type === 'motion') {
+      if (type === 'person') {
+        conditions.push(
+          `(event_type IN ('person', 'visitor', 'recognition') OR COALESCE(persons_detected, 0) > 0)`,
+        );
+      } else if (type === 'face') {
+        conditions.push(
+          `(event_type IN ('face', 'event_face', 'recognition') OR COALESCE(faces_detected, 0) > 0)`,
+        );
+      } else if (type === 'motion') {
         conditions.push(`event_type IN ('motion', 'event_motion')`);
-      }
-      else { 
-        conditions.push(`event_type = $${paramIndex++}`); 
-        values.push(type); 
+      } else {
+        conditions.push(`event_type = $${paramIndex++}`);
+        values.push(type);
       }
     } else {
-      conditions.push(`event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`);
+      conditions.push(
+        `event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')`,
+      );
     }
-    if (cameraId) { conditions.push(`camera_id = $${paramIndex++}`); values.push(cameraId); }
-    if (startDate) { conditions.push(`timestamp >= $${paramIndex++}`); values.push(new Date(startDate)); }
-    if (endDate) { conditions.push(`timestamp <= $${paramIndex++}`); values.push(new Date(endDate)); }
+    if (cameraId) {
+      conditions.push(`camera_id = $${paramIndex++}`);
+      values.push(cameraId);
+    }
+    if (startDate) {
+      conditions.push(`timestamp >= $${paramIndex++}`);
+      values.push(new Date(startDate));
+    }
+    if (endDate) {
+      conditions.push(`timestamp <= $${paramIndex++}`);
+      values.push(new Date(endDate));
+    }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
     values.push(limit);
@@ -594,31 +845,48 @@ export class EventSearchService {
       FROM events e
       LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename
       ${whereClause}
-      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $${paramIndex}`, values
+      ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT $${paramIndex}`,
+      values,
     );
 
     const events = results.map((row: any) => {
       let confidence = 0;
       if (row.metadata && typeof row.metadata === 'object') {
         if (row.metadata.confidence !== undefined) confidence = row.metadata.confidence;
-        else if (row.metadata.persons?.length > 0) confidence = row.metadata.persons[0].confidence || 0;
+        else if (row.metadata.persons?.length > 0)
+          confidence = row.metadata.persons[0].confidence || 0;
         else if (row.metadata.faces?.length > 0) confidence = row.metadata.faces[0].confidence || 0;
       }
-      const metadata = row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {};
+      const metadata = row.metadata
+        ? typeof row.metadata === 'string'
+          ? JSON.parse(row.metadata)
+          : row.metadata
+        : {};
       const persons_detected = metadata.personCount || metadata.persons?.length || 0;
       const faces_detected = metadata.faceCount || metadata.faces?.length || 0;
       const known_faces_count = metadata.knownFaces || 0;
       const unknown_faces_count = metadata.unknownFaces || 0;
       const object_detections = metadata.detections || metadata.persons || [];
       const face_detections = metadata.faces || [];
-      const filename = row.original_filename || (row.storage_path ? row.storage_path.split('/').pop() || '' : '');
+      const filename =
+        row.original_filename || (row.storage_path ? row.storage_path.split('/').pop() || '' : '');
       return {
-        id: filename, event_type: row.file_type === 'event_face' ? 'face' : 'motion',
-        filename, timestamp: row.capture_timestamp ? new Date(row.capture_timestamp).toISOString() : new Date().toISOString(),
-        cameraId: row.camera_id, confidence, metadata,
+        id: filename,
+        event_type: row.file_type === 'event_face' ? 'face' : 'motion',
+        filename,
+        timestamp: row.capture_timestamp
+          ? new Date(row.capture_timestamp).toISOString()
+          : new Date().toISOString(),
+        cameraId: row.camera_id,
+        confidence,
+        metadata,
         imageUrl: `/api/events/image/${filename}`,
-        persons_detected, faces_detected, known_faces_count, unknown_faces_count,
-        object_detections: object_detections || [], face_detections: face_detections || []
+        persons_detected,
+        faces_detected,
+        known_faces_count,
+        unknown_faces_count,
+        object_detections: object_detections || [],
+        face_detections: face_detections || [],
       };
     });
 

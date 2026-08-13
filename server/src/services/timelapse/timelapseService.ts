@@ -18,7 +18,10 @@ class StreamManagerFrameProvider implements FrameProvider {
   getCameraIds(): string[] {
     try {
       const sm = serviceRegistry.getStreamManager();
-      return sm.getAllCameras().map((c: { id: string }) => c.id).filter(Boolean);
+      return sm
+        .getAllCameras()
+        .map((c: { id: string }) => c.id)
+        .filter(Boolean);
     } catch {
       return [];
     }
@@ -33,7 +36,8 @@ class StreamManagerFrameProvider implements FrameProvider {
 }
 
 export class TimelapseService {
-  private readonly TIMELAPSE_DIR = process.env.TIMELAPSE_DIR || path.join(process.cwd(), 'public', 'timelapse');
+  private readonly TIMELAPSE_DIR =
+    process.env.TIMELAPSE_DIR || path.join(process.cwd(), 'public', 'timelapse');
   private sampleTimer: NodeJS.Timeout | null = null;
   private readonly provider: FrameProvider;
 
@@ -66,10 +70,15 @@ export class TimelapseService {
 
   startSampler(): void {
     if (this.sampleTimer) return;
-    this.sampleTimer = setInterval(() => { this.sampleOnce().catch((err: unknown) => {
-      logger.error('Timelapse sampler interval sample failed', 'TimelapseService', err);
-    }); }, SAMPLE_INTERVAL_MS);
-    logger.info(`Timelapse sampler started (every ${SAMPLE_INTERVAL_MS / 1000}s)`, 'TimelapseService');
+    this.sampleTimer = setInterval(() => {
+      this.sampleOnce().catch((err: unknown) => {
+        logger.error('Timelapse sampler interval sample failed', 'TimelapseService', err);
+      });
+    }, SAMPLE_INTERVAL_MS);
+    logger.info(
+      `Timelapse sampler started (every ${SAMPLE_INTERVAL_MS / 1000}s)`,
+      'TimelapseService',
+    );
     this.sampleOnce().catch((err: unknown) => {
       logger.error('Initial timelapse sample failed', 'TimelapseService', err);
     });
@@ -94,7 +103,10 @@ export class TimelapseService {
         await fs.mkdir(dir, { recursive: true });
         await fs.writeFile(path.join(dir, `${stamp}.jpg`), frame);
       } catch (err) {
-        logger.debug(`Failed to write timelapse sample for ${cameraId}: ${err}`, 'TimelapseService');
+        logger.debug(
+          `Failed to write timelapse sample for ${cameraId}: ${err}`,
+          'TimelapseService',
+        );
       }
     }
   }
@@ -153,11 +165,19 @@ export class TimelapseService {
     const dir = this.getRawDir(cameraId, date);
     try {
       const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.jpg'));
-      await Promise.all(files.map((f) => fs.unlink(path.join(dir, f)).catch((err: unknown) => {
-        logger.warn(`Failed to delete raw JPEG ${f}`, 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
-      })));
+      await Promise.all(
+        files.map((f) =>
+          fs.unlink(path.join(dir, f)).catch((err: unknown) => {
+            logger.warn(`Failed to delete raw JPEG ${f}`, 'TimelapseService', {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }),
+        ),
+      );
       await fs.rmdir(dir).catch((err: unknown) => {
-        logger.warn(`Failed to remove raw dir ${dir}`, 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn(`Failed to remove raw dir ${dir}`, 'TimelapseService', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return files.length;
     } catch {
@@ -166,7 +186,11 @@ export class TimelapseService {
   }
 
   /** Stitch a date's raw JPEGs (sorted by filename = chronological) into the final MP4. */
-  async stitchFromRaw(cameraId: string, date: string, deleteRaws = true): Promise<{ count: number; path: string; deleted: number }> {
+  async stitchFromRaw(
+    cameraId: string,
+    date: string,
+    deleteRaws = true,
+  ): Promise<{ count: number; path: string; deleted: number }> {
     const dir = this.getRawDir(cameraId, date);
     let files: string[] = [];
     try {
@@ -194,7 +218,10 @@ export class TimelapseService {
 
     await this.runConcatStitch(cameraId, date, validPaths);
     const deleted = deleteRaws ? await this.deleteRaws(cameraId, date) : 0;
-    logger.info(`Stitch complete: ${cameraId}/${date} (${validPaths.length} frames, deleted ${deleted} raws)`, 'TimelapseService');
+    logger.info(
+      `Stitch complete: ${cameraId}/${date} (${validPaths.length} frames, deleted ${deleted} raws)`,
+      'TimelapseService',
+    );
     return { count: validPaths.length, path: this.getFinalPath(cameraId, date), deleted };
   }
 
@@ -228,11 +255,16 @@ export class TimelapseService {
       }
     }
     if (validPaths.length === 0) {
-      throw new Error(`No detection image files exist on disk for ${cameraId} on ${date} (all ${rows.length} missing)`);
+      throw new Error(
+        `No detection image files exist on disk for ${cameraId} on ${date} (all ${rows.length} missing)`,
+      );
     }
 
     await this.runConcatStitch(cameraId, date, validPaths);
-    logger.info(`Backfill from detections complete: ${cameraId}/${date} (${validPaths.length} frames, skipped ${skipped})`, 'TimelapseService');
+    logger.info(
+      `Backfill from detections complete: ${cameraId}/${date} (${validPaths.length} frames, skipped ${skipped})`,
+      'TimelapseService',
+    );
     return { count: validPaths.length, path: this.getFinalPath(cameraId, date), skipped };
   }
 
@@ -244,7 +276,13 @@ export class TimelapseService {
     cameraId: string,
     date: string,
     queryFn: (sql: string, params: unknown[]) => Promise<Array<{ file_path: string }>>,
-  ): Promise<{ count: number; path: string; source: 'raw' | 'detections'; skipped?: number; deleted?: number }> {
+  ): Promise<{
+    count: number;
+    path: string;
+    source: 'raw' | 'detections';
+    skipped?: number;
+    deleted?: number;
+  }> {
     const rawCount = await this.getRawCount(cameraId, date);
     if (rawCount > 0) {
       const r = await this.stitchFromRaw(cameraId, date);
@@ -255,12 +293,16 @@ export class TimelapseService {
   }
 
   /** Stitch all cameras' previous-day raws. Called by the 00:01 cron. */
-  async stitchYesterday(): Promise<{ cameraId: string; ok: boolean; count: number; error?: string }[]> {
+  async stitchYesterday(): Promise<
+    { cameraId: string; ok: boolean; count: number; error?: string }[]
+  > {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     return this.stitchDate(yesterday);
   }
 
-  async stitchDate(date: string): Promise<{ cameraId: string; ok: boolean; count: number; error?: string }[]> {
+  async stitchDate(
+    date: string,
+  ): Promise<{ cameraId: string; ok: boolean; count: number; error?: string }[]> {
     const cameraIds = this.provider.getCameraIds();
     const results: { cameraId: string; ok: boolean; count: number; error?: string }[] = [];
     for (const cameraId of cameraIds) {
@@ -277,13 +319,22 @@ export class TimelapseService {
         const r = await this.stitchFromRaw(cameraId, date);
         results.push({ cameraId, ok: true, count: r.count });
       } catch (err) {
-        results.push({ cameraId, ok: false, count: 0, error: err instanceof Error ? err.message : String(err) });
+        results.push({
+          cameraId,
+          ok: false,
+          count: 0,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     return results;
   }
 
-  private async runConcatStitch(cameraId: string, date: string, imagePaths: string[]): Promise<void> {
+  private async runConcatStitch(
+    cameraId: string,
+    date: string,
+    imagePaths: string[],
+  ): Promise<void> {
     const cameraDir = path.join(this.TIMELAPSE_DIR, cameraId);
     await fs.mkdir(cameraDir, { recursive: true });
     const listPath = path.join(cameraDir, `${date}_list.txt`);
@@ -302,30 +353,44 @@ export class TimelapseService {
 
     const ffmpegArgs = [
       '-y',
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', listPath,
-      '-vf', "scale='if(gt(iw,1280),1280,iw)':-2,fps=24,format=yuv420p",
-      '-c:v', 'libx264',
-      '-crf', '30',
-      '-preset', 'veryfast',
-      '-movflags', '+faststart',
+      '-f',
+      'concat',
+      '-safe',
+      '0',
+      '-i',
+      listPath,
+      '-vf',
+      "scale='if(gt(iw,1280),1280,iw)':-2,fps=24,format=yuv420p",
+      '-c:v',
+      'libx264',
+      '-crf',
+      '30',
+      '-preset',
+      'veryfast',
+      '-movflags',
+      '+faststart',
       finalPath,
     ];
 
     return new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', ffmpegArgs);
       let stderr = '';
-      ffmpeg.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      ffmpeg.stderr.on('data', (d: Buffer) => {
+        stderr += d.toString();
+      });
       ffmpeg.on('close', (code: number) => {
         fs.unlink(listPath).catch((err: unknown) => {
-          logger.warn('Failed to cleanup timelapse list file', 'TimelapseService', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('Failed to cleanup timelapse list file', 'TimelapseService', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg exited ${code}: ${stderr.substring(0, 500)}`));
       });
       ffmpeg.on('error', (err: Error) => {
-        fs.unlink(listPath).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
+        fs.unlink(listPath).catch((error) =>
+          logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'),
+        );
         reject(err);
       });
     });
@@ -342,18 +407,27 @@ export class TimelapseService {
         const cameraDir = path.join(this.TIMELAPSE_DIR, cameraId);
         const stat = await fs.stat(cameraDir).catch(() => null);
         if (!stat || !stat.isDirectory()) continue;
-        await this.cleanupDir(cameraDir, cutoff, (n) => { deleted += n; });
+        await this.cleanupDir(cameraDir, cutoff, (n) => {
+          deleted += n;
+        });
         const rawRoot = path.join(cameraDir, RAW_SUBDIR);
         await this.cleanupRawTree(rawRoot, cutoff);
       }
     } catch (err) {
       logger.error(`Timelapse cleanup error: ${err}`, 'TimelapseService');
     }
-    logger.info(`Timelapse cleanup deleted ${deleted} files older than ${maxAgeDays} days`, 'TimelapseService');
+    logger.info(
+      `Timelapse cleanup deleted ${deleted} files older than ${maxAgeDays} days`,
+      'TimelapseService',
+    );
     return deleted;
   }
 
-  private async cleanupDir(dir: string, cutoff: number, onDelete: (n: number) => void): Promise<void> {
+  private async cleanupDir(
+    dir: string,
+    cutoff: number,
+    onDelete: (n: number) => void,
+  ): Promise<void> {
     let entries: string[] = [];
     try {
       entries = await fs.readdir(dir);
@@ -368,7 +442,11 @@ export class TimelapseService {
         if (entry === RAW_SUBDIR) continue;
         await this.cleanupDir(p, cutoff, onDelete);
       } else if (entry.endsWith('.mp4') && s.mtimeMs < cutoff) {
-        await fs.unlink(p).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
+        await fs
+          .unlink(p)
+          .catch((error) =>
+            logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'),
+          );
         onDelete(1);
       }
     }
@@ -388,7 +466,11 @@ export class TimelapseService {
       const dateMs = new Date(`${d}T00:00:00Z`).getTime();
       if (Number.isNaN(dateMs)) continue;
       if (dateMs < cutoff) {
-        await fs.rm(dirPath, { recursive: true, force: true }).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
+        await fs
+          .rm(dirPath, { recursive: true, force: true })
+          .catch((error) =>
+            logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'),
+          );
       }
     }
   }

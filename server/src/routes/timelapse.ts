@@ -20,7 +20,8 @@ router.get('/list/:date', optionalAuth, async (req: Request, res: Response) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ success: false, error: 'Date must be YYYY-MM-DD' });
     }
-    if (!timelapseService) return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
+    if (!timelapseService)
+      return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
     const list = await timelapseService.listTimelapsesForDate(date);
     res.json({ success: true, date, timelapses: list });
   } catch (err) {
@@ -39,7 +40,8 @@ router.get('/:cameraId/:date', optionalAuth, async (req: Request, res: Response)
     if (!/^[a-zA-Z0-9_-]+$/.test(cameraId)) {
       return res.status(400).json({ success: false, error: 'Invalid camera ID' });
     }
-    if (!timelapseService) return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
+    if (!timelapseService)
+      return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
     const has = await timelapseService.hasTimelapse(cameraId, date);
     if (!has) return res.status(404).json({ success: false, error: 'Timelapse not found' });
 
@@ -67,11 +69,17 @@ router.post('/generate/:cameraId/:date', requireUser, async (req: Request, res: 
     if (!/^[a-zA-Z0-9_-]+$/.test(cameraId)) {
       return res.status(400).json({ success: false, error: 'Invalid camera ID' });
     }
-    if (!timelapseService) return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
+    if (!timelapseService)
+      return res.status(503).json({ success: false, error: 'Timelapse service not ready' });
 
     const today = new Date().toISOString().split('T')[0];
     if (date >= today) {
-      return res.status(400).json({ success: false, error: 'Backfill only available for past dates. Use the live capture for today.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Backfill only available for past dates. Use the live capture for today.',
+        });
     }
 
     const result = await timelapseService.generateForDate(cameraId, date, async (sql, params) => {
@@ -94,7 +102,10 @@ router.post('/generate/:cameraId/:date', requireUser, async (req: Request, res: 
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error(`Backfill failed for ${req.params.cameraId}/${req.params.date}: ${msg}`, 'TimelapseRoutes');
+    logger.error(
+      `Backfill failed for ${req.params.cameraId}/${req.params.date}: ${msg}`,
+      'TimelapseRoutes',
+    );
     res.status(500).json({ success: false, error: msg });
   }
 });

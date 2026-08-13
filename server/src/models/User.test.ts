@@ -30,7 +30,7 @@ describe('User Model', () => {
       user.email = 'test@example.com';
       user.passwordHash = 'hashedpassword123';
       user.salt = 'salt123';
-      
+
       expect(user.username).toBe('testuser');
       expect(user.email).toBe('test@example.com');
       expect(user.passwordHash).toBe('hashedpassword123');
@@ -89,9 +89,9 @@ describe('User Model', () => {
       user.id = 'test-uuid';
       user.username = 'testuser';
       user.email = 'test@example.com';
-      
+
       const json = JSON.parse(JSON.stringify(user));
-      
+
       expect(json.id).toBe('test-uuid');
       expect(json.username).toBe('testuser');
       expect(json.email).toBe('test@example.com');

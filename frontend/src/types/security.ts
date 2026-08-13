@@ -33,11 +33,14 @@ export interface Camera {
     };
     objects?: {
       track: string[];
-      filters?: Record<string, {
-        minArea?: number;
-        maxArea?: number;
-        threshold?: number;
-      }>;
+      filters?: Record<
+        string,
+        {
+          minArea?: number;
+          maxArea?: number;
+          threshold?: number;
+        }
+      >;
     };
     zones?: Array<{
       id: string;

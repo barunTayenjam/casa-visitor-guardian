@@ -92,32 +92,38 @@ class SimpleOpenCVClient {
       // Use the new /detect-batch-paths endpoint that accepts file paths
       const payload = {
         imagePaths: imagePaths,
-        batchHash: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        batchHash: `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       };
 
-       logger.info(`OpenCV Client: Sending batch request for ${imagePaths.length} images`, 'BatchWorker');
+      logger.info(
+        `OpenCV Client: Sending batch request for ${imagePaths.length} images`,
+        'BatchWorker',
+      );
 
       const response = await fetch(`${this.serviceUrl}/detect-batch-paths`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
+          ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {}),
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-         logger.error(`OpenCV Client: HTTP ${response.status}: ${errorText}`, 'BatchWorker');
+        logger.error(`OpenCV Client: HTTP ${response.status}: ${errorText}`, 'BatchWorker');
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
-       logger.info(`OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`, 'BatchWorker');
+      logger.info(
+        `OpenCV Client: Batch completed - ${result.successful || 0} successful, ${result.failed || 0} failed`,
+        'BatchWorker',
+      );
       return result;
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-       logger.error('OpenCV batch detection failed', 'BatchWorker', error);
+      logger.error('OpenCV batch detection failed', 'BatchWorker', error);
       return {
         success: false,
         batchHash: '',
@@ -127,27 +133,34 @@ class SimpleOpenCVClient {
         results: [],
         totalProcessingTime: 0,
         averageProcessingTime: 0,
-        error: errMsg
+        error: errMsg,
       };
     }
   }
 }
 
-const opencvService = new SimpleOpenCVClient(process.env.OPENCV_SERVICE_URL || 'http://opencv:8084');
+const opencvService = new SimpleOpenCVClient(
+  process.env.OPENCV_SERVICE_URL || 'http://opencv:8084',
+);
 
 // Removed individual image processing - using batch processing instead
 
-async function saveResults(results: any[], options: any, outputDir: string, jobId: string): Promise<void> {
+async function saveResults(
+  results: any[],
+  options: any,
+  outputDir: string,
+  jobId: string,
+): Promise<void> {
   if (!options.saveResults) return;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = "batch_" + jobId + "_" + timestamp + "." + options.outputFormat;
+  const filename = 'batch_' + jobId + '_' + timestamp + '.' + options.outputFormat;
 
   try {
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
-       logger.info(`Created output directory: ${outputDir}`, 'BatchWorker');
+      logger.info(`Created output directory: ${outputDir}`, 'BatchWorker');
     }
     if (options.outputFormat === 'json') {
       const outputData = {
@@ -158,25 +171,31 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
           totalImages: results.length,
           personDetections: results.reduce((sum, r) => sum + r.persons.length, 0),
           faceDetections: results.reduce((sum, r) => sum + r.faces.length, 0),
-          knownFaces: results.reduce((sum, r) => sum + r.faces.filter((f: any) => f.isKnown).length, 0),
-          unknownFaces: results.reduce((sum, r) => sum + r.faces.filter((f: any) => !f.isKnown).length, 0)
+          knownFaces: results.reduce(
+            (sum, r) => sum + r.faces.filter((f: any) => f.isKnown).length,
+            0,
+          ),
+          unknownFaces: results.reduce(
+            (sum, r) => sum + r.faces.filter((f: any) => !f.isKnown).length,
+            0,
+          ),
         },
-        results: results
+        results: results,
       };
 
       fs.writeFileSync(path.join(outputDir, filename), JSON.stringify(outputData, null, 2));
     } else if (options.outputFormat === 'csv') {
       const csvLines = [
         'Filename,Timestamp,CameraId,PersonsDetected,FacesDetected,KnownFaces,UnknownFaces',
-        ...results.map(r => [
+        ...results.map((r) => [
           r.filename,
           r.timestamp,
           r.cameraId,
           r.persons.length,
           r.faces.length,
           r.faces.filter((f: any) => f.isKnown).length,
-          r.faces.filter((f: any) => !f.isKnown).length
-        ])
+          r.faces.filter((f: any) => !f.isKnown).length,
+        ]),
       ];
 
       fs.writeFileSync(path.join(outputDir, filename), csvLines.join('\n'));
@@ -184,7 +203,7 @@ async function saveResults(results: any[], options: any, outputDir: string, jobI
 
     // Database saving is handled by metadata updates
   } catch (error) {
-       logger.error('Error saving results', 'BatchWorker', error);
+    logger.error('Error saving results', 'BatchWorker', error);
     throw error;
   }
 }
@@ -199,7 +218,7 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
       port: parseInt(process.env.DB_PORT || '5432'),
       user: process.env.DB_USER || 'sentryvision',
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME || 'sentryvision'
+      database: process.env.DB_NAME || 'sentryvision',
     });
 
     await client.connect();
@@ -207,7 +226,7 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
     for (const result of results) {
       try {
         const id = `${workerData.jobId}_${result.filename}`;
-        
+
         const knownFaces = result.faces.filter((f: any) => f.isKnown).length;
         const unknownFaces = result.faces.filter((f: any) => !f.isKnown).length;
 
@@ -215,12 +234,12 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
         const faceTypes = result.faces.map(() => 'face');
         const allTypes = [...personTypes, ...faceTypes];
         const uniqueTypes = Array.from(new Set(allTypes));
-        
+
         const detectionJson = {
           persons: result.persons,
           faces: result.faces,
           detected_at: result.timestamp,
-          detection_types: uniqueTypes
+          detection_types: uniqueTypes,
         };
 
         const processingTimeMs = result.processingTimeMs || 0;
@@ -255,17 +274,21 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
             unknownFaces,
             result.persons.length > 0 || result.faces.length > 0 ? 'success' : 'no_detections',
             JSON.stringify(detectionJson),
-            generateFileHash(result.filename, result.timestamp)
-          ]
+            generateFileHash(result.filename, result.timestamp),
+          ],
         );
       } catch (error) {
-         logger.error('Error updating processed_images for ' + result.filename, 'BatchWorker', error);
+        logger.error(
+          'Error updating processed_images for ' + result.filename,
+          'BatchWorker',
+          error,
+        );
       }
     }
 
-     logger.info('Updated processed_images table for ' + results.length + ' images', 'BatchWorker');
+    logger.info('Updated processed_images table for ' + results.length + ' images', 'BatchWorker');
   } catch (error) {
-     logger.error('Error updating processed_images table', 'BatchWorker', error);
+    logger.error('Error updating processed_images table', 'BatchWorker', error);
   } finally {
     if (client) {
       await client.end();
@@ -276,11 +299,11 @@ async function updateProcessedImagesTable(results: any[]): Promise<void> {
 async function processBatchImages(events: any[], options: any): Promise<any[]> {
   const results = [];
   const batchSize = 10;
-  const imagePaths = events.map(e => e.filePath);
+  const imagePaths = events.map((e) => e.filePath);
 
   for (let i = 0; i < events.length; i += batchSize) {
     const batch = events.slice(i, i + batchSize);
-    const batchPaths = batch.map(e => e.filePath);
+    const batchPaths = batch.map((e) => e.filePath);
 
     try {
       const batchResult = await opencvService.detectBatch(batchPaths);
@@ -295,20 +318,23 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
             timestamp: event.timestamp.toISOString(),
             cameraId: event.cameraId,
             persons: [] as any[],
-            faces: [] as any[]
+            faces: [] as any[],
           };
 
           if (detectionResult.success && detectionResult.detections) {
             const allDetections = detectionResult.detections;
 
-            if (options.detectionTypes.includes('person') || options.detectionTypes.includes('both')) {
+            if (
+              options.detectionTypes.includes('person') ||
+              options.detectionTypes.includes('both')
+            ) {
               result.persons = allDetections
                 .filter((d: any) => d.class === 'person')
                 .filter((d: any) => d.confidence >= options.confidenceThreshold)
                 .map((d: any) => ({
                   class: d.class,
                   confidence: d.confidence,
-                  boundingBox: d.bbox
+                  boundingBox: d.bbox,
                 }));
             }
 
@@ -319,14 +345,19 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
 
             if (otherObjects.length > 0) {
               // Add other objects to persons array with class info
-              result.persons.push(...otherObjects.map((d: any) => ({
-                class: d.class,
-                confidence: d.confidence,
-                boundingBox: d.bbox
-              })));
+              result.persons.push(
+                ...otherObjects.map((d: any) => ({
+                  class: d.class,
+                  confidence: d.confidence,
+                  boundingBox: d.bbox,
+                })),
+              );
             }
 
-            if (options.detectionTypes.includes('face') || options.detectionTypes.includes('both')) {
+            if (
+              options.detectionTypes.includes('face') ||
+              options.detectionTypes.includes('both')
+            ) {
               result.faces = allDetections
                 .filter((d: any) => d.class === 'face')
                 .filter((d: any) => d.confidence >= options.confidenceThreshold)
@@ -335,7 +366,7 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
                   boundingBox: d.bbox,
                   personId: d.name || 'unknown',
                   personName: d.name || 'unknown',
-                  isKnown: d.name && d.name !== 'unknown'
+                  isKnown: d.name && d.name !== 'unknown',
                 }));
             }
           }
@@ -344,26 +375,26 @@ async function processBatchImages(events: any[], options: any): Promise<any[]> {
         }
       } else {
         // Batch failed entirely, add empty results for all events in this batch
-         logger.error('Batch detection failed', 'BatchWorker');
+        logger.error('Batch detection failed', 'BatchWorker');
         for (const event of batch) {
           results.push({
             filename: event.filename,
             timestamp: event.timestamp.toISOString(),
             cameraId: event.cameraId,
             persons: [],
-            faces: []
+            faces: [],
           });
         }
       }
     } catch (error) {
-       logger.error('Error processing batch starting at index ' + i, 'BatchWorker', error);
+      logger.error('Error processing batch starting at index ' + i, 'BatchWorker', error);
       for (const event of batch) {
         results.push({
           filename: event.filename,
           timestamp: event.timestamp.toISOString(),
           cameraId: event.cameraId,
           persons: [],
-          faces: []
+          faces: [],
         });
       }
     }
@@ -384,15 +415,15 @@ async function main() {
           total: events.length,
           processed: 0,
           successful: 0,
-          failed: 0
-        }
+          failed: 0,
+        },
       });
     }
 
     const results = await processBatchImages(events, options);
-    
-    let successful = results.filter(r => r.persons.length > 0 || r.faces.length > 0).length;
-    let failed = results.filter(r => r.persons.length === 0 && r.faces.length === 0).length;
+
+    let successful = results.filter((r) => r.persons.length > 0 || r.faces.length > 0).length;
+    let failed = results.filter((r) => r.persons.length === 0 && r.faces.length === 0).length;
 
     if (parentPort) {
       parentPort.postMessage({
@@ -402,8 +433,8 @@ async function main() {
           processed: events.length,
           successful,
           failed,
-          currentFile: events[events.length - 1]?.filename
-        }
+          currentFile: events[events.length - 1]?.filename,
+        },
       });
     }
 
@@ -421,33 +452,32 @@ async function main() {
       personDetections: results.reduce((sum, r) => sum + r.persons.length, 0),
       faceDetections: results.reduce((sum, r) => sum + r.faces.length, 0),
       processingTime,
-      details: results
+      details: results,
     };
 
     if (parentPort) {
       parentPort.postMessage({
         type: 'completed',
-        results: summary
+        results: summary,
       });
     }
-
   } catch (error) {
-     logger.error('Worker error', 'BatchWorker', error);
+    logger.error('Worker error', 'BatchWorker', error);
     if (parentPort) {
       parentPort.postMessage({
         type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 }
 
-main().catch(error => {
-   logger.error('Worker startup error', 'BatchWorker', error);
+main().catch((error) => {
+  logger.error('Worker startup error', 'BatchWorker', error);
   if (parentPort) {
     parentPort.postMessage({
       type: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });

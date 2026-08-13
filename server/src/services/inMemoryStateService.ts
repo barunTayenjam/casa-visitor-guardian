@@ -99,7 +99,10 @@ export class InMemoryStateService {
 
   async startPeriodicRefresh(): Promise<void> {
     if (this.refreshTimer) return;
-    logger.info(`Starting periodic refresh for in-memory state (interval: ${this.refreshIntervalMs}ms)`, 'InMemoryState');
+    logger.info(
+      `Starting periodic refresh for in-memory state (interval: ${this.refreshIntervalMs}ms)`,
+      'InMemoryState',
+    );
     this.refreshTimer = setInterval(async () => {
       try {
         await this.loadAlertsFromDb();
@@ -157,7 +160,15 @@ export class InMemoryStateService {
       await AppDataSource.query(
         `INSERT INTO alerts (id, type, severity, message, camera_id, acknowledged, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [newAlert.id, newAlert.type, newAlert.severity, newAlert.message, newAlert.cameraId || null, false, newAlert.timestamp]
+        [
+          newAlert.id,
+          newAlert.type,
+          newAlert.severity,
+          newAlert.message,
+          newAlert.cameraId || null,
+          false,
+          newAlert.timestamp,
+        ],
       );
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -171,12 +182,12 @@ export class InMemoryStateService {
 
   async loadAlertsFromDb(): Promise<void> {
     try {
-      const rows = await AppDataSource.query(
+      const rows = (await AppDataSource.query(
         'SELECT id, type, severity, message, camera_id, acknowledged, created_at FROM alerts ORDER BY created_at DESC LIMIT $1',
-        [MAX_ENTRIES]
-      ) as any[];
+        [MAX_ENTRIES],
+      )) as any[];
 
-      this.alerts = rows.map(r => ({
+      this.alerts = rows.map((r) => ({
         id: r.id,
         type: r.type,
         severity: r.severity,
@@ -199,7 +210,7 @@ export class InMemoryStateService {
     try {
       await AppDataSource.query(
         'UPDATE alerts SET acknowledged = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [alertId]
+        [alertId],
       );
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);

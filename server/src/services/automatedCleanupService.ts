@@ -49,8 +49,13 @@ export class AutomatedCleanupService extends EventEmitter {
     return AutomatedCleanupService.instance;
   }
 
-  async cleanupOldImages(retentionDays: number = 7): Promise<{ deleted: number; preserved: number; freedBytes: number }> {
-    logger.info(`Starting image cleanup - keeping images analyzed by AI for ${retentionDays} days...`, 'CLEANUP');
+  async cleanupOldImages(
+    retentionDays: number = 7,
+  ): Promise<{ deleted: number; preserved: number; freedBytes: number }> {
+    logger.info(
+      `Starting image cleanup - keeping images analyzed by AI for ${retentionDays} days...`,
+      'CLEANUP',
+    );
 
     let deleted = 0;
     let preserved = 0;
@@ -61,7 +66,7 @@ export class AutomatedCleanupService extends EventEmitter {
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
       const analyzedResults = await AppDataSource.query(
-        `SELECT DISTINCT event_filename FROM ai_analysis_results WHERE analyzed_at IS NOT NULL`
+        `SELECT DISTINCT event_filename FROM ai_analysis_results WHERE analyzed_at IS NOT NULL`,
       );
       const analyzedFilenames = new Set(analyzedResults.map((r: any) => r.event_filename));
       logger.info(`Found ${analyzedFilenames.size} AI-analyzed images to preserve`, 'CLEANUP');
@@ -77,7 +82,10 @@ export class AutomatedCleanupService extends EventEmitter {
 
       for (const event of oldEvents) {
         if (!event.file_path) continue;
-        if (analyzedFilenames.has(event.file_path)) { preserved++; continue; }
+        if (analyzedFilenames.has(event.file_path)) {
+          preserved++;
+          continue;
+        }
 
         const possiblePaths = [
           path.join(DETECTIONS_DIR, 'events', event.camera_id || '', event.file_path),
@@ -94,12 +102,16 @@ export class AutomatedCleanupService extends EventEmitter {
             break;
           } catch (err: unknown) {
             const cleanupErr = err as { code?: string; message?: string };
-            if (cleanupErr.code !== 'ENOENT') logger.error(`Error deleting ${filePath}: ${cleanupErr.message}`, 'CLEANUP');
+            if (cleanupErr.code !== 'ENOENT')
+              logger.error(`Error deleting ${filePath}: ${cleanupErr.message}`, 'CLEANUP');
           }
         }
       }
 
-      logger.info(`Image cleanup complete: ${deleted} deleted, ${preserved} preserved, ${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`, 'CLEANUP');
+      logger.info(
+        `Image cleanup complete: ${deleted} deleted, ${preserved} preserved, ${(freedBytes / 1024 / 1024).toFixed(2)} MB freed`,
+        'CLEANUP',
+      );
       return { deleted, preserved, freedBytes };
     } catch (error) {
       logger.error('Error during image cleanup', 'CLEANUP', error);
@@ -121,14 +133,21 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async scheduleAutomaticCleanup(): Promise<void> {
     const cleanupSchedule = process.env.CLEANUP_SCHEDULE || '0 2 * * *';
-    this.cronTask = cron.schedule(cleanupSchedule, async () => {
-      await this.runAutomaticCleanup();
-    }, { timezone: process.env.TZ || 'UTC' });
+    this.cronTask = cron.schedule(
+      cleanupSchedule,
+      async () => {
+        await this.runAutomaticCleanup();
+      },
+      { timezone: process.env.TZ || 'UTC' },
+    );
     logger.info(`Scheduled automatic cleanup at ${cleanupSchedule}`, 'CLEANUP');
   }
 
   async runAutomaticCleanup(): Promise<void> {
-    if (this.cleanupInProgress) { logger.warn('Cleanup already in progress, skipping', 'CLEANUP'); return; }
+    if (this.cleanupInProgress) {
+      logger.warn('Cleanup already in progress, skipping', 'CLEANUP');
+      return;
+    }
 
     this.cleanupInProgress = true;
     const startTime = Date.now();
@@ -161,7 +180,10 @@ export class AutomatedCleanupService extends EventEmitter {
 
       const totalDeleted = await this.deleteOldFiles(retentionDays);
       if (totalDeleted > 0) {
-        logger.info(`Deleted ${totalDeleted} expired detection files (retention: ${retentionDays} days)`, 'CLEANUP');
+        logger.info(
+          `Deleted ${totalDeleted} expired detection files (retention: ${retentionDays} days)`,
+          'CLEANUP',
+        );
       } else {
         logger.info('No expired detection files to clean up', 'CLEANUP');
       }
@@ -175,14 +197,11 @@ export class AutomatedCleanupService extends EventEmitter {
 
   private async deleteOldFiles(days: number): Promise<number> {
     try {
-      const { stdout } = await execFileAsync('find', [
-        DETECTIONS_DIR,
-        '-name', '*.jpg',
-        '-mtime', `+${days}`,
-        '-type', 'f',
-        '-delete',
-        '-print',
-      ], { timeout: 300000, maxBuffer: 50 * 1024 * 1024 });
+      const { stdout } = await execFileAsync(
+        'find',
+        [DETECTIONS_DIR, '-name', '*.jpg', '-mtime', `+${days}`, '-type', 'f', '-delete', '-print'],
+        { timeout: 300000, maxBuffer: 50 * 1024 * 1024 },
+      );
 
       const count = stdout.trim().split('\n').filter(Boolean).length;
       return count;
@@ -225,9 +244,13 @@ export class AutomatedCleanupService extends EventEmitter {
     }
   }
 
-  isCleanupInProgress(): boolean { return this.cleanupInProgress; }
+  isCleanupInProgress(): boolean {
+    return this.cleanupInProgress;
+  }
 
-  isInitialized(): boolean { return this.initialized; }
+  isInitialized(): boolean {
+    return this.initialized;
+  }
 
   async shutdown(): Promise<void> {
     if (this.cronTask) {

@@ -12,11 +12,17 @@ export class ApiError extends Error {
 }
 
 export class NetworkError extends ApiError {
-  constructor(message: string) { super(message); this.name = 'NetworkError'; }
+  constructor(message: string) {
+    super(message);
+    this.name = 'NetworkError';
+  }
 }
 
 export class TimeoutError extends ApiError {
-  constructor(message: string = 'Request timed out') { super(message); this.name = 'TimeoutError'; }
+  constructor(message: string = 'Request timed out') {
+    super(message);
+    this.name = 'TimeoutError';
+  }
 }
 
 export const API_URL = '/api';

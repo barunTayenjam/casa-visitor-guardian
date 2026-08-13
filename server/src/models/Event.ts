@@ -1,4 +1,3 @@
-
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 import { NormalizedDetection, NormalizedFaceDetection } from '../utils/detectionDataNormalizer.js';
 
@@ -13,7 +12,7 @@ export class Event {
   @Column({
     type: 'varchar',
     length: 50,
-    comment: 'Type of event, e.g., motion, person, car'
+    comment: 'Type of event, e.g., motion, person, car',
   })
   event_type!: string;
 
@@ -21,14 +20,14 @@ export class Event {
     type: 'varchar',
     length: 20,
     default: 'info',
-    comment: 'Severity tier: alert, detection, info'
+    comment: 'Severity tier: alert, detection, info',
   })
   severity!: 'alert' | 'detection' | 'info';
 
-  @Column({ 
+  @Column({
     type: 'varchar',
     length: 255,
-    comment: 'Path to the saved event file (image or video)'
+    comment: 'Path to the saved event file (image or video)',
   })
   file_path!: string;
 
@@ -36,7 +35,7 @@ export class Event {
     type: 'varchar',
     length: 255,
     nullable: true,
-    comment: 'Path to a smaller thumbnail for the event'
+    comment: 'Path to a smaller thumbnail for the event',
   })
   thumbnail_path!: string | null;
 
@@ -47,14 +46,14 @@ export class Event {
     type: 'varchar',
     length: 100,
     nullable: true,
-    comment: 'Identifier for the camera that triggered the event'
+    comment: 'Identifier for the camera that triggered the event',
   })
   camera_id!: string | null;
 
   @Column({
     type: 'text',
     nullable: true,
-    comment: 'Additional data about the event, as a JSON string'
+    comment: 'Additional data about the event, as a JSON string',
   })
   metadata!: string | null;
 
@@ -62,35 +61,35 @@ export class Event {
     type: 'float',
     default: 0,
     nullable: true,
-    comment: 'Confidence score of the detection (0-1)'
+    comment: 'Confidence score of the detection (0-1)',
   })
   confidence!: number | null;
 
   @Column({
     type: 'integer',
     default: 0,
-    comment: 'Number of persons detected in the frame'
+    comment: 'Number of persons detected in the frame',
   })
   persons_detected!: number;
 
   @Column({
     type: 'integer',
     default: 0,
-    comment: 'Total number of faces detected'
+    comment: 'Total number of faces detected',
   })
   faces_detected!: number;
 
   @Column({
     type: 'integer',
     default: 0,
-    comment: 'Number of recognized faces'
+    comment: 'Number of recognized faces',
   })
   known_faces_count!: number;
 
   @Column({
     type: 'integer',
     default: 0,
-    comment: 'Number of unknown faces'
+    comment: 'Number of unknown faces',
   })
   unknown_faces_count!: number;
 
@@ -98,7 +97,7 @@ export class Event {
     type: 'jsonb',
     nullable: true,
     default: () => "'[]'",
-    comment: 'JSONB array of object detection results'
+    comment: 'JSONB array of object detection results',
   })
   object_detections!: NormalizedDetection[];
 
@@ -106,7 +105,7 @@ export class Event {
     type: 'jsonb',
     nullable: true,
     default: () => "'[]'",
-    comment: 'JSONB array of face detection results'
+    comment: 'JSONB array of face detection results',
   })
   face_detections!: NormalizedFaceDetection[];
 

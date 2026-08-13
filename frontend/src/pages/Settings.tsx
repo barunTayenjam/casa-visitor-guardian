@@ -33,7 +33,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { type Theme, getStoredTheme, storeTheme, applyTheme } from '@/lib/theme';
 import { OptimizationSettings } from '@/components/settings/OptimizationSettings';
-import { MotionDetectionSettings, type MotionDetectionSettingsHandle } from '@/components/settings/MotionDetectionSettings';
+import {
+  MotionDetectionSettings,
+  type MotionDetectionSettingsHandle,
+} from '@/components/settings/MotionDetectionSettings';
 import { settingsService } from '@/services/api/settingsService';
 import { notificationService } from '@/services/api/notificationService';
 import { authService } from '@/services/api/authService';
@@ -130,7 +133,7 @@ const SettingsPage = () => {
             eventRetentionDays: sysSettings.storage?.retentionDays || 30,
             cleanupEnabled: sysSettings.storage?.autoCleanup !== false,
           });
-          setNotificationPrefs(prev => ({
+          setNotificationPrefs((prev) => ({
             ...prev,
             emailEnabled: sysSettings.notifications?.emailEnabled || false,
             emailAddress: sysSettings.notifications?.emailAddress || '',
@@ -141,13 +144,14 @@ const SettingsPage = () => {
         toast({
           variant: 'destructive',
           title: 'Failed to load settings',
-          description: error instanceof Error ? error.message : 'Could not load settings from server',
+          description:
+            error instanceof Error ? error.message : 'Could not load settings from server',
         });
       }
       try {
         const prefs = await notificationService.getPreferences();
         if (prefs) {
-          setNotificationPrefs(prev => ({
+          setNotificationPrefs((prev) => ({
             ...prev,
             motionEnabled: prefs.motion_enabled,
             faceEnabled: prefs.face_enabled,
@@ -174,7 +178,7 @@ const SettingsPage = () => {
   const markChanged = () => setHasChanges(true);
 
   const updateSetting = <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
     markChanged();
   };
 
@@ -265,7 +269,10 @@ const SettingsPage = () => {
     setIsChangingPassword(true);
     try {
       await changePassword(passwordData.currentPassword, passwordData.newPassword);
-      toast({ title: 'Password changed', description: 'Your password has been updated successfully.' });
+      toast({
+        title: 'Password changed',
+        description: 'Your password has been updated successfully.',
+      });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
       toast({
@@ -279,7 +286,7 @@ const SettingsPage = () => {
   };
 
   const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
-    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleThemeChange = (value: Theme) => {
@@ -295,7 +302,10 @@ const SettingsPage = () => {
   const handleTestNotification = async () => {
     try {
       await notificationService.sendTestNotification();
-      toast({ title: 'Test notification sent', description: 'Check your device for the notification.' });
+      toast({
+        title: 'Test notification sent',
+        description: 'Check your device for the notification.',
+      });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -311,11 +321,17 @@ const SettingsPage = () => {
       if (pushSubscribed) {
         await notificationService.unsubscribeFromPush();
         setPushSubscribed(false);
-        toast({ title: 'Push notifications disabled', description: 'You will no longer receive browser push notifications.' });
+        toast({
+          title: 'Push notifications disabled',
+          description: 'You will no longer receive browser push notifications.',
+        });
       } else {
         await notificationService.subscribeToPush();
         setPushSubscribed(true);
-        toast({ title: 'Push notifications enabled', description: 'You will now receive browser push notifications.' });
+        toast({
+          title: 'Push notifications enabled',
+          description: 'You will now receive browser push notifications.',
+        });
       }
     } catch (error) {
       toast({
@@ -328,11 +344,15 @@ const SettingsPage = () => {
     }
   };
 
-  const SettingCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  const SettingCard = ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => (
     <div className={cn('bezel', className)}>
-      <div className="bezel-inner p-5 space-y-4">
-        {children}
-      </div>
+      <div className="bezel-inner p-5 space-y-4">{children}</div>
     </div>
   );
 
@@ -368,7 +388,9 @@ const SettingsPage = () => {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-              <p className="text-sm text-muted-foreground mt-1">Configure your SentryVision system</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure your SentryVision system
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -388,10 +410,11 @@ const SettingsPage = () => {
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 md:p-6 max-w-4xl">
           <div className="space-y-6">
-
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-foreground">General Settings</h2>
-              <p className="text-sm text-muted-foreground mt-1">Configure basic system preferences</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure basic system preferences
+              </p>
             </div>
 
             <SettingCard>
@@ -407,14 +430,21 @@ const SettingsPage = () => {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-foreground">Timezone</Label>
-                  <Select value={settings.timezone} onValueChange={(v) => updateSetting('timezone', v)}>
+                  <Select
+                    value={settings.timezone}
+                    onValueChange={(v) => updateSetting('timezone', v)}
+                  >
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select timezone" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</SelectItem>
-                      <SelectItem value="America/New_York">America/New_York (EST, UTC-5)</SelectItem>
-                      <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST, UTC-8)</SelectItem>
+                      <SelectItem value="America/New_York">
+                        America/New_York (EST, UTC-5)
+                      </SelectItem>
+                      <SelectItem value="America/Los_Angeles">
+                        America/Los_Angeles (PST, UTC-8)
+                      </SelectItem>
                       <SelectItem value="Europe/London">Europe/London (GMT, UTC+0)</SelectItem>
                       <SelectItem value="UTC">UTC (UTC+0)</SelectItem>
                     </SelectContent>
@@ -422,7 +452,10 @@ const SettingsPage = () => {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-foreground">Language</Label>
-                  <Select value={settings.language} onValueChange={(v) => updateSetting('language', v)}>
+                  <Select
+                    value={settings.language}
+                    onValueChange={(v) => updateSetting('language', v)}
+                  >
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
@@ -440,7 +473,9 @@ const SettingsPage = () => {
 
             <div className="mb-6 mt-8">
               <h2 className="text-xl font-semibold text-foreground">Notification Preferences</h2>
-              <p className="text-sm text-muted-foreground mt-1">Configure which alerts you receive and when</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure which alerts you receive and when
+              </p>
             </div>
 
             <SettingCard>
@@ -451,8 +486,12 @@ const SettingsPage = () => {
                       <Bell className="h-5 w-5 text-orange-500" />
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-foreground">Browser Push Notifications</Label>
-                      <p className="text-xs text-muted-foreground">Receive push notifications in your browser</p>
+                      <Label className="text-sm font-medium text-foreground">
+                        Browser Push Notifications
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Receive push notifications in your browser
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -471,12 +510,17 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Motion Alerts</Label>
-                      <p className="text-xs text-muted-foreground">Notify when motion is detected</p>
+                      <p className="text-xs text-muted-foreground">
+                        Notify when motion is detected
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={notificationPrefs.motionEnabled}
-                    onCheckedChange={(v) => { setNotificationPrefs(s => ({ ...s, motionEnabled: v })); markChanged(); }}
+                    onCheckedChange={(v) => {
+                      setNotificationPrefs((s) => ({ ...s, motionEnabled: v }));
+                      markChanged();
+                    }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -486,12 +530,17 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Face Alerts</Label>
-                      <p className="text-xs text-muted-foreground">Notify when a face is detected</p>
+                      <p className="text-xs text-muted-foreground">
+                        Notify when a face is detected
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={notificationPrefs.faceEnabled}
-                    onCheckedChange={(v) => { setNotificationPrefs(s => ({ ...s, faceEnabled: v })); markChanged(); }}
+                    onCheckedChange={(v) => {
+                      setNotificationPrefs((s) => ({ ...s, faceEnabled: v }));
+                      markChanged();
+                    }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -501,12 +550,17 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Object Alerts</Label>
-                      <p className="text-xs text-muted-foreground">Notify when objects (cars, packages) are detected</p>
+                      <p className="text-xs text-muted-foreground">
+                        Notify when objects (cars, packages) are detected
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={notificationPrefs.objectEnabled}
-                    onCheckedChange={(v) => { setNotificationPrefs(s => ({ ...s, objectEnabled: v })); markChanged(); }}
+                    onCheckedChange={(v) => {
+                      setNotificationPrefs((s) => ({ ...s, objectEnabled: v }));
+                      markChanged();
+                    }}
                   />
                 </div>
 
@@ -518,12 +572,17 @@ const SettingsPage = () => {
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-foreground">Quiet Hours</Label>
-                        <p className="text-xs text-muted-foreground">Suppress notifications during set hours</p>
+                        <p className="text-xs text-muted-foreground">
+                          Suppress notifications during set hours
+                        </p>
                       </div>
                     </div>
                     <Switch
                       checked={notificationPrefs.quietHoursEnabled}
-                      onCheckedChange={(v) => { setNotificationPrefs(s => ({ ...s, quietHoursEnabled: v })); markChanged(); }}
+                      onCheckedChange={(v) => {
+                        setNotificationPrefs((s) => ({ ...s, quietHoursEnabled: v }));
+                        markChanged();
+                      }}
                     />
                   </div>
                   {notificationPrefs.quietHoursEnabled && (
@@ -533,7 +592,13 @@ const SettingsPage = () => {
                         <Input
                           type="time"
                           value={notificationPrefs.quietHoursStart}
-                          onChange={(e) => { setNotificationPrefs(s => ({ ...s, quietHoursStart: e.target.value })); markChanged(); }}
+                          onChange={(e) => {
+                            setNotificationPrefs((s) => ({
+                              ...s,
+                              quietHoursStart: e.target.value,
+                            }));
+                            markChanged();
+                          }}
                           className="mt-1"
                         />
                       </div>
@@ -543,7 +608,10 @@ const SettingsPage = () => {
                         <Input
                           type="time"
                           value={notificationPrefs.quietHoursEnd}
-                          onChange={(e) => { setNotificationPrefs(s => ({ ...s, quietHoursEnd: e.target.value })); markChanged(); }}
+                          onChange={(e) => {
+                            setNotificationPrefs((s) => ({ ...s, quietHoursEnd: e.target.value }));
+                            markChanged();
+                          }}
                           className="mt-1"
                         />
                       </div>
@@ -558,8 +626,12 @@ const SettingsPage = () => {
                         <Volume2 className="h-5 w-5 text-sky-500" />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-foreground">Test Notification</Label>
-                        <p className="text-xs text-muted-foreground">Send a test push notification to your device</p>
+                        <Label className="text-sm font-medium text-foreground">
+                          Test Notification
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Send a test push notification to your device
+                        </p>
                       </div>
                     </div>
                     <Button size="sm" variant="outline" onClick={handleTestNotification}>
@@ -575,13 +647,20 @@ const SettingsPage = () => {
                         <Mail className="h-5 w-5 text-rose-500" />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-foreground">Email Notifications</Label>
-                        <p className="text-xs text-muted-foreground">Receive notification summaries via email</p>
+                        <Label className="text-sm font-medium text-foreground">
+                          Email Notifications
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Receive notification summaries via email
+                        </p>
                       </div>
                     </div>
                     <Switch
                       checked={notificationPrefs.emailEnabled}
-                      onCheckedChange={(v) => { setNotificationPrefs(s => ({ ...s, emailEnabled: v })); markChanged(); }}
+                      onCheckedChange={(v) => {
+                        setNotificationPrefs((s) => ({ ...s, emailEnabled: v }));
+                        markChanged();
+                      }}
                     />
                   </div>
                   {notificationPrefs.emailEnabled && (
@@ -590,7 +669,10 @@ const SettingsPage = () => {
                         type="email"
                         placeholder="your@email.com"
                         value={notificationPrefs.emailAddress}
-                        onChange={(e) => { setNotificationPrefs(s => ({ ...s, emailAddress: e.target.value })); markChanged(); }}
+                        onChange={(e) => {
+                          setNotificationPrefs((s) => ({ ...s, emailAddress: e.target.value }));
+                          markChanged();
+                        }}
                         className="mt-1"
                       />
                     </div>
@@ -601,14 +683,18 @@ const SettingsPage = () => {
 
             <div className="mb-6 mt-8">
               <h2 className="text-xl font-semibold text-foreground">Detection Settings</h2>
-              <p className="text-sm text-muted-foreground mt-1">Configure motion detection sensitivity</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure motion detection sensitivity
+              </p>
             </div>
 
             <MotionDetectionSettings ref={motionSettingsRef} markChanged={markChanged} />
 
             <div className="mb-6 mt-8">
               <h2 className="text-xl font-semibold text-foreground">Data & Storage</h2>
-              <p className="text-sm text-muted-foreground mt-1">Configure data retention and cleanup</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure data retention and cleanup
+              </p>
             </div>
 
             <OptimizationSettings />
@@ -622,12 +708,17 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Image Retention</Label>
-                      <p className="text-xs text-muted-foreground">Days to keep images before cleanup</p>
+                      <p className="text-xs text-muted-foreground">
+                        Days to keep images before cleanup
+                      </p>
                     </div>
                   </div>
                   <Select
                     value={retentionSettings.imageRetentionDays.toString()}
-                    onValueChange={(v) => { setRetentionSettings(s => ({ ...s, imageRetentionDays: parseInt(v) })); markChanged(); }}
+                    onValueChange={(v) => {
+                      setRetentionSettings((s) => ({ ...s, imageRetentionDays: parseInt(v) }));
+                      markChanged();
+                    }}
                   >
                     <SelectTrigger className="w-24 bg-muted border-input">
                       <SelectValue />
@@ -648,12 +739,17 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Event Records</Label>
-                      <p className="text-xs text-muted-foreground">Days to keep event records in database</p>
+                      <p className="text-xs text-muted-foreground">
+                        Days to keep event records in database
+                      </p>
                     </div>
                   </div>
                   <Select
                     value={retentionSettings.eventRetentionDays.toString()}
-                    onValueChange={(v) => { setRetentionSettings(s => ({ ...s, eventRetentionDays: parseInt(v) })); markChanged(); }}
+                    onValueChange={(v) => {
+                      setRetentionSettings((s) => ({ ...s, eventRetentionDays: parseInt(v) }));
+                      markChanged();
+                    }}
                   >
                     <SelectTrigger className="w-24 bg-muted border-input">
                       <SelectValue />
@@ -674,15 +770,20 @@ const SettingsPage = () => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-foreground">Auto Cleanup</Label>
-                      <p className="text-xs text-muted-foreground">Automatically clean old images (runs daily at 2 AM)</p>
+                      <p className="text-xs text-muted-foreground">
+                        Automatically clean old images (runs daily at 2 AM)
+                      </p>
                     </div>
                   </div>
                   <Button
-                    variant={retentionSettings.cleanupEnabled ? "default" : "outline"}
+                    variant={retentionSettings.cleanupEnabled ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => { setRetentionSettings(s => ({ ...s, cleanupEnabled: !s.cleanupEnabled })); markChanged(); }}
+                    onClick={() => {
+                      setRetentionSettings((s) => ({ ...s, cleanupEnabled: !s.cleanupEnabled }));
+                      markChanged();
+                    }}
                   >
-                    {retentionSettings.cleanupEnabled ? "Enabled" : "Disabled"}
+                    {retentionSettings.cleanupEnabled ? 'Enabled' : 'Disabled'}
                   </Button>
                 </div>
               </div>
@@ -731,7 +832,9 @@ const SettingsPage = () => {
 
             <div className="mb-6 mt-8">
               <h2 className="text-xl font-semibold text-foreground">Security</h2>
-              <p className="text-sm text-muted-foreground mt-1">Two-factor authentication settings</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Two-factor authentication settings
+              </p>
             </div>
 
             <SettingCard>
@@ -742,7 +845,9 @@ const SettingsPage = () => {
                       <Lock className="h-5 w-5 text-rose-500" />
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-foreground">Two-Factor Authentication</Label>
+                      <Label className="text-sm font-medium text-foreground">
+                        Two-Factor Authentication
+                      </Label>
                       <p className="text-xs text-muted-foreground">
                         {mfaStatus === 'enabled'
                           ? 'MFA is currently enabled'
@@ -760,7 +865,12 @@ const SettingsPage = () => {
                       variant="outline"
                       disabled={mfaLoading}
                       onClick={async () => {
-                        if (!window.confirm('Are you sure you want to disable two-factor authentication?')) return;
+                        if (
+                          !window.confirm(
+                            'Are you sure you want to disable two-factor authentication?',
+                          )
+                        )
+                          return;
                         setMfaLoading(true);
                         try {
                           const res = await authService.disableMFA();
@@ -769,7 +879,10 @@ const SettingsPage = () => {
                             setMfaQrCode('');
                             setMfaSecretPreview('');
                             setMfaCode('');
-                            toast({ title: 'MFA disabled', description: 'Two-factor authentication has been disabled.' });
+                            toast({
+                              title: 'MFA disabled',
+                              description: 'Two-factor authentication has been disabled.',
+                            });
                           }
                         } catch (error) {
                           toast({
@@ -818,11 +931,7 @@ const SettingsPage = () => {
                 {mfaStatus === 'verify' && mfaQrCode && (
                   <div className="space-y-4 pt-2 border-t border-border">
                     <div className="flex justify-center">
-                      <img
-                        src={mfaQrCode}
-                        alt="MFA QR Code"
-                        className="w-48 h-48 rounded-lg"
-                      />
+                      <img src={mfaQrCode} alt="MFA QR Code" className="w-48 h-48 rounded-lg" />
                     </div>
                     {mfaSecretPreview && (
                       <p className="text-xs text-center text-muted-foreground">
@@ -897,7 +1006,9 @@ const SettingsPage = () => {
                     <Input
                       type={showPasswords.current ? 'text' : 'password'}
                       value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
+                      }
                       className="pr-10"
                       required
                     />
@@ -905,9 +1016,15 @@ const SettingsPage = () => {
                       type="button"
                       onClick={() => togglePasswordVisibility('current')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPasswords.current ? 'Hide current password' : 'Show current password'}
+                      aria-label={
+                        showPasswords.current ? 'Hide current password' : 'Show current password'
+                      }
                     >
-                      {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPasswords.current ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -917,7 +1034,9 @@ const SettingsPage = () => {
                     <Input
                       type={showPasswords.new ? 'text' : 'password'}
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
+                      }
                       className="pr-10"
                       minLength={8}
                       required
@@ -928,17 +1047,25 @@ const SettingsPage = () => {
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       aria-label={showPasswords.new ? 'Hide new password' : 'Show new password'}
                     >
-                      {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPasswords.new ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-foreground">Confirm New Password</Label>
+                  <Label className="text-sm font-medium text-foreground">
+                    Confirm New Password
+                  </Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.confirm ? 'text' : 'password'}
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                      }
                       className="pr-10"
                       minLength={8}
                       required
@@ -947,16 +1074,27 @@ const SettingsPage = () => {
                       type="button"
                       onClick={() => togglePasswordVisibility('confirm')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
+                      aria-label={
+                        showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'
+                      }
                     >
-                      {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPasswords.confirm ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
                 <div className="pt-2">
                   <Button
                     type="submit"
-                    disabled={isChangingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                    disabled={
+                      isChangingPassword ||
+                      !passwordData.currentPassword ||
+                      !passwordData.newPassword ||
+                      !passwordData.confirmPassword
+                    }
                     className="w-full sm:w-auto"
                   >
                     <Lock className="h-4 w-4 mr-2" />
@@ -965,7 +1103,6 @@ const SettingsPage = () => {
                 </div>
               </form>
             </SettingCard>
-
           </div>
         </div>
       </div>

@@ -37,16 +37,17 @@ The script auto-detects your LAN IP, generates secure secrets, builds containers
                      └─────────────┘                          └─────────────┘
 ```
 
-| Service | Stack | Port |
-|---------|-------|------|
-| Backend (serves frontend + API) | Express 5 + TypeScript + TypeORM + Socket.io | 9753 |
-| Frontend (static, served by backend) | React 18 + TypeScript + Vite + TailwindCSS + Radix UI | 9753 |
-| OpenCV | Python Flask + MOG2 + YOLOv8n ONNX + InsightFace + ByteTracker | 8084 / 9090 |
-| go2rtc | RTSP → WebRTC bridge | 8555 (WebRTC) / 1984 (API) |
-| Database | PostgreSQL 15+ (26 migrations) | 5432 |
-| Cache | In-memory (Redis optional) | — |
+| Service                              | Stack                                                          | Port                       |
+| ------------------------------------ | -------------------------------------------------------------- | -------------------------- |
+| Backend (serves frontend + API)      | Express 5 + TypeScript + TypeORM + Socket.io                   | 9753                       |
+| Frontend (static, served by backend) | React 18 + TypeScript + Vite + TailwindCSS + Radix UI          | 9753                       |
+| OpenCV                               | Python Flask + MOG2 + YOLOv8n ONNX + InsightFace + ByteTracker | 8084 / 9090                |
+| go2rtc                               | RTSP → WebRTC bridge                                           | 8555 (WebRTC) / 1984 (API) |
+| Database                             | PostgreSQL 15+ (26 migrations)                                 | 5432                       |
+| Cache                                | In-memory (Redis optional)                                     | —                          |
 
 **Key design decisions:**
+
 - **Frontend merged into backend**: Single container serves both static files and API — one less container, simpler deployment.
 - **Redis removed by default**: In-memory cache replaces Redis — saves ~150MB RAM on low-end hardware. Set `REDIS_DISABLED=true`.
 - **go2rtc as RTSP gateway**: Cameras (especially TP-LINK) allow only 1 concurrent RTSP connection. go2rtc holds it; Python consumes the re-stream.
@@ -98,21 +99,25 @@ Add cameras via the web UI (Settings → Cameras) or edit `server/cameras.json` 
 {
   "id": "cam1",
   "name": "Front Door",
-  "streams": [{
-    "path": "rtsp://user:pass@192.168.1.100:554/stream1",
-    "roles": ["live", "detect", "record"],
-    "width": 1920, "height": 1080, "fps": 2
-  }],
+  "streams": [
+    {
+      "path": "rtsp://user:pass@192.168.1.100:554/stream1",
+      "roles": ["live", "detect", "record"],
+      "width": 1920,
+      "height": 1080,
+      "fps": 2
+    }
+  ],
   "objects": { "track": ["person", "car", "dog", "cat"] }
 }
 ```
 
 ## Service URLs
 
-| Service | URL |
-|---------|-----|
-| Web UI | http://localhost:9753 |
-| go2rtc admin | http://localhost:1984 |
+| Service       | URL                          |
+| ------------- | ---------------------------- |
+| Web UI        | http://localhost:9753        |
+| go2rtc admin  | http://localhost:1984        |
 | OpenCV health | http://localhost:8084/health |
 
 ## Project Structure
@@ -148,14 +153,14 @@ Add cameras via the web UI (Settings → Cameras) or edit `server/cameras.json` 
 
 Key variables in `.env`:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | (required) | Database password |
-| `JWT_ACCESS_SECRET` | (required) | JWT signing secret |
-| `REDIS_DISABLED` | `true` | Skip Redis, use in-memory cache |
-| `LOW_RESOURCE_MODE` | `true` | Lower memory/CPU limits |
-| `DEFAULT_FPS` | `2` | Detection pipeline frames per second |
-| `SEED_ADMIN_PASSWORD` | `admin123` | First-run admin password |
+| Variable              | Default    | Description                          |
+| --------------------- | ---------- | ------------------------------------ |
+| `POSTGRES_PASSWORD`   | (required) | Database password                    |
+| `JWT_ACCESS_SECRET`   | (required) | JWT signing secret                   |
+| `REDIS_DISABLED`      | `true`     | Skip Redis, use in-memory cache      |
+| `LOW_RESOURCE_MODE`   | `true`     | Lower memory/CPU limits              |
+| `DEFAULT_FPS`         | `2`        | Detection pipeline frames per second |
+| `SEED_ADMIN_PASSWORD` | `admin123` | First-run admin password             |
 
 ## Commands
 
@@ -194,12 +199,12 @@ bash scripts/health.sh       # Service health monitoring
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---------|-----|
-| No frames from camera | Camera may reject multiple RTSP connections. go2rtc holds the single slot; verify `go2rtc.yaml` is correct. |
-| OpenCV not connecting | `curl http://localhost:8084/health` — check Docker logs |
-| Port conflicts | Ensure ports 9753, 8084, 9090, 8555, 1984, 5432 are free |
-| WebRTC not working on LAN | Verify candidates in `go2rtc.yaml` match your LAN IP |
+| Problem                   | Fix                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| No frames from camera     | Camera may reject multiple RTSP connections. go2rtc holds the single slot; verify `go2rtc.yaml` is correct. |
+| OpenCV not connecting     | `curl http://localhost:8084/health` — check Docker logs                                                     |
+| Port conflicts            | Ensure ports 9753, 8084, 9090, 8555, 1984, 5432 are free                                                    |
+| WebRTC not working on LAN | Verify candidates in `go2rtc.yaml` match your LAN IP                                                        |
 
 ## License
 

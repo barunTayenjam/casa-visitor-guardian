@@ -30,18 +30,18 @@ interface MotionEvent {
 // Generate daily report with visitor statistics and snapshots
 async function generateDailyReport(io: SocketIOServer) {
   // Daily report log disabled - console.log('Generating daily report...');
-  
+
   try {
     // Get the stream manager from the service registry
     const streamManager = serviceRegistry.getStreamManager();
-    
+
     let eventsLast24Hours: MotionEvent[] = [];
     try {
       const rows = await AppDataSource.query(
         `SELECT id, camera_id, timestamp, file_path, confidence
          FROM events
          WHERE timestamp > NOW() - INTERVAL '24 hours'
-         ORDER BY timestamp DESC`
+         ORDER BY timestamp DESC`,
       );
       eventsLast24Hours = (rows || []).map((row: any) => ({
         id: row.id,
@@ -54,32 +54,38 @@ async function generateDailyReport(io: SocketIOServer) {
     } catch (dbError) {
       logger.warn(`Failed to query recent events for daily report: ${dbError}`, 'Cron');
     }
-    
+
     // Group events by camera
-    const eventsByCamera = eventsLast24Hours.reduce((acc, event) => {
-      if (!acc[event.cameraId]) {
-        acc[event.cameraId] = [];
-      }
-      acc[event.cameraId].push(event);
-      return acc;
-    }, {} as Record<string, MotionEvent[]>);
-    
+    const eventsByCamera = eventsLast24Hours.reduce(
+      (acc, event) => {
+        if (!acc[event.cameraId]) {
+          acc[event.cameraId] = [];
+        }
+        acc[event.cameraId].push(event);
+        return acc;
+      },
+      {} as Record<string, MotionEvent[]>,
+    );
+
     // Generate statistics
     const totalEvents = eventsLast24Hours.length;
     const cameraStats = Object.entries(eventsByCamera).map(([cameraId, events]) => ({
       cameraId,
       eventCount: events.length,
       firstEvent: events[events.length - 1]?.timestamp,
-      lastEvent: events[0]?.timestamp
+      lastEvent: events[0]?.timestamp,
     }));
-    
+
     // Get camera names
     const cameras = streamManager.getAllCameras();
-    const cameraNames = cameras.reduce((acc: Record<string, string>, cam: { id: string; name: string }) => {
-      acc[cam.id] = cam.name;
-      return acc;
-    }, {} as Record<string, string>);
-    
+    const cameraNames = cameras.reduce(
+      (acc: Record<string, string>, cam: { id: string; name: string }) => {
+        acc[cam.id] = cam.name;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
     // In a real implementation, this would generate an email report
     // For this simplified version, we'll just emit an event with the report data
     const reportData = {
@@ -89,28 +95,28 @@ async function generateDailyReport(io: SocketIOServer) {
       eventsByCamera: Object.entries(eventsByCamera).map(([cameraId, events]) => ({
         cameraId,
         cameraName: cameraNames[cameraId] || cameraId,
-        events: events.slice(0, 5).map(event => ({
+        events: events.slice(0, 5).map((event) => ({
           id: event.id,
           timestamp: event.timestamp,
           imagePath: event.imagePath,
-          confidence: event.confidence
-        }))
-      }))
+          confidence: event.confidence,
+        })),
+      })),
     };
-    
+
     // Emit the report to connected clients
     io.emit('dailyReport', { success: true, report: reportData });
-    
+
     // Daily report success log disabled - console.log('Daily report generated successfully');
     return {
       success: true,
-      report: reportData
+      report: reportData,
     };
   } catch (error) {
     // Daily report error log disabled - console.error('Error generating daily report:', error);
     return {
       success: false,
-      error: 'Failed to generate daily report'
+      error: 'Failed to generate daily report',
     };
   }
 }
@@ -136,7 +142,10 @@ export function startCronJobs(io: SocketIOServer) {
       const results = await timelapseService.stitchYesterday();
       const ok = results.filter((r) => r.ok).length;
       const failed = results.filter((r) => !r.ok && r.error !== 'No raw frames captured');
-      logger.info(`Nightly stitch: ${ok}/${results.length} cameras ok, ${failed.length} failures`, 'Cron');
+      logger.info(
+        `Nightly stitch: ${ok}/${results.length} cameras ok, ${failed.length} failures`,
+        'Cron',
+      );
       if (failed.length > 0) {
         logger.warn(`Stitch failures: ${JSON.stringify(failed)}`, 'Cron');
       }
@@ -155,7 +164,8 @@ export function startCronJobs(io: SocketIOServer) {
       logger.error(`Timelapse cleanup failed: ${err}`, 'Cron');
     }
   });
-  cron.schedule('*/30 * * * *', () => { // Every 30 minutes
+  cron.schedule('*/30 * * * *', () => {
+    // Every 30 minutes
     // Health check log disabled - console.log('Running camera health check');
     checkCameraHealth(io);
   });
@@ -207,11 +217,12 @@ async function cleanupOldFiles() {
     const now = Date.now();
 
     // Import database dynamically
-    const { getBatchProcessingDatabase } = await import('../services/batchProcessingDatabasePostgres.js');
+    const { getBatchProcessingDatabase } =
+      await import('../services/batchProcessingDatabasePostgres.js');
     const db = await getBatchProcessingDatabase();
 
     if (!db) {
-       logger.warn('Database not available for cleanup', 'Cron');
+      logger.warn('Database not available for cleanup', 'Cron');
       return;
     }
 
@@ -221,7 +232,7 @@ async function cleanupOldFiles() {
        SET is_archived = true
        WHERE created_at < NOW() - INTERVAL '30 days'
          AND is_archived = false
-         AND is_deleted = false`
+         AND is_deleted = false`,
     );
 
     // Get archived files for filesystem cleanup
@@ -230,7 +241,7 @@ async function cleanupOldFiles() {
        FROM events
        WHERE is_archived = true
          AND is_deleted = false
-       LIMIT 10000`
+       LIMIT 10000`,
     );
 
     // Move files to archive
@@ -250,18 +261,18 @@ async function cleanupOldFiles() {
           `UPDATE detection_files
            SET storage_path = $1
            WHERE file_uuid = $2`,
-          [archivePath, file.file_uuid]
+          [archivePath, file.file_uuid],
         );
       } catch (err) {
-         logger.error(`Error archiving file ${file.file_uuid}`, 'Cron', err);
+        logger.error(`Error archiving file ${file.file_uuid}`, 'Cron', err);
       }
     }
 
     // Cleanup completion log disabled
-     logger.info(`Archived ${archivedFiles.length} files`, 'Cron');
+    logger.info(`Archived ${archivedFiles.length} files`, 'Cron');
   } catch (error) {
     // Cleanup error log disabled
-     logger.error('Error cleaning up old files', 'Cron', error);
+    logger.error('Error cleaning up old files', 'Cron', error);
   }
 }
 
@@ -269,10 +280,10 @@ async function cleanupOldFiles() {
 function checkCameraHealth(io: SocketIOServer) {
   try {
     const streamManager = serviceRegistry.getStreamManager();
-    
+
     const cameras = streamManager.getAllCameras();
     // Camera health check log disabled - console.log(`Checking health of ${cameras.length} cameras`);
-    
+
     // Check each camera
     cameras.forEach((camera: { id: string; name: string; isActive: boolean }) => {
       // Camera status log disabled - console.log(`Camera health check: Camera ${camera.id} is active: ${camera.isActive}`); // Added logging
@@ -283,14 +294,14 @@ function checkCameraHealth(io: SocketIOServer) {
         streamManager.startStream(camera.id, 'detect');
       }
     });
-    
+
     // Emit system status update
     io.emit('systemStatus', {
       status: 'healthy',
       uptime: process.uptime(),
       totalCameras: cameras.length,
       activeCameras: cameras.filter((c: { isActive: boolean }) => c.isActive).length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     // Health check error log disabled - console.error('Error checking camera health:', error);

@@ -3,24 +3,43 @@ import { Monitor, Activity, Wifi, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface QualityMetrics {
-  resolution: string; fps: number; bandwidth: number; latency: number;
+  resolution: string;
+  fps: number;
+  bandwidth: number;
+  latency: number;
 }
 
-interface QualitySectionProps { metrics: QualityMetrics; className?: string; }
+interface QualitySectionProps {
+  metrics: QualityMetrics;
+  className?: string;
+}
 
 const getFpsStatus = (fps: number): 'good' | 'warning' | 'critical' => {
-  if (fps >= 20) return 'good'; if (fps >= 10) return 'warning'; return 'critical';
+  if (fps >= 20) return 'good';
+  if (fps >= 10) return 'warning';
+  return 'critical';
 };
 const getBandwidthStatus = (bandwidth: number): 'good' | 'warning' | 'critical' => {
-  if (bandwidth >= 1000) return 'good'; if (bandwidth >= 500) return 'warning'; return 'critical';
+  if (bandwidth >= 1000) return 'good';
+  if (bandwidth >= 500) return 'warning';
+  return 'critical';
 };
 const getLatencyStatus = (latency: number): 'good' | 'warning' | 'critical' => {
-  if (latency <= 100) return 'good'; if (latency <= 500) return 'warning'; return 'critical';
+  if (latency <= 100) return 'good';
+  if (latency <= 500) return 'warning';
+  return 'critical';
 };
-const statusColors = { good: 'text-green-400', warning: 'text-yellow-400', critical: 'text-red-400' };
+const statusColors = {
+  good: 'text-green-400',
+  warning: 'text-yellow-400',
+  critical: 'text-red-400',
+};
 
 interface MetricItemProps {
-  icon: React.ElementType; label: string; value: string; status: 'good' | 'warning' | 'critical';
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  status: 'good' | 'warning' | 'critical';
 }
 
 const MetricItem: React.FC<MetricItemProps> = ({ icon: Icon, label, value, status }) => (
@@ -37,10 +56,22 @@ export const QualitySection: React.FC<QualitySectionProps> = ({ metrics, classNa
   const latencyStatus = getLatencyStatus(metrics.latency);
 
   return (
-    <div className={cn('flex items-center gap-3 px-3 py-2 rounded-[0.75rem] bg-white/[0.06]', className)} role="status" aria-label="Stream quality metrics">
+    <div
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 rounded-[0.75rem] bg-white/[0.06]',
+        className,
+      )}
+      role="status"
+      aria-label="Stream quality metrics"
+    >
       <MetricItem icon={Monitor} label="Res" value={metrics.resolution} status="good" />
       <MetricItem icon={Activity} label="FPS" value={`${metrics.fps}`} status={fpsStatus} />
-      <MetricItem icon={Wifi} label="BW" value={`${metrics.bandwidth} Kbps`} status={bandwidthStatus} />
+      <MetricItem
+        icon={Wifi}
+        label="BW"
+        value={`${metrics.bandwidth} Kbps`}
+        status={bandwidthStatus}
+      />
       <MetricItem icon={Clock} label="Lat" value={`${metrics.latency}ms`} status={latencyStatus} />
     </div>
   );

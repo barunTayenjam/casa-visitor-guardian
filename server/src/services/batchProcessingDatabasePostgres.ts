@@ -77,8 +77,8 @@ const batchJobEntity = {
     options_json: { type: 'jsonb' },
     error_message: { type: 'text', nullable: true },
     created_at: { type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' },
-    updated_at: { type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }
-  }
+    updated_at: { type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' },
+  },
 };
 
 // TypeORM Entity for processed_images
@@ -101,8 +101,8 @@ const processedImageEntity = {
     status: { type: 'text' },
     error_message: { type: 'text', nullable: true },
     detection_json: { type: 'jsonb', default: {} },
-    file_hash: { type: 'text' }
-  }
+    file_hash: { type: 'text' },
+  },
 };
 
 export class BatchProcessingDatabasePostgres {
@@ -157,18 +157,23 @@ export class BatchProcessingDatabasePostgres {
       jobData.known_faces,
       jobData.unknown_faces,
       jobData.processing_time_ms || null,
-      typeof jobData.options_json === 'string' ? jobData.options_json : JSON.stringify(jobData.options_json),
+      typeof jobData.options_json === 'string'
+        ? jobData.options_json
+        : JSON.stringify(jobData.options_json),
       jobData.error_message || null,
       now,
-      now
+      now,
     ]);
 
     return result[0]?.id || jobData.id;
   }
 
-  async updateJob(jobId: string, updates: Partial<Omit<BatchJob, 'id' | 'created_at'>>): Promise<boolean> {
+  async updateJob(
+    jobId: string,
+    updates: Partial<Omit<BatchJob, 'id' | 'created_at'>>,
+  ): Promise<boolean> {
     await this.ensureInitialized();
-    
+
     const now = new Date().toISOString();
     const fields = [];
     const values = [];
@@ -197,29 +202,31 @@ export class BatchProcessingDatabasePostgres {
 
     const query = `UPDATE batch_jobs SET ${fields.join(', ')} WHERE id = $${paramIndex}`;
     const result = await this.dataSource.query(query, values);
-    
+
     return (result.rowCount || 0) > 0;
   }
 
   async getJob(jobId: string): Promise<BatchJob | null> {
     await this.ensureInitialized();
-    
+
     const query = 'SELECT * FROM batch_jobs WHERE id = $1';
     const result = await this.dataSource.query(query, [jobId]);
-    
+
     if (result.length === 0) return null;
     return result[0] as BatchJob;
   }
 
-  async getJobs(options: {
-    status?: string;
-    limit?: number;
-    offset?: number;
-    orderBy?: 'created_at' | 'updated_at' | 'start_time';
-    orderDirection?: 'ASC' | 'DESC';
-  } = {}): Promise<BatchJob[]> {
+  async getJobs(
+    options: {
+      status?: string;
+      limit?: number;
+      offset?: number;
+      orderBy?: 'created_at' | 'updated_at' | 'start_time';
+      orderDirection?: 'ASC' | 'DESC';
+    } = {},
+  ): Promise<BatchJob[]> {
     await this.ensureInitialized();
-    
+
     let query = 'SELECT * FROM batch_jobs';
     const params: any[] = [];
     let paramIndex = 1;
@@ -246,41 +253,45 @@ export class BatchProcessingDatabasePostgres {
       }
     }
 
-    return await this.dataSource.query(query, params) as BatchJob[];
+    return (await this.dataSource.query(query, params)) as BatchJob[];
   }
 
   async deleteJob(jobId: string): Promise<boolean> {
     await this.ensureInitialized();
-    
+
     const query = 'DELETE FROM batch_jobs WHERE id = $1';
     const result = await this.dataSource.query(query, [jobId]);
-    
+
     return (result.rowCount || 0) > 0;
   }
 
   // Processed image management methods
   async isImageProcessed(fileHash: string, jobId: string): Promise<boolean> {
     await this.ensureInitialized();
-    
+
     // Check if this exact image was processed in this specific job
     // This prevents cross-job deduplication collisions
-    const query = 'SELECT COUNT(*) as count FROM processed_images WHERE file_hash = $1 AND job_id = $2';
+    const query =
+      'SELECT COUNT(*) as count FROM processed_images WHERE file_hash = $1 AND job_id = $2';
     const result = await this.dataSource.query(query, [fileHash, jobId]);
-    
+
     return (result[0]?.count || 0) > 0;
   }
 
-  async addProcessedImage(imageData: Omit<ProcessedImage, 'processed_at'>, checkDuplicates: boolean = false): Promise<string> {
+  async addProcessedImage(
+    imageData: Omit<ProcessedImage, 'processed_at'>,
+    checkDuplicates: boolean = false,
+  ): Promise<string> {
     await this.ensureInitialized();
 
     const processedAt = new Date().toISOString();
-    const conflictClause = checkDuplicates ? 
-      `ON CONFLICT (file_hash) DO NOTHING` : 
-      `ON CONFLICT (file_hash) DO UPDATE SET 
+    const conflictClause = checkDuplicates
+      ? `ON CONFLICT (file_hash) DO NOTHING`
+      : `ON CONFLICT (file_hash) DO UPDATE SET 
         processed_at = EXCLUDED.processed_at, 
         status = EXCLUDED.status,
         error_message = COALESCE(processed_images.error_message, 'Skipped: duplicate in current job')`;
-    
+
     const query = `
       INSERT INTO processed_images (
         id, job_id, filename, file_path, camera_id, image_timestamp,
@@ -307,10 +318,10 @@ export class BatchProcessingDatabasePostgres {
       imageData.processing_time_ms,
       imageData.status,
       imageData.error_message || null,
-      typeof imageData.detection_json === 'string' 
-        ? imageData.detection_json 
+      typeof imageData.detection_json === 'string'
+        ? imageData.detection_json
         : JSON.stringify(imageData.detection_json),
-      imageData.file_hash
+      imageData.file_hash,
     ]);
 
     return imageData.id;
@@ -318,22 +329,22 @@ export class BatchProcessingDatabasePostgres {
 
   async getProcessedImages(jobId: string): Promise<ProcessedImage[]> {
     await this.ensureInitialized();
-    
+
     const query = `
       SELECT * FROM processed_images 
       WHERE job_id = $1 
       ORDER BY image_timestamp DESC
     `;
-    
-    return await this.dataSource.query(query, [jobId]) as ProcessedImage[];
+
+    return (await this.dataSource.query(query, [jobId])) as ProcessedImage[];
   }
 
   async getProcessedImageDetails(imageId: string): Promise<ProcessedImage | null> {
     await this.ensureInitialized();
-    
+
     const query = 'SELECT * FROM processed_images WHERE id = $1';
     const result = await this.dataSource.query(query, [imageId]);
-    
+
     if (result.length === 0) return null;
     return result[0] as ProcessedImage;
   }
@@ -349,8 +360,8 @@ export class BatchProcessingDatabasePostgres {
     offset?: number;
   }): Promise<ProcessedImage[]> {
     await this.ensureInitialized();
-    
-    let query = 'SELECT * FROM processed_images WHERE status = \'success\'';
+
+    let query = "SELECT * FROM processed_images WHERE status = 'success'";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -398,19 +409,19 @@ export class BatchProcessingDatabasePostgres {
       }
     }
 
-    return await this.dataSource.query(query, params) as ProcessedImage[];
+    return (await this.dataSource.query(query, params)) as ProcessedImage[];
   }
 
   // Statistics and analytics
   async getJobSummary(): Promise<BatchJobSummary> {
     await this.ensureInitialized();
-    
+
     const statusCountsQuery = `
       SELECT status, COUNT(*) as count 
       FROM batch_jobs 
       GROUP BY status
     `;
-    
+
     const statusCounts = await this.dataSource.query(statusCountsQuery);
 
     const totalsQuery = `
@@ -424,7 +435,7 @@ export class BatchProcessingDatabasePostgres {
       FROM batch_jobs 
       WHERE status = 'completed'
     `;
-    
+
     const totals = await this.dataSource.query(totalsQuery);
 
     const summary: BatchJobSummary = {
@@ -439,16 +450,26 @@ export class BatchProcessingDatabasePostgres {
       total_face_detections: 0,
       total_known_faces: 0,
       total_unknown_faces: 0,
-      average_processing_time_ms: 0
+      average_processing_time_ms: 0,
     };
 
     for (const { status, count } of statusCounts) {
       switch (status) {
-        case 'queued': summary.queued_jobs = count; break;
-        case 'running': summary.running_jobs = count; break;
-        case 'completed': summary.completed_jobs = count; break;
-        case 'failed': summary.failed_jobs = count; break;
-        case 'cancelled': summary.cancelled_jobs = count; break;
+        case 'queued':
+          summary.queued_jobs = count;
+          break;
+        case 'running':
+          summary.running_jobs = count;
+          break;
+        case 'completed':
+          summary.completed_jobs = count;
+          break;
+        case 'failed':
+          summary.failed_jobs = count;
+          break;
+        case 'cancelled':
+          summary.cancelled_jobs = count;
+          break;
       }
       summary.total_jobs += count;
     }
@@ -466,16 +487,18 @@ export class BatchProcessingDatabasePostgres {
     return summary;
   }
 
-  async getProcessingHistory(days: number = 7): Promise<Array<{
-    date: string;
-    jobs_completed: number;
-    images_processed: number;
-    persons_detected: number;
-    faces_detected: number;
-    avg_processing_time_ms: number;
-  }>> {
+  async getProcessingHistory(days: number = 7): Promise<
+    Array<{
+      date: string;
+      jobs_completed: number;
+      images_processed: number;
+      persons_detected: number;
+      faces_detected: number;
+      avg_processing_time_ms: number;
+    }>
+  > {
     await this.ensureInitialized();
-    
+
     const query = `
       SELECT 
         DATE(created_at) as date,
@@ -497,13 +520,13 @@ export class BatchProcessingDatabasePostgres {
   // Utility methods
   async cleanupOldJobs(daysToKeep: number = 30): Promise<number> {
     await this.ensureInitialized();
-    
+
     const query = `
       DELETE FROM batch_jobs 
       WHERE created_at < NOW() - INTERVAL '1 day' * $1 
         AND status IN ('completed', 'failed', 'cancelled')
     `;
-    
+
     const result = await this.dataSource.query(query, [daysToKeep]);
     return result.rowCount || 0;
   }
@@ -514,19 +537,19 @@ export class BatchProcessingDatabasePostgres {
     database_size_mb: number;
   }> {
     await this.ensureInitialized();
-    
+
     const jobCountQuery = 'SELECT COUNT(*) as count FROM batch_jobs';
     const imageCountQuery = 'SELECT COUNT(*) as count FROM processed_images';
-    
+
     const [jobCount, imageCount] = await Promise.all([
       this.dataSource.query(jobCountQuery),
-      this.dataSource.query(imageCountQuery)
+      this.dataSource.query(imageCountQuery),
     ]);
 
     return {
       total_jobs: jobCount[0]?.count || 0,
       total_processed_images: imageCount[0]?.count || 0,
-      database_size_mb: 0 // Would need to query pg_stat_user_tables for actual size
+      database_size_mb: 0, // Would need to query pg_stat_user_tables for actual size
     };
   }
 }

@@ -22,27 +22,47 @@ export const notificationService = {
       return response;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get notification preferences', 500, 'GET_NOTIFICATION_PREFERENCES_ERROR');
+      throw new ApiError(
+        'Failed to get notification preferences',
+        500,
+        'GET_NOTIFICATION_PREFERENCES_ERROR',
+      );
     }
   },
 
-  async updatePreferences(prefs: Partial<NotificationPreferences>): Promise<{ message: string; preferences: NotificationPreferences }> {
+  async updatePreferences(
+    prefs: Partial<NotificationPreferences>,
+  ): Promise<{ message: string; preferences: NotificationPreferences }> {
     try {
-      const response = await apiClient.put<{ message: string; preferences: NotificationPreferences }>('/notifications/preferences', prefs);
+      const response = await apiClient.put<{
+        message: string;
+        preferences: NotificationPreferences;
+      }>('/notifications/preferences', prefs);
       return response;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to update notification preferences', 500, 'UPDATE_NOTIFICATION_PREFERENCES_ERROR');
+      throw new ApiError(
+        'Failed to update notification preferences',
+        500,
+        'UPDATE_NOTIFICATION_PREFERENCES_ERROR',
+      );
     }
   },
 
   async resetPreferences(): Promise<{ message: string; preferences: NotificationPreferences }> {
     try {
-      const response = await apiClient.post<{ message: string; preferences: NotificationPreferences }>('/notifications/preferences/reset');
+      const response = await apiClient.post<{
+        message: string;
+        preferences: NotificationPreferences;
+      }>('/notifications/preferences/reset');
       return response;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to reset notification preferences', 500, 'RESET_NOTIFICATION_PREFERENCES_ERROR');
+      throw new ApiError(
+        'Failed to reset notification preferences',
+        500,
+        'RESET_NOTIFICATION_PREFERENCES_ERROR',
+      );
     }
   },
 
@@ -58,7 +78,9 @@ export const notificationService = {
 
   async getVapidPublicKey(): Promise<string> {
     try {
-      const response = await apiClient.get<{ publicKey: string }>('/notifications/vapid-public-key');
+      const response = await apiClient.get<{ publicKey: string }>(
+        '/notifications/vapid-public-key',
+      );
       return response.publicKey;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -68,7 +90,9 @@ export const notificationService = {
 
   async getSubscriptionStatus(): Promise<PushSubscriptionStatus> {
     try {
-      const response = await apiClient.get<{ subscribed: boolean; id?: string; endpoint?: string }>('/notifications/subscription');
+      const response = await apiClient.get<{ subscribed: boolean; id?: string; endpoint?: string }>(
+        '/notifications/subscription',
+      );
       return { subscribed: response.subscribed, endpoint: response.endpoint };
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -78,11 +102,19 @@ export const notificationService = {
 
   async subscribeToPush(): Promise<PushSubscriptionStatus> {
     if (!('serviceWorker' in navigator)) {
-      throw new ApiError('Service workers are not supported by this browser', 400, 'SW_NOT_SUPPORTED');
+      throw new ApiError(
+        'Service workers are not supported by this browser',
+        400,
+        'SW_NOT_SUPPORTED',
+      );
     }
 
     if (!('PushManager' in window)) {
-      throw new ApiError('Push notifications are not supported by this browser', 400, 'PUSH_NOT_SUPPORTED');
+      throw new ApiError(
+        'Push notifications are not supported by this browser',
+        400,
+        'PUSH_NOT_SUPPORTED',
+      );
     }
 
     const registration = await navigator.serviceWorker.ready;

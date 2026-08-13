@@ -8,7 +8,10 @@ const imageCacheTimestamps = new Map<string, number>();
 const CACHE_POSITIVE_TTL = 300_000;
 const CACHE_NEGATIVE_TTL = 60_000;
 
-async function findImagePath(filename: string, subDir: 'events/motion' | 'snapshots'): Promise<string | null> {
+async function findImagePath(
+  filename: string,
+  subDir: 'events/motion' | 'snapshots',
+): Promise<string | null> {
   const now = Date.now();
   const cached = imageCache.get(filename);
   const cacheTime = imageCacheTimestamps.get(filename);
@@ -31,7 +34,9 @@ async function findImagePath(filename: string, subDir: 'events/motion' | 'snapsh
     imageCache.set(filename, likelyPath);
     imageCacheTimestamps.set(filename, now);
     return likelyPath;
-  } catch { /* not in current month, scan further */ }
+  } catch {
+    /* not in current month, scan further */
+  }
 
   for (let y = nowDate.getFullYear(); y >= nowDate.getFullYear() - 4; y--) {
     const startMonth = y === nowDate.getFullYear() ? nowDate.getMonth() : 11;
@@ -44,7 +49,9 @@ async function findImagePath(filename: string, subDir: 'events/motion' | 'snapsh
         imageCache.set(filename, candidate);
         imageCacheTimestamps.set(filename, now);
         return candidate;
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
   }
 
@@ -67,7 +74,10 @@ interface ResolveImageOptions {
   fallbackSubDir: 'events/motion' | 'snapshots';
 }
 
-async function resolveImage(filename: string, options: ResolveImageOptions): Promise<string | null> {
+async function resolveImage(
+  filename: string,
+  options: ResolveImageOptions,
+): Promise<string | null> {
   const { fileTypes, fallbackSubDir } = options;
 
   try {
@@ -82,7 +92,10 @@ async function resolveImage(filename: string, options: ResolveImageOptions): Pro
       ORDER BY created_at DESC
       LIMIT 1
     `;
-    const results: { storage_path: string }[] = await dataSource.query(query, [filename, ...fileTypes]);
+    const results: { storage_path: string }[] = await dataSource.query(query, [
+      filename,
+      ...fileTypes,
+    ]);
 
     if (results.length > 0) {
       let imagePath = results[0].storage_path;
@@ -95,7 +108,10 @@ async function resolveImage(filename: string, options: ResolveImageOptions): Pro
     }
   } catch (dbError: unknown) {
     const msg = dbError instanceof Error ? dbError.message : String(dbError);
-    logger.warn(`Database query failed, falling back to file system scan: ${msg}`, 'ImageFileService');
+    logger.warn(
+      `Database query failed, falling back to file system scan: ${msg}`,
+      'ImageFileService',
+    );
   }
 
   return findImagePath(filename, fallbackSubDir);

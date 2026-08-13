@@ -41,7 +41,18 @@ const DEFAULT_OBJECT_DETECTION_SETTINGS: ObjectDetectionSettings = {
   cooldownPeriod: 1000,
   minConfidence: 0.55,
   maxDetections: 10,
-  targetClasses: ['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'bird', 'horse'],
+  targetClasses: [
+    'person',
+    'car',
+    'truck',
+    'bus',
+    'motorcycle',
+    'bicycle',
+    'dog',
+    'cat',
+    'bird',
+    'horse',
+  ],
 };
 
 const DEFAULT_FACIAL_RECOGNITION_SETTINGS: FacialRecognitionSettings = {
@@ -52,7 +63,9 @@ const DEFAULT_FACIAL_RECOGNITION_SETTINGS: FacialRecognitionSettings = {
 
 export class DetectionSettingsStore {
   private objectDetectionSettings = new Map<string, ObjectDetectionSettings>();
-  private facialRecognitionSettings: FacialRecognitionSettings = { ...DEFAULT_FACIAL_RECOGNITION_SETTINGS };
+  private facialRecognitionSettings: FacialRecognitionSettings = {
+    ...DEFAULT_FACIAL_RECOGNITION_SETTINGS,
+  };
   private motionSettingsStore = new Map<string, MotionSettings>();
 
   constructor() {
@@ -61,9 +74,9 @@ export class DetectionSettingsStore {
 
   async loadFromDb(): Promise<void> {
     try {
-      const rows = await AppDataSource.query(
-        'SELECT camera_id, settings FROM camera_settings'
-      ) as { camera_id: string; settings: any }[];
+      const rows = (await AppDataSource.query(
+        'SELECT camera_id, settings FROM camera_settings',
+      )) as { camera_id: string; settings: any }[];
 
       for (const row of rows) {
         const s = row.settings;
@@ -71,13 +84,19 @@ export class DetectionSettingsStore {
           this.motionSettingsStore.set(row.camera_id, { ...DEFAULT_MOTION_SETTINGS, ...s.motion });
         }
         if (s.objectDetection) {
-          this.objectDetectionSettings.set(row.camera_id, { ...DEFAULT_OBJECT_DETECTION_SETTINGS, ...s.objectDetection });
+          this.objectDetectionSettings.set(row.camera_id, {
+            ...DEFAULT_OBJECT_DETECTION_SETTINGS,
+            ...s.objectDetection,
+          });
         }
       }
 
-      const globalRow = rows.find(r => r.camera_id === 'default');
+      const globalRow = rows.find((r) => r.camera_id === 'default');
       if (globalRow?.settings?.facialRecognition) {
-        this.facialRecognitionSettings = { ...DEFAULT_FACIAL_RECOGNITION_SETTINGS, ...globalRow.settings.facialRecognition };
+        this.facialRecognitionSettings = {
+          ...DEFAULT_FACIAL_RECOGNITION_SETTINGS,
+          ...globalRow.settings.facialRecognition,
+        };
       }
       logger.info(`Loaded detection settings for ${rows.length} cameras`, 'DetectionSettingsStore');
     } catch (error: unknown) {
@@ -102,7 +121,7 @@ export class DetectionSettingsStore {
          VALUES ($1, $2::jsonb)
          ON CONFLICT (camera_id)
          DO UPDATE SET settings = $2::jsonb`,
-        [cameraId, JSON.stringify(settings)]
+        [cameraId, JSON.stringify(settings)],
       );
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -112,7 +131,10 @@ export class DetectionSettingsStore {
   }
 
   getObjectDetectionSettings(cameraId: string): ObjectDetectionSettings {
-    return this.objectDetectionSettings.get(cameraId) || this.objectDetectionSettings.get('default') || { ...DEFAULT_OBJECT_DETECTION_SETTINGS };
+    return (
+      this.objectDetectionSettings.get(cameraId) ||
+      this.objectDetectionSettings.get('default') || { ...DEFAULT_OBJECT_DETECTION_SETTINGS }
+    );
   }
 
   updateObjectDetectionSettings(cameraId: string, settings: ObjectDetectionSettings): void {

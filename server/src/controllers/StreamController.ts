@@ -22,13 +22,13 @@ export class StreamController extends BaseController {
         success: true,
         metrics,
         totalViewers: metrics.reduce((sum: number, m: any) => sum + m.viewerCount, 0),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       res.status(500).json({
         success: false,
         error: 'Failed to get streaming metrics',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -43,18 +43,21 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
 
       if (!camera.isActive || !camera.lastFrame) {
         const placeholder = Buffer.from([
-          0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-          0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43
+          0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00,
+          0x48, 0x00, 0x48, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43,
         ]);
         res.writeHead(200, {
           'Content-Type': 'image/jpeg',
           'Content-Length': placeholder.length.toString(),
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          Pragma: 'no-cache',
         });
         res.end(placeholder);
         return;
@@ -64,12 +67,12 @@ export class StreamController extends BaseController {
         'Content-Type': 'image/jpeg',
         'Content-Length': camera.lastFrame.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Access-Control-Allow-Origin': '*'
+        Pragma: 'no-cache',
+        'Access-Control-Allow-Origin': '*',
       });
       res.end(camera.lastFrame);
     } catch (error) {
-       logger.error(`Error getting snapshot for camera ${cameraId}`, 'Stream', error);
+      logger.error(`Error getting snapshot for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get snapshot' });
     }
   }
@@ -84,17 +87,23 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getAllCameras().find((c: any) => c.id === cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
-      if (!camera.isActive) { res.status(503).json({ success: false, error: 'Camera is not streaming' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
+      if (!camera.isActive) {
+        res.status(503).json({ success: false, error: 'Camera is not streaming' });
+        return;
+      }
 
       const boundary = '--myboundary';
       res.writeHead(200, {
         'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Connection': 'close',
+        Pragma: 'no-cache',
+        Connection: 'close',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control'
+        'Access-Control-Allow-Headers': 'Cache-Control',
       });
 
       let isActive = true;
@@ -102,18 +111,33 @@ export class StreamController extends BaseController {
         if (!isActive || !camera.lastFrame) return;
         const frame = camera.lastFrame;
         try {
-          res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
+          res.write(
+            `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`,
+          );
           res.write(frame);
           res.write(`\r\n--${boundary}\r\n`);
-        } catch { isActive = false; }
+        } catch {
+          isActive = false;
+        }
       };
       const interval = setInterval(sendFrame, 250);
       res.write(`--${boundary}\r\n`);
-      req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
-      req.on('aborted', () => { isActive = false; clearInterval(interval); });
+      req.on('close', () => {
+        isActive = false;
+        clearInterval(interval);
+        try {
+          res.write(`--${boundary}--\r\n`);
+          res.end();
+        } catch {}
+      });
+      req.on('aborted', () => {
+        isActive = false;
+        clearInterval(interval);
+      });
     } catch (error) {
-       logger.error(`Error serving stream for camera ${cameraId}`, 'Stream', error);
-      if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve stream' });
+      logger.error(`Error serving stream for camera ${cameraId}`, 'Stream', error);
+      if (!res.headersSent)
+        res.status(500).json({ success: false, error: 'Failed to serve stream' });
     }
   }
 
@@ -127,7 +151,10 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
 
       if (!camera.isActive) streamManager.startStream(cameraId, 'live');
 
@@ -135,10 +162,10 @@ export class StreamController extends BaseController {
       res.writeHead(200, {
         'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Connection': 'close',
+        Pragma: 'no-cache',
+        Connection: 'close',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control'
+        'Access-Control-Allow-Headers': 'Cache-Control',
       });
 
       let isActive = true;
@@ -146,18 +173,33 @@ export class StreamController extends BaseController {
         if (!isActive || !camera.lastFrame) return;
         const frame = camera.lastFrame;
         try {
-          res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
+          res.write(
+            `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`,
+          );
           res.write(frame);
           res.write(`\r\n--${boundary}\r\n`);
-        } catch { isActive = false; }
+        } catch {
+          isActive = false;
+        }
       };
       const interval = setInterval(sendFrame, 250);
       res.write(`--${boundary}\r\n`);
-      req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
-      req.on('aborted', () => { isActive = false; clearInterval(interval); });
+      req.on('close', () => {
+        isActive = false;
+        clearInterval(interval);
+        try {
+          res.write(`--${boundary}--\r\n`);
+          res.end();
+        } catch {}
+      });
+      req.on('aborted', () => {
+        isActive = false;
+        clearInterval(interval);
+      });
     } catch (error) {
-       logger.error(`Error serving detect stream for camera ${cameraId}`, 'Stream', error);
-      if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve detect stream' });
+      logger.error(`Error serving detect stream for camera ${cameraId}`, 'Stream', error);
+      if (!res.headersSent)
+        res.status(500).json({ success: false, error: 'Failed to serve detect stream' });
     }
   }
 
@@ -171,7 +213,10 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
 
       if (!camera.isActive) streamManager.startStream(cameraId, 'live');
 
@@ -179,10 +224,10 @@ export class StreamController extends BaseController {
       res.writeHead(200, {
         'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Connection': 'close',
+        Pragma: 'no-cache',
+        Connection: 'close',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control'
+        'Access-Control-Allow-Headers': 'Cache-Control',
       });
 
       let isActive = true;
@@ -190,18 +235,33 @@ export class StreamController extends BaseController {
         if (!isActive || !camera.lastFrame) return;
         const frame = camera.lastFrame;
         try {
-          res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
+          res.write(
+            `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`,
+          );
           res.write(frame);
           res.write(`\r\n--${boundary}\r\n`);
-        } catch { isActive = false; }
+        } catch {
+          isActive = false;
+        }
       };
       const interval = setInterval(sendFrame, 250);
       res.write(`--${boundary}\r\n`);
-      req.on('close', () => { isActive = false; clearInterval(interval); try { res.write(`--${boundary}--\r\n`); res.end(); } catch {} });
-      req.on('aborted', () => { isActive = false; clearInterval(interval); });
+      req.on('close', () => {
+        isActive = false;
+        clearInterval(interval);
+        try {
+          res.write(`--${boundary}--\r\n`);
+          res.end();
+        } catch {}
+      });
+      req.on('aborted', () => {
+        isActive = false;
+        clearInterval(interval);
+      });
     } catch (error) {
-       logger.error(`Error serving live stream for camera ${cameraId}`, 'Stream', error);
-      if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to serve live stream' });
+      logger.error(`Error serving live stream for camera ${cameraId}`, 'Stream', error);
+      if (!res.headersSent)
+        res.status(500).json({ success: false, error: 'Failed to serve live stream' });
     }
   }
 
@@ -215,19 +275,25 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
 
-      if (!camera.lastFrame) { res.status(503).json({ success: false, error: 'No frame available' }); return; }
+      if (!camera.lastFrame) {
+        res.status(503).json({ success: false, error: 'No frame available' });
+        return;
+      }
 
       res.writeHead(200, {
         'Content-Type': 'image/jpeg',
         'Content-Length': camera.lastFrame.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       });
       res.end(camera.lastFrame);
     } catch (error) {
-       logger.error(`Error getting frame for camera ${cameraId}`, 'Stream', error);
+      logger.error(`Error getting frame for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get frame' });
     }
   }
@@ -242,15 +308,18 @@ export class StreamController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(cameraId);
-      if (!camera) { res.status(404).json({ success: false, error: 'Camera not found' }); return; }
+      if (!camera) {
+        res.status(404).json({ success: false, error: 'Camera not found' });
+        return;
+      }
 
       const streams = {
         live: {
           isActive: camera.isActive,
           fps: camera.adaptiveFps || 4,
           hasFrame: !!camera.lastFrame,
-          frameSize: camera.lastFrame?.length || 0
-        }
+          frameSize: camera.lastFrame?.length || 0,
+        },
       };
 
       res.json({
@@ -259,10 +328,10 @@ export class StreamController extends BaseController {
         cameraName: camera.name,
         isActive: camera.isActive,
         streams,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-       logger.error(`Error getting stream status for camera ${cameraId}`, 'Stream', error);
+      logger.error(`Error getting stream status for camera ${cameraId}`, 'Stream', error);
       res.status(500).json({ success: false, error: 'Failed to get stream status' });
     }
   }

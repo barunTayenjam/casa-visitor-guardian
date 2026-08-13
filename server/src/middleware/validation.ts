@@ -22,7 +22,10 @@ export interface ValidationRule {
 
 // Validation error class
 export class ValidationError extends Error {
-  constructor(public field: string, public message: string) {
+  constructor(
+    public field: string,
+    public message: string,
+  ) {
     super(`Validation failed for ${field}: ${message}`);
     this.name = 'ValidationError';
   }
@@ -50,11 +53,11 @@ export function validate(schema: ValidationSchema) {
       }
 
       if (errors.length > 0) {
-        logger.warn(`Validation failed: ${errors.map(e => e.message).join(', ')}`, 'Validation');
+        logger.warn(`Validation failed: ${errors.map((e) => e.message).join(', ')}`, 'Validation');
         return res.status(400).json({
           success: false,
           error: 'Validation failed',
-          details: errors.map(e => ({ field: e.field, message: e.message }))
+          details: errors.map((e) => ({ field: e.field, message: e.message })),
         });
       }
 
@@ -63,7 +66,7 @@ export function validate(schema: ValidationSchema) {
       logger.error(`Validation middleware error: ${error}`, 'Validation');
       return res.status(500).json({
         success: false,
-        error: 'Internal server error during validation'
+        error: 'Internal server error during validation',
       });
     }
   };
@@ -74,7 +77,7 @@ function validateObject(
   obj: Record<string, unknown>,
   schema: Record<string, ValidationRule>,
   context: string,
-  errors: ValidationError[]
+  errors: ValidationError[],
 ) {
   for (const [field, rule] of Object.entries(schema)) {
     const value = obj?.[field];
@@ -92,7 +95,9 @@ function validateObject(
 
     // Type validation
     if (!validateType(value, rule.type)) {
-      errors.push(new ValidationError(`${context}.${field}`, `${field} must be of type ${rule.type}`));
+      errors.push(
+        new ValidationError(`${context}.${field}`, `${field} must be of type ${rule.type}`),
+      );
       continue;
     }
 
@@ -101,11 +106,21 @@ function validateObject(
       const strValue = String(value);
 
       if (rule.minLength !== undefined && strValue.length < rule.minLength) {
-        errors.push(new ValidationError(`${context}.${field}`, `${field} must be at least ${rule.minLength} characters long`));
+        errors.push(
+          new ValidationError(
+            `${context}.${field}`,
+            `${field} must be at least ${rule.minLength} characters long`,
+          ),
+        );
       }
 
       if (rule.maxLength !== undefined && strValue.length > rule.maxLength) {
-        errors.push(new ValidationError(`${context}.${field}`, `${field} must be no more than ${rule.maxLength} characters long`));
+        errors.push(
+          new ValidationError(
+            `${context}.${field}`,
+            `${field} must be no more than ${rule.maxLength} characters long`,
+          ),
+        );
       }
 
       if (rule.pattern && !rule.pattern.test(strValue)) {
@@ -113,7 +128,12 @@ function validateObject(
       }
 
       if (rule.enum && !rule.enum.includes(strValue)) {
-        errors.push(new ValidationError(`${context}.${field}`, `${field} must be one of: ${rule.enum.join(', ')}`));
+        errors.push(
+          new ValidationError(
+            `${context}.${field}`,
+            `${field} must be one of: ${rule.enum.join(', ')}`,
+          ),
+        );
       }
     }
 
@@ -122,11 +142,15 @@ function validateObject(
       const numValue = Number(value);
 
       if (rule.min !== undefined && numValue < rule.min) {
-        errors.push(new ValidationError(`${context}.${field}`, `${field} must be at least ${rule.min}`));
+        errors.push(
+          new ValidationError(`${context}.${field}`, `${field} must be at least ${rule.min}`),
+        );
       }
 
       if (rule.max !== undefined && numValue > rule.max) {
-        errors.push(new ValidationError(`${context}.${field}`, `${field} must be no more than ${rule.max}`));
+        errors.push(
+          new ValidationError(`${context}.${field}`, `${field} must be no more than ${rule.max}`),
+        );
       }
     }
 
@@ -176,7 +200,9 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction): 
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
       .replace(/<\/?(?:script|iframe|object|embed|form|link|meta|style|title)\b[^>]*>/gi, '')
       .replace(/<[a-z][a-z0-9-]*(?:\s+[a-z0-9-]+=(?:"[^"]*"|'[^']*'|[^\s>]*))*\s*\/?>/gi, (tag) =>
-        tag.replace(/\bon[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '').replace(/javascript:/gi, '')
+        tag
+          .replace(/\bon[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+          .replace(/javascript:/gi, ''),
       )
       .replace(/javascript:/gi, '')
       .replace(/\bon[a-z]+\s*=/gi, '')

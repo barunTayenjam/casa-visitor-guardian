@@ -99,7 +99,7 @@ export class DetectionService {
       thresholds: Record<string, ThresholdConfig>;
       labelmap: Record<string, string>;
       score_history_length: number;
-    }>
+    }>,
   ): Promise<void> {
     const repo = await this.getRepo();
     let existing = camera
@@ -139,7 +139,7 @@ export class DetectionService {
       score: number;
       object_id?: string;
     }>,
-    camera?: string
+    camera?: string,
   ): Array<{
     label: string;
     score: number;
@@ -192,7 +192,7 @@ export class DetectionService {
       }
     }
 
-    return result.filter(d => !d.filtered);
+    return result.filter((d) => !d.filtered);
   }
 
   private getConfigSync(camera?: string): {
@@ -253,7 +253,7 @@ export class DetectionService {
     }>,
     eventType: 'motion' | 'person' | 'face' | 'object' | 'vehicle' | 'animal' = 'object',
     processingTime: number = 0,
-    filePath?: string
+    filePath?: string,
   ): Promise<Event> {
     if (!AppDataSource.isInitialized) {
       throw new Error('Database not initialized');
@@ -263,12 +263,16 @@ export class DetectionService {
     const configRepo = AppDataSource.getRepository(DetectionConfig);
     const timelineService = new TimelineService(
       AppDataSource.getRepository(Timeline),
-      AppDataSource.getRepository(AdaptiveRegion)
+      AppDataSource.getRepository(AdaptiveRegion),
     );
-    const enhancedDetectionService = new EnhancedDetectionService(eventRepo, timelineService, configRepo);
+    const enhancedDetectionService = new EnhancedDetectionService(
+      eventRepo,
+      timelineService,
+      configRepo,
+    );
 
     // Convert detections to the format expected by EnhancedDetectionService
-    const convertedDetections = detections.map(d => ({
+    const convertedDetections = detections.map((d) => ({
       class: d.label,
       confidence: d.score,
       bbox: { x: 0, y: 0, width: 0, height: 0 }, // Placeholder, will be filled by detection service
@@ -281,7 +285,7 @@ export class DetectionService {
       convertedDetections,
       eventType,
       processingTime,
-      filePath
+      filePath,
     );
   }
 }

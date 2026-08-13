@@ -30,8 +30,14 @@ export class ReviewService {
   constructor(
     private readonly reviewSegmentRepo: Repository<ReviewSegment>,
     private readonly reviewStatusRepo: Repository<UserReviewStatus>,
-    private readonly timelineService: { getActiveObjects: (camera: string) => Promise<Map<string, { label: string; lastSeen: Date; score: number }>> },
-    private readonly previewService: { generatePreview: (segmentId: string, camera: string) => Promise<string> },
+    private readonly timelineService: {
+      getActiveObjects: (
+        camera: string,
+      ) => Promise<Map<string, { label: string; lastSeen: Date; score: number }>>;
+    },
+    private readonly previewService: {
+      generatePreview: (segmentId: string, camera: string) => Promise<string>;
+    },
   ) {}
 
   async getReviewSegments(query: ReviewQuery): Promise<{
@@ -89,7 +95,11 @@ export class ReviewService {
     return status?.has_been_reviewed ?? false;
   }
 
-  async acknowledgeSegment(segmentId: string, userId: string, action?: 'dismiss' | 'confirm'): Promise<void> {
+  async acknowledgeSegment(
+    segmentId: string,
+    userId: string,
+    action?: 'dismiss' | 'confirm',
+  ): Promise<void> {
     const existing = await this.reviewStatusRepo.findOne({
       where: { user_id: userId, review_segment_id: segmentId },
     });
@@ -97,7 +107,7 @@ export class ReviewService {
     if (existing) {
       await this.reviewStatusRepo.update(
         { user_id: userId, review_segment_id: segmentId },
-        { has_been_reviewed: true, reviewed_at: new Date(), review_action: action || null }
+        { has_been_reviewed: true, reviewed_at: new Date(), review_action: action || null },
       );
     } else {
       await this.reviewStatusRepo.save({
@@ -120,7 +130,7 @@ export class ReviewService {
 
     for (const bundle of bundles) {
       const severity = this.calculateSeverity(bundle.objects);
-      const labels = Array.from(new Set([...bundle.objects.values()].map(o => o.label)));
+      const labels = Array.from(new Set([...bundle.objects.values()].map((o) => o.label)));
 
       const segmentId = this.generateSegmentId(bundle.startTime, camera);
 
@@ -144,8 +154,11 @@ export class ReviewService {
 
       await this.reviewSegmentRepo.save(segment);
 
-      this.previewService.generatePreview(segmentId, camera).catch(err => {
-        logger.error(`Failed to generate preview for ${segmentId}: ${err.message}`, 'ReviewService');
+      this.previewService.generatePreview(segmentId, camera).catch((err) => {
+        logger.error(
+          `Failed to generate preview for ${segmentId}: ${err.message}`,
+          'ReviewService',
+        );
       });
     }
 
@@ -153,18 +166,21 @@ export class ReviewService {
   }
 
   private bundleObjects(
-    activeObjects: Map<string, { label: string; lastSeen: Date; score: number }>
+    activeObjects: Map<string, { label: string; lastSeen: Date; score: number }>,
   ): SegmentBundle[] {
     const bundles: SegmentBundle[] = [];
     const sortedObjects = Array.from(activeObjects.entries()).sort(
-      (a, b) => a[1].lastSeen.getTime() - b[1].lastSeen.getTime()
+      (a, b) => a[1].lastSeen.getTime() - b[1].lastSeen.getTime(),
     );
 
     if (sortedObjects.length === 0) return bundles;
 
     const firstEntry = sortedObjects[0];
     let currentBundle: SegmentBundle = {
-      objects: new Map<string, { label: string; lastSeen: Date; score: number }>().set(firstEntry[0], firstEntry[1]),
+      objects: new Map<string, { label: string; lastSeen: Date; score: number }>().set(
+        firstEntry[0],
+        firstEntry[1],
+      ),
       startTime: firstEntry[1].lastSeen,
       endTime: firstEntry[1].lastSeen,
     };
@@ -172,9 +188,13 @@ export class ReviewService {
     for (let i = 1; i < sortedObjects.length; i++) {
       const [id, obj] = sortedObjects[i];
       const objectValues = Array.from(currentBundle.objects.values());
-      const lastObjectTime = objectValues.length > 0 ? objectValues[objectValues.length - 1]?.lastSeen : null;
+      const lastObjectTime =
+        objectValues.length > 0 ? objectValues[objectValues.length - 1]?.lastSeen : null;
 
-      if (lastObjectTime && obj.lastSeen.getTime() - lastObjectTime.getTime() > BUNDLE_THRESHOLD_MS) {
+      if (
+        lastObjectTime &&
+        obj.lastSeen.getTime() - lastObjectTime.getTime() > BUNDLE_THRESHOLD_MS
+      ) {
         bundles.push(currentBundle);
         currentBundle = {
           objects: new Map<string, { label: string; lastSeen: Date; score: number }>().set(id, obj),
@@ -192,8 +212,8 @@ export class ReviewService {
   }
 
   private calculateSeverity(objects: Map<string, { label: string }>): 'alert' | 'detection' {
-    const labels = Array.from(objects.values()).map(o => o.label);
-    return labels.some(l => ALERT_LABELS.includes(l)) ? 'alert' : 'detection';
+    const labels = Array.from(objects.values()).map((o) => o.label);
+    return labels.some((l) => ALERT_LABELS.includes(l)) ? 'alert' : 'detection';
   }
 
   private generateSegmentId(startTime: Date, camera: string): string {

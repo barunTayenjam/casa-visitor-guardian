@@ -9,9 +9,17 @@ import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
 import { DetectionSettingsStore } from './DetectionSettingsStore.js';
 import { DetectionClient } from './DetectionClient.js';
-import type { MotionSettings, ObjectDetectionSettings, FacialRecognitionSettings } from './DetectionSettingsStore.js';
+import type {
+  MotionSettings,
+  ObjectDetectionSettings,
+  FacialRecognitionSettings,
+} from './DetectionSettingsStore.js';
 
-export type { MotionSettings, ObjectDetectionSettings, FacialRecognitionSettings } from './DetectionSettingsStore.js';
+export type {
+  MotionSettings,
+  ObjectDetectionSettings,
+  FacialRecognitionSettings,
+} from './DetectionSettingsStore.js';
 
 export interface DetectionResult {
   class: string;
@@ -58,22 +66,42 @@ export class ConsolidatedDetectionService {
     await this.client.pushConfig(cameraId, settings);
   }
 
-  async detectObjects(cameraId: string, imageBuffer: Buffer): Promise<{ detections: DetectionResult[] }> {
-    throw new Error('HTTP detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).');
+  async detectObjects(
+    cameraId: string,
+    imageBuffer: Buffer,
+  ): Promise<{ detections: DetectionResult[] }> {
+    throw new Error(
+      'HTTP detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).',
+    );
   }
 
-  async detectFaces(cameraId: string, imageBuffer: Buffer): Promise<{ faces: FaceDetection[], knownFaces: FaceDetection[], unknownFaces: FaceDetection[] }> {
-    throw new Error('HTTP face detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).');
+  async detectFaces(
+    cameraId: string,
+    imageBuffer: Buffer,
+  ): Promise<{
+    faces: FaceDetection[];
+    knownFaces: FaceDetection[];
+    unknownFaces: FaceDetection[];
+  }> {
+    throw new Error(
+      'HTTP face detection endpoint is disabled. Detection runs via Python WebSocket pipeline (port 9070).',
+    );
   }
 
   async getServiceStatus(): Promise<{ available: boolean; url: string; responseTime?: number }> {
-    logger.warn('ConsolidatedDetectionService: getServiceStatus() called but HTTP health check path is removed.', 'Detection');
+    logger.warn(
+      'ConsolidatedDetectionService: getServiceStatus() called but HTTP health check path is removed.',
+      'Detection',
+    );
     return { available: true, url: 'python-ws://internal' };
   }
 
   // ==================== OBJECT DETECTION ====================
 
-  async updateObjectDetectionSettings(cameraId: string, settings: Partial<ObjectDetectionSettings>): Promise<ObjectDetectionSettings> {
+  async updateObjectDetectionSettings(
+    cameraId: string,
+    settings: Partial<ObjectDetectionSettings>,
+  ): Promise<ObjectDetectionSettings> {
     const current = this.store.getObjectDetectionSettings(cameraId);
     const updated = { ...current, ...settings };
     this.store.updateObjectDetectionSettings(cameraId, updated);
@@ -87,7 +115,9 @@ export class ConsolidatedDetectionService {
 
   // ==================== FACIAL RECOGNITION ====================
 
-  async updateFacialRecognitionSettings(settings: Partial<FacialRecognitionSettings>): Promise<FacialRecognitionSettings> {
+  async updateFacialRecognitionSettings(
+    settings: Partial<FacialRecognitionSettings>,
+  ): Promise<FacialRecognitionSettings> {
     const current = this.store.getFacialRecognitionSettings();
     const updated = { ...current, ...settings };
     this.store.updateFacialRecognitionSettings(updated);
@@ -105,7 +135,10 @@ export class ConsolidatedDetectionService {
     return this.store.getMotionSettings(cameraId);
   }
 
-  async updateMotionSettings(cameraId: string, settings: Partial<MotionSettings>): Promise<MotionSettings> {
+  async updateMotionSettings(
+    cameraId: string,
+    settings: Partial<MotionSettings>,
+  ): Promise<MotionSettings> {
     const current = this.store.getMotionSettings(cameraId);
     const updated = { ...current, ...settings };
     this.store.updateMotionSettings(cameraId, updated);

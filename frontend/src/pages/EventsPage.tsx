@@ -315,7 +315,7 @@ const EventsPage = () => {
 
       const [response, dailyCount] = await Promise.all([
         eventService.getEnhancedEventsList({
-          page: currentPage, pageSize: 100,
+          page: currentPage, pageSize: 25,
           camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
           start_date: startDate,
           end_date: endDate,

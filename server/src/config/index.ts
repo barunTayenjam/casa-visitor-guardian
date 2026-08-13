@@ -219,4 +219,62 @@ export function setCameras(cameras: CameraConfig[]): void {
 }
 
 export const validateConfig = (): void => {
+  const errors: string[] = [];
+
+  if (!Number.isInteger(config.port) || config.port <= 0 || config.port > 65535) {
+    errors.push(`Invalid port: ${config.port}`);
+  }
+
+  if (!['development', 'test', 'production'].includes(config.nodeEnv)) {
+    errors.push(`Invalid NODE_ENV: ${config.nodeEnv}`);
+  }
+
+  if (!config.jwtSecret || config.jwtSecret.length < 32) {
+    errors.push('JWT_ACCESS_SECRET must be at least 32 characters long');
+  }
+
+  if (config.database.host && config.database.port && (config.database.port <= 0 || config.database.port > 65535)) {
+    errors.push(`Invalid database port: ${config.database.port}`);
+  }
+
+  if (config.security.bcryptRounds < 4 || config.security.bcryptRounds > 15) {
+    errors.push(`Invalid BCRYPT_ROUNDS: ${config.security.bcryptRounds} (expected 4-15)`);
+  }
+
+  if (config.security.maxLoginAttempts < 1) {
+    errors.push(`Invalid MAX_LOGIN_ATTEMPTS: ${config.security.maxLoginAttempts}`);
+  }
+
+  if (config.streaming.frameInterval <= 0) {
+    errors.push(`Invalid FRAME_INTERVAL: ${config.streaming.frameInterval}`);
+  }
+
+  if (config.streaming.defaultFps <= 0 || config.streaming.defaultFps > 60) {
+    errors.push(`Invalid DEFAULT_FPS: ${config.streaming.defaultFps}`);
+  }
+
+  if (config.storage.retentionDays < 1) {
+    errors.push(`Invalid DETECTIONS_RETENTION_DAYS: ${config.storage.retentionDays}`);
+  }
+
+  if (!['legacy', 'dual', 'python-only'].includes(config.pipeline.mode)) {
+    errors.push(`Invalid PIPELINE_MODE: ${config.pipeline.mode}`);
+  }
+
+  if (config.mqtt.enabled && !config.mqtt.host) {
+    errors.push('MQTT_ENABLED requires MQTT_HOST to be set');
+  }
+
+  for (const camera of config.cameras) {
+    if (!camera.id || !camera.name) {
+      errors.push('Every camera must have an id and name');
+    }
+    if (!Array.isArray(camera.streams) || camera.streams.length === 0) {
+      errors.push(`Camera ${camera.id || 'unknown'} must have at least one stream`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Configuration validation failed:\n- ${errors.join('\n- ')}`);
+  }
 };

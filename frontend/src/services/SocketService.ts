@@ -171,15 +171,15 @@ class SocketService {
   }
 
   // Add event listener
-  on(event: string, callback: (...args: unknown[]) => void) {
+  on<C>(event: string, callback: C): () => void {
     if (!this.callbacks.has(event)) {
       this.callbacks.set(event, new Set());
     }
 
-    this.callbacks.get(event)?.add(callback);
+    this.callbacks.get(event)?.add(callback as (...args: unknown[]) => void);
 
     if (this.socket?.connected) {
-      this.socket.on(event, callback);
+      this.socket.on(event, callback as (...args: unknown[]) => void);
     }
 
     return () => this.off(event, callback);
@@ -187,12 +187,12 @@ class SocketService {
 
   // Convenience method for person detection events
     onPersonDetected(callback: (data: PersonDetectedEvent) => void) {
-    return this.on('personDetected', callback as (...args: unknown[]) => void);
+    return this.on('personDetected', callback);
   }
 
   // Convenience method for face detection events
   onFaceDetected(callback: (data: FaceDetectedEvent) => void) {
-    return this.on('faceDetected', callback as (...args: unknown[]) => void);
+    return this.on('faceDetected', callback);
   }
 
   // Convenience method for enhanced motion events
@@ -201,9 +201,9 @@ class SocketService {
   }
 
   // Remove event listener
-  off(event: string, callback: (...args: unknown[]) => void) {
-    this.callbacks.get(event)?.delete(callback);
-    this.socket?.off(event, callback);
+  off<C>(event: string, callback: C) {
+    this.callbacks.get(event)?.delete(callback as (...args: unknown[]) => void);
+    this.socket?.off(event, callback as (...args: unknown[]) => void);
   }
 
   // Check if connected

@@ -100,7 +100,8 @@ class SimpleOpenCVClient {
       const response = await fetch(`${this.serviceUrl}/detect-batch-paths`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
         },
         body: JSON.stringify(payload),
       });

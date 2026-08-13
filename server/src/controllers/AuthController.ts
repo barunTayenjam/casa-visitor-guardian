@@ -9,6 +9,7 @@ import { config } from '../config/index.js';
 import { AppDataSource } from '../database.js';
 import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
+import { invalidateSessionCache } from '../middleware/auth.js';
 
 export class AuthController extends BaseController {
   private authService: AuthService;
@@ -223,6 +224,7 @@ export class AuthController extends BaseController {
           'DELETE FROM user_sessions WHERE user_id = $1',
           [req.user.userId]
         ).catch(err => logger.error(`Failed to delete user sessions on logout: ${err}`, 'AuthRoutes'));
+        invalidateSessionCache(req.user.userId);
       }
       logger.info(`User logged out: ${req.user?.username}`, 'AuthRoutes');
       this.ok(res, { message: 'Logout successful' });

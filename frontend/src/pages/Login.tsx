@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { Eye, EyeOff } from 'lucide-react';
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register, isAuthenticated, isLoading, error, clearError, user, completeLogin } = useAuth();
+  const { register, isAuthenticated, isLoading, error, clearError, user, completeLogin } = useAuth();
   const { toast } = useToast();
 
   const [loginData, setLoginData] = useState({ username: '', password: '' });

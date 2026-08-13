@@ -7,7 +7,7 @@ import { EventTimeline } from '@/components/events/EventTimeline';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
-import { Calendar, Clock, User, Grid, List, Archive, Download, Brain, Film, Users, UserCheck, Moon, ChevronLeft, ChevronRight, Play, Pause, SkipBack, SkipForward, X, AlertTriangle, ShieldAlert, Info } from 'lucide-react';
+import { Calendar, Clock, User, Grid, List, Archive, Download, Brain, Film, Users, UserCheck, Moon, Play, Pause, SkipBack, SkipForward, X, AlertTriangle, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 type ViewMode = 'grid' | 'list';
@@ -48,24 +47,6 @@ function formatConfidence(value: number): string {
   if (value <= 0) return '0%';
   if (value < 0.5) return '< 1%';
   return `${Math.round(value)}%`;
-}
-
-interface ApiEvent {
-  id: string; cameraId: string; cameraName?: string; timestamp: string;
-  imageUrl?: string; filename?: string; confidence: number; event_type: string;
-  severity?: 'alert' | 'detection' | 'info';
-  metadata: Record<string, unknown>; labels?: string[]; persons_detected: number;
-  faces_detected: number; known_faces_count: number; unknown_faces_count: number;
-  object_detections: unknown[]; face_detections: unknown[];
-  analysis?: {
-    sceneDescription?: string;
-    threatAssessment?: { level: string; factors: string[]; confidence: number };
-    detectedEntities?: { people: string[]; vehicles: string[]; objects: string[]; animals: string[] };
-    recommendedActions?: string[];
-    modelUsed?: string;
-    processingTime?: number;
-    analyzedAt?: string;
-  } | null;
 }
 
 function parseDateParam(value: string | null): Date | undefined {
@@ -105,7 +86,6 @@ const EventsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [events, setEvents] = useState<MotionEvent[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<MotionEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -131,7 +111,6 @@ const EventsPage = () => {
   const [showTimelapse, setShowTimelapse] = useState(false);
   const [timelapseList, setTimelapseList] = useState<Array<{ cameraId: string; path: string }>>([]);
   const [activeTimelapseCam, setActiveTimelapseCam] = useState<string | null>(null);
-  const [timelapseLoading, setTimelapseLoading] = useState(false);
 
   const [showSlideshow, setShowSlideshow] = useState(false);
   const [slideshowIndex, setSlideshowIndex] = useState(0);
@@ -212,7 +191,6 @@ const EventsPage = () => {
       setTimelapseList([]);
       return;
     }
-    setTimelapseLoading(true);
     try {
       const [summaryRes, timelapseRes] = await Promise.all([
         systemService.getDaySummary(dateStr),
@@ -222,22 +200,20 @@ const EventsPage = () => {
       if (timelapseRes.success) setTimelapseList(timelapseRes.timelapses);
     } catch (e) {
       console.error(e);
-    } finally {
-      setTimelapseLoading(false);
     }
   }, [dateStr]);
 
   useEffect(() => {
-    loadSummaryAndTimelapse();
-  }, [loadSummaryAndTimelapse]);
+    if (dateStr) loadSummaryAndTimelapse();
+  }, [loadSummaryAndTimelapse, dateStr]);
 
   const applyCategoryFilters = useCallback((evs: MotionEvent[]) => {
     return evs.filter(h => {
       if (severityFilter !== 'all' && h.severity !== severityFilter) return false;
       if (categoryFilter === 'all') return true;
-      if (categoryFilter === 'persons') return h.personCount > 0;
-      if (categoryFilter === 'known') return h.knownFaces > 0;
-      if (categoryFilter === 'unknown') return h.unknownFaces > 0;
+      if (categoryFilter === 'persons') return (h.personCount ?? 0) > 0;
+      if (categoryFilter === 'known') return (h.knownFaces ?? 0) > 0;
+      if (categoryFilter === 'unknown') return (h.unknownFaces ?? 0) > 0;
       if (categoryFilter === 'night') {
         const hour = h.timestamp.getHours();
         return hour >= 22 || hour <= 6;
@@ -246,9 +222,7 @@ const EventsPage = () => {
     });
   }, [categoryFilter, severityFilter]);
 
-  useEffect(() => {
-    setFilteredEvents(applyCategoryFilters(events));
-  }, [events, categoryFilter, applyCategoryFilters]);
+  const filteredEvents = useMemo(() => applyCategoryFilters(events), [events, applyCategoryFilters]);
 
   useEffect(() => {
     if (slideshowPlaying && filteredEvents.length > 0) {
@@ -312,19 +286,18 @@ const EventsPage = () => {
         endDate = filters.dateRange.end.toISOString();
       }
 
-      const [response, dailyCount] = await Promise.all([
-        eventService.getEnhancedEventsList({
-          page: currentPage, pageSize: 25,
-          camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
-          start_date: startDate,
-          end_date: endDate,
-          event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
-          sortBy: sortBy,
-        }),
-        eventService.getDailyStats()
-      ]);
-      setTodayEvents(dailyCount);
-      const transformedEvents = response.events.map((event: ApiEvent): MotionEvent => ({
+      const response = await eventService.getEnhancedEventsList({
+        page: currentPage, pageSize: 25,
+        camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
+        start_date: startDate,
+        end_date: endDate,
+        event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
+        sortBy: sortBy,
+      });
+      // Defer daily stats - non-blocking
+      eventService.getDailyStats().then(setTodayEvents).catch(() => {});
+      setLoading(false); // Stop loading ASAP
+      const transformedEvents = response.events.map((event): MotionEvent => ({
         id: event.id, cameraId: event.cameraId, cameraName: event.cameraName || `Camera ${event.cameraId}`,
         timestamp: new Date(event.timestamp), imageUrl: event.imageUrl || event.filename || null,
         confidence: event.confidence || 0, labels: event.labels || [event.event_type || 'motion'],
@@ -334,7 +307,6 @@ const EventsPage = () => {
         unknownFaces: event.unknown_faces_count || 0, severity: event.severity,
       }));
       setEvents(transformedEvents);
-      setFilteredEvents(transformedEvents);
       const persistedAnalysis: Record<string, AnalysisEntry> = {};
       for (const event of response.events) {
         if (event.analysis) {
@@ -400,16 +372,6 @@ const EventsPage = () => {
       link.click();
       toast({ title: 'Downloaded', description: 'Event image has been downloaded.' });
     }
-  };
-
-  const toggleEventSelection = (eventId: string) => {
-    setSelectedEventIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(eventId)) newSet.delete(eventId);
-      else newSet.add(eventId);
-      setShowBulkActions(newSet.size > 0);
-      return newSet;
-    });
   };
 
   const selectAllEvents = useCallback(() => {
@@ -653,7 +615,7 @@ const EventsPage = () => {
                     'opacity-0',
                   )}
                   style={{
-                    animation: `slide-up-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) ${index * 50}ms forwards`,
+                    animation: `slide-up-reveal 0.3s cubic-bezier(0.22, 1, 0.36, 1) ${Math.min(index * 20, 200)}ms forwards`,
                   }}
                   onClick={() => handleEventSelect(event.id)}
                 >
@@ -692,14 +654,14 @@ const EventsPage = () => {
                           </div>
                         </div>
                       )}
-                      {(event.personCount > 0 || event.faceCount > 0) && (
+                      {((event.personCount ?? 0) > 0 || (event.faceCount ?? 0) > 0) && (
                         <div className="absolute bottom-2 left-2 z-10 flex items-center gap-2">
-                          {event.personCount > 0 && (
+                          {(event.personCount ?? 0) > 0 && (
                             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px]">
                               <User className="h-3 w-3" /> <span>{event.personCount}</span>
                             </div>
                           )}
-                          {event.faceCount > 0 && (
+                          {(event.faceCount ?? 0) > 0 && (
                             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px]">
                               <span>👤 {event.faceCount}</span>
                             </div>
@@ -803,7 +765,7 @@ const EventsPage = () => {
                         </div>
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1"><Clock className="h-3 w-3" /><span>{new Date(event.timestamp).toLocaleString()}</span></div>
-                          {event.personCount > 0 && (
+                          {(event.personCount ?? 0) > 0 && (
                             <div className="flex items-center gap-1"><User className="h-3 w-3" /><span>{event.personCount}</span></div>
                           )}
                         </div>

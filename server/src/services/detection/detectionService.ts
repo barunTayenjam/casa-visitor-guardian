@@ -4,7 +4,7 @@
  * Triggers EnhancedDetectionService for DB persistence.
  * See: consolidatedDetectionService (settings), enhancedDetectionService (DB persistence).
  */
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { DetectionConfig } from '../../models/DetectionConfig.js';
 import { Event } from '../../models/Event.js';
 import { Timeline } from '../../models/Timeline.js';
@@ -50,6 +50,12 @@ export class DetectionService {
   private scoreHistories = new Map<string, ScoreHistory>();
   private configRepo: Repository<DetectionConfig> | null = null;
 
+  constructor(configRepo?: Repository<DetectionConfig>) {
+    if (configRepo) {
+      this.configRepo = configRepo;
+    }
+  }
+
   private async getRepo(): Promise<Repository<DetectionConfig>> {
     if (!this.configRepo) {
       this.configRepo = AppDataSource.getRepository(DetectionConfig);
@@ -74,7 +80,7 @@ export class DetectionService {
     }
 
     if (!config) {
-      config = await repo.findOne({ where: { camera: null } });
+      config = await repo.findOne({ where: { camera: IsNull() } });
     }
 
     const result = {
@@ -98,7 +104,7 @@ export class DetectionService {
     const repo = await this.getRepo();
     let existing = camera
       ? await repo.findOne({ where: { camera } })
-      : await repo.findOne({ where: { camera: null } });
+      : await repo.findOne({ where: { camera: IsNull() } });
 
     const currentConfig = existing?.config || {
       thresholds: DEFAULT_THRESHOLDS,

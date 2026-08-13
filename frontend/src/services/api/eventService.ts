@@ -41,9 +41,12 @@ interface EnhancedEvent {
   filename: string;
   timestamp: string;
   cameraId: string;
+  cameraName?: string;
   confidence: number;
   metadata: Record<string, unknown>;
   imageUrl: string;
+  labels?: string[];
+  severity?: 'alert' | 'detection' | 'info';
   persons_detected: number;
   faces_detected: number;
   known_faces_count: number;

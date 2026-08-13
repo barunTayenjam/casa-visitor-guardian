@@ -111,7 +111,8 @@ router.post('/rerun-detection', requireUser, validateBody(z.object({
     try {
       const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
         headers: {
-          'Content-Type': 'image/jpeg'
+          'Content-Type': 'image/jpeg',
+          ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
         },
         timeout: 30000
       });
@@ -265,7 +266,10 @@ router.post('/rerun-event-detection', requireUser, validateBody(z.object({
     const { getOpenCVServiceUrl } = await import('../config/index.js');
 
     const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
-      headers: { 'Content-Type': 'image/jpeg' },
+      headers: {
+        'Content-Type': 'image/jpeg',
+        ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
+      },
       timeout: 30000
     });
 

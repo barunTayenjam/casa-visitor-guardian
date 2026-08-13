@@ -1,69 +1,67 @@
+---
+mapped: 2026-08-13
+focus: tech
+---
+
 # Technology Stack
 
-**Analysis Date:** 2026-08-13
+> Generated from codebase analysis on 2026-08-13
 
-## Languages
+## Languages & Runtimes
 
-**Primary:**
-- TypeScript 5.9.3 - Backend server
-- TypeScript 5.5.3 - Frontend
-- Python 3.11 - OpenCV detection service
+- **Node.js**: Primary runtime for `frontend` and `server`.
+- **Python**: Primary runtime for `opencv-service` (detection, face recognition).
+- **TypeScript**: Used for all `frontend` and `server` logic.
+- **SQL**: Used for PostgreSQL database operations.
 
-## Runtime
+## Frameworks & Libraries
 
-**Environment:**
-- Node.js (via Docker) - Backend/Frontend
-- Python 3.11 - OpenCV service
+### Frontend
+- **React 18**: Frontend UI framework.
+- **Vite 5**: Build tool and dev server.
+- **TailwindCSS**: CSS framework.
+- **Radix UI / shadcn/ui**: UI primitives.
+- **TanStack Query**: Data fetching/caching (`@tanstack/react-query`).
+- **Socket.io-client**: Real-time communication.
+- **Zod**: Validation.
 
-**Package Manager:**
-- npm - All services
-- Lockfile: present (`package-lock.json`)
+### Backend
+- **Express 5**: Backend API framework.
+- **TypeORM**: ORM for PostgreSQL.
+- **Socket.io**: Real-time server.
+- **Axios**: HTTP client.
+- **Sharp**: Image processing.
 
-## Frameworks
+### OpenCV Service
+- **Flask**: Python web framework.
+- **OpenCV**: Object detection and frame processing.
+- **InsightFace**: Face recognition.
+- **ONNX Runtime**: Model inference.
+- **NumPy**: Data processing.
 
-**Core:**
-- Express 5.2.1 - Backend server
-- React 18.3.1 - Frontend (Vite)
-- Flask 3.0.0 - OpenCV service
+## Build & Dev Tools
 
-**Testing:**
-- Jest - Frontend and Backend
-- Pytest (indicated by `pytest.ini`) - OpenCV service
+- **tsc (TypeScript Compiler)**: Backend type checking and compilation.
+- **ESLint**: Linting for frontend/backend.
+- **Jest / ts-jest**: Testing.
+- **concurrently**: Running dev services.
+- **wait-on**: Dependency checking during development.
+- **tsx**: TypeScript execution tool.
+- **nodemon**: Backend hot-reloading.
 
-**Build/Dev:**
-- Vite 5.4.21 - Frontend
-- Docker Compose - Orchestration
-- tsc - TypeScript compilation
+## Package Management
 
-## Key Dependencies
-
-**Critical:**
-- socket.io - Backend/Frontend realtime communication
-- typeorm - Backend ORM
-- insightface - OpenCV face recognition
-- puppeteer - Frontend/Testing
-- go2rtc - RTSP to WebRTC bridge
-
-**Infrastructure:**
-- PostgreSQL - Main database
-- Redis (indicated by `ioredis`) - Backend caching
+- **npm**: Package manager for frontend, server, and database projects.
+- **pip**: Package manager for `opencv-service` via `requirements.txt`.
 
 ## Configuration
 
-**Environment:**
-- `.env` and `docker-compose.yml` environment variables
+- **Environment Variables**: Managed via `.env` files.
+- **Configuration Files**: `server/cameras.json`, `go2rtc.yaml`, `docker-compose.yml`, `frontend/vite.config.ts`.
 
-**Build:**
-- `package.json` scripts, `tsconfig.json`
+## Infrastructure
 
-## Platform Requirements
-
-**Development:**
-- Docker, Node.js, Python 3.11
-
-**Production:**
-- Docker/Docker Compose
-
----
-
-*Stack analysis: 2026-08-13*
+- **Docker / Docker Compose**: Container orchestration.
+- **PostgreSQL 15+**: Persistent storage.
+- **go2rtc**: RTSP to WebRTC bridge.
+- **FFmpeg**: RTSP streaming/processing support.

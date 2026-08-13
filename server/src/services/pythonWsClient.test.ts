@@ -51,10 +51,14 @@ describe('PythonWsClient', () => {
     const testBuffer = Buffer.from([0x01, 0x02, 0x03, 0x04]);
 
     client.on('connected', () => {
-      // Send binary frame from server to client
-      const clients = [...mockServer.clients];
-      const serverWs = clients[0];
-      serverWs.send(testBuffer);
+      // Small delay to ensure connection is fully established
+      setTimeout(() => {
+        const clients = [...mockServer.clients];
+        const serverWs = clients[0];
+        // The client expects a JSON frame metadata message before the binary payload
+        serverWs.send(JSON.stringify({ type: 'frame', cameraId: null, timestamp: Date.now() }));
+        serverWs.send(testBuffer);
+      }, 50);
     });
 
     client.on('frame', (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {

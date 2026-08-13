@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { settingsService, type DetectionConfig } from '@/services/api/settingsService';
 import { useToast } from '@/hooks/use-toast';
-import { Cpu, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 export const OptimizationSettings = () => {
   const { toast } = useToast();
@@ -29,9 +29,11 @@ export const OptimizationSettings = () => {
   }, []);
 
   const updateConfig = async (newFields: Partial<DetectionConfig>) => {
+    if (!config) return;
+    const updated = { ...config, ...newFields };
     try {
-      await settingsService.updateDetectionConfig({ ...config, ...newFields });
-      setConfig({ ...config, ...newFields });
+      await settingsService.updateDetectionConfig(updated);
+      setConfig(updated);
       toast({ title: 'Saved', description: 'Optimization settings updated.' });
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update.' });

@@ -37,7 +37,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   autoStart = true
 }) => {
   const { startCameraStream, stopCameraStream } = useCameras();
-  const { connected: socketConnected, connectionStatus } = useSocketContext();
+  const { connected: socketConnected } = useSocketContext();
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);

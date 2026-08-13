@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 
 jest.mock('typeorm');
 
+import { Timeline } from './Timeline.js';
 describe('Timeline Model', () => {
   let mockRepo: any;
 
@@ -20,7 +21,6 @@ describe('Timeline Model', () => {
   });
 
   it('should create timeline event entity', () => {
-    const Timeline = require('./Timeline.js').Timeline;
     const event = new Timeline();
     
     event.source = 'tracked_object';
@@ -33,7 +33,6 @@ describe('Timeline Model', () => {
   });
 
   it('should handle metadata', () => {
-    const Timeline = require('./Timeline.js').Timeline;
     const event = new Timeline();
     const metadata = { object_id: '123', score: 0.95 };
     
@@ -43,7 +42,6 @@ describe('Timeline Model', () => {
   });
 
   it('should validate timestamps', () => {
-    const Timeline = require('./Timeline.js').Timeline;
     const event = new Timeline();
     
     event.timestamp = new Date('2024-01-15T10:30:00Z');

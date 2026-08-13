@@ -9,11 +9,7 @@ export default {
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      useESM: true,
-      tsconfig: {
-        module: 'ESNext',
-        target: 'ES2022'
-      }
+      useESM: true
     }]
   },
   collectCoverageFrom: [

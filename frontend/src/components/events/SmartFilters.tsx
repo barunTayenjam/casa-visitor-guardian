@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Calendar, Camera, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Calendar, Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -56,7 +55,6 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Record<string, { count: number; motion: number; face: number; persons: number; avgConfidence: number }>>({});
-  const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
@@ -81,12 +79,10 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({ cameras, filters, on
   }, [onFiltersChange]);
 
   const fetchCalendarData = useCallback(async () => {
-    setLoadingCalendar(true);
     try {
       const result = await eventService.getCalendarStats(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, filters.cameraId === 'all' ? undefined : filters.cameraId);
       setCalendarData(result.data);
     } catch (error) { console.error('Error fetching calendar data:', error); }
-    finally { setLoadingCalendar(false); }
   }, [calendarMonth, filters.cameraId]);
 
   useEffect(() => { if (showCalendar) fetchCalendarData(); }, [showCalendar, fetchCalendarData]);

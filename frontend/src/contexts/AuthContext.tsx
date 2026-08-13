@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { authService } from '@/services/api/authService';
 import { ApiError, setAuthToken } from '@/services/api/baseClient';
 import { logger } from '@/lib/logger';

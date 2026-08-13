@@ -99,14 +99,8 @@ export class StreamManager {
       pythonWs.on('connected', () => {
         this.cameras.forEach((camera, camId) => {
           if (!this.activeSubscriptions.has(camId)) {
-            const perCamera = camera.config.pythonEnabled;
-            const pipelineMode = config.pipeline.mode;
-            if (perCamera === true || (perCamera === undefined && pipelineMode !== 'legacy')) {
-              pythonWs.subscribe(camId);
-              this.activeSubscriptions.add(camId);
-            } else {
-              logger.debug(`Skipping Python subscription for camera ${camId}: pythonEnabled=${perCamera}, mode=${pipelineMode}`, 'StreamManager');
-            }
+            pythonWs.subscribe(camId);
+            this.activeSubscriptions.add(camId);
           } else {
             logger.debug(`Subscription already exists for camera ${camId} on reconnect, preserving existing`, 'StreamManager');
           }

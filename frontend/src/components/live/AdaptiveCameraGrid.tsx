@@ -67,16 +67,12 @@ interface AdaptiveCameraGridProps {
 }
 
 export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras, focusedCameraId, onCameraFocus, slideshowActive = false, onSlideshowChange }) => {
-  const [layout, setLayout] = useState<GridLayout>('adaptive');
-  const [fadeOverlay, setFadeOverlay] = useState(false);
+  const [layout, _setLayout] = useState<GridLayout>('adaptive');
   const [slideshowInterval, setSlideshowInterval] = useState(5);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const slotManagerRef = useRef(new StreamSlotManager(SLOT_MANAGER_MAX));
   const focusedContainerRef = useRef<HTMLDivElement>(null);
   const slideshowTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigateCameraRef = useRef<(direction: 'prev' | 'next') => void>(() => {});
-
-  useEffect(() => { return () => { if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current); }; }, []);
 
   useEffect(() => {
     const slotManager = slotManagerRef.current;
@@ -145,11 +141,6 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
     return base;
   };
 
-  const handleLayoutChange = (newLayout: GridLayout) => {
-    setLayout(newLayout);
-    if (focusedCameraId) onCameraFocus?.(undefined);
-  };
-
   const handleCameraClick = (cameraId: string) => {
     onCameraFocus?.(focusedCameraId === cameraId ? undefined : cameraId);
   };
@@ -172,13 +163,8 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({ cameras,
       nextIndex = direction === 'next' ? (currentIndex + 1) % activeCameras.length : (currentIndex - 1 + activeCameras.length) % activeCameras.length;
     }
     const targetId = activeCameras[nextIndex].id;
-    if (focusedCameraId && currentIndex !== -1) {
-      setFadeOverlay(true);
-      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
-      fadeTimerRef.current = setTimeout(() => setFadeOverlay(false), 300);
-    }
     onCameraFocus?.(targetId);
-  }, [activeCameras, getFocusedIndex, focusedCameraId, onCameraFocus]);
+  }, [activeCameras, getFocusedIndex, onCameraFocus]);
 
   useEffect(() => { navigateCameraRef.current = navigateCamera; }, [navigateCamera]);
 

@@ -189,24 +189,26 @@ describe('AuthController', () => {
 
   describe('refreshToken', () => {
     it('should return 200 with new token for valid token', async () => {
-      mockVerifyToken.mockReturnValue({ userId: '1', username: 'admin', role: 'admin' });
       mockGetUserById.mockResolvedValue({
         id: '1',
         username: 'admin',
         email: 'admin@test.com',
         role: 'admin',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       mockGenerateToken.mockReturnValue('new-jwt-token');
 
       const req: any = {
-        headers: { authorization: 'Bearer old-token' },
+        user: { userId: '1', username: 'admin', role: 'admin' },
+        headers: {},
         get: jest.fn(),
       };
       const res = createMockRes();
 
       await controller.refreshToken(req, res);
 
-      expect(mockVerifyToken).toHaveBeenCalledWith('old-token');
       expect(mockGenerateToken).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -216,9 +218,10 @@ describe('AuthController', () => {
       );
     });
 
-    it('should return 401 when no token provided', async () => {
+    it('should return 401 when no user provided', async () => {
       const req: any = {
-        headers: { authorization: null },
+        user: undefined,
+        headers: {},
         get: jest.fn(),
       };
       const res = createMockRes();
@@ -229,7 +232,7 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'No token provided',
+          error: 'Not authenticated',
         })
       );
     });

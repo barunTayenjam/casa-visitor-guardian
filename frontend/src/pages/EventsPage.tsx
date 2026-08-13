@@ -155,7 +155,6 @@ const EventsPage = () => {
         const boxes = boxesResult.status === 'fulfilled' ? boxesResult.value.boxes : undefined;
         setAnalysisByEvent(prev => ({ ...prev, [eventId]: {
           sceneDescription: a.sceneDescription || a.overall_summary || a.summary || '',
-          sceneContext: a.sceneContext,
           summary: a.summary,
           threatAssessment: a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
           detectedEntities: a.detectedEntities || {
@@ -342,7 +341,6 @@ const EventsPage = () => {
           const a = event.analysis;
           persistedAnalysis[event.id] = {
             sceneDescription: a.sceneDescription || '',
-            sceneContext: a.sceneContext,
             summary: a.sceneDescription || '',
             threatAssessment: a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
             detectedEntities: a.detectedEntities || { people: [], vehicles: [], animals: [], objects: [] },

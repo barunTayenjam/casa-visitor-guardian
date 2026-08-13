@@ -1,3 +1,8 @@
+/**
+ * DetectionCleanupService — Resource lifecycle cleanup.
+ * Tears down detection service resources on shutdown.
+ * NOT responsible for: settings, DB events, detection processing.
+ */
 import { logger } from '../utils/logger.js';
 import { consolidatedDetectionService } from './consolidatedDetectionService.js';
 

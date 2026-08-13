@@ -1,6 +1,6 @@
-# ADR-005: Phased Media Pipeline — WebRTC with SFU
+# ADR-008: Phased Media Pipeline — WebRTC with SFU
 
-**Status**: Proposed
+**Status**: Accepted — WebRTC live viewing implemented via **go2rtc** (SFU), which replaces the LiveKit choice for Phase 3. Live path is `CameraStream.tsx` (`RTCPeerConnection` + `<video>` → `/go2rtc` proxy → `go2rtc:1984`). JPEG-over-Socket.io retained for detection event captures, not live view.
 
 **Date**: 2026-05-31
 
@@ -176,12 +176,9 @@ RTSP Camera
 - MSE appendBuffer timing can lead to buffering issues if segments arrive late. Mitigation: adaptive buffer management, fallback to JPEG pipeline
 
 **Follow-up actions**:
-- [ ] Phase 1: Wire up adaptive FPS in `wirePythonWsFrames()` to actually skip frames
-- [ ] Phase 1: Implement double-buffer rendering in `CameraStream.tsx` using RAF + two `<img>` elements
-- [ ] Phase 2: Add H.264 FFmpeg subprocess to Python's `FramePipeline`
-- [ ] Phase 2: Create MSE-based `<video>` player in frontend as fallback from JPEG
-- [ ] Phase 3: Add LiveKit server to docker-compose.yml
-- [ ] Phase 3: Implement Python WebRTC publisher using FFmpeg RTP → LiveKit
-- [ ] Phase 3: Implement LiveKit room management in Node.js
-- [ ] Phase 3: Migrate frontend from Socket.io frames to LiveKit WebRTC tracks
-- [ ] Phase 3: Remove Phase 1/2 JPEG pipeline (keep as fallback only)
+- [x] Phase 1: Wire up adaptive FPS in `wirePythonWsFrames()` to actually skip frames
+- [x] Phase 1: Implement double-buffer rendering in `CameraStream.tsx` using RAF + two `<img>` elements
+- [x] Phase 2/3: WebRTC `<video>` via go2rtc — see `CameraStream.tsx` (`srcObject`, `RTCPeerConnection`, `addTransceiver('video', { direction: 'recvonly' })`)
+- [x] Phase 3: Add go2rtc server to docker-compose.yml (`go2rtc:1984`), proxied behind backend `/go2rtc`
+- [~] Phase 3: MV to LiveKit — **superseded**: go2rtc chosen for Phase 3 (small footprint, fits 2GB-hardware constraint from v1.6.0). LiveKit considered but not adopted.
+- [ ] Keep the JPEG-over-Socket.io path as a degradation/fallback or for low-bandwidth viewers; clarify win failover policy in `rtspManager`

@@ -3,7 +3,8 @@ import path from "path";
 import { promises as fsp } from "fs";
 import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
 import { logger } from "../utils/logger.js";
-import { config, getCameraById, getDetectionsPath, getEventPath, CameraConfig } from "../config/index.js";
+import { config, getCameraById, type CameraConfig } from "../config/index.js";
+import { getDetectionsPath, getEventPath } from "../config/paths.js";
 import { AppDataSource } from "../database.js";
 import { Event } from "../models/Event.js";
 import { StreamHealthMonitor } from "./streamHealthMonitor.js";
@@ -23,7 +24,11 @@ export interface Camera {
   lastFrameEmitTime: number;
 }
 
+import { CameraPersistence, optimalFpsForViewers } from './CameraPersistence.js';
+
 export class StreamManager {
+  private persistence = new CameraPersistence();
+
   cameras: Map<string, Camera>;
   io: SocketIOServer;
   frameInterval: number;
@@ -234,11 +239,7 @@ export class StreamManager {
   }
 
   private getOptimalFps(viewerCount: number): number {
-    if (viewerCount === 0) return 1;
-    if (viewerCount <= 3) return 4;
-    if (viewerCount <= 10) return 3;
-    if (viewerCount <= 20) return 2;
-    return 1;
+    return optimalFpsForViewers(viewerCount);
   }
 
   addCamera(cameraConfig: CameraConfig): string {
@@ -476,54 +477,14 @@ export class StreamManager {
 
   async persistCameras(): Promise<void> {
     try {
-      await this.persistCamerasToDb(Array.from(this.cameras.values()).map(camera => camera.config));
+      await this.persistence.persist(Array.from(this.cameras.values()).map(camera => camera.config));
     } catch (error) {
       logger.error(`Failed to persist camera config: ${error}`, 'StreamManager');
     }
   }
 
-  private async persistCamerasToDb(camerasConfig: CameraConfig[]): Promise<void> {
-    try {
-      if (!AppDataSource.isInitialized) return;
-
-      for (const cfg of camerasConfig) {
-        const enabled = cfg.enabled !== false;
-        await AppDataSource.query(
-          `INSERT INTO cameras (id, name, config, enabled)
-           VALUES ($1, $2, $3::jsonb, $4)
-           ON CONFLICT (id) DO UPDATE SET name = $2, config = $3::jsonb, enabled = $4`,
-          [cfg.id, cfg.name, JSON.stringify(cfg), enabled]
-        );
-      }
-
-      const currentIds = camerasConfig.map(c => c.id);
-      if (currentIds.length > 0) {
-        const placeholders = currentIds.map((_, i) => `$${i + 1}`).join(', ');
-        await AppDataSource.query(
-          `DELETE FROM cameras WHERE id NOT IN (${placeholders})`,
-          currentIds
-        );
-      }
-      logger.info(`Camera config persisted to database (${camerasConfig.length} cameras)`, 'StreamManager');
-    } catch (error) {
-      logger.warn(`Failed to persist cameras to DB (non-critical): ${error}`, 'StreamManager');
-    }
-  }
-
   static async loadCamerasFromDb(): Promise<CameraConfig[]> {
-    try {
-      if (!AppDataSource.isInitialized) return [];
-      const rows = await AppDataSource.query('SELECT id, name, config, enabled FROM cameras ORDER BY created_at');
-      if (rows.length === 0) return [];
-      logger.info(`Loaded ${rows.length} cameras from database`, 'StreamManager');
-      return rows.map((row: any) => {
-        const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
-        return { ...cfg, enabled: row.enabled };
-      });
-    } catch (error) {
-      logger.warn(`Failed to load cameras from DB: ${error}`, 'StreamManager');
-      return [];
-    }
+    return new CameraPersistence().load();
   }
 
   async simulateMotionDetection(cameraId: string) {

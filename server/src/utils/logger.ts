@@ -107,31 +107,11 @@ const writeToDatabase = async (
 ) => {
   if (!LOGGING_CONFIG.enableDatabaseLogging) return;
 
-  // TODO: Migrate to PostgreSQL audit_logs - logDatabase disabled
+  // General logs are not persisted to the security_events table.
+  // Security/audit events use logSecurityEvent() which targets SecurityEvent
+  // with its strict eventType enum. Generic DB log persistence is intentionally
+  // unimplemented to avoid polluting the audit table.
   return;
-
-  try {
-    // const logDb = await getLogDatabase();
-    // if (!logDb) {
-    //   // Database not yet initialized, skip database logging
-    //   return;
-    // }
-
-    const errorDetails = error ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : undefined;
-    const metadataStr = metadata ? JSON.stringify(metadata) : undefined;
-
-    // await logDb.insertLog({
-    //   timestamp: new Date().toISOString(),
-    //   level: level as 'info' | 'warn' | 'error' | 'debug',
-    //   message,
-    //   source,
-    //   error_details: errorDetails,
-    //   metadata: metadataStr
-    // });
-  } catch (dbError) {
-    // If database logging fails, log to console but don't crash
-    originalConsoleError('Failed to write to log database:', dbError);
-  }
 };
 
 const log = (level: string, message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => {

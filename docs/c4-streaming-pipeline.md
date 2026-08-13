@@ -12,7 +12,9 @@ C4Component
 
     System_Ext(rtsp_cameras, "IP Cameras", "RTSP/H.264 streams\ntsps://camera.local:554/stream")
 
-    System_Ext(frontend, "React Frontend", "Browser-based client\nSocket.io + REST API")
+    System_Ext(frontend, "React Frontend", "Browser-based client\nWebRTC (live view) + Socket.io (detection) + REST API")
+
+    System_Ext(go2rtc_ext, "go2rtc :1984", "WebRTC SFU\nRTSP → H.264 WebRTC\nLow-latency live viewing")
 
     System_Ext(postgres_ext, "PostgreSQL", "Events, detections\nface_embeddings table")
 
@@ -68,11 +70,17 @@ C4Component
 
         Boundary(rest_api, "REST API Layer", "HTTP Endpoints") {
 
-            Component(stream_ctrl, "StreamController", "REST Endpoints\nGET /api/streams/:id/live (MJPEG)\nGET /api/streams/:id/frame (JPEG)\nGET /api/streams/:id/status\nGET /api/streaming/metrics")
+            Component(stream_ctrl, "StreamController", "REST Endpoints\nGET /api/streams/:id/frame (JPEG)\nGET /api/streams/:id/status\nGET /api/streaming/metrics\nPOST /api/streams/:id/snapshot")
 
         }
 
         Component(health_mon, "StreamHealthMonitor\nstreamHealthMonitor.ts", "Health Watchdog\n30s check cycle\nStale: no frames for 5 min\nAuto-restart: max 3/hr/camera\nSeverity: info/warning/critical")
+
+    }
+
+    Boundary(go2rtc_container, "go2rtc :1984", "WebRTC SFU / media proxy") {
+
+        Component(go2rtc_core, "go2rtc", "RTSP source proxy\nH.264 → WebRTC tracks\nBackend proxies via /go2rtc\n(StreamController + http-proxy-middleware)")
 
     }
 
@@ -81,8 +89,10 @@ C4Component
     %% ─────────────────────────────────────────────────────────────────────
 
     Rel(rtsp_cameras, ffmpeg, "RTSP/H.264\ntsps://:554/stream", "TCP")
+    Rel(rtsp_cameras, go2rtc_ext, "RTSP/H.264\ntsps://:554/stream", "RTSP")
     Rel(frontend, sio_server, "Socket.io\nrequestStream, stopStream\nReceives: frame, detection", "WebSocket")
-    Rel(frontend, stream_ctrl, "REST API\nMJPEG stream, snapshots\nstatus, metrics", "HTTP")
+    Rel(frontend, go2rtc_ext, "WebRTC\nRTCPeerConnection + <video>\nCameraStream.tsx → /go2rtc", "WebRTC over HTTPS")
+    Rel(frontend, stream_ctrl, "REST API\nsnapshots, status, metrics", "HTTP")
 
     %% ─────────────────────────────────────────────────────────────────────
     %% RELATIONSHIPS — PYTHON INTERNAL
@@ -116,6 +126,18 @@ C4Component
     %% ─────────────────────────────────────────────────────────────────────
 
     Rel(py_ws, ws_pub, "WebSocket\nws://localhost:9090\nsubscribe/unsubscribe\nrecv: binary JPEG + JSON", "WebSocket")
+
+    Rel(stream_ctrl, go2rtc_core, "Proxies /go2rtc\npathRewrite '^/go2rtc': ''\n(server/src/index.ts)", "http-proxy-middleware")
+
+
+    %% ─────────────────────────────────────────────────────────────────────
+    %% LIVE-VIEW NOTE
+    %% ─────────────────────────────────────────────────────────────────────
+    %
+    % Two live-viewing paths coexist:
+    %   1. PRIMARY (WebRTC):  go2rtc pushes RTSP → H.264 WebRTC track, frontend renders in <video> via RTCPeerConnection
+    %   2. DETECTION ONLY:    opencv-service → pythonWs → Socket.io emits "frame" (JPEG captures) for the Events UI
+    % The WebSocket frame relay remains for detection-event captures, not the live streaming grid.
 
 
     %% ─────────────────────────────────────────────────────────────────────

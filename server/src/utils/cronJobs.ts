@@ -5,7 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { getDetectionsPath, getEventPath, getArchivePath } from '../config/index.js';
+import { getDetectionsPath, getEventPath, getArchivePath } from '../config/paths.js';
 import { TimelapseService } from '../services/timelapse/timelapseService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import NotificationService from '../services/notificationService.js';

@@ -1,3 +1,9 @@
+/**
+ * EnhancedDetectionService — Persistence & Timeline gateway.
+ * Canonical service for DB persistence of detections (`Event`, `Timeline`).
+ * NOT responsible for: configuration, raw detection logic, filtering.
+ * See: consolidatedDetectionService (settings), detectionService (normalization).
+ */
 import { Repository } from 'typeorm';
 import { DetectionConfig } from '../../models/DetectionConfig.js';
 import { Event } from '../../models/Event.js';

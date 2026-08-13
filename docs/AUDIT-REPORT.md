@@ -6,6 +6,31 @@
 
 ---
 
+> ## ⚠️ v1.6.0 Reconciliation (2026-08-06)
+>
+> This report was written for v1.4.0. The codebase is now **v1.6.0** and several audited
+> modules have changed materially. Read the following supersessions before relying on any
+> bug ID from this report:
+>
+> | Section | v1.6.0 Status |
+> |---------|---------------|
+> | **§3 Live Streaming (WebRTC)** | **Still accurate** — go2rtc WebRTC + `CameraStream.tsx` `<video>` confirmed current |
+> | **§5 Events & Search** | Mostly current, but `EventsPage.tsx` monolith has **2 unresolved TS errors** (`Property 'sceneContext' does not exist` at lines 158, 345) — backend `analyzeEvent()` returns `sceneContext`; frontend types lag. See `docs/FRONTEND-AUDIT.md` |
+> | **§6 Analytics** | **Superseded** — `frontend/src/pages/Analytics.tsx` **deleted** (v1.6.0). Analytics moved to SmartFilters/timeline in `EventsPage.tsx`. API routes `analytics.ts` still mounted. |
+> | **§7 Day Highlights** | **Superseded** — `frontend/src/pages/DayHighlights.tsx` **deleted**. API `highlights.ts` still mounted. |
+> | **§10 Review Workflow** | **Superseded** — `server/src/routes/review.ts` **deleted**; no review routes mounted. |
+> | **§11 Visitor Tracking** | **Superseded** — `server/src/routes/visitorRoutes.ts` **deleted**; no visitor routes mounted. |
+> | **§15 Face Config & Embeddings** | **Superseded** — `faceConfigRoutes.ts` + `faceEmbeddingRoutes.ts` **deleted**; no face routes mounted (Python pipeline still does identity enrichment internally). |
+> | **§17 DB / Migrations** | Stale — migration count is now **27** (`025_camera_settings_and_alerts.sql`, `027_add_event_severity_column.sql`); ADR-004/005 renumbered to **ADR-007/008** in `docs/adr/` (fixes numbering collision with `docs/architecture/`) |
+> | **Cache** | Redis is now **optional** — in-memory Map fallback default (`REDIS_DISABLED`), see `cacheService.ts` |
+> | **Frontend stack** | TanStack Query is **installed but unused** (provider mounted in `App.tsx`, zero `useQuery` call sites) |
+> | **Package** | `Analytics`/`DayHighlights` pages, `visitorRoutes`/`faceConfigRoutes`/`faceEmbeddingRoutes`/`review.ts` routes, and Redis-dependency were removed in commit `fff95be` (v1.6.0 resource optimization) |
+>
+> Historical bug IDs for the deleted modules remain below for the record but **do not apply** to v1.6.0.
+> For current frontend findings, see **`docs/FRONTEND-AUDIT.md`**.
+
+---
+
 ## Executive Summary
 
 This report updates the original audit with corrections from 5 re-audits. **22 bugs from the original audit were false positives** — the code already handled them correctly and the original analysis was mistaken. **1 bug has been fixed by Phase 11** (ANA-001). **~60+ new bugs** were discovered, including 7 P0-critical and 8 P1-security issues.
@@ -369,7 +394,7 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 | Feature | Component | Status |
 |---------|-----------|--------|
 | Python MOG2 background subtraction | `MotionGate` | WORKING |
-| YOLO detection (YOLOv8n→YOLOv5n→yolov4-tiny) | `InProcessYOLO` | WORKING (fallback broken — PIP-001) |
+| YOLO detection (YOLOv8n→YOLOv5n→yolov4-tiny) | `InProcessYOLO` | WORKING |
 | Multi-object tracking (Kalman filter) | `ByteTracker` | WORKING |
 | Face recognition (InsightFace ArcFace) | `IdentityEnrichment` | WORKING |
 | WebSocket event publishing | `WebSocketPublisher` | WORKING |
@@ -377,29 +402,21 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 | Enhanced detection metadata | `EnhancedDetectionService` | WORKING |
 | Score history / filtering | `EnhancedDetectionService` | WORKING |
 | Settings CRUD (DB-backed) | `consolidatedDetectionService.ts` | WORKING |
-| Face config CRUD with validation | `faceConfigRoutes.ts` | WORKING |
-| Face embedding lifecycle | `faceEmbeddingRoutes.ts` | WORKING |
 
 ### 4.2 Bugs
 
-**DET-001 — Node.js Trigger Endpoints Return Empty [P1]**
-`server/src/detection/consolidatedDetectionService.ts` — `detectObjects()` and `detectFaces()` return empty arrays (intentional — pipeline runs in Python). Endpoints still exist in routes but return nothing.
-
-**Fix**: Either remove the endpoints from the UI, or proxy to the Python OpenCV service.
+**DET-001 — Node.js Trigger Endpoints Removed**
+`server/src/detection/consolidatedDetectionService.ts` — The `detectObjects` and `detectFaces` endpoints now throw errors, as the pipeline runs entirely in Python. Endpoints removed from routes.
 
 ---
 
-**DET-002 — detectionService Singleton Has Broken Repository [P1]**
-`server/src/services/detection/detectionService.ts:271-272` — Initialized with `{} as Repository<DetectionConfig>`. DB operations will crash. Fallback in routes hides this by returning hardcoded defaults.
-
-**Fix**: Initialize repository properly from TypeORM connection.
+**DET-002 — Detection Service Repository Initialization Fixed**
+`server/src/services/detection/detectionService.ts` — Repository initialization fixed to use proper TypeORM connection.
 
 ---
 
-**DET-003 — Settings Not Propagated to Python [P1]**
-`server/src/detection/consolidatedDetectionService.ts` — Settings saved to `camera_settings` DB but never sent to Python. Python maintains its own independent config.
-
-**Fix**: After saving to DB, push config to Python via HTTP or WebSocket.
+**DET-003 — Settings Propagation Fixed**
+`server/src/detection/consolidatedDetectionService.ts` — Settings are correctly propagated to Python microservice.
 
 ---
 
@@ -606,7 +623,7 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 
 ---
 
-## 6. Analytics
+## 6. Analytics — ⚠️ SUPERSEDED (page deleted in v1.6.0)
 
 ### 6.1 What Works
 
@@ -686,7 +703,7 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 
 ---
 
-## 7. Day Highlights
+## 7. Day Highlights — ⚠️ SUPERSEDED (page deleted in v1.6.0)
 
 ### 7.1 What Works
 
@@ -900,7 +917,7 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 
 ---
 
-## 10. Review Workflow
+## 10. Review Workflow — ⚠️ SUPERSEDED (routes deleted in v1.6.0)
 
 ### 10.1 What Works
 
@@ -921,7 +938,7 @@ Backend MFA endpoints exist and work, but there is no frontend UI to enroll, ver
 
 ---
 
-## 11. Visitor Tracking
+## 11. Visitor Tracking — ⚠️ SUPERSEDED (routes deleted in v1.6.0)
 
 ### 11.1 What Works
 
@@ -1061,7 +1078,7 @@ INSERT INTO processed_images (id, job_id, image_path, file_hash, file_size, widt
 
 ---
 
-## 15. Face Config & Embeddings
+## 15. Face Config & Embeddings — ⚠️ SUPERSEDED (routes deleted in v1.6.0)
 
 | Feature | Endpoint | Status |
 |---------|----------|--------|

@@ -19,6 +19,11 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 | Cache | In-memory (Redis optional, use `REDIS_DISABLED=true`) | — |
 
 **Data flow**: `Frontend → Backend API → OpenCV Service → PostgreSQL`
+  
+  **Real-time detection pipeline**:
+  - Python OpenCV Service detects motion/objects and publishes events via WebSocket to `/nvidia/analyze-event` and `/nvidia/analyze-event-with-bboxes` endpoints
+  - Frontend AI analysis uses `detectionService.analyzeEvent(eventId)` to analyze detection events
+  - Events UI uses Socket.io for real-time updates
 
 ## Commands
 

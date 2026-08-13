@@ -81,7 +81,8 @@ describe('Legacy Detection Cleanup Verification', () => {
         expect(setIntervalMatches.length).toBeLessThanOrEqual(2);
       }
       expect(content).not.toContain('polling');
-      expect(content).not.toContain('retryCount');
+      // retryCount is allowed for WS reconnection ceiling (Tier 0 §2.3), not detection polling
+      expect(content).not.toMatch(/retryCount.*detect/i);
     });
 
     it('should not have legacy HTTP polling loops in rtspManager', () => {

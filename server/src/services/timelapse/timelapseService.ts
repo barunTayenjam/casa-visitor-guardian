@@ -325,7 +325,7 @@ export class TimelapseService {
         else reject(new Error(`ffmpeg exited ${code}: ${stderr.substring(0, 500)}`));
       });
       ffmpeg.on('error', (err: Error) => {
-        fs.unlink(listPath).catch(() => {});
+        fs.unlink(listPath).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
         reject(err);
       });
     });
@@ -368,7 +368,7 @@ export class TimelapseService {
         if (entry === RAW_SUBDIR) continue;
         await this.cleanupDir(p, cutoff, onDelete);
       } else if (entry.endsWith('.mp4') && s.mtimeMs < cutoff) {
-        await fs.unlink(p).catch(() => {});
+        await fs.unlink(p).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
         onDelete(1);
       }
     }
@@ -388,7 +388,7 @@ export class TimelapseService {
       const dateMs = new Date(`${d}T00:00:00Z`).getTime();
       if (Number.isNaN(dateMs)) continue;
       if (dateMs < cutoff) {
-        await fs.rm(dirPath, { recursive: true, force: true }).catch(() => {});
+        await fs.rm(dirPath, { recursive: true, force: true }).catch(error => logger.error(`Error deleting file: ${error.message}`, 'TimelapseService'));
       }
     }
   }

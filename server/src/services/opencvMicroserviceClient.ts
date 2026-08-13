@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 import axios, { AxiosInstance } from 'axios';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { CircuitBreaker } from './circuitBreaker.js';
 
 // Types for OpenCV microservice communication
 export interface DetectionResult {
@@ -35,6 +36,7 @@ export class OpenCVMicroserviceClient {
   private isHealthy: boolean = false;
   private lastHealthCheck: number = 0;
   private healthCheckInterval: number = 30000; // 30 seconds
+  private breaker: CircuitBreaker;
 
   constructor(serviceUrl?: string) {
     this.serviceUrl = serviceUrl || process.env.OPENCV_SERVICE_URL || 'http://localhost:8084';
@@ -46,6 +48,12 @@ export class OpenCVMicroserviceClient {
         'Content-Type': 'application/json',
         ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
       }
+    });
+
+    this.breaker = new CircuitBreaker('OpenCVService', {
+      failureThreshold: 5,
+      cooldownMs: 30000,
+      successThreshold: 2,
     });
 
     // Request interceptor for logging
@@ -85,7 +93,7 @@ export class OpenCVMicroserviceClient {
         return true;
       }
 
-      const response = await this.client.get('/health');
+      const response = await this.breaker.execute(() => this.client.get('/health'));
       const isHealthy = response.status === 200 && response.data?.status === 'healthy';
       
       if (isHealthy) {
@@ -133,10 +141,10 @@ export class OpenCVMicroserviceClient {
 
        logger.info(`OpenCV Microservice: Detecting objects in ${imagePath}`, 'OpenCVClient');
 
-      const response = await this.client.post('/detect-objects', imageBuffer, {
+      const response = await this.breaker.execute(() => this.client.post('/detect-objects', imageBuffer, {
         headers: { 'Content-Type': 'image/jpeg' },
         params: { fileHash, fileSize: stats.size }
-      });
+      }));
       return { ...response.data, fileHash };
     } catch (error) {
        logger.error(`OpenCV Microservice: Object detection failed for ${imagePath}`, 'OpenCVClient', error);
@@ -164,10 +172,10 @@ export class OpenCVMicroserviceClient {
 
        logger.info(`OpenCV Microservice: Recognizing faces in ${imagePath}`, 'OpenCVClient');
 
-      const response = await this.client.post('/recognize-faces', imageBuffer, {
+      const response = await this.breaker.execute(() => this.client.post('/recognize-faces', imageBuffer, {
         headers: { 'Content-Type': 'image/jpeg' },
         params: { fileHash, fileSize: stats.size }
-      });
+      }));
       return { ...response.data, fileHash };
     } catch (error) {
        logger.error(`OpenCV Microservice: Face recognition failed for ${imagePath}`, 'OpenCVClient', error);
@@ -182,12 +190,12 @@ export class OpenCVMicroserviceClient {
 
   async pushDetectionConfig(cameraId: string, config: Record<string, unknown>): Promise<boolean> {
     try {
-      const response = await this.client.post('/api/config', {
+      const response = await this.breaker.execute(() => this.client.post('/api/config', {
         camera_id: cameraId,
         settings: config,
       }, {
         timeout: 5000,
-      });
+      }));
       return response.status === 200;
     } catch (error) {
        logger.error(`Failed to push detection config to Python service: ${error}`, 'OpenCVClient');
@@ -256,6 +264,13 @@ export class OpenCVMicroserviceClient {
    */
   isServiceHealthy(): boolean {
     return this.isHealthy;
+  }
+
+  /**
+   * Get circuit breaker state
+   */
+  getBreakerState(): string {
+    return this.breaker.getState();
   }
 }
 

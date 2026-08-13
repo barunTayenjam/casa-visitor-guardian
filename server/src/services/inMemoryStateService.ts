@@ -90,8 +90,32 @@ export class InMemoryStateService {
   private recentEvents: MotionEvent[] = [];
   private alerts: Alert[] = [];
   private cachedSystemSettings: SystemSettings | null = null;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly refreshIntervalMs: number;
 
-  // ---- Recent Events ----
+  constructor() {
+    this.refreshIntervalMs = parseInt(process.env.IN_MEMORY_REFRESH_INTERVAL || '60000', 10);
+  }
+
+  async startPeriodicRefresh(): Promise<void> {
+    if (this.refreshTimer) return;
+    logger.info(`Starting periodic refresh for in-memory state (interval: ${this.refreshIntervalMs}ms)`, 'InMemoryState');
+    this.refreshTimer = setInterval(async () => {
+      try {
+        await this.loadAlertsFromDb();
+      } catch (err) {
+        logger.error('Failed to periodically refresh alerts from DB', 'InMemoryState', err);
+      }
+    }, this.refreshIntervalMs);
+  }
+
+  stopPeriodicRefresh(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+      logger.info('Stopped periodic refresh for in-memory state', 'InMemoryState');
+    }
+  }
 
   addRecentEvent(event: MotionEvent): void {
     this.recentEvents.unshift(event);

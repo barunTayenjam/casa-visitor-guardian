@@ -13,7 +13,7 @@ class SocketService {
         this.socket.emit('ping');
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
   }
@@ -97,24 +97,24 @@ class SocketService {
           autoConnect: true,
           randomizationFactor: 0.5,
           upgrade: true,
-          rememberUpgrade: true
+          rememberUpgrade: true,
         });
 
         this.socket.on('connect', () => {
           this.isConnecting = false;
 
           this.callbacks.forEach((listeners, event) => {
-            listeners.forEach(callback => {
+            listeners.forEach((callback) => {
               this.socket?.off(event, callback);
               this.socket?.on(event, callback);
             });
           });
 
-          this.requestedStreams.forEach(streamKey => {
+          this.requestedStreams.forEach((streamKey) => {
             const [cameraId, role] = streamKey.split('-') as [string, 'detect' | 'record' | 'live'];
             this.socket?.emit('requestStream', { cameraId, role });
           });
-          
+
           resolve();
         });
 
@@ -186,7 +186,7 @@ class SocketService {
   }
 
   // Convenience method for person detection events
-    onPersonDetected(callback: (data: PersonDetectedEvent) => void) {
+  onPersonDetected(callback: (data: PersonDetectedEvent) => void) {
     return this.on('personDetected', callback);
   }
 

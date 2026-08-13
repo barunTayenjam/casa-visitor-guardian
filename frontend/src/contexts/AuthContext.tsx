@@ -1,4 +1,12 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, useRef, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from 'react';
 import { authService } from '@/services/api/authService';
 import { ApiError, setAuthToken } from '@/services/api/baseClient';
 import { logger } from '@/lib/logger';
@@ -142,7 +150,7 @@ function isTokenExpired(token: string): boolean {
 function isTokenExpiringSoon(token: string): boolean {
   const expiry = getTokenExpiry(token);
   if (!expiry) return true;
-  return Date.now() >= (expiry - TOKEN_REFRESH_THRESHOLD_MS);
+  return Date.now() >= expiry - TOKEN_REFRESH_THRESHOLD_MS;
 }
 
 // Provider
@@ -162,80 +170,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Validate token and get user profile
-  const validateToken = useCallback(async (token: string) => {
-    try {
-      logger.info('Validating authentication token', 'AUTH', { hasToken: !!token });
-      setAuthToken(token);
-      const response = await authService.getProfile();
-      
-      if (response.success && response.user) {
-        logger.info('Authentication successful', 'AUTH', { 
-          userId: response.user.id, 
-          username: response.user.username,
-          role: response.user.role 
-        });
-        dispatch({
-          type: 'AUTH_SUCCESS',
-          payload: {
-            user: response.user,
-            token,
-          },
-        });
-      } else {
-        logger.warn('Invalid authentication token', 'AUTH', { response });
+  const validateToken = useCallback(
+    async (token: string) => {
+      try {
+        logger.info('Validating authentication token', 'AUTH', { hasToken: !!token });
+        setAuthToken(token);
+        const response = await authService.getProfile();
+
+        if (response.success && response.user) {
+          logger.info('Authentication successful', 'AUTH', {
+            userId: response.user.id,
+            username: response.user.username,
+            role: response.user.role,
+          });
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: {
+              user: response.user,
+              token,
+            },
+          });
+        } else {
+          logger.warn('Invalid authentication token', 'AUTH', { response });
+          clearAuthStorage();
+          dispatch({ type: 'LOGOUT' });
+        }
+      } catch (error) {
+        logger.error('Token validation failed', 'AUTH', error);
         clearAuthStorage();
         dispatch({ type: 'LOGOUT' });
       }
-    } catch (error) {
-      logger.error('Token validation failed', 'AUTH', error);
-      clearAuthStorage();
-      dispatch({ type: 'LOGOUT' });
-    }
-  }, [clearAuthStorage]);
+    },
+    [clearAuthStorage],
+  );
 
   // Try to refresh an expired/expiring token
-  const tryRefreshToken = useCallback(async (token: string): Promise<string | null> => {
-    if (isRefreshingRef.current) return null;
-    isRefreshingRef.current = true;
+  const tryRefreshToken = useCallback(
+    async (token: string): Promise<string | null> => {
+      if (isRefreshingRef.current) return null;
+      isRefreshingRef.current = true;
 
-    try {
-      logger.info('Attempting token refresh', 'AUTH', { expired: isTokenExpired(token) });
-      setAuthToken(token);
-      const response = await authService.refreshToken();
-      
-      if (response.success && response.token) {
-        logger.info('Token refreshed successfully', 'AUTH');
-        storeAuth(response.token);
-        dispatch({
-          type: 'REFRESH_TOKEN',
-          payload: response.token,
-        });
-        return response.token;
+      try {
+        logger.info('Attempting token refresh', 'AUTH', { expired: isTokenExpired(token) });
+        setAuthToken(token);
+        const response = await authService.refreshToken();
+
+        if (response.success && response.token) {
+          logger.info('Token refreshed successfully', 'AUTH');
+          storeAuth(response.token);
+          dispatch({
+            type: 'REFRESH_TOKEN',
+            payload: response.token,
+          });
+          return response.token;
+        }
+
+        logger.warn('Token refresh returned no token', 'AUTH');
+        return null;
+      } catch (error) {
+        logger.error('Token refresh failed', 'AUTH', error);
+        return null;
+      } finally {
+        isRefreshingRef.current = false;
       }
-      
-      logger.warn('Token refresh returned no token', 'AUTH');
-      return null;
-    } catch (error) {
-      logger.error('Token refresh failed', 'AUTH', error);
-      return null;
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, [storeAuth]);
+    },
+    [storeAuth],
+  );
 
   // Initialize auth state from stored token
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         const token = localStorage.getItem('auth_token');
-        
+
         if (token) {
           logger.info('Initializing authentication with stored token', 'AUTH', {
             expired: isTokenExpired(token),
-            expiringSoon: isTokenExpiringSoon(token)
+            expiringSoon: isTokenExpiringSoon(token),
           });
           dispatch({ type: 'SET_LOADING', payload: true });
-          
+
           if (isTokenExpired(token)) {
             // Token is expired - try to refresh it before giving up
             const newToken = await tryRefreshToken(token);
@@ -280,11 +294,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (isTokenExpiringSoon(state.token)) {
         logger.info('Token expiring soon, proactively refreshing', 'AUTH');
-        tryRefreshToken(state.token).then((newToken) => {
-          if (newToken) {
-            validateToken(newToken).catch(() => {});
-          }
-        }).catch(() => {});
+        tryRefreshToken(state.token)
+          .then((newToken) => {
+            if (newToken) {
+              validateToken(newToken).catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
     }, TOKEN_CHECK_INTERVAL_MS);
 
@@ -297,68 +313,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.isAuthenticated, state.token, tryRefreshToken, validateToken]);
 
   // Login
-  const login = useCallback(async (username: string, password: string) => {
-    dispatch({ type: 'AUTH_START' });
-    
-    try {
-      const response = await authService.login(username, password);
+  const login = useCallback(
+    async (username: string, password: string) => {
+      dispatch({ type: 'AUTH_START' });
 
-      if (response.success && response.user && response.token) {
-        storeAuth(response.token);
-        
-        dispatch({
-          type: 'AUTH_SUCCESS',
-          payload: {
-            user: response.user,
-            token: response.token,
-          },
-        });
-      } else {
+      try {
+        const response = await authService.login(username, password);
+
+        if (response.success && response.user && response.token) {
+          storeAuth(response.token);
+
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: {
+              user: response.user,
+              token: response.token,
+            },
+          });
+        } else {
+          dispatch({
+            type: 'AUTH_FAILURE',
+            payload: response.error || 'Login failed',
+          });
+        }
+      } catch (error) {
+        const message = error instanceof ApiError ? error.message : 'Login failed';
         dispatch({
           type: 'AUTH_FAILURE',
-          payload: response.error || 'Login failed',
+          payload: message,
         });
       }
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Login failed';
-      dispatch({
-        type: 'AUTH_FAILURE',
-        payload: message,
-      });
-    }
-  }, [storeAuth]);
+    },
+    [storeAuth],
+  );
 
   // Register
-  const register = useCallback(async (userData: RegisterData) => {
-    dispatch({ type: 'AUTH_START' });
-    
-    try {
-      const response = await authService.register(userData);
+  const register = useCallback(
+    async (userData: RegisterData) => {
+      dispatch({ type: 'AUTH_START' });
 
-      if (response.success && response.user && response.token) {
-        storeAuth(response.token);
-        
-        dispatch({
-          type: 'AUTH_SUCCESS',
-          payload: {
-            user: response.user,
-            token: response.token,
-          },
-        });
-      } else {
+      try {
+        const response = await authService.register(userData);
+
+        if (response.success && response.user && response.token) {
+          storeAuth(response.token);
+
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: {
+              user: response.user,
+              token: response.token,
+            },
+          });
+        } else {
+          dispatch({
+            type: 'AUTH_FAILURE',
+            payload: response.error || 'Registration failed',
+          });
+        }
+      } catch (error) {
+        const message = error instanceof ApiError ? error.message : 'Registration failed';
         dispatch({
           type: 'AUTH_FAILURE',
-          payload: response.error || 'Registration failed',
+          payload: message,
         });
       }
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Registration failed';
-      dispatch({
-        type: 'AUTH_FAILURE',
-        payload: message,
-      });
-    }
-  }, [storeAuth]);
+    },
+    [storeAuth],
+  );
 
   // Logout
   const logout = useCallback(async () => {
@@ -406,13 +428,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const completeLogin = useCallback((user: User, token: string) => {
-    storeAuth(token);
-    dispatch({
-      type: 'AUTH_SUCCESS',
-      payload: { user, token },
-    });
-  }, [storeAuth]);
+  const completeLogin = useCallback(
+    (user: User, token: string) => {
+      storeAuth(token);
+      dispatch({
+        type: 'AUTH_SUCCESS',
+        payload: { user, token },
+      });
+    },
+    [storeAuth],
+  );
 
   const value: AuthContextType = {
     ...state,

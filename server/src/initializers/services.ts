@@ -51,10 +51,22 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     serviceRegistry.setPythonWsClient(pythonWsClient);
 
     const persistedTracks = new Set<string>();
-    const lastSavedPerCameraClass = new Map<string, { bbox: { x: number; y: number; w: number; h: number }; ts: number }>();
+    const lastSavedPerCameraClass = new Map<
+      string,
+      { bbox: { x: number; y: number; w: number; h: number }; ts: number }
+    >();
 
     pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
-      const { cameraId, event: eventType, trackId, class: className, score, bbox, identity, identityConfidence } = ev;
+      const {
+        cameraId,
+        event: eventType,
+        trackId,
+        class: className,
+        score,
+        bbox,
+        identity,
+        identityConfidence,
+      } = ev;
       if (!cameraId) return;
 
       if (eventType === 'track_started' || eventType === 'track_updated') {
@@ -80,12 +92,14 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
           io.emit('faceDetected', {
             cameraId,
             timestamp: new Date(ev.timestamp).toISOString(),
-            faces: [{
-              id: `track_${trackId}`,
-              name: identity,
-              confidence: identityConfidence ?? 0,
-              bbox: detection.bbox,
-            }],
+            faces: [
+              {
+                id: `track_${trackId}`,
+                name: identity,
+                confidence: identityConfidence ?? 0,
+                bbox: detection.bbox,
+              },
+            ],
           });
         }
 
@@ -97,7 +111,10 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       }
 
       const trackKey = `${cameraId}:${trackId}`;
-      if (!persistedTracks.has(trackKey) && (eventType === 'track_started' || eventType === 'track_updated')) {
+      if (
+        !persistedTracks.has(trackKey) &&
+        (eventType === 'track_started' || eventType === 'track_updated')
+      ) {
         const sceneKey = `${cameraId}:${className}`;
         const prev = lastSavedPerCameraClass.get(sceneKey);
         const now = Date.now();
@@ -143,12 +160,14 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
           timestamp: new Date(ev.timestamp).toISOString(),
           confidence: Math.round(score * 100),
           labels: [className],
-          detections: [{
-            class: className,
-            confidence: Math.round(score * 100),
-            bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
-            trackId,
-          }],
+          detections: [
+            {
+              class: className,
+              confidence: Math.round(score * 100),
+              bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
+              trackId,
+            },
+          ],
           trackId,
         });
       }
@@ -172,7 +191,9 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
   let cameras: CameraConfig[] = [];
 
   try {
-    const dbRows = await AppDataSource.query('SELECT id, name, config, enabled FROM cameras ORDER BY created_at');
+    const dbRows = await AppDataSource.query(
+      'SELECT id, name, config, enabled FROM cameras ORDER BY created_at',
+    );
     if (dbRows.length > 0) {
       cameras = dbRows.map((row: any) => {
         const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
@@ -187,12 +208,15 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
   if (cameras.length === 0) {
     cameras = loadCamerasFromFile();
     if (cameras.length > 0) {
-      logger.info(`Loaded ${cameras.length} cameras from cameras.json (first-time bootstrap)`, 'INIT');
+      logger.info(
+        `Loaded ${cameras.length} cameras from cameras.json (first-time bootstrap)`,
+        'INIT',
+      );
       try {
         for (const cam of cameras) {
           await AppDataSource.query(
             'INSERT INTO cameras (id, name, config, enabled) VALUES ($1, $2, $3::jsonb, $4) ON CONFLICT (id) DO UPDATE SET name = $2, config = $3::jsonb, enabled = $4',
-            [cam.id, cam.name, JSON.stringify(cam), cam.enabled !== false]
+            [cam.id, cam.name, JSON.stringify(cam), cam.enabled !== false],
           );
         }
         logger.info('Bootstrapped cameras.json cameras into database', 'INIT');
@@ -227,13 +251,21 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     const timelapseServiceInstance = new TimelapseService();
     setTimelapseService(timelapseServiceInstance);
     const detectionServiceInstance = new DetectionService();
-    const reviewServiceInstance = new ReviewService(reviewSegmentRepo, reviewStatusRepo, timelineServiceInstance, previewServiceInstance);
+    const reviewServiceInstance = new ReviewService(
+      reviewSegmentRepo,
+      reviewStatusRepo,
+      timelineServiceInstance,
+      previewServiceInstance,
+    );
 
     serviceRegistry.setTimelineService(timelineServiceInstance);
     serviceRegistry.setTimelapseService(timelapseServiceInstance);
     serviceRegistry.setDetectionConfigService(detectionServiceInstance);
     serviceRegistry.setReviewService(reviewServiceInstance);
-    logger.info('Review, timeline, timelapse and detection services initialized successfully', 'INIT');
+    logger.info(
+      'Review, timeline, timelapse and detection services initialized successfully',
+      'INIT',
+    );
   } catch (error) {
     logger.error('Review/timeline/detection services failed (non-critical)', 'INIT', error);
   }

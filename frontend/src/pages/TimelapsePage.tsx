@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useCameras } from '@/contexts/CameraContext';
-import { Film, ChevronLeft, ChevronRight, Wand2, Check, Loader2, AlertCircle, CheckCircle2, Film as FilmIcon } from 'lucide-react';
+import {
+  Film,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
+  Check,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Film as FilmIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -42,7 +52,8 @@ const TimelapsePage: React.FC = () => {
     setCamStates({});
     setSelected(new Set());
     const past = isPastRef.current;
-    systemService.getTimelapses(date)
+    systemService
+      .getTimelapses(date)
       .then((res) => {
         if (res.success) {
           setList(res.timelapses);
@@ -84,16 +95,24 @@ const TimelapsePage: React.FC = () => {
   };
 
   const generatingCount = useMemo(
-    () => Object.values(camStates).filter((s) => s.status === 'generating' || s.status === 'queued').length,
+    () =>
+      Object.values(camStates).filter((s) => s.status === 'generating' || s.status === 'queued')
+        .length,
     [camStates],
   );
   const busy = generatingCount > 0;
 
   const runGenerate = async (camId: string) => {
-    setCamStates((p) => ({ ...p, [camId]: { ...p[camId], status: 'generating', message: undefined } }));
+    setCamStates((p) => ({
+      ...p,
+      [camId]: { ...p[camId], status: 'generating', message: undefined },
+    }));
     try {
       const res = await systemService.generateTimelapse(camId, date);
-      setCamStates((p) => ({ ...p, [camId]: { status: 'done', exists: true, message: res.message } }));
+      setCamStates((p) => ({
+        ...p,
+        [camId]: { status: 'done', exists: true, message: res.message },
+      }));
       return res;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -124,7 +143,10 @@ const TimelapsePage: React.FC = () => {
       if (!active && fresh.timelapses.length > 0) setActive(fresh.timelapses[0].cameraId);
     }
     if (failed === 0) {
-      toast({ title: `Backfilled ${ok} camera${ok === 1 ? '' : 's'}`, description: `Timelapse ready for ${date}` });
+      toast({
+        title: `Backfilled ${ok} camera${ok === 1 ? '' : 's'}`,
+        description: `Timelapse ready for ${date}`,
+      });
     } else {
       toast({
         title: `Backfill finished with ${failed} failure${failed === 1 ? '' : 's'}`,
@@ -183,7 +205,12 @@ const TimelapsePage: React.FC = () => {
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Prev
               </Button>
-              <Button onClick={() => changeDate(1)} variant="outline" size="sm" disabled={date >= todayStr()}>
+              <Button
+                onClick={() => changeDate(1)}
+                variant="outline"
+                size="sm"
+                disabled={date >= todayStr()}
+              >
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
@@ -204,7 +231,8 @@ const TimelapsePage: React.FC = () => {
                   <div>
                     <div className="text-sm font-medium">Backfill for {date}</div>
                     <div className="text-xs text-muted-foreground">
-                      Stitches captured frames (or detection snapshots as fallback) into a 2-minute MP4 per camera.
+                      Stitches captured frames (or detection snapshots as fallback) into a 2-minute
+                      MP4 per camera.
                     </div>
                   </div>
                 </div>
@@ -215,7 +243,9 @@ const TimelapsePage: React.FC = () => {
                       {generatingCount} running
                     </Badge>
                   )}
-                  <span className="text-xs text-muted-foreground">{panelOpen ? 'Hide' : 'Show'}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {panelOpen ? 'Hide' : 'Show'}
+                  </span>
                 </div>
               </button>
 
@@ -223,7 +253,10 @@ const TimelapsePage: React.FC = () => {
                 <div className="border-t border-border/50 p-4 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {cameras.map((cam) => {
-                      const st = camStates[cam.id] ?? { status: 'idle' as CamStatus, exists: false };
+                      const st = camStates[cam.id] ?? {
+                        status: 'idle' as CamStatus,
+                        exists: false,
+                      };
                       const checked = selected.has(cam.id);
                       const disabled = st.status === 'generating' || st.status === 'queued';
                       return (
@@ -231,7 +264,9 @@ const TimelapsePage: React.FC = () => {
                           key={cam.id}
                           className={cn(
                             'flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors',
-                            checked ? 'border-primary/60 bg-primary/5' : 'border-border hover:bg-white/[0.02]',
+                            checked
+                              ? 'border-primary/60 bg-primary/5'
+                              : 'border-border hover:bg-white/[0.02]',
                             disabled && 'opacity-60 cursor-not-allowed',
                           )}
                         >
@@ -244,14 +279,20 @@ const TimelapsePage: React.FC = () => {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium truncate">{getCameraName(cam.id)}</span>
+                              <span className="text-sm font-medium truncate">
+                                {getCameraName(cam.id)}
+                              </span>
                               <StatusBadge state={st} />
                             </div>
                             {st.message && (
-                              <div className={cn(
-                                'text-xs mt-1 break-words',
-                                st.status === 'error' ? 'text-destructive' : 'text-muted-foreground',
-                              )}>
+                              <div
+                                className={cn(
+                                  'text-xs mt-1 break-words',
+                                  st.status === 'error'
+                                    ? 'text-destructive'
+                                    : 'text-muted-foreground',
+                                )}
+                              >
                                 {st.message}
                               </div>
                             )}
@@ -269,14 +310,18 @@ const TimelapsePage: React.FC = () => {
                         onClick={() => {
                           const next = new Set<string>();
                           for (const cam of cameras) {
-                            if (!(camStates[cam.id]?.exists)) next.add(cam.id);
+                            if (!camStates[cam.id]?.exists) next.add(cam.id);
                           }
                           setSelected(next);
                         }}
                       >
                         Select missing
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(cameras.map((c) => c.id)))}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelected(new Set(cameras.map((c) => c.id)))}
+                      >
                         Select all
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
@@ -284,7 +329,11 @@ const TimelapsePage: React.FC = () => {
                       </Button>
                       <span>{selected.size} selected</span>
                     </div>
-                    <Button onClick={handleGenerateSelected} disabled={selected.size === 0 || busy} size="sm">
+                    <Button
+                      onClick={handleGenerateSelected}
+                      disabled={selected.size === 0 || busy}
+                      size="sm"
+                    >
                       {busy ? (
                         <>
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -314,7 +363,7 @@ const TimelapsePage: React.FC = () => {
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {isPast
                   ? 'Use the Backfill panel above to generate from captured frames or detection snapshots.'
-                  : 'Today\'s frames are being sampled every 30s. The timelapse will be stitched automatically at 00:01.'}
+                  : "Today's frames are being sampled every 30s. The timelapse will be stitched automatically at 00:01."}
               </p>
             </div>
           </div>
@@ -332,7 +381,9 @@ const TimelapsePage: React.FC = () => {
                   >
                     <Film className="w-3 h-3 mr-1" />
                     {getCameraName(t.cameraId)}
-                    {st?.status === 'done' && <CheckCircle2 className="w-3 h-3 ml-1 text-emerald-400" />}
+                    {st?.status === 'done' && (
+                      <CheckCircle2 className="w-3 h-3 ml-1 text-emerald-400" />
+                    )}
                   </Button>
                 );
               })}
@@ -364,9 +415,15 @@ const TimelapsePage: React.FC = () => {
                 </div>
                 <div className="p-4 flex items-center justify-between flex-wrap gap-2">
                   <p className="text-sm text-muted-foreground">
-                    {active && list.find((t) => t.cameraId === active)
-                      ? <>2-minute timelapse for <span className="text-foreground font-medium">{getCameraName(active)}</span> on {date}.</>
-                      : '2-minute timelapse of the full day at 24 fps.'}
+                    {active && list.find((t) => t.cameraId === active) ? (
+                      <>
+                        2-minute timelapse for{' '}
+                        <span className="text-foreground font-medium">{getCameraName(active)}</span>{' '}
+                        on {date}.
+                      </>
+                    ) : (
+                      '2-minute timelapse of the full day at 24 fps.'
+                    )}
                   </p>
                   {active && isPast && (
                     <Button

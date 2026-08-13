@@ -32,7 +32,10 @@ export class ReviewController extends BaseController {
     try {
       const reviewService = serviceRegistry.getReviewService();
       const segment = await reviewService.getReviewSegment(req.params.id);
-      if (!segment) { this.notFound(res, 'Segment not found'); return; }
+      if (!segment) {
+        this.notFound(res, 'Segment not found');
+        return;
+      }
       this.ok(res, { data: segment });
     } catch (error) {
       if ((error as Error).message.includes('not been initialized')) {

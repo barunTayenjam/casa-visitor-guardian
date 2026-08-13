@@ -37,7 +37,7 @@ async function hasActiveSession(userId: string): Promise<boolean> {
 
   const session = await AppDataSource.query(
     'SELECT id FROM user_sessions WHERE user_id = $1 AND is_active = true LIMIT 1',
-    [userId]
+    [userId],
   );
   const active = !!session && session.length > 0;
   await cacheService.set(sessionCacheKey(userId), active ? '1' : '0', SESSION_CHECK_TTL_SECONDS);
@@ -51,16 +51,14 @@ export function authenticate(options: AuthOptions = {}) {
     try {
       // Get token from Authorization header
       const authHeader = req.headers.authorization;
-      const token = authHeader && authHeader.startsWith('Bearer ') 
-        ? authHeader.substring(7) 
-        : null;
+      const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
       // If no token and authentication is required
       if (!token) {
         if (required) {
           return res.status(401).json({
             success: false,
-            error: 'Authentication token is required'
+            error: 'Authentication token is required',
           });
         }
         return next(); // Continue without authentication
@@ -73,7 +71,7 @@ export function authenticate(options: AuthOptions = {}) {
         if (required) {
           return res.status(401).json({
             success: false,
-            error: 'Invalid or expired authentication token'
+            error: 'Invalid or expired authentication token',
           });
         }
         return next(); // Continue without authentication
@@ -83,7 +81,7 @@ export function authenticate(options: AuthOptions = {}) {
       if (roles.length > 0 && !roles.includes(payload.role)) {
         return res.status(403).json({
           success: false,
-          error: 'Insufficient permissions'
+          error: 'Insufficient permissions',
         });
       }
 
@@ -95,7 +93,7 @@ export function authenticate(options: AuthOptions = {}) {
             if (required) {
               return res.status(401).json({
                 success: false,
-                error: 'Session expired. Please login again.'
+                error: 'Session expired. Please login again.',
               });
             }
             return next();
@@ -106,7 +104,7 @@ export function authenticate(options: AuthOptions = {}) {
         if (required) {
           return res.status(500).json({
             success: false,
-            error: 'Authentication error'
+            error: 'Authentication error',
           });
         }
         return next();
@@ -121,14 +119,14 @@ export function authenticate(options: AuthOptions = {}) {
       next();
     } catch (error) {
       logger.error(`Authentication middleware error: ${error}`, 'AuthMiddleware');
-      
+
       if (required) {
         return res.status(500).json({
           success: false,
-          error: 'Authentication error'
+          error: 'Authentication error',
         });
       }
-      
+
       next();
     }
   };

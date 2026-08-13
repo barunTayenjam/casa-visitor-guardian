@@ -68,39 +68,50 @@ staticRoutes.get('/snapshots/:filename', async (req: Request, res: Response) => 
   }
 });
 
-staticRoutes.use('/events', express.static(path.join(process.cwd(), 'data/detections'), {
-  maxAge: '1d',
-  setHeaders: imageHeaders,
-}));
+staticRoutes.use(
+  '/events',
+  express.static(path.join(process.cwd(), 'data/detections'), {
+    maxAge: '1d',
+    setHeaders: imageHeaders,
+  }),
+);
 
-staticRoutes.use('/snapshots', express.static(path.join(process.cwd(), 'data', 'detections'), {
-  maxAge: '1d',
-  setHeaders: imageHeaders,
-}));
+staticRoutes.use(
+  '/snapshots',
+  express.static(path.join(process.cwd(), 'data', 'detections'), {
+    maxAge: '1d',
+    setHeaders: imageHeaders,
+  }),
+);
 
 staticRoutes.use('/timelapse', express.static(path.join(process.cwd(), 'public', 'timelapse')));
 staticRoutes.use('/public', express.static('public'));
 
 const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');
 if (fs.existsSync(frontendDistPath)) {
-  staticRoutes.use(express.static(frontendDistPath, {
-    maxAge: '1y',
-    immutable: true,
-    setHeaders: (res, path) => {
-      if (path.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache');
-      }
-    }
-  }));
+  staticRoutes.use(
+    express.static(frontendDistPath, {
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    }),
+  );
 } else {
-  logger.info(`Frontend dist directory not found at ${frontendDistPath}, skipping static file serving`, 'StaticRoutes');
+  logger.info(
+    `Frontend dist directory not found at ${frontendDistPath}, skipping static file serving`,
+    'StaticRoutes',
+  );
 }
 
 staticRoutes.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
@@ -133,7 +144,7 @@ staticRoutes.get('/health/ready', (_req, res) => {
   res.status(criticalReady ? 200 : 503).json({
     status: criticalReady ? 'ready' : 'not_ready',
     timestamp: new Date().toISOString(),
-    services
+    services,
   });
 });
 
@@ -143,7 +154,7 @@ staticRoutes.get('/api/streams/health', (_req, res) => {
     if (!streamManager.healthMonitor) {
       return res.status(503).json({
         success: false,
-        error: 'Stream manager not available'
+        error: 'Stream manager not available',
       });
     }
 
@@ -158,11 +169,14 @@ staticRoutes.get('/api/streams/health', (_req, res) => {
         cameraId: status.cameraId,
         role: status.role,
         isActive: status.isActive,
-        lastFrameTime: status.lastFrameTime > 0 ? new Date(status.lastFrameTime).toISOString() : null,
-        secondsSinceLastFrame: timeSinceLastFrame !== null ? Math.floor(timeSinceLastFrame / 1000) : null,
+        lastFrameTime:
+          status.lastFrameTime > 0 ? new Date(status.lastFrameTime).toISOString() : null,
+        secondsSinceLastFrame:
+          timeSinceLastFrame !== null ? Math.floor(timeSinceLastFrame / 1000) : null,
         isStale,
         restartAttempts: status.restartAttempts,
-        lastRestartTime: status.lastRestartTime > 0 ? new Date(status.lastRestartTime).toISOString() : null
+        lastRestartTime:
+          status.lastRestartTime > 0 ? new Date(status.lastRestartTime).toISOString() : null,
       };
     });
 
@@ -170,9 +184,9 @@ staticRoutes.get('/api/streams/health', (_req, res) => {
       success: true,
       timestamp: new Date().toISOString(),
       totalStreams: cameraHealth.length,
-      activeStreams: cameraHealth.filter(h => h.isActive).length,
-      staleStreams: cameraHealth.filter(h => h.isStale).length,
-      streams: cameraHealth
+      activeStreams: cameraHealth.filter((h) => h.isActive).length,
+      staleStreams: cameraHealth.filter((h) => h.isStale).length,
+      streams: cameraHealth,
     });
   } catch (error) {
     logger.error('Error in stream health endpoint', 'StaticRoutes', error);

@@ -29,8 +29,12 @@ export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
     try {
       const canvas = document.createElement('canvas');
       const isVideo = 'videoWidth' in mediaEl;
-      canvas.width = isVideo ? (mediaEl as HTMLVideoElement).videoWidth : (mediaEl as HTMLImageElement).naturalWidth;
-      canvas.height = isVideo ? (mediaEl as HTMLVideoElement).videoHeight : (mediaEl as HTMLImageElement).naturalHeight;
+      canvas.width = isVideo
+        ? (mediaEl as HTMLVideoElement).videoWidth
+        : (mediaEl as HTMLImageElement).naturalWidth;
+      canvas.height = isVideo
+        ? (mediaEl as HTMLVideoElement).videoHeight
+        : (mediaEl as HTMLImageElement).naturalHeight;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
@@ -48,24 +52,28 @@ export const ScreenshotButton: React.FC<ScreenshotButtonProps> = ({
       ctx.strokeText(text, 10, canvas.height - 10);
       ctx.fillText(text, 10, canvas.height - 10);
 
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `sentryvision-${camera.id}-${Date.now()}.jpg`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+      canvas.toBlob(
+        async (blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sentryvision-${camera.id}-${Date.now()}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
 
-          toast({
-            title: 'Screenshot Captured',
-            description: `Saved from ${camera.name}`,
-            duration: 2000,
-          });
-        }
-      }, 'image/jpeg', 0.95);
+            toast({
+              title: 'Screenshot Captured',
+              description: `Saved from ${camera.name}`,
+              duration: 2000,
+            });
+          }
+        },
+        'image/jpeg',
+        0.95,
+      );
     } catch (err) {
       console.error('Screenshot failed:', err);
       toast({

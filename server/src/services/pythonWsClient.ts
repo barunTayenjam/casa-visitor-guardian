@@ -62,7 +62,10 @@ export class PythonWsClient extends EventEmitter {
 
   connect(): void {
     if (this.isDead) {
-      logger.warn('[PythonWsClient] Client is dead (max retries exceeded), skipping connect', 'PythonWsClient');
+      logger.warn(
+        '[PythonWsClient] Client is dead (max retries exceeded), skipping connect',
+        'PythonWsClient',
+      );
       return;
     }
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
@@ -80,7 +83,10 @@ export class PythonWsClient extends EventEmitter {
     }, this.CONNECT_TIMEOUT_MS);
 
     this.ws.on('open', () => {
-      if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
+      if (this.connectTimeout) {
+        clearTimeout(this.connectTimeout);
+        this.connectTimeout = null;
+      }
       logger.info('[PythonWsClient] Connected', 'PythonWsClient');
       this.reconnectDelay = 1000;
       this.retryCount = 0;
@@ -140,12 +146,18 @@ export class PythonWsClient extends EventEmitter {
 
     this.ws.on('close', () => {
       this.stopSilenceMonitor();
-      if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
+      if (this.connectTimeout) {
+        clearTimeout(this.connectTimeout);
+        this.connectTimeout = null;
+      }
       this._connected = false;
       this.retryCount++;
       if (this.retryCount > this.maxRetries) {
         this.isDead = true;
-        logger.error(`[PythonWsClient] Max reconnect retries (${this.maxRetries}) exceeded. Marking client as dead.`, 'PythonWsClient');
+        logger.error(
+          `[PythonWsClient] Max reconnect retries (${this.maxRetries}) exceeded. Marking client as dead.`,
+          'PythonWsClient',
+        );
         this.emit('websocket:dead', { retries: this.retryCount });
         return;
       }
@@ -170,14 +182,20 @@ export class PythonWsClient extends EventEmitter {
       if (this.ws?.readyState !== WebSocket.OPEN) return;
       const elapsed = Date.now() - this.lastDataAt;
       if (elapsed > this.SILENCE_TIMEOUT_MS) {
-        logger.warn(`[PythonWsClient] No data from Python for ${elapsed}ms, terminating connection`, 'PythonWsClient');
+        logger.warn(
+          `[PythonWsClient] No data from Python for ${elapsed}ms, terminating connection`,
+          'PythonWsClient',
+        );
         this.ws.terminate();
       }
     }, this.SILENCE_CHECK_MS);
   }
 
   private stopSilenceMonitor(): void {
-    if (this.silenceTimer) { clearInterval(this.silenceTimer); this.silenceTimer = null; }
+    if (this.silenceTimer) {
+      clearInterval(this.silenceTimer);
+      this.silenceTimer = null;
+    }
   }
 
   send(data: any): void {
@@ -202,7 +220,10 @@ export class PythonWsClient extends EventEmitter {
 
   disconnect(): void {
     this.stopSilenceMonitor();
-    if (this.connectTimeout) { clearTimeout(this.connectTimeout); this.connectTimeout = null; }
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

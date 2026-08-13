@@ -7,6 +7,8 @@ const router = Router();
 router.get('/hourly', optionalAuth, (req, res) => analyticsController.getHourly(req, res));
 router.get('/weekly', optionalAuth, (req, res) => analyticsController.getWeekly(req, res));
 router.get('/monthly', optionalAuth, (req, res) => analyticsController.getMonthly(req, res));
-router.get('/storage', optionalAuth, async (req, res) => analyticsController.getStorageStats(req, res));
+router.get('/storage', optionalAuth, async (req, res) =>
+  analyticsController.getStorageStats(req, res),
+);
 
 export default router;

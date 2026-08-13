@@ -17,16 +17,19 @@ const subscribeSchema = z.object({
   endpoint: z.string().url().max(500),
   keys: z.object({
     p256dh: z.string().min(1),
-    auth: z.string().min(1)
-  })
+    auth: z.string().min(1),
+  }),
 });
 
 const unsubscribeSchema = z.object({
-  endpoint: z.string().url().max(500)
+  endpoint: z.string().url().max(500),
 });
 
 const logsQuerySchema = z.object({
-  limit: z.preprocess(v => (v ? parseInt(v as string, 10) : undefined), z.number().min(1).max(100).optional())
+  limit: z.preprocess(
+    (v) => (v ? parseInt(v as string, 10) : undefined),
+    z.number().min(1).max(100).optional(),
+  ),
 });
 
 const preferencesSchema = z.object({
@@ -34,9 +37,15 @@ const preferencesSchema = z.object({
   face_enabled: z.boolean().optional(),
   object_enabled: z.boolean().optional(),
   quiet_hours_enabled: z.boolean().optional(),
-  quiet_hours_start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  quiet_hours_end: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  quiet_hours_timezone: z.string().max(50).optional()
+  quiet_hours_start: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  quiet_hours_end: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  quiet_hours_timezone: z.string().max(50).optional(),
 });
 
 router.post('/subscribe', validateBody(subscribeSchema), async (req: Request, res: Response) => {
@@ -66,23 +75,27 @@ router.post('/subscribe', validateBody(subscribeSchema), async (req: Request, re
   }
 });
 
-router.delete('/unsubscribe', validateBody(unsubscribeSchema), async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.userId;
-    const { endpoint } = req.body;
+router.delete(
+  '/unsubscribe',
+  validateBody(unsubscribeSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { endpoint } = req.body;
 
-    if (!endpoint) {
-      return res.status(400).json({ error: 'Endpoint is required' });
+      if (!endpoint) {
+        return res.status(400).json({ error: 'Endpoint is required' });
+      }
+
+      await NotificationService.unsubscribe(userId, endpoint);
+
+      res.json({ message: 'Unsubscribed successfully' });
+    } catch (error) {
+      logger.error('Unsubscribe error', 'Notifications', error);
+      res.status(500).json({ error: 'Failed to unsubscribe' });
     }
-
-    await NotificationService.unsubscribe(userId, endpoint);
-
-    res.json({ message: 'Unsubscribed successfully' });
-  } catch (error) {
-    logger.error('Unsubscribe error', 'Notifications', error);
-    res.status(500).json({ error: 'Failed to unsubscribe' });
-  }
-});
+  },
+);
 
 router.post('/resubscribe', validateBody(subscribeSchema), async (req: Request, res: Response) => {
   try {
@@ -182,7 +195,7 @@ router.post('/test', async (req: Request, res: Response) => {
         icon: '/icon-192.png',
         badge: '/badge-72.png',
       },
-      'test'
+      'test',
     );
 
     res.json({ message: 'Test notification sent' });
@@ -242,10 +255,14 @@ router.put('/preferences', validateBody(preferencesSchema), async (req: Request,
     if (req.body.motion_enabled !== undefined) preferences.motionEnabled = req.body.motion_enabled;
     if (req.body.face_enabled !== undefined) preferences.faceEnabled = req.body.face_enabled;
     if (req.body.object_enabled !== undefined) preferences.objectEnabled = req.body.object_enabled;
-    if (req.body.quiet_hours_enabled !== undefined) preferences.quietHoursEnabled = req.body.quiet_hours_enabled;
-    if (req.body.quiet_hours_start !== undefined) preferences.quietHoursStart = req.body.quiet_hours_start;
-    if (req.body.quiet_hours_end !== undefined) preferences.quietHoursEnd = req.body.quiet_hours_end;
-    if (req.body.quiet_hours_timezone !== undefined) preferences.quietHoursTimezone = req.body.quiet_hours_timezone;
+    if (req.body.quiet_hours_enabled !== undefined)
+      preferences.quietHoursEnabled = req.body.quiet_hours_enabled;
+    if (req.body.quiet_hours_start !== undefined)
+      preferences.quietHoursStart = req.body.quiet_hours_start;
+    if (req.body.quiet_hours_end !== undefined)
+      preferences.quietHoursEnd = req.body.quiet_hours_end;
+    if (req.body.quiet_hours_timezone !== undefined)
+      preferences.quietHoursTimezone = req.body.quiet_hours_timezone;
 
     await preferencesRepository.save(preferences);
 

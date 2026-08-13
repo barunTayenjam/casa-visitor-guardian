@@ -29,13 +29,28 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     if (!process.env.SEED_ADMIN_PASSWORD) missing.push('SEED_ADMIN_PASSWORD');
     if (!process.env.SEED_USER_PASSWORD) missing.push('SEED_USER_PASSWORD');
     if (missing.length > 0) {
-      logger.error('FATAL: Required environment variables not set: ' + missing.join(', ') + '. Set these before starting in production.', 'BOOTSTRAP');
+      logger.error(
+        'FATAL: Required environment variables not set: ' +
+          missing.join(', ') +
+          '. Set these before starting in production.',
+        'BOOTSTRAP',
+      );
       process.exit(1);
     }
   }
   try {
-    await authService.register({ username: 'barun', email: 'barun@security.local', password: process.env.SEED_ADMIN_PASSWORD!, role: 'admin' });
-    await authService.register({ username: 'user', email: 'user@security.local', password: process.env.SEED_USER_PASSWORD!, role: 'user' });
+    await authService.register({
+      username: 'barun',
+      email: 'barun@security.local',
+      password: process.env.SEED_ADMIN_PASSWORD!,
+      role: 'admin',
+    });
+    await authService.register({
+      username: 'user',
+      email: 'user@security.local',
+      password: process.env.SEED_USER_PASSWORD!,
+      role: 'user',
+    });
   } catch (err) {
     logger.debug('Seed user registration failed (duplicates expected)', 'BOOTSTRAP', err);
   }
@@ -70,7 +85,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 export async function gracefulShutdown(
   signal: string,
   server: http.Server,
-  io: SocketIOServer
+  io: SocketIOServer,
 ): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;

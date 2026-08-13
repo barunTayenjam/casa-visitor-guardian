@@ -12,16 +12,16 @@ export class CameraPersistence {
         `INSERT INTO cameras (id, name, config, enabled)
          VALUES ($1, $2, $3::jsonb, $4)
          ON CONFLICT (id) DO UPDATE SET name = $2, config = $3::jsonb, enabled = $4`,
-        [cfg.id, cfg.name, JSON.stringify(cfg), enabled]
+        [cfg.id, cfg.name, JSON.stringify(cfg), enabled],
       );
     }
 
-    const currentIds = cameras.map(c => c.id);
+    const currentIds = cameras.map((c) => c.id);
     if (currentIds.length > 0) {
       const placeholders = currentIds.map((_, i) => `$${i + 1}`).join(', ');
       await AppDataSource.query(
         `DELETE FROM cameras WHERE id NOT IN (${placeholders})`,
-        currentIds
+        currentIds,
       );
     }
     logger.info(`Camera config persisted to database (${cameras.length} cameras)`, 'StreamManager');
@@ -29,7 +29,9 @@ export class CameraPersistence {
 
   async load(): Promise<CameraConfig[]> {
     if (!AppDataSource.isInitialized) return [];
-    const rows = await AppDataSource.query('SELECT id, name, config, enabled FROM cameras ORDER BY created_at');
+    const rows = await AppDataSource.query(
+      'SELECT id, name, config, enabled FROM cameras ORDER BY created_at',
+    );
     if (rows.length === 0) return [];
     logger.info(`Loaded ${rows.length} cameras from database`, 'StreamManager');
     return rows.map((row: any) => {

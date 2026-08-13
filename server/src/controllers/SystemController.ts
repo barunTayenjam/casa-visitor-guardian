@@ -42,7 +42,7 @@ export class SystemController extends BaseController {
         timestamp: new Date().toISOString(),
         activeCameras: cameras.filter((c: any) => c.isActive).length,
         db,
-        pipeline
+        pipeline,
       });
     } catch (error) {
       res.json({
@@ -50,7 +50,7 @@ export class SystemController extends BaseController {
         timestamp: new Date().toISOString(),
         activeCameras: 0,
         db,
-        pipeline
+        pipeline,
       });
     }
   }
@@ -69,39 +69,44 @@ export class SystemController extends BaseController {
 
       let knownVisitors = 0;
       try {
-        const visitorResult = await AppDataSource.query('SELECT COUNT(Distinct visitor_id) as count FROM visitor_timeline');
+        const visitorResult = await AppDataSource.query(
+          'SELECT COUNT(Distinct visitor_id) as count FROM visitor_timeline',
+        );
         knownVisitors = parseInt(visitorResult?.[0]?.count) || 0;
       } catch (err) {
         logger.warn('Failed to query visitor count', 'System', err);
       }
 
-let storageUsed = 0;
-    let storageTotal = 0;
-    try {
-      const { config } = await import('../config/index.js');
-      const dbResult = await AppDataSource.query(
-        `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`
-      );
-      storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
-      const fs = await import('node:fs');
-      const detectionsPath = config.storage.detectionsDir;
-      if ((fs as any).existsSync(detectionsPath) && typeof (fs as any).statfsSync === 'function') {
-        const stat = (fs as any).statfsSync(detectionsPath);
-      storageTotal = stat.blocks * stat.bsize;
+      let storageUsed = 0;
+      let storageTotal = 0;
+      try {
+        const { config } = await import('../config/index.js');
+        const dbResult = await AppDataSource.query(
+          `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`,
+        );
+        storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
+        const fs = await import('node:fs');
+        const detectionsPath = config.storage.detectionsDir;
+        if (
+          (fs as any).existsSync(detectionsPath) &&
+          typeof (fs as any).statfsSync === 'function'
+        ) {
+          const stat = (fs as any).statfsSync(detectionsPath);
+          storageTotal = stat.blocks * stat.bsize;
+        }
+      } catch (err) {
+        logger.warn('Failed to query storage stats', 'System', err);
       }
-    } catch (err) {
-      logger.warn('Failed to query storage stats', 'System', err);
-    }
-    this.ok(res, {
-      stats: {
-        totalEvents,
-        totalCameras: cameras.length,
-        activeCameras,
-        knownVisitors,
-        storageUsed,
-        storageTotal,
-      }
-    });
+      this.ok(res, {
+        stats: {
+          totalEvents,
+          totalCameras: cameras.length,
+          activeCameras,
+          knownVisitors,
+          storageUsed,
+          storageTotal,
+        },
+      });
     } catch (error: unknown) {
       this.serverError(res, error, 'stats');
     }
@@ -126,7 +131,7 @@ let storageUsed = 0;
         deleted: result.deleted,
         preserved: result.preserved,
         freedBytes: result.freedBytes,
-        freedMB: (result.freedBytes / 1024 / 1024).toFixed(2)
+        freedMB: (result.freedBytes / 1024 / 1024).toFixed(2),
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'cleanupImages');
@@ -144,33 +149,33 @@ let storageUsed = 0;
     }
   }
 
-async cleanupStatus(_req: Request, res: Response): Promise<void> {
+  async cleanupStatus(_req: Request, res: Response): Promise<void> {
     try {
-        const { AppDataSource } = await import('../database.js');
-        const lastCleanup = await AppDataSource.query(
-          `SELECT value FROM system_settings WHERE key = 'last_cleanup_timestamp'`
-        );
-        const cleanupService = AutomatedCleanupService.getInstance();
-        const inProgress = cleanupService.isCleanupInProgress();
-        res.json({
-          success: true,
-          data: {
-            lastRun: lastCleanup[0]?.value || null,
-            status: inProgress ? 'running' : 'idle',
-            nextScheduled: 'Daily at 3:00 AM',
-          }
-        });
+      const { AppDataSource } = await import('../database.js');
+      const lastCleanup = await AppDataSource.query(
+        `SELECT value FROM system_settings WHERE key = 'last_cleanup_timestamp'`,
+      );
+      const cleanupService = AutomatedCleanupService.getInstance();
+      const inProgress = cleanupService.isCleanupInProgress();
+      res.json({
+        success: true,
+        data: {
+          lastRun: lastCleanup[0]?.value || null,
+          status: inProgress ? 'running' : 'idle',
+          nextScheduled: 'Daily at 3:00 AM',
+        },
+      });
     } catch (error) {
-        const cleanupService = AutomatedCleanupService.getInstance();
-        const inProgress = cleanupService?.isCleanupInProgress?.() ?? false;
-        res.json({
-          success: true,
-          data: {
-            lastRun: null,
-            status: inProgress ? 'running' : 'idle',
-            nextScheduled: 'Daily at 3:00 AM',
-          }
-        });
+      const cleanupService = AutomatedCleanupService.getInstance();
+      const inProgress = cleanupService?.isCleanupInProgress?.() ?? false;
+      res.json({
+        success: true,
+        data: {
+          lastRun: null,
+          status: inProgress ? 'running' : 'idle',
+          nextScheduled: 'Daily at 3:00 AM',
+        },
+      });
     }
   }
 
@@ -185,10 +190,13 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
         const { AppDataSource } = await import('../database.js');
         const { config } = await import('../config/index.js');
         const dbResult = await AppDataSource.query(
-          `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`
+          `SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM detection_files WHERE is_deleted = FALSE`,
         );
         storageUsed = parseInt(dbResult[0]?.total_bytes) || 0;
-        if (fs.existsSync(config.storage.detectionsDir) && typeof (fs as any).statfsSync === 'function') {
+        if (
+          fs.existsSync(config.storage.detectionsDir) &&
+          typeof (fs as any).statfsSync === 'function'
+        ) {
           const stat = (fs as any).statfsSync(config.storage.detectionsDir);
           storageTotal = stat.blocks * stat.bsize;
         }
@@ -206,12 +214,14 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
         todayEvents: recentEvents.filter((e: MotionEvent) => {
           const eventDate = new Date(e.timestamp);
           const today = new Date();
-          return eventDate.getDate() === today.getDate() &&
+          return (
+            eventDate.getDate() === today.getDate() &&
             eventDate.getMonth() === today.getMonth() &&
-            eventDate.getFullYear() === today.getFullYear();
+            eventDate.getFullYear() === today.getFullYear()
+          );
         }).length,
         storageUsed,
-        storageTotal
+        storageTotal,
       };
 
       this.ok(res, { data: overview });
@@ -229,8 +239,14 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
 
       let status = 'healthy';
       const issues: string[] = [];
-      if (offlineCameras.length > 0) { status = 'warning'; issues.push(`${offlineCameras.length} camera(s) offline`); }
-      if (onlineCameras.length === 0 && cameras.length > 0) { status = 'critical'; issues.push('All cameras offline'); }
+      if (offlineCameras.length > 0) {
+        status = 'warning';
+        issues.push(`${offlineCameras.length} camera(s) offline`);
+      }
+      if (onlineCameras.length === 0 && cameras.length > 0) {
+        status = 'critical';
+        issues.push('All cameras offline');
+      }
 
       const uptime = process.uptime();
       if (uptime < 300) issues.push('System recently restarted');
@@ -255,7 +271,9 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
       try {
         const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
         opencvBreakerState = getOpenCVClient().getBreakerState();
-      } catch { /* OpenCV client not initialized yet */ }
+      } catch {
+        /* OpenCV client not initialized yet */
+      }
 
       res.json({
         success: true,
@@ -263,31 +281,39 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
           status,
           uptime,
           issues,
-          cameras: { total: cameras.length, online: onlineCameras.length, offline: offlineCameras.length },
+          cameras: {
+            total: cameras.length,
+            online: onlineCameras.length,
+            offline: offlineCameras.length,
+          },
           memory: {
             used: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
             total: Math.round((process.memoryUsage().heapTotal / 1024 / 1024) * 100) / 100,
             systemTotal: Math.round((os.totalmem() / 1024 / 1024) * 100) / 100,
-            systemFree: Math.round((os.freemem() / 1024 / 1024) * 100) / 100
+            systemFree: Math.round((os.freemem() / 1024 / 1024) * 100) / 100,
           },
           cpu: {
             usage: Math.min(100, Math.round(cpuUsage * 100) / 100),
             cores: cpus.length,
             model: cpus[0].model,
-            loadAvg: loadAvg
+            loadAvg: loadAvg,
           },
           circuitBreakers: {
             opencv: opencvBreakerState,
           },
           events: {
             recent: recentEvents.length,
-            today: recentEvents.filter(e => {
+            today: recentEvents.filter((e) => {
               const eventDate = new Date(e.timestamp);
               const today = new Date();
-              return eventDate.getDate() === today.getDate() && eventDate.getMonth() === today.getMonth() && eventDate.getFullYear() === today.getFullYear();
-            }).length
-          }
-        }
+              return (
+                eventDate.getDate() === today.getDate() &&
+                eventDate.getMonth() === today.getMonth() &&
+                eventDate.getFullYear() === today.getFullYear()
+              );
+            }).length,
+          },
+        },
       });
     } catch (error) {
       this.serverError(res, error, 'systemHealth');
@@ -297,37 +323,48 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
   async getLogs(req: Request, res: Response): Promise<void> {
     try {
       const { level, limit } = req.query;
-      const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
+      const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> =
+        [];
 
       const logsDir = path.join(__dirname, '../../logs');
       const errorLogFile = path.join(logsDir, 'error.log');
       const combinedLogFile = path.join(logsDir, 'combined.log');
 
-const parseLogFile = async (filePath: string, targetLevel?: string): Promise<Array<{ timestamp: string; level: string; message: string; context?: string }>> => {
-          const entries: Array<{ timestamp: string; level: string; message: string; context?: string }> = [];
-          try {
-            await fsp.access(filePath);
-          } catch {
-            return entries;
-          }
-          const content = await fsp.readFile(filePath, 'utf-8');
-          const lines = content.split('\n');
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
-            if (match) {
-              const [, timestamp, logLevel, context, message] = match;
-              if (!targetLevel || logLevel === targetLevel) {
-                entries.push({ timestamp, level: logLevel, message, context });
-              }
+      const parseLogFile = async (
+        filePath: string,
+        targetLevel?: string,
+      ): Promise<
+        Array<{ timestamp: string; level: string; message: string; context?: string }>
+      > => {
+        const entries: Array<{
+          timestamp: string;
+          level: string;
+          message: string;
+          context?: string;
+        }> = [];
+        try {
+          await fsp.access(filePath);
+        } catch {
+          return entries;
+        }
+        const content = await fsp.readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
+          if (match) {
+            const [, timestamp, logLevel, context, message] = match;
+            if (!targetLevel || logLevel === targetLevel) {
+              entries.push({ timestamp, level: logLevel, message, context });
             }
           }
-          return entries;
-        };
-        const combinedEntries = await parseLogFile(combinedLogFile, level as string);
-        logs.push(...combinedEntries);
-        const errorEntries = await parseLogFile(errorLogFile, 'ERROR');
-        logs.push(...errorEntries);
+        }
+        return entries;
+      };
+      const combinedEntries = await parseLogFile(combinedLogFile, level as string);
+      logs.push(...combinedEntries);
+      const errorEntries = await parseLogFile(errorLogFile, 'ERROR');
+      logs.push(...errorEntries);
 
       const maxLogs = parseInt(limit as string) || 100;
       this.ok(res, { logs: logs.slice(-maxLogs).reverse() });
@@ -343,8 +380,14 @@ const parseLogFile = async (filePath: string, targetLevel?: string): Promise<Arr
       const combinedLogFile = path.join(logsDir, 'combined.log');
 
       const cleared: string[] = [];
-      if (fs.existsSync(errorLogFile)) { fs.writeFileSync(errorLogFile, ''); cleared.push('error.log'); }
-      if (fs.existsSync(combinedLogFile)) { fs.writeFileSync(combinedLogFile, ''); cleared.push('combined.log'); }
+      if (fs.existsSync(errorLogFile)) {
+        fs.writeFileSync(errorLogFile, '');
+        cleared.push('error.log');
+      }
+      if (fs.existsSync(combinedLogFile)) {
+        fs.writeFileSync(combinedLogFile, '');
+        cleared.push('combined.log');
+      }
 
       this.ok(res, { message: 'Logs cleared', cleared });
     } catch (error) {

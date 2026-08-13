@@ -4,16 +4,16 @@
 
 ## Available Models
 
-| Model | Best For |
-|-------|----------|
+| Model                       | Best For                            |
+| --------------------------- | ----------------------------------- |
 | `gc/gemini-3-flash-preview` | **Default**. Fast, reasoning tokens |
-| `gc/gemini-3-pro-preview` | Complex reasoning |
-| `gc/gemini-3.1-flash-lite` | Lightweight tasks |
-| `oc/sonet-4` | Alternative model |
-| `ollama/gpt-oss:120b` | Thorough all-rounder |
-| `ollama/minimax-m3` | Quick fallback |
-| `ollama/nemotron-3-ultra` | Heavy lifting |
-| `ollama/qwen3-coder-next` | Coding tasks |
+| `gc/gemini-3-pro-preview`   | Complex reasoning                   |
+| `gc/gemini-3.1-flash-lite`  | Lightweight tasks                   |
+| `oc/sonet-4`                | Alternative model                   |
+| `ollama/gpt-oss:120b`       | Thorough all-rounder                |
+| `ollama/minimax-m3`         | Quick fallback                      |
+| `ollama/nemotron-3-ultra`   | Heavy lifting                       |
+| `ollama/qwen3-coder-next`   | Coding tasks                        |
 
 ## Commands
 

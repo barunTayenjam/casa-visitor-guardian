@@ -43,7 +43,7 @@ describe('ReviewService', () => {
       mockReviewSegmentRepo,
       mockReviewStatusRepo,
       mockTimelineService,
-      mockPreviewService
+      mockPreviewService,
     );
   });
 
@@ -64,7 +64,9 @@ describe('ReviewService', () => {
         { id: 'segment_2', camera: 'cam1', severity: 'detection' },
         { id: 'segment_3', camera: 'cam1', severity: 'detection' },
       ];
-      mockReviewSegmentRepo.createQueryBuilder().getManyAndCount.mockResolvedValue([mockSegments, 5]);
+      mockReviewSegmentRepo
+        .createQueryBuilder()
+        .getManyAndCount.mockResolvedValue([mockSegments, 5]);
 
       const result = await reviewService.getReviewSegments({ limit: 2 });
 
@@ -81,7 +83,7 @@ describe('ReviewService', () => {
       expect(mockReviewSegmentRepo.createQueryBuilder).toHaveBeenCalledWith('segment');
       expect(mockReviewSegmentRepo.createQueryBuilder().andWhere).toHaveBeenCalledWith(
         'segment.camera = :camera',
-        { camera: 'front_door' }
+        { camera: 'front_door' },
       );
     });
 
@@ -92,14 +94,16 @@ describe('ReviewService', () => {
 
       expect(mockReviewSegmentRepo.createQueryBuilder().andWhere).toHaveBeenCalledWith(
         'segment.severity = :severity',
-        { severity: 'alert' }
+        { severity: 'alert' },
       );
     });
   });
 
   describe('calculateSeverity', () => {
     it('should return alert for person detection', () => {
-      const objects = new Map([['person_1', { label: 'person', lastSeen: new Date(), score: 0.9 }]]);
+      const objects = new Map([
+        ['person_1', { label: 'person', lastSeen: new Date(), score: 0.9 }],
+      ]);
       const severity = (reviewService as any).calculateSeverity(objects);
       expect(severity).toBe('alert');
     });
@@ -173,7 +177,7 @@ describe('ReviewService', () => {
           user_id: 'user_1',
           review_segment_id: 'segment_1',
           has_been_reviewed: true,
-        })
+        }),
       );
     });
 

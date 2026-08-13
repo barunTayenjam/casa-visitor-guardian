@@ -46,7 +46,10 @@ export class NotificationService {
     for (const camera of cameras) {
       this.cameraNames.set(camera.id, camera.name);
     }
-    logger.info(`Loaded ${this.cameraNames.size} camera names for notifications`, 'NotificationService');
+    logger.info(
+      `Loaded ${this.cameraNames.size} camera names for notifications`,
+      'NotificationService',
+    );
   }
 
   static getVapidPublicKey(): string | undefined {
@@ -63,15 +66,15 @@ export class NotificationService {
         if (fs.existsSync(VAPID_PUB_KEY_FILE)) {
           this.vapidPublicKey = fs.readFileSync(VAPID_PUB_KEY_FILE, 'utf-8').trim();
           this.vapidPrivateKey = fs.readFileSync(VAPID_PRIV_KEY_FILE, 'utf-8').trim();
-           logger.info('VAPID keys loaded from filesystem', 'NotificationService');
+          logger.info('VAPID keys loaded from filesystem', 'NotificationService');
         }
       } catch (err) {
-         logger.warn('Could not load VAPID keys from filesystem', 'NotificationService');
+        logger.warn('Could not load VAPID keys from filesystem', 'NotificationService');
       }
     }
 
     if (!this.vapidPublicKey || !this.vapidPrivateKey) {
-       logger.info('Generating new VAPID keys...', 'NotificationService');
+      logger.info('Generating new VAPID keys...', 'NotificationService');
       const keys = webPush.generateVAPIDKeys();
       this.vapidPublicKey = keys.publicKey;
       this.vapidPrivateKey = keys.privateKey;
@@ -84,19 +87,18 @@ export class NotificationService {
         fs.writeFileSync(VAPID_PRIV_KEY_FILE, this.vapidPrivateKey, 'utf-8');
         fs.chmodSync(VAPID_PUB_KEY_FILE, 0o600);
         fs.chmodSync(VAPID_PRIV_KEY_FILE, 0o600);
-         logger.info('VAPID keys persisted to filesystem', 'NotificationService');
+        logger.info('VAPID keys persisted to filesystem', 'NotificationService');
       } catch (err) {
-         logger.warn('Could not persist VAPID keys to filesystem — will regenerate on next restart', 'NotificationService');
+        logger.warn(
+          'Could not persist VAPID keys to filesystem — will regenerate on next restart',
+          'NotificationService',
+        );
       }
     }
 
-    webPush.setVapidDetails(
-      this.vapidSubject,
-      this.vapidPublicKey,
-      this.vapidPrivateKey
-    );
+    webPush.setVapidDetails(this.vapidSubject, this.vapidPublicKey, this.vapidPrivateKey);
 
-     logger.info('Notification service initialized with VAPID keys', 'NotificationService');
+    logger.info('Notification service initialized with VAPID keys', 'NotificationService');
   }
 
   static generateVAPIDKeys() {
@@ -105,7 +107,7 @@ export class NotificationService {
 
   static async subscribe(
     userId: string,
-    subscription: PushSubscription
+    subscription: PushSubscription,
   ): Promise<NotificationSubscription> {
     try {
       const newSubscription = notificationSubscriptionRepository.create({
@@ -117,10 +119,10 @@ export class NotificationService {
       });
 
       await notificationSubscriptionRepository.save(newSubscription);
-       logger.info(`User ${userId} subscribed to notifications`, 'NotificationService');
+      logger.info(`User ${userId} subscribed to notifications`, 'NotificationService');
       return newSubscription;
     } catch (error) {
-       logger.error('Failed to save subscription', 'NotificationService', error);
+      logger.error('Failed to save subscription', 'NotificationService', error);
       throw error;
     }
   }
@@ -131,9 +133,9 @@ export class NotificationService {
         userId,
         endpoint,
       });
-       logger.info(`User ${userId} unsubscribed from notifications`, 'NotificationService');
+      logger.info(`User ${userId} unsubscribed from notifications`, 'NotificationService');
     } catch (error) {
-       logger.error('Failed to unsubscribe', 'NotificationService', error);
+      logger.error('Failed to unsubscribe', 'NotificationService', error);
       throw error;
     }
   }
@@ -144,14 +146,14 @@ export class NotificationService {
         where: { userId, isActive: true },
       });
     } catch (error) {
-       logger.error('Failed to get subscription', 'NotificationService', error);
+      logger.error('Failed to get subscription', 'NotificationService', error);
       throw error;
     }
   }
 
   static async sendPushNotification(
     subscription: NotificationSubscription,
-    payload: NotificationPayload
+    payload: NotificationPayload,
   ): Promise<boolean> {
     const pushSubscription = {
       endpoint: subscription.endpoint,
@@ -162,10 +164,7 @@ export class NotificationService {
     };
 
     try {
-      await webPush.sendNotification(
-        pushSubscription,
-        JSON.stringify(payload)
-      );
+      await webPush.sendNotification(pushSubscription, JSON.stringify(payload));
 
       await notificationSubscriptionRepository.update(subscription.id, {
         lastUsed: new Date(),
@@ -178,9 +177,9 @@ export class NotificationService {
         await notificationSubscriptionRepository.update(subscription.id, {
           isActive: false,
         });
-         logger.info('Subscription expired, marked as inactive', 'NotificationService');
+        logger.info('Subscription expired, marked as inactive', 'NotificationService');
       } else {
-         logger.error('Failed to send push notification', 'NotificationService', error);
+        logger.error('Failed to send push notification', 'NotificationService', error);
       }
       return false;
     }
@@ -211,18 +210,21 @@ export class NotificationService {
         const isQuietHours = this.isTimeInQuietHours(
           userTimeStr,
           prefs.quietHoursStart,
-          prefs.quietHoursEnd
+          prefs.quietHoursEnd,
         );
 
         if (isQuietHours) {
-           logger.info(`Quiet hours active for user ${userId}, skipping notification`, 'NotificationService');
+          logger.info(
+            `Quiet hours active for user ${userId}, skipping notification`,
+            'NotificationService',
+          );
           return false;
         }
       }
 
       return true;
     } catch (error) {
-       logger.error('Error checking notification preferences', 'NotificationService', error);
+      logger.error('Error checking notification preferences', 'NotificationService', error);
       return true;
     }
   }
@@ -230,7 +232,7 @@ export class NotificationService {
   private static isTimeInQuietHours(
     currentTime: string,
     startTime: string,
-    endTime: string
+    endTime: string,
   ): boolean {
     if (startTime < endTime) {
       return currentTime >= startTime && currentTime < endTime;
@@ -243,14 +245,14 @@ export class NotificationService {
     userId: string,
     payload: NotificationPayload,
     eventType: string,
-    eventId?: string
+    eventId?: string,
   ): Promise<void> {
     const subscriptions = await notificationSubscriptionRepository.find({
       where: { userId, isActive: true },
     });
 
     if (subscriptions.length === 0) {
-       logger.info(`No active subscriptions found for user ${userId}`, 'NotificationService');
+      logger.info(`No active subscriptions found for user ${userId}`, 'NotificationService');
       return;
     }
 
@@ -279,14 +281,16 @@ export class NotificationService {
       }
     }
 
-     logger.info(
-       `Notification sent to user ${userId}: ${successCount} success, ${failCount} failed`,
-       'NotificationService'
-     );
+    logger.info(
+      `Notification sent to user ${userId}: ${successCount} success, ${failCount} failed`,
+      'NotificationService',
+    );
   }
 
   static async notifyMotionEvent(event: Event): Promise<void> {
-    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
+    const cameraName = event.camera_id
+      ? this.cameraNames.get(event.camera_id) || event.camera_id
+      : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -311,7 +315,9 @@ export class NotificationService {
   }
 
   static async notifyUnknownFace(event: Event): Promise<void> {
-    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
+    const cameraName = event.camera_id
+      ? this.cameraNames.get(event.camera_id) || event.camera_id
+      : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -336,11 +342,10 @@ export class NotificationService {
     await this.sendNotificationToAllUsers(payload, 'face', event.id);
   }
 
-  static async notifyObjectDetected(
-    event: Event,
-    objects: string[]
-  ): Promise<void> {
-    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
+  static async notifyObjectDetected(event: Event, objects: string[]): Promise<void> {
+    const cameraName = event.camera_id
+      ? this.cameraNames.get(event.camera_id) || event.camera_id
+      : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -365,10 +370,7 @@ export class NotificationService {
     await this.sendNotificationToAllUsers(payload, 'object', event.id);
   }
 
-  static async notifySystemAlert(
-    title: string,
-    message: string
-  ): Promise<void> {
+  static async notifySystemAlert(title: string, message: string): Promise<void> {
     const payload: NotificationPayload = {
       title,
       body: message,
@@ -387,7 +389,7 @@ export class NotificationService {
   private static async sendNotificationToAllUsers(
     payload: NotificationPayload,
     eventType: string,
-    eventId?: string
+    eventId?: string,
   ): Promise<void> {
     const { User } = await import('../models/index.js');
     const userRepository = AppDataSource.getRepository(User);
@@ -399,7 +401,10 @@ export class NotificationService {
       if (shouldNotify) {
         await this.sendNotificationToUser(user.id, payload, eventType, eventId);
       } else {
-         logger.info(`Notification for ${eventType} suppressed for user ${user.id} due to preferences`, 'NotificationService');
+        logger.info(
+          `Notification for ${eventType} suppressed for user ${user.id} due to preferences`,
+          'NotificationService',
+        );
       }
     }
   }
@@ -415,14 +420,11 @@ export class NotificationService {
       .orWhere('is_active = :isActive', { isActive: false })
       .execute();
 
-     logger.info(`Cleaned up ${result.affected || 0} expired subscriptions`, 'NotificationService');
+    logger.info(`Cleaned up ${result.affected || 0} expired subscriptions`, 'NotificationService');
     return result.affected || 0;
   }
 
-  static async getNotificationLogs(
-    userId: string,
-    limit: number = 50
-  ): Promise<NotificationLog[]> {
+  static async getNotificationLogs(userId: string, limit: number = 50): Promise<NotificationLog[]> {
     return await notificationLogRepository.find({
       where: { userId },
       order: { sentAt: 'DESC' },

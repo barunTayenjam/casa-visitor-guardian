@@ -7,7 +7,11 @@ import { format } from 'date-fns';
 
 const getLabelColor = (label: string): string => {
   const colorMap: Record<string, string> = {
-    person: '22c55e', vehicle: '3b82f6', face: '8b5cf6', package: '06b6d4', motion: 'f59e0b',
+    person: '22c55e',
+    vehicle: '3b82f6',
+    face: '8b5cf6',
+    package: '06b6d4',
+    motion: 'f59e0b',
   };
   return colorMap[label] || colorMap.motion;
 };
@@ -19,17 +23,31 @@ interface RelatedEventsProps {
   onEventSelect?: (eventId: string) => void;
 }
 
-export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, events, maxEvents = 6, onEventSelect }) => {
+export const RelatedEvents: React.FC<RelatedEventsProps> = ({
+  currentEvent,
+  events,
+  maxEvents = 6,
+  onEventSelect,
+}) => {
   const findRelatedEvents = React.useMemo(() => {
-    const related = events.filter(event => {
+    const related = events.filter((event) => {
       if (event.id === currentEvent.id) return false;
       const timeDiff = Math.abs(event.timestamp.getTime() - currentEvent.timestamp.getTime());
       const sameCamera = event.cameraId === currentEvent.cameraId;
       const withinHour = timeDiff < 60 * 60 * 1000;
-      const hasSameLabel = event.labels && currentEvent.labels && event.labels.some(l => currentEvent.labels?.includes(l));
+      const hasSameLabel =
+        event.labels &&
+        currentEvent.labels &&
+        event.labels.some((l) => currentEvent.labels?.includes(l));
       return (sameCamera && withinHour) || hasSameLabel;
     });
-    return related.sort((a, b) => Math.abs(a.timestamp.getTime() - currentEvent.timestamp.getTime()) - Math.abs(b.timestamp.getTime() - currentEvent.timestamp.getTime())).slice(0, maxEvents);
+    return related
+      .sort(
+        (a, b) =>
+          Math.abs(a.timestamp.getTime() - currentEvent.timestamp.getTime()) -
+          Math.abs(b.timestamp.getTime() - currentEvent.timestamp.getTime()),
+      )
+      .slice(0, maxEvents);
   }, [currentEvent, events, maxEvents]);
 
   if (findRelatedEvents.length === 0) {
@@ -51,7 +69,10 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
       if (minutes < 60) return `${minutes}m ago`;
       return 'Same camera';
     }
-    const hasSameLabel = event.labels && currentEvent.labels && event.labels.some(l => currentEvent.labels?.includes(l));
+    const hasSameLabel =
+      event.labels &&
+      currentEvent.labels &&
+      event.labels.some((l) => currentEvent.labels?.includes(l));
     return hasSameLabel ? `Similar: ${event.labels?.[0]}` : 'Related';
   };
 
@@ -67,28 +88,49 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({ currentEvent, even
           <div
             key={event.id}
             className="p-[1px] rounded-[1.25rem] bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer hover:bg-white/[0.06] opacity-0"
-            style={{ animation: `slide-up-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms forwards` }}
+            style={{
+              animation: `slide-up-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms forwards`,
+            }}
             onClick={() => onEventSelect?.(event.id)}
           >
             <div className="rounded-[calc(1.25rem-1px)] bg-black/40">
               <div className="relative aspect-video bg-black rounded-t-[calc(1.25rem-1px)] overflow-hidden">
                 {event.imageUrl ? (
-                  <ProgressiveImage src={event.imageUrl} alt={`Related event`} className="w-full h-full" />
+                  <ProgressiveImage
+                    src={event.imageUrl}
+                    alt={`Related event`}
+                    className="w-full h-full"
+                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center"><p className="text-[10px] text-white/60">No image</p></div>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <p className="text-[10px] text-white/60">No image</p>
+                  </div>
                 )}
                 <div className="absolute top-1.5 left-1.5">
-                  <Badge variant="glass" className="text-[8px] px-1.5 py-0.5 bg-blue-500/60 text-white border-none">{getRelationLabel(event)}</Badge>
+                  <Badge
+                    variant="glass"
+                    className="text-[8px] px-1.5 py-0.5 bg-blue-500/60 text-white border-none"
+                  >
+                    {getRelationLabel(event)}
+                  </Badge>
                 </div>
                 {event.labels && event.labels.length > 0 && (
                   <div className="absolute top-1.5 right-1.5">
-                    <Badge variant="glass" className="text-[8px] px-1.5 py-0.5 text-white" style={{ backgroundColor: `${getLabelColor(event.labels[0])}80` }}>{event.labels[0]}</Badge>
+                    <Badge
+                      variant="glass"
+                      className="text-[8px] px-1.5 py-0.5 text-white"
+                      style={{ backgroundColor: `${getLabelColor(event.labels[0])}80` }}
+                    >
+                      {event.labels[0]}
+                    </Badge>
                   </div>
                 )}
               </div>
               <div className="p-2">
                 <p className="text-xs font-medium text-foreground truncate">{event.cameraName}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{format(event.timestamp, 'HH:mm')}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {format(event.timestamp, 'HH:mm')}
+                </p>
               </div>
             </div>
           </div>

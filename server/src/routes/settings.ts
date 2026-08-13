@@ -13,6 +13,8 @@ const UpdateSettingsSchema = z.object({
 });
 
 router.get('/', requireUser, (req, res) => settingsController.getSettings(req, res));
-router.put('/', requireUser, validateBody(UpdateSettingsSchema), (req, res) => settingsController.updateSettings(req, res));
+router.put('/', requireUser, validateBody(UpdateSettingsSchema), (req, res) =>
+  settingsController.updateSettings(req, res),
+);
 
 export default router;

@@ -55,12 +55,9 @@ export class TimelineService {
       queryBuilder.andWhere('timeline.source IN (:...sources)', { sources });
     }
 
-    const events = await queryBuilder
-      .orderBy('timeline.timestamp', 'DESC')
-      .limit(limit)
-      .getMany();
+    const events = await queryBuilder.orderBy('timeline.timestamp', 'DESC').limit(limit).getMany();
 
-    const resultEvents: TimelineEvent[] = events.map(event => ({
+    const resultEvents: TimelineEvent[] = events.map((event) => ({
       id: event.id,
       timestamp: event.timestamp,
       camera: event.camera,
@@ -125,13 +122,18 @@ export class TimelineService {
     await this.timelineRepo.save(timelineEvent);
 
     if (event.source === 'tracked_object') {
-      await this.updateAdaptiveRegions(event.camera, event.data as { box?: { x: number; y: number; width: number; height: number } });
+      await this.updateAdaptiveRegions(
+        event.camera,
+        event.data as { box?: { x: number; y: number; width: number; height: number } },
+      );
     }
 
     return { id, ...event };
   }
 
-  async getAdaptiveRegions(camera: string): Promise<{ cells: string[]; last_update: string | null }> {
+  async getAdaptiveRegions(
+    camera: string,
+  ): Promise<{ cells: string[]; last_update: string | null }> {
     const region = await this.regionRepo.findOne({ where: { camera } });
     return region?.grid || { cells: [], last_update: null };
   }
@@ -145,7 +147,7 @@ export class TimelineService {
 
   private async updateAdaptiveRegions(
     camera: string,
-    data: { box?: { x: number; y: number; width: number; height: number } }
+    data: { box?: { x: number; y: number; width: number; height: number } },
   ): Promise<void> {
     if (!data.box) return;
 

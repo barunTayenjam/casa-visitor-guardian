@@ -17,10 +17,10 @@ const roleHierarchy = {
 
 function hasRequiredRole(userRole: string, requiredRole?: string): boolean {
   if (!requiredRole) return true;
-  
+
   const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0;
   const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
-  
+
   return userLevel >= requiredLevel;
 }
 
@@ -49,18 +49,33 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         <div className="text-center max-w-md mx-auto p-6">
           <div className="mb-4">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="w-8 h-8 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
           <p className="text-muted-foreground mb-6">
-            You don't have permission to access this page. This page requires {requiredRole} privileges or higher.
+            You don't have permission to access this page. This page requires {requiredRole}{' '}
+            privileges or higher.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>Your current role: <span className="font-medium text-foreground">{user?.role}</span></p>
-            <p>Required role: <span className="font-medium text-foreground">{requiredRole}</span></p>
+            <p>
+              Your current role: <span className="font-medium text-foreground">{user?.role}</span>
+            </p>
+            <p>
+              Required role: <span className="font-medium text-foreground">{requiredRole}</span>
+            </p>
           </div>
         </div>
       </div>

@@ -9,7 +9,16 @@ import { TrackingEvent } from '../services/pythonWsClient.js';
 import NotificationService from '../services/notificationService.js';
 
 export async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
-  const { cameraId, event: eventType, trackId, class: className, score, bbox, identity, identityConfidence } = ev;
+  const {
+    cameraId,
+    event: eventType,
+    trackId,
+    class: className,
+    score,
+    bbox,
+    identity,
+    identityConfidence,
+  } = ev;
   if (!cameraId) return;
 
   const isPerson = className === 'person';
@@ -30,37 +39,50 @@ export async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
       await fsp.writeFile(filePath, frame);
     }
   } catch (err) {
-    logger.warn(`[DetectionPersistence] Failed to save snapshot for event on ${cameraId}`, 'PIPELINE', err);
+    logger.warn(
+      `[DetectionPersistence] Failed to save snapshot for event on ${cameraId}`,
+      'PIPELINE',
+      err,
+    );
   }
 
   const isVehicle = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(className);
-  const severity: 'alert' | 'detection' | 'info' = isPerson ? 'alert' : isVehicle ? 'detection' : 'info';
+  const severity: 'alert' | 'detection' | 'info' = isPerson
+    ? 'alert'
+    : isVehicle
+      ? 'detection'
+      : 'info';
 
   const event = new Event();
   event.event_type = eventTypeStr;
   event.severity = severity;
   event.camera_id = cameraId;
   event.file_path = filePath;
-  event.timestamp = typeof ev.timestamp === 'number'
-    ? new Date(ev.timestamp * 1000)
-    : new Date(ev.timestamp);
+  event.timestamp =
+    typeof ev.timestamp === 'number' ? new Date(ev.timestamp * 1000) : new Date(ev.timestamp);
   event.confidence = score;
   event.persons_detected = isPerson ? 1 : 0;
   event.faces_detected = isFace ? 1 : 0;
   event.known_faces_count = isFace ? 1 : 0;
   event.unknown_faces_count = 0;
-  event.object_detections = [{
-    class: className,
-    confidence: Math.round(score * 100),
-    bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
-  }];
-  event.face_detections = isFace ? [{
-    id: `track_${trackId}`,
-    name: identity ?? 'unknown',
-    isKnown: identity !== null && identity !== 'unknown',
-    confidence: identityConfidence ?? 0,
-    bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
-  }] : [];
+  event.object_detections = [
+    {
+      class: className,
+      confidence: Math.round(score * 100),
+      bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
+    },
+  ];
+  event.face_detections = isFace
+    ? [
+        {
+          id: `track_${trackId}`,
+          name: identity ?? 'unknown',
+          isKnown: identity !== null && identity !== 'unknown',
+          confidence: identityConfidence ?? 0,
+          bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
+        },
+      ]
+    : [];
   event.metadata = JSON.stringify({
     trackId,
     eventType,
@@ -72,7 +94,10 @@ export async function persistDetectionEvent(ev: TrackingEvent): Promise<void> {
   });
 
   await AppDataSource.getRepository(Event).save(event);
-  logger.info(`[DetectionPersistence] Persisted ${eventTypeStr} event for ${cameraId} (track=${trackId}, class=${className})`, 'PIPELINE');
+  logger.info(
+    `[DetectionPersistence] Persisted ${eventTypeStr} event for ${cameraId} (track=${trackId}, class=${className})`,
+    'PIPELINE',
+  );
 
   try {
     if (eventTypeStr === 'person') {

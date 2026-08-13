@@ -86,7 +86,7 @@ export class EnhancedDetectionService {
       known_faces_count: detectionData.metadata.knownFaces,
       unknown_faces_count: detectionData.metadata.unknownFaces,
       object_detections: detectionData.detections,
-      face_detections: detectionData.detections.filter(d => d.class.includes('face')),
+      face_detections: detectionData.detections.filter((d) => d.class.includes('face')),
     });
 
     const savedEvent = await this.eventRepo.save(event);
@@ -117,15 +117,14 @@ export class EnhancedDetectionService {
     detections: DetectionResult[],
     eventType: 'motion' | 'person' | 'face' | 'object' | 'vehicle' | 'animal' = 'object',
     processingTime: number = 0,
-    filePath?: string
+    filePath?: string,
   ): Promise<Event> {
     // Calculate enhanced metadata
     const metadata = this.calculateEnhancedMetadata(detections, processingTime);
 
     // Determine primary confidence as the highest among all detections
-    const confidence = metadata.totalDetections > 0 
-      ? Math.max(...detections.map(d => d.confidence))
-      : 0;
+    const confidence =
+      metadata.totalDetections > 0 ? Math.max(...detections.map((d) => d.confidence)) : 0;
 
     // Create detection data object
     const detectionData: EnhancedDetectionData = {
@@ -134,7 +133,7 @@ export class EnhancedDetectionService {
       timestamp: new Date(),
       eventType,
       confidence,
-      detections: detections.map(d => ({
+      detections: detections.map((d) => ({
         class: d.class,
         confidence: d.confidence,
         bbox: d.bbox,
@@ -150,22 +149,35 @@ export class EnhancedDetectionService {
   /**
    * Calculate enhanced metadata from detection results
    */
-  private calculateEnhancedMetadata(detections: DetectionResult[], processingTime: number): EnhancedDetectionData['metadata'] {
-    const personCount = detections.filter(d => d.class === 'person').length;
-    const faceCount = detections.filter(d => d.class.includes('face') || d.class === 'face').length;
-    const vehicleCount = detections.filter(d => ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class)).length;
-    const animalCount = detections.filter(d => ['dog', 'cat', 'bird', 'horse', 'sheep', 'cow'].includes(d.class)).length;
-    
+  private calculateEnhancedMetadata(
+    detections: DetectionResult[],
+    processingTime: number,
+  ): EnhancedDetectionData['metadata'] {
+    const personCount = detections.filter((d) => d.class === 'person').length;
+    const faceCount = detections.filter(
+      (d) => d.class.includes('face') || d.class === 'face',
+    ).length;
+    const vehicleCount = detections.filter((d) =>
+      ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class),
+    ).length;
+    const animalCount = detections.filter((d) =>
+      ['dog', 'cat', 'bird', 'horse', 'sheep', 'cow'].includes(d.class),
+    ).length;
+
     // Count unique object classes
-    const uniqueClasses = new Set(detections.map(d => d.class));
+    const uniqueClasses = new Set(detections.map((d) => d.class));
     const objectCounts: Record<string, number> = {};
-    uniqueClasses.forEach(cls => {
-      objectCounts[cls] = detections.filter(d => d.class === cls).length;
+    uniqueClasses.forEach((cls) => {
+      objectCounts[cls] = detections.filter((d) => d.class === cls).length;
     });
 
     // Determine if there are known/unknown faces
-    const knownFaces = detections.filter(d => d.class.includes('face') && d.label && d.label !== 'Unknown').length;
-    const unknownFaces = detections.filter(d => d.class.includes('face') && (!d.label || d.label === 'Unknown')).length;
+    const knownFaces = detections.filter(
+      (d) => d.class.includes('face') && d.label && d.label !== 'Unknown',
+    ).length;
+    const unknownFaces = detections.filter(
+      (d) => d.class.includes('face') && (!d.label || d.label === 'Unknown'),
+    ).length;
 
     return {
       personCount,
@@ -190,15 +202,18 @@ export class EnhancedDetectionService {
     events: Event[];
     totalCount: number;
   }> {
-    let queryBuilder = this.eventRepo.createQueryBuilder('event')
-      .where('1 = 1'); // Base condition
+    let queryBuilder = this.eventRepo.createQueryBuilder('event').where('1 = 1'); // Base condition
 
     if (query.cameraId) {
-      queryBuilder = queryBuilder.andWhere('event.camera_id = :cameraId', { cameraId: query.cameraId });
+      queryBuilder = queryBuilder.andWhere('event.camera_id = :cameraId', {
+        cameraId: query.cameraId,
+      });
     }
 
     if (query.eventType) {
-      queryBuilder = queryBuilder.andWhere('event.event_type = :eventType', { eventType: query.eventType });
+      queryBuilder = queryBuilder.andWhere('event.event_type = :eventType', {
+        eventType: query.eventType,
+      });
     }
 
     if (query.after) {
@@ -210,16 +225,16 @@ export class EnhancedDetectionService {
     }
 
     if (query.minConfidence !== undefined) {
-      queryBuilder = queryBuilder.andWhere('event.confidence >= :minConfidence', { minConfidence: query.minConfidence });
+      queryBuilder = queryBuilder.andWhere('event.confidence >= :minConfidence', {
+        minConfidence: query.minConfidence,
+      });
     }
 
     // Get total count
     const totalCount = await queryBuilder.getCount();
 
     // Apply ordering and limits
-    queryBuilder = queryBuilder
-      .orderBy('event.timestamp', 'DESC')
-      .limit(query.limit || 50);
+    queryBuilder = queryBuilder.orderBy('event.timestamp', 'DESC').limit(query.limit || 50);
 
     if (query.offset) {
       queryBuilder = queryBuilder.offset(query.offset);
@@ -239,12 +254,13 @@ export class EnhancedDetectionService {
     byDay: Record<string, number>;
     avgConfidence: number;
   }> {
-    let queryBuilder = this.eventRepo.createQueryBuilder('event')
+    let queryBuilder = this.eventRepo
+      .createQueryBuilder('event')
       .select([
         'COUNT(*) as totalDetections',
         'event.event_type as eventType',
         'DATE(event.timestamp) as day',
-        'AVG(event.confidence) as avgConfidence'
+        'AVG(event.confidence) as avgConfidence',
       ])
       .groupBy('event.event_type')
       .addGroupBy('DATE(event.timestamp)');
@@ -265,11 +281,12 @@ export class EnhancedDetectionService {
     let totalConfidence = 0;
     let confidenceCount = 0;
 
-    results.forEach(row => {
+    results.forEach((row) => {
       stats.totalDetections += parseInt(row.totalDetections);
-      stats.byType[row.eventType] = (stats.byType[row.eventType] || 0) + parseInt(row.totalDetections);
+      stats.byType[row.eventType] =
+        (stats.byType[row.eventType] || 0) + parseInt(row.totalDetections);
       stats.byDay[row.day] = (stats.byDay[row.day] || 0) + parseInt(row.totalDetections);
-      
+
       if (row.avgConfidence !== null) {
         totalConfidence += parseFloat(row.avgConfidence) * parseInt(row.totalDetections);
         confidenceCount += parseInt(row.totalDetections);

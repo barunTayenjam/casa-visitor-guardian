@@ -276,12 +276,16 @@ describe('Frame Relay E2E (DOC-08)', () => {
         const serverWs = clients[0]!;
 
         // Send JSON metadata then binary frame data
-        serverWs.send(JSON.stringify({
-          type: 'frame',
-          cameraId: 'cam1',
-          timestamp: Date.now(),
-        }));
-        serverWs.send(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]));
+        serverWs.send(
+          JSON.stringify({
+            type: 'frame',
+            cameraId: 'cam1',
+            timestamp: Date.now(),
+          }),
+        );
+        serverWs.send(
+          Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]),
+        );
 
         // Allow event-loop tick for WebSocket message delivery
         setTimeout(() => {
@@ -293,7 +297,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
 
             // Verify the live emit payload
             const liveCall = (mockIo.emit as jest.Mock).mock.calls.find(
-              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'live'
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'live',
             );
             expect(liveCall).toBeDefined();
             expect((liveCall[1] as Record<string, unknown>).cameraId).toBe('cam1');
@@ -303,7 +307,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
 
             // Verify the detect emit payload
             const detectCall = (mockIo.emit as jest.Mock).mock.calls.find(
-              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect'
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect',
             );
             expect(detectCall).toBeDefined();
             expect((detectCall[1] as Record<string, unknown>).cameraId).toBe('cam1');
@@ -339,11 +343,13 @@ describe('Frame Relay E2E (DOC-08)', () => {
         const clients = [...mockServer.clients];
         const serverWs = clients[0]!;
 
-        serverWs.send(JSON.stringify({
-          type: 'frame',
-          cameraId: 'nonexistent-camera',
-          timestamp: Date.now(),
-        }));
+        serverWs.send(
+          JSON.stringify({
+            type: 'frame',
+            cameraId: 'nonexistent-camera',
+            timestamp: Date.now(),
+          }),
+        );
         serverWs.send(Buffer.from([0xff, 0xd8, 0xff]));
 
         setTimeout(() => {
@@ -388,11 +394,13 @@ describe('Frame Relay E2E (DOC-08)', () => {
         const clients = [...mockServer.clients];
         const serverWs = clients[0]!;
 
-        serverWs.send(JSON.stringify({
-          type: 'frame',
-          cameraId: 'cam1',
-          timestamp: Date.now(),
-        }));
+        serverWs.send(
+          JSON.stringify({
+            type: 'frame',
+            cameraId: 'cam1',
+            timestamp: Date.now(),
+          }),
+        );
         serverWs.send(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]));
 
         setTimeout(() => {
@@ -401,7 +409,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
             expect(mockIo.to).toHaveBeenCalledWith('camera-cam1-detect');
 
             const detectCalls = (mockIo.emit as jest.Mock).mock.calls.filter(
-              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect'
+              (call: unknown[]) => (call[1] as Record<string, unknown>)?.role === 'detect',
             );
             expect(detectCalls).toHaveLength(1);
             expect((detectCalls[0][1] as Record<string, unknown>).cameraId).toBe('cam1');

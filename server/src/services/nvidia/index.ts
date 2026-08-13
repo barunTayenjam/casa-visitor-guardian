@@ -6,25 +6,50 @@ import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT } from './promp
 import { callNvidiaApi } from './nvidiaClient.js';
 import { parseAIResponse, drawBoundingBoxes } from './nvidiaProcessor.js';
 import { DEFAULT_TIMEOUT } from './types.js';
-import type { AnalysisContext, NvidianalysisResult, BboxAnalysisResult, PersonDetectionResult, BoundingBox } from './types.js';
+import type {
+  AnalysisContext,
+  NvidianalysisResult,
+  BboxAnalysisResult,
+  PersonDetectionResult,
+  BoundingBox,
+} from './types.js';
 
-export type { AnalysisContext, BoundingBox, PersonDetectionResult, BboxAnalysisResult, NvidianalysisResult, NvidiaApiError } from './types.js';
+export type {
+  AnalysisContext,
+  BoundingBox,
+  PersonDetectionResult,
+  BboxAnalysisResult,
+  NvidianalysisResult,
+  NvidiaApiError,
+} from './types.js';
 
 async function prepareBase64Image(imageInput: string | Buffer): Promise<string> {
   if (Buffer.isBuffer(imageInput)) {
-    const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
+    const resized = await sharp(imageInput)
+      .resize(800, 800, { fit: 'inside' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
     return resized.toString('base64');
   } else if (imageInput.startsWith('data:')) {
     const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
+    const resized = await sharp(buffer)
+      .resize(800, 800, { fit: 'inside' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
     return resized.toString('base64');
   } else if (imageInput.length > 1000) {
     const buffer = Buffer.from(imageInput, 'base64');
-    const resized = await sharp(buffer).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
+    const resized = await sharp(buffer)
+      .resize(800, 800, { fit: 'inside' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
     return resized.toString('base64');
   } else {
-    const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
+    const resized = await sharp(imageInput)
+      .resize(800, 800, { fit: 'inside' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
     return resized.toString('base64');
   }
 }
@@ -35,7 +60,7 @@ export async function analyzeImage(
   options: {
     model?: string;
     timeout?: number;
-  } = {}
+  } = {},
 ): Promise<NvidianalysisResult> {
   const startTime = Date.now();
 
@@ -65,10 +90,12 @@ export async function analyzeImage(
         throw new Error('Empty response from NVIDIA API');
       }
 
-      logger.info(`Analysis completed in ${processingTime}ms, content length=${content.length}`, 'NVIDIA');
+      logger.info(
+        `Analysis completed in ${processingTime}ms, content length=${content.length}`,
+        'NVIDIA',
+      );
 
       return parseAIResponse(content, processingTime, model);
-
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
 
@@ -77,7 +104,6 @@ export async function analyzeImage(
       }
       throw fetchError;
     }
-
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Analysis error: ' + errMsg, 'NVIDIA');
@@ -89,22 +115,22 @@ export async function analyzeImage(
       threatAssessment: {
         level: 'medium',
         factors: ['API error - unable to complete analysis'],
-        confidence: 0
+        confidence: 0,
       },
       detectedEntities: {
         people: [],
         vehicles: [],
         animals: [],
         objects: [],
-        actions: []
+        actions: [],
       },
       recommendedActions: ['Check NVIDIA API configuration', 'Verify API key is valid'],
       additionalObservations: [`Error: ${errMsg}`],
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
-    }
   }
+}
 
 export async function checkApiHealth(): Promise<{
   available: boolean;
@@ -118,7 +144,7 @@ export async function checkApiHealth(): Promise<{
     return {
       available: false,
       model,
-      error: 'NVIDIA_API_KEY not configured'
+      error: 'NVIDIA_API_KEY not configured',
     };
   }
 
@@ -126,8 +152,8 @@ export async function checkApiHealth(): Promise<{
     const response = await fetch('https://integrate.api.nvidia.com/v1/models', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
+        Authorization: `Bearer ${apiKey}`,
+      },
     });
 
     if (response.ok) {
@@ -136,7 +162,7 @@ export async function checkApiHealth(): Promise<{
       return {
         available: false,
         model,
-        error: `API returned status ${response.status}`
+        error: `API returned status ${response.status}`,
       };
     }
   } catch (error: unknown) {
@@ -144,7 +170,7 @@ export async function checkApiHealth(): Promise<{
     return {
       available: false,
       model,
-      error: errMsg
+      error: errMsg,
     };
   }
 }
@@ -155,7 +181,7 @@ export async function analyzeWithBoundingBoxes(
   options: {
     model?: string;
     timeout?: number;
-  } = {}
+  } = {},
 ): Promise<BboxAnalysisResult> {
   const startTime = Date.now();
 
@@ -170,22 +196,34 @@ export async function analyzeWithBoundingBoxes(
 
     if (Buffer.isBuffer(imageInput)) {
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
+      await sharp(imageInput)
+        .resize(800, 800, { fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toFile(tempPath);
       imagePath = tempPath;
       base64Image = imageInput.toString('base64');
     } else if (imageInput.startsWith('data:')) {
       const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(base64Data, 'base64')).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
+      await sharp(Buffer.from(base64Data, 'base64'))
+        .resize(800, 800, { fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toFile(tempPath);
       imagePath = tempPath;
       base64Image = base64Data;
     } else if (imageInput.length > 1000) {
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(imageInput, 'base64')).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(tempPath);
+      await sharp(Buffer.from(imageInput, 'base64'))
+        .resize(800, 800, { fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toFile(tempPath);
       imagePath = tempPath;
       base64Image = imageInput;
     } else {
-      const resized = await sharp(imageInput).resize(800, 800, { fit: 'inside' }).jpeg({ quality: 85 }).toBuffer();
+      const resized = await sharp(imageInput)
+        .resize(800, 800, { fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toBuffer();
       imagePath = imageInput;
       base64Image = resized.toString('base64');
     }
@@ -193,7 +231,9 @@ export async function analyzeWithBoundingBoxes(
     const contextInfo = [
       context.cameraName ? `Camera: ${context.cameraName}` : null,
       context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
-    ].filter(Boolean).join(' | ');
+    ]
+      .filter(Boolean)
+      .join(' | ');
 
     const userMessage = contextInfo
       ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
@@ -204,7 +244,7 @@ export async function analyzeWithBoundingBoxes(
       messages: [
         {
           role: 'system',
-          content: BBOX_SYSTEM_PROMPT
+          content: BBOX_SYSTEM_PROMPT,
         },
         {
           role: 'user',
@@ -212,15 +252,15 @@ export async function analyzeWithBoundingBoxes(
             { type: 'text', text: userMessage },
             {
               type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` }
-            }
-          ]
-        }
+              image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+            },
+          ],
+        },
       ],
       temperature: 0.0,
       max_tokens: 4096,
       stream: false,
-      top_p: 0.9
+      top_p: 0.9,
     };
 
     const controller = new AbortController();
@@ -236,10 +276,10 @@ export async function analyzeWithBoundingBoxes(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -258,7 +298,7 @@ export async function analyzeWithBoundingBoxes(
       people: [] as string[],
       vehicles: [] as string[],
       objects: [] as string[],
-      animals: [] as string[]
+      animals: [] as string[],
     };
     let sceneDescription = '';
     let sceneContext: BboxAnalysisResult['sceneContext'] = undefined;
@@ -279,9 +319,14 @@ export async function analyzeWithBoundingBoxes(
             width: obj.position?.width || 0,
             height: obj.position?.height || 0,
             label: obj.label || obj.description || 'unknown',
-            confidence: obj.confidence || 50
+            confidence: obj.confidence || 50,
           };
-          const maxCoord = Math.max(rawBox.x, rawBox.y, rawBox.x + rawBox.width, rawBox.y + rawBox.height);
+          const maxCoord = Math.max(
+            rawBox.x,
+            rawBox.y,
+            rawBox.x + rawBox.width,
+            rawBox.y + rawBox.height,
+          );
           if (maxCoord > 100) {
             const scale = 8;
             rawBox.x /= scale;
@@ -316,7 +361,9 @@ export async function analyzeWithBoundingBoxes(
     if (imagePath.startsWith('/tmp/nvidia_bbox')) {
       try {
         fs.unlinkSync(imagePath);
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
     }
 
     return {
@@ -326,9 +373,8 @@ export async function analyzeWithBoundingBoxes(
       annotatedImage,
       rawAnalysis,
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
-
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Bbox analysis error: ' + errMsg, 'NVIDIA');
@@ -340,7 +386,7 @@ export async function analyzeWithBoundingBoxes(
       annotatedImage: '',
       rawAnalysis: { people: [], vehicles: [], objects: [], animals: [] },
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
   }
 }
@@ -351,7 +397,7 @@ export async function analyzePersons(
   options: {
     model?: string;
     timeout?: number;
-  } = {}
+  } = {},
 ): Promise<PersonDetectionResult> {
   const startTime = Date.now();
 
@@ -367,7 +413,9 @@ export async function analyzePersons(
       context.cameraName ? `Camera: ${context.cameraName}` : null,
       context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
       context.eventType ? `Event Type: ${context.eventType}` : null,
-    ].filter(Boolean).join(' | ');
+    ]
+      .filter(Boolean)
+      .join(' | ');
 
     const userMessage = contextInfo
       ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
@@ -378,7 +426,7 @@ export async function analyzePersons(
       messages: [
         {
           role: 'system',
-          content: PERSON_SYSTEM_PROMPT
+          content: PERSON_SYSTEM_PROMPT,
         },
         {
           role: 'user',
@@ -386,15 +434,15 @@ export async function analyzePersons(
             { type: 'text', text: userMessage },
             {
               type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` }
-            }
-          ]
-        }
+              image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+            },
+          ],
+        },
       ],
       temperature: 0.0,
       max_tokens: 4096,
       stream: false,
-      top_p: 0.9
+      top_p: 0.9,
     };
 
     const controller = new AbortController();
@@ -410,10 +458,10 @@ export async function analyzePersons(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -424,7 +472,8 @@ export async function analyzePersons(
 
     const apiResponse = await response.json();
     const personMessage = apiResponse.choices?.[0]?.message;
-    const content = personMessage?.content || personMessage?.reasoning_content || personMessage?.reasoning || '';
+    const content =
+      personMessage?.content || personMessage?.reasoning_content || personMessage?.reasoning || '';
     const processingTime = Date.now() - startTime;
 
     let people: PersonDetectionResult['people'] = [];
@@ -452,11 +501,11 @@ export async function analyzePersons(
             width: p.position?.width || 0,
             height: p.position?.height || 0,
             label: 'person',
-            confidence: 80
+            confidence: 80,
           },
           description: p.description || '',
           clothing: p.clothing || '',
-          actions: p.actions || []
+          actions: p.actions || [],
         }));
       }
     } catch (parseError) {
@@ -470,9 +519,8 @@ export async function analyzePersons(
       sceneDescription,
       sceneContext,
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
-
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('Person detection error: ' + errMsg, 'NVIDIA');
@@ -484,7 +532,7 @@ export async function analyzePersons(
       sceneDescription: `Analysis failed: ${errMsg}`,
       sceneContext: undefined,
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
   }
 }

@@ -1,7 +1,10 @@
 import path from 'node:path';
 import { config } from './index.js';
 
-export const getDetectionsPath = (type: 'events' | 'snapshots' | 'batch' | 'temp', date: Date = new Date()): string => {
+export const getDetectionsPath = (
+  type: 'events' | 'snapshots' | 'batch' | 'temp',
+  date: Date = new Date(),
+): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const yearMonth = `${year}-${month}`;
@@ -31,7 +34,10 @@ export const getArchivePath = (date: Date): string => {
   return path.join(config.storage.archivePath, yearMonth);
 };
 
-export const getStoragePathFromFile = (fileType: 'event_face' | 'event_motion' | 'snapshot' | 'batch_result' | 'temp', date: Date = new Date()): string => {
+export const getStoragePathFromFile = (
+  fileType: 'event_face' | 'event_motion' | 'snapshot' | 'batch_result' | 'temp',
+  date: Date = new Date(),
+): string => {
   if (fileType === 'event_face') {
     return getEventPath('faces', date);
   } else if (fileType === 'event_motion') {

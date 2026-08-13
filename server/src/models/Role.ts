@@ -1,5 +1,12 @@
 // File: server/src/models/Role.ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from './User.js';
 
 @Entity('roles')
@@ -25,6 +32,6 @@ export class Role {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @OneToMany(() => User, user => (user as any).role)
+  @OneToMany(() => User, (user) => (user as any).role)
   users!: User[];
 }

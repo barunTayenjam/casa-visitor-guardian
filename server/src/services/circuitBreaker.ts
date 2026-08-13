@@ -4,7 +4,7 @@ export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
 export interface CircuitBreakerOptions {
   failureThreshold: number; // consecutive failures
-  cooldownMs: number;       // time to wait in OPEN state
+  cooldownMs: number; // time to wait in OPEN state
   successThreshold: number; // successes needed in HALF_OPEN to close
 }
 
@@ -27,7 +27,10 @@ export class CircuitBreaker {
         this.state = 'HALF_OPEN';
         this.failures = 0;
         this.successes = 0;
-        logger.info(`Circuit breaker for ${this.serviceName} changed state to HALF_OPEN`, 'CircuitBreaker');
+        logger.info(
+          `Circuit breaker for ${this.serviceName} changed state to HALF_OPEN`,
+          'CircuitBreaker',
+        );
       } else {
         throw new Error(`Circuit breaker for ${this.serviceName} is OPEN`);
       }
@@ -50,7 +53,10 @@ export class CircuitBreaker {
         this.state = 'CLOSED';
         this.failures = 0;
         this.successes = 0;
-        logger.info(`Circuit breaker for ${this.serviceName} changed state to CLOSED`, 'CircuitBreaker');
+        logger.info(
+          `Circuit breaker for ${this.serviceName} changed state to CLOSED`,
+          'CircuitBreaker',
+        );
       }
     } else {
       this.failures = 0;
@@ -62,10 +68,16 @@ export class CircuitBreaker {
     this.lastFailureTime = Date.now();
     if (this.state === 'CLOSED' && this.failures >= this.options.failureThreshold) {
       this.state = 'OPEN';
-      logger.warn(`Circuit breaker for ${this.serviceName} changed state to OPEN`, 'CircuitBreaker');
+      logger.warn(
+        `Circuit breaker for ${this.serviceName} changed state to OPEN`,
+        'CircuitBreaker',
+      );
     } else if (this.state === 'HALF_OPEN') {
       this.state = 'OPEN';
-      logger.warn(`Circuit breaker for ${this.serviceName} changed state to OPEN`, 'CircuitBreaker');
+      logger.warn(
+        `Circuit breaker for ${this.serviceName} changed state to OPEN`,
+        'CircuitBreaker',
+      );
     }
   }
 

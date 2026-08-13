@@ -1,27 +1,39 @@
-import React, { Suspense, lazy, useEffect, useCallback, useRef, createContext, useContext } from 'react';
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { SocketProvider } from "./contexts/SocketContext";
-import { CameraProvider } from "./contexts/CameraContext";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { AppLayout } from "./components/layout/AppLayout";
+import React, {
+  Suspense,
+  lazy,
+  useEffect,
+  useCallback,
+  useRef,
+  createContext,
+  useContext,
+} from 'react';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
+import { CameraProvider } from './contexts/CameraContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AppLayout } from './components/layout/AppLayout';
 
-const Login = lazy(() => import("./pages/Login"));
-const StreamDashboard = lazy(() => import("./pages/StreamDashboard"));
-const EventsPage = lazy(() => import("./pages/EventsPage"));
-const SettingsPage = lazy(() => import("./pages/Settings"));
-const TimelapsePage = lazy(() => import("./pages/TimelapsePage"));
+const Login = lazy(() => import('./pages/Login'));
+const StreamDashboard = lazy(() => import('./pages/StreamDashboard'));
+const EventsPage = lazy(() => import('./pages/EventsPage'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const TimelapsePage = lazy(() => import('./pages/TimelapsePage'));
 
-const NotFound = lazy(() => import("./pages/NotFound"));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 const AuthRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <LoadingFallback />;
-  return isAuthenticated ? <Navigate to="/app/streams" replace /> : <Navigate to="/login" replace />;
+  return isAuthenticated ? (
+    <Navigate to="/app/streams" replace />
+  ) : (
+    <Navigate to="/login" replace />
+  );
 };
 
 const queryClient = new QueryClient();
@@ -32,12 +44,24 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
       <div className="p-[1px] rounded-[4px] bg-white/[0.06]">
         <div className="rounded-[3px] bg-card p-8 text-center">
           <div className="w-14 h-14 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-5">
-            <svg className="w-7 h-7 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-7 h-7 text-destructive"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
-          <p className="text-sm text-muted-foreground mb-6">{error?.message || 'Unknown error occurred'}</p>
+          <p className="text-sm text-muted-foreground mb-6">
+            {error?.message || 'Unknown error occurred'}
+          </p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={resetError}
@@ -98,7 +122,7 @@ const ScrollRevealProvider = ({ children }: { children: React.ReactNode }) => {
           }
         });
       },
-      { threshold: 0.08, rootMargin: '0px 0px -60px 0px' }
+      { threshold: 0.08, rootMargin: '0px 0px -60px 0px' },
     );
     return () => observerRef.current?.disconnect();
   }, []);
@@ -144,49 +168,64 @@ const App = () => {
                     <main id="main-content" className="relative z-[1]">
                       <Suspense fallback={<LoadingFallback />}>
                         <Routes>
-                          <Route path="/login" element={
-                            <ErrorBoundary fallback={ErrorFallback}>
-                              <Login />
-                            </ErrorBoundary>
-                          } />
+                          <Route
+                            path="/login"
+                            element={
+                              <ErrorBoundary fallback={ErrorFallback}>
+                                <Login />
+                              </ErrorBoundary>
+                            }
+                          />
                           <Route index element={<AuthRedirect />} />
                           <Route path="/app" element={<Navigate to="/app/streams" replace />} />
-                          <Route path="/app/streams" element={
-                            <ProtectedRoute>
-                              <AppLayout>
-                                <ErrorBoundary fallback={ErrorFallback}>
-                                  <StreamDashboard />
-                                </ErrorBoundary>
-                              </AppLayout>
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/app/events" element={
-                            <ProtectedRoute>
-                              <AppLayout>
-                                <ErrorBoundary fallback={ErrorFallback}>
-                                  <EventsPage />
-                                </ErrorBoundary>
-                              </AppLayout>
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/app/settings" element={
-                            <ProtectedRoute>
-                              <AppLayout>
-                                <ErrorBoundary fallback={ErrorFallback}>
-                                  <SettingsPage />
-                                </ErrorBoundary>
-                              </AppLayout>
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/app/timelapse" element={
-                            <ProtectedRoute>
-                              <AppLayout>
-                                <ErrorBoundary fallback={ErrorFallback}>
-                                  <TimelapsePage />
-                                </ErrorBoundary>
-                              </AppLayout>
-                            </ProtectedRoute>
-                          } />
+                          <Route
+                            path="/app/streams"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <StreamDashboard />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/events"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <EventsPage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/settings"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <SettingsPage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/timelapse"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <TimelapsePage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Suspense>

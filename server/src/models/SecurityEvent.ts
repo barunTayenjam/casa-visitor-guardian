@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  Index
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum SecurityEventType {
   CREDENTIAL_DECRYPTION_FAILED = 'CREDENTIAL_DECRYPTION_FAILED',
@@ -12,7 +6,7 @@ export enum SecurityEventType {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   VALIDATION_FAILED = 'VALIDATION_FAILED',
   UNAUTHORIZED_ACCESS_ATTEMPT = 'UNAUTHORIZED_ACCESS_ATTEMPT',
-  SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY'
+  SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
 }
 
 @Entity('security_events')

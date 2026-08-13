@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Camera } from '@/types/security';
 import { cameraService } from '@/services/api/cameraService';
@@ -50,16 +49,14 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Update a camera's last seen timestamp
   const updateCameraLastSeen = (id: string) => {
-    setCameras(prev => prev.map(camera => 
-      camera.id === id ? { ...camera, lastSeen: new Date() } : camera
-    ));
+    setCameras((prev) =>
+      prev.map((camera) => (camera.id === id ? { ...camera, lastSeen: new Date() } : camera)),
+    );
   };
 
   // Update camera status locally (for socket events)
   const updateCameraStatus = (id: string, status: 'online' | 'offline') => {
-    setCameras(prev => prev.map(camera => 
-      camera.id === id ? { ...camera, status } : camera
-    ));
+    setCameras((prev) => prev.map((camera) => (camera.id === id ? { ...camera, status } : camera)));
   };
 
   // Refresh cameras from the backend
@@ -67,18 +64,18 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
-      
+
       logger.info('Fetching cameras from backend', 'CAMERA');
       const fetchedCameras = await cameraService.getCameras();
-      logger.info('Successfully fetched cameras', 'CAMERA', { 
-        cameraCount: fetchedCameras.length 
+      logger.info('Successfully fetched cameras', 'CAMERA', {
+        cameraCount: fetchedCameras.length,
       });
-      
+
       setCameras(fetchedCameras);
     } catch (err) {
       logger.error('Failed to fetch cameras', 'CAMERA', err);
       setError('Failed to load cameras from the server');
-      
+
       // Provide mock cameras only in development when backend is completely unavailable
       if (import.meta.env.DEV && err instanceof Error && err.message.includes('fetch')) {
         logger.info('Backend not available, providing mock cameras for development', 'CAMERA');
@@ -94,7 +91,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sensitivity: 0.7,
             lastSeen: new Date(),
             resolution: '2560x1440',
-            fps: 15
+            fps: 15,
           },
           {
             id: 'cam2',
@@ -107,8 +104,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sensitivity: 0.8,
             lastSeen: new Date(),
             resolution: '1920x1080',
-            fps: 15
-          }
+            fps: 15,
+          },
         ];
         setCameras(mockCameras);
       }
@@ -124,9 +121,9 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Setup motion detection event listener
     const handleMotionDetected = (event: CameraMotionEvent) => {
-      logger.info('Motion detected', 'CAMERA', { 
-        cameraId: event.cameraId, 
-        confidence: event.confidence 
+      logger.info('Motion detected', 'CAMERA', {
+        cameraId: event.cameraId,
+        confidence: event.confidence,
       });
       // Update camera status or trigger notification
       if (event.cameraId) {
@@ -152,10 +149,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [refreshCameras]);
 
   // Add a new camera
-  const addCamera = async (cameraData: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>) => {
+  const addCamera = async (
+    cameraData: Omit<Camera, 'id' | 'status' | 'lastSeen' | 'thumbnail'>,
+  ) => {
     try {
       const cameraId = await cameraService.addCamera(cameraData);
-      
+
       // Add to local state
       const newCamera: Camera = {
         id: cameraId,
@@ -164,8 +163,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         lastSeen: new Date(),
         thumbnail: '/placeholder-camera.svg',
       };
-      
-      setCameras(prev => [...prev, newCamera]);
+
+      setCameras((prev) => [...prev, newCamera]);
       return cameraId;
     } catch (err) {
       console.error('Failed to add camera:', err);
@@ -174,33 +173,38 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Update a camera
-  const updateCamera = useCallback(async (id: string, updates: Partial<Camera>) => {
-    try {
-      // Update in backend
-      if (Object.keys(updates).some(key => [
-        'name', 'streamUrl', 'fps', 'resolution'
-      ].includes(key))) {
-        await cameraService.updateCamera(id, updates);
+  const updateCamera = useCallback(
+    async (id: string, updates: Partial<Camera>) => {
+      try {
+        // Update in backend
+        if (
+          Object.keys(updates).some((key) =>
+            ['name', 'streamUrl', 'fps', 'resolution'].includes(key),
+          )
+        ) {
+          await cameraService.updateCamera(id, updates);
+        }
+
+        // Update in local state
+        setCameras((prev) =>
+          prev.map((camera) => (camera.id === id ? { ...camera, ...updates } : camera)),
+        );
+      } catch (err) {
+        console.error(`Failed to update camera ${id}:`, err);
+        throw err;
       }
-      
-      // Update in local state
-      setCameras(prev => prev.map(camera => 
-        camera.id === id ? { ...camera, ...updates } : camera
-      ));
-    } catch (err) {
-      console.error(`Failed to update camera ${id}:`, err);
-      throw err;
-    }
-  }, [setCameras]);
+    },
+    [setCameras],
+  );
 
   // Delete a camera
   const deleteCamera = async (id: string) => {
     try {
       // Delete from backend
       await cameraService.deleteCamera(id);
-      
+
       // Remove from local state
-      setCameras(prev => prev.filter(camera => camera.id !== id));
+      setCameras((prev) => prev.filter((camera) => camera.id !== id));
     } catch (err) {
       console.error(`Failed to delete camera ${id}:`, err);
       throw err;
@@ -209,29 +213,32 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Get a camera by ID
   const getCameraById = (id: string) => {
-    return cameras.find(camera => camera.id === id);
+    return cameras.find((camera) => camera.id === id);
   };
 
   // Start streaming from a camera
-  const startCameraStream = useCallback(async (id: string) => {
-    if (streamingCamerasRef.current.has(id)) {
-      return;
-    }
+  const startCameraStream = useCallback(
+    async (id: string) => {
+      if (streamingCamerasRef.current.has(id)) {
+        return;
+      }
 
-    const socketConnected = socketService.isConnected();
-    if (!socketConnected) {
-      await socketService.connect();
-    }
+      const socketConnected = socketService.isConnected();
+      if (!socketConnected) {
+        await socketService.connect();
+      }
 
-    socketService.requestStream(id);
-    setStreamingCameras(prev => new Set(prev).add(id));
-    updateCamera(id, { status: 'online' });
-  }, [updateCamera]);
+      socketService.requestStream(id);
+      setStreamingCameras((prev) => new Set(prev).add(id));
+      updateCamera(id, { status: 'online' });
+    },
+    [updateCamera],
+  );
 
   // Stop streaming from a camera
   const stopCameraStream = useCallback(async (id: string) => {
     socketService.stopStream(id);
-    setStreamingCameras(prev => {
+    setStreamingCameras((prev) => {
       const next = new Set(prev);
       next.delete(id);
       return next;
@@ -270,21 +277,23 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <CameraContext.Provider value={{
-      cameras,
-      loading,
-      error,
-      addCamera,
-      updateCamera,
-      deleteCamera,
-      getCameraById,
-      refreshCameras,
-      startCameraStream,
-      stopCameraStream,
-      takeSnapshot,
-      toggleNightMode,
-      toggleMotionDetection
-    }}>
+    <CameraContext.Provider
+      value={{
+        cameras,
+        loading,
+        error,
+        addCamera,
+        updateCamera,
+        deleteCamera,
+        getCameraById,
+        refreshCameras,
+        startCameraStream,
+        stopCameraStream,
+        takeSnapshot,
+        toggleNightMode,
+        toggleMotionDetection,
+      }}
+    >
       {children}
     </CameraContext.Provider>
   );

@@ -2,13 +2,13 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config, validateConfig, getCameraById, getOpenCVServiceUrl } from '../config/index.js';
 import {
-  config,
-  validateConfig,
-  getCameraById,
-  getOpenCVServiceUrl,
-} from '../config/index.js';
-import { getDetectionsPath, getEventPath, getArchivePath, getStoragePathFromFile } from '../config/paths.js';
+  getDetectionsPath,
+  getEventPath,
+  getArchivePath,
+  getStoragePathFromFile,
+} from '../config/paths.js';
 import { setCameras, type CameraConfig } from '../config/cameraLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -157,7 +157,7 @@ describe('Configuration Loading and Validation', () => {
         const d = camera.detect as Record<string, unknown>;
         expect(
           ('width' in d && 'height' in d && 'fps' in d) ||
-          ('resize_width' in d && 'resize_height' in d && 'interval' in d)
+            ('resize_width' in d && 'resize_height' in d && 'interval' in d),
         ).toBe(true);
       }
     });

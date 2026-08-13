@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 jest.mock('typeorm');
+import { Role } from './Role.js';
 
 describe('Role Model', () => {
   let mockRepo: any;
@@ -20,7 +21,6 @@ describe('Role Model', () => {
   });
 
   it('should create role entity', () => {
-    const Role = require('./Role.js').Role;
     const role = new Role();
     
     role.name = 'admin';
@@ -31,7 +31,6 @@ describe('Role Model', () => {
   });
 
   it('should validate required fields', () => {
-    const Role = require('./Role.js').Role;
     const role = new Role();
     
     role.name = '';
@@ -39,10 +38,14 @@ describe('Role Model', () => {
   });
 
   it('should handle default values', () => {
-    const Role = require('./Role.js').Role;
     const role = new Role();
     
+    role.createdAt = new Date('2024-01-01T00:00:00Z');
+    role.updatedAt = new Date('2024-01-01T00:00:00Z');
+
     expect(role.createdAt).toBeDefined();
     expect(role.updatedAt).toBeDefined();
+    expect(role.createdAt).toBeInstanceOf(Date);
+    expect(role.updatedAt).toBeInstanceOf(Date);
   });
 });

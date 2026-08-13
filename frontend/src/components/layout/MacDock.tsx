@@ -5,7 +5,6 @@ import {
   Bell,
   Settings,
   LogOut,
-  PlayCircle,
   Film,
 } from 'lucide-react';
 import {

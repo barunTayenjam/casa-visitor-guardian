@@ -46,13 +46,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "wss:", "ws:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
       mediaSrc: ["'self'", "blob:", "data:"],
       workerSrc: ["'self'", "blob:"],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     }
@@ -67,12 +67,14 @@ server.on('upgrade', (req, socket, head) => {
 
   const targetPath = req.url.replace('/go2rtc', '') || '/';
   const headers: Record<string, string> = {};
+  const blockedHeaders = new Set(['authorization', 'cookie', 'cookie2', 'proxy-authorization', 'proxy-connection', 'x-forwarded-for', 'x-real-ip', 'forwarded']);
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
     const key = req.rawHeaders[i].toLowerCase();
+    if (blockedHeaders.has(key)) continue;
     if (key === 'host') {
       headers['host'] = `${go2rtcParsed.hostname}:${go2rtcParsed.port || 1984}`;
     } else {
-      headers[req.rawHeaders[i].toLowerCase()] = req.rawHeaders[i + 1];
+      headers[key] = req.rawHeaders[i + 1];
     }
   }
 
@@ -115,7 +117,13 @@ const io = new SocketIOServer(server, {
 });
 
 await initializeServices(io);
-configureRoutes(app, io);
+  configureRoutes(app, io);
+  
+  // SPA Fallback
+  app.get('*', (req: express.Request, res: express.Response) => {
+    res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+  });
+
 
 logger.info('Routes configured successfully', 'SERVER');
 

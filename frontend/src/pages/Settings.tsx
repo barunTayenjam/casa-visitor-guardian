@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Settings as SettingsIcon,
   ChevronLeft,
   Save,
   Eye,
@@ -18,7 +17,6 @@ import {
   Volume2,
   Mail,
 } from 'lucide-react';
-import { colors } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

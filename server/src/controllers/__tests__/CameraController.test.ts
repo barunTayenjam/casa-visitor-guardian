@@ -48,6 +48,7 @@ describe('CameraController', () => {
       getCamera: jest.fn(),
       updateCamera: jest.fn(),
       removeCamera: jest.fn(),
+      persistCameras: jest.fn().mockResolvedValue(undefined),
     };
 
     spyGetStreamManager = jest.spyOn(serviceRegistry, 'getStreamManager').mockReturnValue(mockStreamManager);
@@ -61,6 +62,7 @@ describe('CameraController', () => {
           name: 'Front Door',
           isActive: true,
           config: {
+            enabled: true,
             nightMode: false,
             streams: [{ path: 'rtsp://example.com' }],
             objects: { track: ['person'] },
@@ -108,7 +110,12 @@ describe('CameraController', () => {
 
   describe('getById', () => {
     it('should return 200 for existing camera', () => {
-      const camera = { id: 'cam1', name: 'Front Door', isActive: true };
+      const camera = {
+        id: 'cam1',
+        name: 'Front Door',
+        isActive: true,
+        config: { enabled: true, nightMode: false, streams: [], objects: {}, zones: [] },
+      };
       mockStreamManager.getAllCameras.mockReturnValue([camera]);
 
       const req: any = { params: { id: 'cam1' } };
@@ -143,8 +150,8 @@ describe('CameraController', () => {
   });
 
   describe('create', () => {
-    it('should return 201 with cameraId for valid camera data', () => {
-      mockStreamManager.addCamera.mockReturnValue('new-cam-id');
+    it('should return 201 with camera for valid camera data', () => {
+      mockStreamManager.addCamera.mockReturnValue({ id: 'cam-new', name: 'Back Yard' });
 
       const req: any = {
         body: {
@@ -164,11 +171,12 @@ describe('CameraController', () => {
           enabled: true,
         })
       );
+      expect(mockStreamManager.persistCameras).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          cameraId: 'new-cam-id',
+          camera: expect.objectContaining({ name: 'Back Yard' }),
         })
       );
     });

@@ -114,7 +114,7 @@ const writeToDatabase = async (
   return;
 };
 
-const log = (level: string, message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => {
+const log = (level: string, message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>): void => {
   // Check if this type of log should be shown
   if (level === 'info' && !LOGGING_CONFIG.enableInfo) {
     if (source === 'CLEANUP') {
@@ -137,7 +137,7 @@ const log = (level: string, message: string, source?: string, error?: unknown, m
   const timestamp = new Date().toISOString();
   const sourceStr = source ? ` [${source}]` : '';
   const metadataStr = metadata ? ` METADATA: ${JSON.stringify(metadata)}` : '';
-  const errorStr = error ? ` ERROR_DETAILS: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}` : '';
+  const errorStr = error ? ` ERROR_DETAILS: ${error instanceof Error ? error.message : JSON.stringify(error, Object.getOwnPropertyNames(error instanceof Object ? error : {}), 2)}` : '';
   const logMessage = `[${timestamp}] [${level.toUpperCase()}]${sourceStr} ${message}${metadataStr}${errorStr}`;
   
   // Write to console using original methods to avoid recursion
@@ -191,10 +191,10 @@ console.debug = (...args: any[]) => {
 };
 
 export const logger = {
-  info: (message: string, source?: string, metadata?: Record<string, unknown>) => log('info', message, source, undefined, metadata),
-  warn: (message: string, source?: string, metadata?: Record<string, unknown>) => log('warn', message, source, undefined, metadata),
+  info: (message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => log('info', message, source, error, metadata),
+  warn: (message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => log('warn', message, source, error, metadata),
   error: (message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => log('error', message, source, error, metadata),
-  debug: (message: string, source?: string, metadata?: Record<string, unknown>) => log('debug', message, source, undefined, metadata),
+  debug: (message: string, source?: string, error?: unknown, metadata?: Record<string, unknown>) => log('debug', message, source, error, metadata),
   
   // Helper methods for socket events
   socketConnect: (socketId: string, address: string, totalClients: number) => {

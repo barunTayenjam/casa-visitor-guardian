@@ -1,6 +1,6 @@
 // Camera-related API methods extracted from ApiService.ts
 import { Camera } from '@/types/security';
-import { apiClient, fetchWithRetry, ApiError, NetworkError, API_URL } from './baseClient';
+import { fetchWithRetry, ApiError, API_URL } from './baseClient';
 
 // ==================== TYPES ====================
 
@@ -85,7 +85,10 @@ function mapBackendToFrontendCamera(camera: BackendCamera | LegacyBackendCamera)
     streams: (camera as BackendCamera).streams ? {
       detect: (camera as BackendCamera).streams!.detect,
       record: (camera as BackendCamera).streams!.record ? {
-        ...(camera as BackendCamera).streams!.record,
+        isActive: (camera as BackendCamera).streams!.record!.isActive,
+        fps: (camera as BackendCamera).streams!.record!.fps,
+        width: (camera as BackendCamera).streams!.record!.width,
+        height: (camera as BackendCamera).streams!.record!.height,
         hasFrame: (camera as BackendCamera).streams!.record!.isActive,
         frameSize: 0,
       } : undefined,

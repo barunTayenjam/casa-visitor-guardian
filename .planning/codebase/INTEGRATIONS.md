@@ -1,63 +1,37 @@
-# External Integrations
-
-**Analysis Date:** 2026-08-13
-
-## APIs & External Services
-
-**Detection:**
-- NVIDIA API - Model inference (via `NVIDIA_API_KEY`)
-
-**Streaming:**
-- RTSP Camera Feeds - Ingested by `go2rtc`
-
-## Data Storage
-
-**Databases:**
-- PostgreSQL - Persistence
-  - Connection: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `POSTGRES_PASSWORD`
-  - Client: `typeorm`
-
-**Caching:**
-- Redis (Optional/configurable via `REDIS_DISABLED`)
-
-## Authentication & Identity
-
-**Auth Provider:**
-- Custom (JWT-based)
-  - Implementation: `jsonwebtoken` (access/refresh tokens), `bcrypt` (password hashing), `speakeasy` (2FA)
-
-## Monitoring & Observability
-
-**Error Tracking:**
-- None detected
-
-**Logs:**
-- Local logs (`opencv.log`)
-
-## CI/CD & Deployment
-
-**Hosting:**
-- Docker/Docker Compose
-
-**CI Pipeline:**
-- None detected
-
-## Environment Configuration
-
-**Required env vars:**
-- `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, `NVIDIA_API_KEY`
-
-**Secrets location:**
-- Environment variables (`.env` or Docker Compose)
-
-## Webhooks & Callbacks
-
-**Incoming:**
-- RTSP streams
-
-**Outgoing:**
-- None detected
-
+---
+mapped: 2026-08-13
+focus: tech
 ---
 
-*Integration audit: 2026-08-13*
+# External Integrations
+
+> Generated from codebase analysis on 2026-08-13
+
+## Databases
+
+- **PostgreSQL 15+**: Central data store for auth, events, settings, and detection metadata. Connected via TypeORM in `server/src/database.ts` using `pg` driver.
+
+## External APIs
+
+- **NVIDIA AI API**: Used via `NVIDIA_API_KEY` for advanced scene analysis. Configured in `server/src/services/nvidiaAnalysisService.ts`.
+- **RTSP Streams**: External camera feeds integrated via `server/cameras.json` and processed through `go2rtc` and `opencv-service`.
+
+## Authentication Providers
+
+- **JWT-based**: Custom auth implementation using `jsonwebtoken` for access/refresh token patterns, `bcrypt` for password hashing, and `speakeasy` for TOTP/MFA. Handled in `server/src/controllers/AuthController.ts` and `server/src/middleware/auth.ts`.
+
+## Message Queues / Event Systems
+
+- **Socket.io**: Used for real-time WebSocket communication between client and server for events and live camera frames.
+- **Node EventEmitter**: Used internally for event routing within the server.
+
+## Webhooks
+
+- **Incoming**: None explicitly defined in public routes; events are mostly polled or received via WebSocket.
+- **Outgoing**: `web-push` library usage suggests support for web push notifications for alerts.
+
+## Third-Party Services
+
+- **go2rtc**: Acts as a bridge for camera RTSP feeds to WebRTC, integrated via `server/src/index.ts` proxying.
+- **FFmpeg**: Subprocess execution for RTSP frame capture in `opencv-service`.
+- **Redis (Optional)**: Support configured but generally `REDIS_DISABLED=true`.

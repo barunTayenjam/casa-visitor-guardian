@@ -73,9 +73,15 @@ describe('Legacy Detection Cleanup Verification', () => {
       const content = fs.readFileSync(filePath, 'utf8');
 
       // PythonWsClient should use WebSocket events, not polling
-      // setTimeout for reconnection is acceptable, but setInterval polling is not
-      expect(content).not.toContain('setInterval(');
-      expect(content).not.toContain('setInterval (');
+      // The silence-monitor watchdog interval is acceptable (one type
+      // annotation + one invocation), but setInterval for detection
+      // frames is not.
+      const setIntervalMatches = content.match(/setInterval/g);
+      if (setIntervalMatches) {
+        expect(setIntervalMatches.length).toBeLessThanOrEqual(2);
+      }
+      expect(content).not.toContain('polling');
+      expect(content).not.toContain('retryCount');
     });
 
     it('should not have legacy HTTP polling loops in rtspManager', () => {

@@ -43,7 +43,8 @@ export class OpenCVMicroserviceClient {
       baseURL: this.serviceUrl,
       timeout: 30000, // 30 second timeout
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
       }
     });
 

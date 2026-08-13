@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { TimelineService } from './timelineService.js';
 
-jest.mock('../models/Timeline.js');
-jest.mock('../models/AdaptiveRegion.js');
-jest.mock('./cacheService.js');
+jest.mock('../../models/Timeline');
+jest.mock('../../models/AdaptiveRegion');
+jest.mock('../cacheService');
 
 describe('TimelineService', () => {
   let timelineService: TimelineService;
@@ -26,6 +26,7 @@ describe('TimelineService', () => {
       create: jest.fn(),
       save: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     };
 
     mockRegionRepo = {
@@ -34,7 +35,6 @@ describe('TimelineService', () => {
       save: jest.fn(),
     };
 
-    const TimelineService = require('./timelineService.js').TimelineService;
     timelineService = new TimelineService(mockTimelineRepo, mockRegionRepo);
   });
 
@@ -125,7 +125,7 @@ describe('TimelineService', () => {
       const event = {
         timestamp: new Date(),
         camera: 'cam1',
-        source: 'adaptive_region',
+        source: 'tracked_object',
         sourceId: 'region_1',
         classType: 'region',
         data: { 

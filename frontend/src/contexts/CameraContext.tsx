@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, MotionEvent as SecurityMotionEvent } from '@/types/security';
+import { Camera } from '@/types/security';
 import { cameraService } from '@/services/api/cameraService';
 import socketService from '@/services/SocketService';
 import { logger } from '@/lib/logger';

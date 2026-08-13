@@ -1,9 +1,28 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+import hmac
 
 app = Flask(__name__)
 CORS(app)
+
+API_TOKEN = os.environ.get('OPENCV_API_TOKEN', '')
+
+PUBLIC_PATHS = {'/health'}
+
+
+@app.before_request
+def require_api_token():
+    if request.method == 'OPTIONS':
+        return None
+    if request.path in PUBLIC_PATHS:
+        return None
+    if not API_TOKEN:
+        return jsonify({'error': 'API token not configured'}), 500
+    token = request.headers.get('X-API-Token', '')
+    if not token or not hmac.compare_digest(token, API_TOKEN):
+        return jsonify({'error': 'Unauthorized'}), 401
+    return None
 
 import pipeline
 import state

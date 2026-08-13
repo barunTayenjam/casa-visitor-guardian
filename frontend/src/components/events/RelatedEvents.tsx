@@ -3,7 +3,6 @@ import { MotionEvent } from '@/types/security';
 import { Link2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const getLabelColor = (label: string): string => {

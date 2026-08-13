@@ -251,6 +251,12 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
       const loadAvg = os.loadavg();
       const cpuUsage = (loadAvg[0] / cpus.length) * 100;
 
+      let opencvBreakerState = 'unknown';
+      try {
+        const { getOpenCVClient } = await import('../services/opencvMicroserviceClient.js');
+        opencvBreakerState = getOpenCVClient().getBreakerState();
+      } catch { /* OpenCV client not initialized yet */ }
+
       res.json({
         success: true,
         health: {
@@ -269,6 +275,9 @@ async cleanupStatus(_req: Request, res: Response): Promise<void> {
             cores: cpus.length,
             model: cpus[0].model,
             loadAvg: loadAvg
+          },
+          circuitBreakers: {
+            opencv: opencvBreakerState,
           },
           events: {
             recent: recentEvents.length,

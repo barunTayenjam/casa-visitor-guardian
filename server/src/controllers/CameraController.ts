@@ -6,7 +6,7 @@ import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import type { Camera } from '../streams/rtspManager.js';
-import type { CameraConfig } from '../config/index.js';
+import type { CameraConfig, CameraStreamConfig } from '../config/index.js';
 
 export class CameraController extends BaseController {
   private testIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -38,7 +38,7 @@ export class CameraController extends BaseController {
           nightMode: camera.config.nightMode || false,
           status: camera.config.enabled ? 'online' : 'offline',
           config: {
-            streams: camera.config.streams?.map((s: any) => ({
+            streams: camera.config.streams?.map((s: CameraStreamConfig) => ({
               ...s,
               path: s.path ? this.stripCredentials(s.path) : s.path,
             })),
@@ -68,7 +68,7 @@ export class CameraController extends BaseController {
   getById(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
-      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
       if (!camera) {
         this.notFound(res, 'Camera not found');
         return;
@@ -141,7 +141,7 @@ export class CameraController extends BaseController {
         updates.streams = [{ path: rtspUrl, roles: ['detect', 'record', 'live'] }];
       }
       if (frameRate !== undefined) {
-        const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+        const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
         const existingStreams = camera?.config?.streams;
         if (existingStreams && existingStreams.length > 0) {
           if (!updates.streams) updates.streams = [...existingStreams];
@@ -149,7 +149,7 @@ export class CameraController extends BaseController {
         }
       }
       if (resolution !== undefined) {
-        const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+        const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
         const existingStreams = camera?.config?.streams;
         if (existingStreams && existingStreams.length > 0) {
           if (!updates.streams) updates.streams = [...existingStreams];
@@ -161,7 +161,7 @@ export class CameraController extends BaseController {
         }
       }
 
-      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
       if (!camera) {
         this.notFound(res, 'Camera not found');
         return;
@@ -177,11 +177,11 @@ export class CameraController extends BaseController {
         logger.error(`Failed to persist camera update: ${err}`, 'CameraController');
       });
 
-      const updatedCamera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      const updatedCamera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
       this.ok(res, {
         camera: { ...updatedCamera, status: updatedCamera?.isActive ? 'online' : 'offline' },
         timestamp: new Date().toISOString(),
-      } as any);
+      });
     } catch (error) {
       this.serverError(res, error, 'updateCamera');
     }
@@ -209,7 +209,7 @@ export class CameraController extends BaseController {
   startTestStream(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
-      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
       if (!camera) {
         this.notFound(res, 'Camera not found');
         return;
@@ -239,7 +239,7 @@ export class CameraController extends BaseController {
   startStream(req: Request, res: Response): void {
     try {
       const streamManager = serviceRegistry.getStreamManager();
-      const camera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
+      const camera = streamManager.getAllCameras().find((c: Camera) => c.id === req.params.id);
       if (!camera) {
         this.notFound(res, 'Camera not found');
         return;
@@ -278,9 +278,9 @@ export class CameraController extends BaseController {
       }
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.id);
-      if (camera && (camera as any)._testInterval) {
-        clearInterval((camera as any)._testInterval);
-        (camera as any)._testInterval = null;
+      if (camera && (camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval) {
+        clearInterval((camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval);
+        (camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval = undefined;
       }
       const stopped = streamManager.stopStream(req.params.id);
       if (!stopped) {
@@ -302,9 +302,9 @@ export class CameraController extends BaseController {
       }
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.id);
-      if (camera && (camera as any)._testInterval) {
-        clearInterval((camera as any)._testInterval);
-        (camera as any)._testInterval = null;
+      if (camera && (camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval) {
+        clearInterval((camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval);
+        (camera as Camera & { _testInterval?: NodeJS.Timeout })._testInterval = undefined;
       }
       streamManager.stopStream(req.params.id);
       this.ok(res, { message: 'Test stream stopped' });

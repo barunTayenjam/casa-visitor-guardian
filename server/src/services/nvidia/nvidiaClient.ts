@@ -1,7 +1,14 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
+import { CircuitBreaker } from '../circuitBreaker.js';
 import type { AnalysisContext, NormalizedDetection } from './types.js';
+
+const nvidiaBreaker = new CircuitBreaker('NvidiaService', {
+  failureThreshold: 5,
+  cooldownMs: 30000,
+  successThreshold: 2,
+});
 
 export function normalizeEntityArray(input: unknown, type: string): string[] {
   if (!input) return [];
@@ -100,14 +107,16 @@ export async function callNvidiaApi(
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await nvidiaBreaker.execute(() =>
+        fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+        }),
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -127,4 +136,8 @@ export async function callNvidiaApi(
   }
 
   throw lastError || new Error('NVIDIA API call failed after 3 retries');
+}
+
+export function getNvidiaBreakerState(): string {
+  return nvidiaBreaker.getState();
 }

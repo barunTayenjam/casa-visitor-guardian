@@ -5,13 +5,10 @@ import { fileURLToPath } from 'node:url';
 import {
   config,
   validateConfig,
-  getDetectionsPath,
-  getEventPath,
-  getArchivePath,
   getCameraById,
   getOpenCVServiceUrl,
-  getStoragePathFromFile,
 } from '../config/index.js';
+import { getDetectionsPath, getEventPath, getArchivePath, getStoragePathFromFile } from '../config/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

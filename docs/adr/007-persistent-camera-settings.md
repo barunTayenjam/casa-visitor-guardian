@@ -1,6 +1,6 @@
-# ADR-004: Persistent Camera Settings with PostgreSQL JSONB
+# ADR-007: Persistent Camera Settings with PostgreSQL JSONB
 
-**Status**: Proposed
+**Status**: Accepted — implemented in migration `025_camera_settings_and_alerts.sql`, fully integrated with `ConsolidatedDetectionService`.
 
 **Date**: 2026-05-31
 
@@ -72,8 +72,8 @@ We will create a **single `camera_settings` JSONB table** for all per-camera set
 - Race condition: two concurrent PUT requests could overwrite each other's changes. Mitigation: use `UPDATE ... WHERE updated_at = :previous_timestamp` optimistic locking, or use a per-camera write lock.
 
 **Follow-up actions**:
-- [ ] Create migration: `CREATE TABLE camera_settings (camera_id UUID PRIMARY KEY, settings JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMPTZ DEFAULT NOW())`
-- [ ] Create migration: `CREATE TABLE alerts (...)` with indexes on `(camera_id, created_at DESC)` and `(acknowledged, created_at DESC)`
+- [x] Create migration: `CREATE TABLE camera_settings (camera_id UUID PRIMARY KEY, settings JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMPTZ DEFAULT NOW())` — done in `025_camera_settings_and_alerts.sql`
+- [x] Create migration: `CREATE TABLE alerts (...)` with indexes on `(camera_id, created_at DESC)` and `(acknowledged, created_at DESC)` — done in `025_camera_settings_and_alerts.sql`
 - [ ] Refactor `detection-operations.ts` motionSettingsStore to delegate to ConsolidatedDetectionService with DB backing
 - [ ] Add `loadFromDb()` to `ConsolidatedDetectionService`, called on server startup
 - [ ] Update all PUT settings handlers to write DB + in-memory

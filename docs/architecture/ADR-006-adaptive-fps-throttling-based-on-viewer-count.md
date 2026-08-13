@@ -1,6 +1,6 @@
 # ADR-006: Adaptive FPS Throttling Based on Viewer Count
 
-**Status**: Accepted
+**Status**: Accepted — frame-rate throttling retained for the Python→Socket.io JPEG relay used by detection captures. Live viewing bandwidth is now governed by go2rtc WebRTC (ADR-008) rather than Socket.io fan-out.
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 

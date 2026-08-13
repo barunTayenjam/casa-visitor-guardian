@@ -6,6 +6,7 @@ import { initializeDb, shutdownDb } from './initializers/database.js';
 import { initializeServices as initAllServices } from './initializers/services.js';
 import { initializeCron } from './initializers/cron.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
+import { inMemoryState } from './services/inMemoryStateService.js';
 import { AppDataSource } from './database.js';
 import authService from './auth/index.js';
 
@@ -58,6 +59,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
 
   // --- Initialize Services (including setting up serviceRegistry & PythonWsClient) ---
   await initAllServices(io);
+  await inMemoryState.startPeriodicRefresh();
 
   // --- Initialize Cron Jobs ---
   await initializeCron(io);
@@ -92,6 +94,7 @@ export async function gracefulShutdown(
     if (cleanupService && typeof cleanupService.shutdown === 'function') {
       await cleanupService.shutdown();
     }
+    inMemoryState.stopPeriodicRefresh();
 
     try {
       const pythonWsClient = serviceRegistry.getPythonWsClient();

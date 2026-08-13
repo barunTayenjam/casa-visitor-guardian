@@ -40,7 +40,7 @@ export class SystemController extends BaseController {
       res.json({
         status: overallStatus,
         timestamp: new Date().toISOString(),
-        activeCameras: cameras.filter((c: any) => c.isActive).length,
+        activeCameras: cameras.filter((c: Camera) => c.isActive).length,
         db,
         pipeline,
       });
@@ -65,7 +65,7 @@ export class SystemController extends BaseController {
 
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
-      const activeCameras = cameras.filter((c: any) => c.isActive).length;
+      const activeCameras = cameras.filter((c: Camera) => c.isActive).length;
 
       let knownVisitors = 0;
       try {
@@ -234,8 +234,8 @@ export class SystemController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const cameras = streamManager.getAllCameras();
-      const onlineCameras = cameras.filter((c: any) => c.isActive);
-      const offlineCameras = cameras.filter((c: any) => !c.isActive);
+      const onlineCameras = cameras.filter((c: Camera) => c.isActive);
+      const offlineCameras = cameras.filter((c: Camera) => !c.isActive);
 
       let status = 'healthy';
       const issues: string[] = [];
@@ -275,6 +275,16 @@ export class SystemController extends BaseController {
         /* OpenCV client not initialized yet */
       }
 
+      let nvidiaBreakerState = 'unknown';
+      try {
+        const { getNvidiaBreakerState } = await import(
+          '../services/nvidia/nvidiaClient.js'
+        );
+        nvidiaBreakerState = getNvidiaBreakerState();
+      } catch {
+        /* NVIDIA client not initialized yet */
+      }
+
       res.json({
         success: true,
         health: {
@@ -300,6 +310,7 @@ export class SystemController extends BaseController {
           },
           circuitBreakers: {
             opencv: opencvBreakerState,
+            nvidia: nvidiaBreakerState,
           },
           events: {
             recent: recentEvents.length,

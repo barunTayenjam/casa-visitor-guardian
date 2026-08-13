@@ -1,5 +1,7 @@
 import { logger } from '../utils/logger.js';
-import { createClient, RedisClientType } from 'redis';
+import RedisClass from 'ioredis';
+
+const Redis = RedisClass as unknown as typeof import('ioredis').default;
 
 interface CacheConfig {
   host: string;
@@ -9,33 +11,31 @@ interface CacheConfig {
 }
 
 class CacheService {
-  private client: RedisClientType | null = null;
+  private client: any | null = null;
   private config: CacheConfig;
   private isConnected: boolean = false;
   private connectionAttempted: boolean = false;
   private redisAvailable: boolean = false;
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
-  private static readonly MAX_MEMORY_CACHE_SIZE = parseInt(process.env.CACHE_MAX_SIZE || '500');
+  private static readonly MAX_MEMORY_CACHE_SIZE = parseInt(process.env.CACHE_MAX_SIZE || '500', 10);
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
       host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD,
-      ttl: parseInt(process.env.CACHE_TTL || '1800'), // 30 min default (down from 1 hour)
+      ttl: parseInt(process.env.CACHE_TTL || '1800', 10),
       ...config,
     };
   }
 
   async connect(): Promise<void> {
-    // Skip Redis connection if explicitly disabled or already attempted
     if (this.connectionAttempted) {
       return;
     }
 
     this.connectionAttempted = true;
 
-    // Check if Redis is disabled via environment variable
     if (process.env.REDIS_DISABLED === 'true') {
       logger.info('Redis explicitly disabled, using memory cache only', 'CacheService');
       this.isConnected = false;
@@ -44,19 +44,18 @@ class CacheService {
     }
 
     try {
-      this.client = createClient({
-        url: this.config.password
-          ? `redis://:${this.config.password}@${this.config.host}:${this.config.port}`
-          : `redis://${this.config.host}:${this.config.port}`,
-        socket: {
-          connectTimeout: 5000,
-        },
+      this.client = new Redis({
+        host: this.config.host,
+        port: this.config.port,
+        password: this.config.password,
+        connectTimeout: 5000,
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
       });
 
       this.client.on('error', (err) => {
-        // Suppress repeated error messages - only log once
         if (this.isConnected) {
-          logger.warn('Redis connection lost, switching to memory cache', 'CacheService');
+          logger.warn('Redis connection lost, switching to memory cache', 'CacheService', err);
         }
         this.isConnected = false;
       });
@@ -67,25 +66,20 @@ class CacheService {
         this.redisAvailable = true;
       });
 
-      this.client.on('disconnect', () => {
+      this.client.on('close', () => {
         this.isConnected = false;
       });
 
       await this.client.connect();
     } catch (error) {
       logger.info('Redis not available, using memory cache for this session', 'CacheService');
-      logger.info(
-        'Tip: To enable Redis caching, start Redis server or set REDIS_HOST/PORT',
-        'CacheService',
-      );
-      logger.info('To disable Redis completely, set REDIS_DISABLED=true', 'CacheService');
       this.isConnected = false;
       this.client = null;
     }
 
     this.cleanupTimer = setInterval(
       () => this.cleanupMemoryCache(),
-      parseInt(process.env.CACHE_CLEANUP_INTERVAL || '60000'),
+      parseInt(process.env.CACHE_CLEANUP_INTERVAL || '60000', 10),
     );
   }
 
@@ -95,7 +89,7 @@ class CacheService {
       this.cleanupTimer = null;
     }
     if (this.client) {
-      await this.client.disconnect();
+      await this.client.quit();
       this.client = null;
       this.isConnected = false;
     }
@@ -112,7 +106,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = (await this.client.get(key)) as string | null;
+      const value = await this.client.get(key);
       return value ?? null;
     } catch (error) {
       logger.warn('Redis get error, falling back to memory', 'CacheService');
@@ -127,7 +121,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = (await this.client.get(key)) as string | null;
+      const value = await this.client.get(key);
       return value ? JSON.parse(value) : null;
     } catch (error) {
       logger.warn('Redis get error, falling back to memory', 'CacheService');
@@ -157,8 +151,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      await this.client.setEx(key, ttl, JSON.stringify(value));
-      // Also set memory cache as backup
+      await this.client.set(key, JSON.stringify(value), 'EX', ttl);
       this.setMemoryCache(key, value, ttl);
     } catch (error) {
       logger.warn('Redis set error, using memory cache only', 'CacheService');
@@ -270,7 +263,6 @@ class CacheService {
     }
   }
 
-  // Rate limiting helpers
   async checkRateLimit(
     key: string,
     limit: number,
@@ -292,7 +284,6 @@ class CacheService {
     };
   }
 
-  // Analytics helpers
   async incrementCounter(key: string, amount = 1): Promise<void> {
     await this.incr(key, 86400); // 24 hour TTL
   }
@@ -303,7 +294,6 @@ class CacheService {
   }
 }
 
-// Singleton instance
 export { CacheService };
 export const cacheService = new CacheService();
 export default cacheService;

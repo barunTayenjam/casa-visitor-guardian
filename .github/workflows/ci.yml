@@ -1,0 +1,83 @@
+name: SentryVision CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies (frontend)
+        run: npm ci --prefix frontend
+      - name: Install dependencies (server)
+        run: npm ci --prefix server
+      - name: Run frontend lint
+        run: npm run lint --prefix frontend
+      - name: Run server lint
+        run: npm run lint:server --prefix server
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies (frontend)
+        run: npm ci --prefix frontend
+      - name: Install dependencies (server)
+        run: npm ci --prefix server
+      - name: Run frontend typecheck
+        run: npm run typecheck --prefix frontend
+      - name: Run server typecheck
+        run: npm run build:server --prefix server -- --noEmit # tsc --noEmit in server
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies (frontend)
+        run: npm ci --prefix frontend
+      - name: Install dependencies (server)
+        run: npm ci --prefix server
+      - name: Install dependencies (opencv)
+        run: pip install -r opencv-service/requirements.txt # Assuming python tests need this
+      - name: Run frontend tests
+        run: npm run test --prefix frontend
+      - name: Run server tests
+        run: npm run test:server --prefix server
+      # - name: Run Python tests # Add this if Python tests exist and are configured
+      #   run: cd opencv-service && pytest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies (frontend)
+        run: npm ci --prefix frontend
+      - name: Install dependencies (server)
+        run: npm ci --prefix server
+      - name: Run frontend build
+        run: npm run build --prefix frontend
+      - name: Run server build
+        run: npm run build:server --prefix server
+

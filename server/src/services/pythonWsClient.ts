@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger.js';
 import WebSocket from 'ws';
 import { EventEmitter } from 'node:events';
+import { serviceRegistry } from './serviceRegistry.js';
 
 interface FrameMetadata {
   cameraId: string | null;
@@ -182,6 +183,19 @@ export class PythonWsClient extends EventEmitter {
       if (this.ws?.readyState !== WebSocket.OPEN) return;
       const elapsed = Date.now() - this.lastDataAt;
       if (elapsed > this.SILENCE_TIMEOUT_MS) {
+        const streamManager = serviceRegistry.getStreamManager();
+        const hasActiveViewers = streamManager
+          ? streamManager.getAllCameras().some((c) => c.activeViewers.size > 0)
+          : false;
+
+        if (!hasActiveViewers) {
+          logger.debug(
+            `[PythonWsClient] No data from Python for ${elapsed}ms, but no active viewers, skipping termination`,
+            'PythonWsClient',
+          );
+          return;
+        }
+
         logger.warn(
           `[PythonWsClient] No data from Python for ${elapsed}ms, terminating connection`,
           'PythonWsClient',

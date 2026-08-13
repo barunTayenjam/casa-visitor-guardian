@@ -22,7 +22,7 @@ export class CameraController extends BaseController {
           success: true,
           cameras: [],
           timestamp: new Date().toISOString(),
-          message: 'Camera system not initialized - no cameras configured'
+          message: 'Camera system not initialized - no cameras configured',
         });
         return;
       }
@@ -43,8 +43,8 @@ export class CameraController extends BaseController {
               path: s.path ? this.stripCredentials(s.path) : s.path,
             })),
             objects: camera.config.objects,
-            zones: camera.config.zones
-          }
+            zones: camera.config.zones,
+          },
         };
       });
 
@@ -53,14 +53,14 @@ export class CameraController extends BaseController {
       res.json({
         success: true,
         cameras: optimizedCameras,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       logger.apiError('GET', '/api/cameras', error as Error, 500);
       res.status(500).json({
         success: false,
         error: 'Failed to get cameras',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -112,12 +112,12 @@ export class CameraController extends BaseController {
             roles: ['detect', 'record', 'live'],
             width: parseInt(resolution?.split('x')[0]) || 1920,
             height: parseInt(resolution?.split('x')[1]) || 1080,
-            fps: frameRate || 5
-          }
+            fps: frameRate || 5,
+          },
         ],
         detect: { width: 640, height: 360, fps: 5 },
         record: { enabled: true },
-        nightMode: nightMode || false
+        nightMode: nightMode || false,
       } as CameraConfig);
 
       streamManager.persistCameras().catch((err) => {
@@ -180,7 +180,7 @@ export class CameraController extends BaseController {
       const updatedCamera = streamManager.getAllCameras().find((c: any) => c.id === req.params.id);
       this.ok(res, {
         camera: { ...updatedCamera, status: updatedCamera?.isActive ? 'online' : 'offline' },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       } as any);
     } catch (error) {
       this.serverError(res, error, 'updateCamera');
@@ -229,7 +229,7 @@ export class CameraController extends BaseController {
         status: 'test-streaming',
         cameraId: req.params.id,
         message: 'Test stream started. Access via /stream/' + req.params.id,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
       this.serverError(res, error, 'startTestStream');
@@ -245,13 +245,25 @@ export class CameraController extends BaseController {
         return;
       }
       if (camera.isActive) {
-        res.status(400).json({ success: false, error: 'Camera is already streaming', status: 'streaming', cameraId: req.params.id });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: 'Camera is already streaming',
+            status: 'streaming',
+            cameraId: req.params.id,
+          });
         return;
       }
 
       streamManager.startStream(req.params.id, 'live');
 
-      res.json({ success: true, status: 'streaming', cameraId: req.params.id, timestamp: new Date().toISOString() });
+      res.json({
+        success: true,
+        status: 'streaming',
+        cameraId: req.params.id,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       this.serverError(res, error, 'startStream');
     }
@@ -306,36 +318,42 @@ export class CameraController extends BaseController {
       const streamManager = serviceRegistry.getStreamManager();
       const cameraId = req.params.id;
       const { resolution } = req.body || {};
-      streamManager.takeSnapshot(cameraId, resolution).then(async (snapshotPath: string | null) => {
-        if (!snapshotPath) {
-          this.serverError(res, 'Failed to take snapshot');
-          return;
-        }
-        try {
-          const eventRepo = AppDataSource.getRepository(Event);
-          const snapshotEvent = eventRepo.create({
-            camera_id: cameraId,
-            event_type: 'snapshot',
-            timestamp: new Date(),
-            file_path: snapshotPath,
-            thumbnail_path: null,
-            confidence: 1.0,
-            persons_detected: 0,
-            faces_detected: 0,
-            known_faces_count: 0,
-            unknown_faces_count: 0,
-            object_detections: [],
-            face_detections: [],
-            metadata: JSON.stringify({ type: 'snapshot' }),
-          });
-          await eventRepo.save(snapshotEvent);
-        } catch (dbError) {
-          logger.error(`Failed to save snapshot event to database: ${dbError}`, 'CameraController');
-        }
-        this.ok(res, { url: '/snapshots/' + snapshotPath });
-      }).catch((error: unknown) => {
-        this.serverError(res, error, 'takeSnapshot');
-      });
+      streamManager
+        .takeSnapshot(cameraId, resolution)
+        .then(async (snapshotPath: string | null) => {
+          if (!snapshotPath) {
+            this.serverError(res, 'Failed to take snapshot');
+            return;
+          }
+          try {
+            const eventRepo = AppDataSource.getRepository(Event);
+            const snapshotEvent = eventRepo.create({
+              camera_id: cameraId,
+              event_type: 'snapshot',
+              timestamp: new Date(),
+              file_path: snapshotPath,
+              thumbnail_path: null,
+              confidence: 1.0,
+              persons_detected: 0,
+              faces_detected: 0,
+              known_faces_count: 0,
+              unknown_faces_count: 0,
+              object_detections: [],
+              face_detections: [],
+              metadata: JSON.stringify({ type: 'snapshot' }),
+            });
+            await eventRepo.save(snapshotEvent);
+          } catch (dbError) {
+            logger.error(
+              `Failed to save snapshot event to database: ${dbError}`,
+              'CameraController',
+            );
+          }
+          this.ok(res, { url: '/snapshots/' + snapshotPath });
+        })
+        .catch((error: unknown) => {
+          this.serverError(res, error, 'takeSnapshot');
+        });
     } catch (error) {
       this.serverError(res, error, 'takeSnapshot');
     }
@@ -390,19 +408,35 @@ export class CameraController extends BaseController {
 
       const { id, name, coordinates, objects, inertia, loiteringTime } = req.body;
       if (!id || !name || !coordinates || !Array.isArray(coordinates)) {
-        this.badRequest(res, 'Zone must have id, name, and coordinates (array of [x,y] normalized 0-1)');
+        this.badRequest(
+          res,
+          'Zone must have id, name, and coordinates (array of [x,y] normalized 0-1)',
+        );
         return;
       }
 
-      const validCoords = coordinates.every((coord: any) =>
-        Array.isArray(coord) && coord.length === 2 && coord[0] >= 0 && coord[0] <= 1 && coord[1] >= 0 && coord[1] <= 1
+      const validCoords = coordinates.every(
+        (coord: any) =>
+          Array.isArray(coord) &&
+          coord.length === 2 &&
+          coord[0] >= 0 &&
+          coord[0] <= 1 &&
+          coord[1] >= 0 &&
+          coord[1] <= 1,
       );
       if (!validCoords) {
         this.badRequest(res, 'Coordinates must be arrays of [x,y] with values between 0 and 1');
         return;
       }
 
-      const newZone = { id, name, coordinates, objects: objects || ['person'], inertia: inertia || 3, loiteringTime: loiteringTime || 0 };
+      const newZone = {
+        id,
+        name,
+        coordinates,
+        objects: objects || ['person'],
+        inertia: inertia || 3,
+        loiteringTime: loiteringTime || 0,
+      };
       if (!camera.config.zones) camera.config.zones = [];
 
       const existingIndex = camera.config.zones.findIndex((z: any) => z.id === id);
@@ -430,11 +464,20 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
-      if (!camera.config.zones) { this.notFound(res, 'No zones configured'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
+      if (!camera.config.zones) {
+        this.notFound(res, 'No zones configured');
+        return;
+      }
 
       const zoneIndex = camera.config.zones.findIndex((z: any) => z.id === req.params.zoneId);
-      if (zoneIndex < 0) { this.notFound(res, 'Zone not found'); return; }
+      if (zoneIndex < 0) {
+        this.notFound(res, 'Zone not found');
+        return;
+      }
 
       const { name, coordinates, objects, inertia, loiteringTime } = req.body;
       if (name) camera.config.zones[zoneIndex].name = name;
@@ -461,11 +504,20 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
-      if (!camera.config.zones) { this.notFound(res, 'No zones configured'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
+      if (!camera.config.zones) {
+        this.notFound(res, 'No zones configured');
+        return;
+      }
 
       const zoneIndex = camera.config.zones.findIndex((z: any) => z.id === req.params.zoneId);
-      if (zoneIndex < 0) { this.notFound(res, 'Zone not found'); return; }
+      if (zoneIndex < 0) {
+        this.notFound(res, 'Zone not found');
+        return;
+      }
 
       camera.config.zones.splice(zoneIndex, 1);
 
@@ -487,11 +539,14 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
       this.ok(res, {
         cameraId: req.params.cameraId,
         track: camera.config.objects?.track || [],
-        filters: camera.config.objects?.filters || {}
+        filters: camera.config.objects?.filters || {},
       });
     } catch (error) {
       this.serverError(res, error, 'getFilters');
@@ -502,10 +557,16 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
 
       const { track } = req.body;
-      if (!Array.isArray(track)) { this.badRequest(res, 'Track must be an array of object labels'); return; }
+      if (!Array.isArray(track)) {
+        this.badRequest(res, 'Track must be an array of object labels');
+        return;
+      }
 
       if (!camera.config.objects) camera.config.objects = { track: [], filters: {} };
       camera.config.objects.track = track;
@@ -528,7 +589,10 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
 
       const filterData = req.body.filter || req.body;
       const { minArea, maxArea, minRatio, maxRatio, minScore, threshold, mask } = filterData;
@@ -542,7 +606,7 @@ export class CameraController extends BaseController {
         maxRatio: maxRatio || 24000000,
         minScore: minScore || 0.5,
         threshold: threshold || 0.7,
-        mask: mask || ''
+        mask: mask || '',
       };
 
       streamManager.persistCameras().catch((err) => {
@@ -553,7 +617,10 @@ export class CameraController extends BaseController {
         logger.error(`Failed to push filter config to Python: ${err}`, 'CameraController');
       });
 
-      this.ok(res, { message: `Filter for ${req.params.label} updated`, filter: camera.config.objects.filters[req.params.label] });
+      this.ok(res, {
+        message: `Filter for ${req.params.label} updated`,
+        filter: camera.config.objects.filters[req.params.label],
+      });
     } catch (error) {
       this.serverError(res, error, 'updateFilter');
     }
@@ -563,7 +630,10 @@ export class CameraController extends BaseController {
     try {
       const streamManager = serviceRegistry.getStreamManager();
       const camera = streamManager.getCamera(req.params.cameraId);
-      if (!camera) { this.notFound(res, 'Camera not found'); return; }
+      if (!camera) {
+        this.notFound(res, 'Camera not found');
+        return;
+      }
 
       if (camera.config.objects?.filters?.[req.params.label]) {
         delete camera.config.objects.filters[req.params.label];
@@ -590,7 +660,10 @@ export class CameraController extends BaseController {
         const streamManager = serviceRegistry.getStreamManager();
         const camera = streamManager.getCamera(cameraId);
         if (camera) {
-          await opencvClient.pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>);
+          await opencvClient.pushDetectionConfig(
+            cameraId,
+            camera.config as unknown as Record<string, unknown>,
+          );
         }
       }
     } catch (error) {

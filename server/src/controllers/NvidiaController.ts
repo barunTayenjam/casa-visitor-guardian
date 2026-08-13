@@ -3,13 +3,29 @@ import { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BaseController } from './BaseController.js';
-import { analyzeImage, checkApiHealth, analyzeWithBoundingBoxes, analyzePersons } from '../services/nvidia/index.js';
+import {
+  analyzeImage,
+  checkApiHealth,
+  analyzeWithBoundingBoxes,
+  analyzePersons,
+} from '../services/nvidia/index.js';
 
 export class NvidiaController extends BaseController {
   async analyze(req: Request, res: Response): Promise<void> {
     try {
       const startTime = Date.now();
-      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp, yoloDetections } = req.body;
+      const {
+        image,
+        imagePath: imgPath,
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        detectedObjects,
+        confidence,
+        timestamp,
+        yoloDetections,
+      } = req.body;
 
       if (!image && !imgPath) {
         this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required');
@@ -27,22 +43,54 @@ export class NvidiaController extends BaseController {
         }
       }
 
-      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString(), yoloDetections };
+      const context = {
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        detectedObjects,
+        confidence,
+        timestamp: timestamp || new Date().toISOString(),
+        yoloDetections,
+      };
 
       const result = await analyzeImage(imageInput!, context);
       const totalTime = Date.now() - startTime;
 
-      const eventIdentifier = imgPath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
+      const eventIdentifier =
+        imgPath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
       const { AppDataSource } = await import('../database.js');
       try {
-        const entities = result.detectedEntities || { people: [], vehicles: [], animals: [], objects: [], actions: [] };
+        const entities = result.detectedEntities || {
+          people: [],
+          vehicles: [],
+          animals: [],
+          objects: [],
+          actions: [],
+        };
         await AppDataSource.query(
           `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
            ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, analyzed_at = NOW()`,
-          [eventIdentifier, imgPath?.split('/').pop() || null, cameraName || cameraId || null, result.sceneDescription || null, JSON.stringify(result.sceneContext || null), result.threatAssessment?.level || 'low', result.threatAssessment?.confidence || 0, JSON.stringify(entities.people || []), JSON.stringify(entities.vehicles || []), JSON.stringify(entities.objects || []), '[]', JSON.stringify(result.recommendedActions || []), result.additionalObservations || null, result.modelUsed, totalTime]
+          [
+            eventIdentifier,
+            imgPath?.split('/').pop() || null,
+            cameraName || cameraId || null,
+            result.sceneDescription || null,
+            JSON.stringify(result.sceneContext || null),
+            result.threatAssessment?.level || 'low',
+            result.threatAssessment?.confidence || 0,
+            JSON.stringify(entities.people || []),
+            JSON.stringify(entities.vehicles || []),
+            JSON.stringify(entities.objects || []),
+            '[]',
+            JSON.stringify(result.recommendedActions || []),
+            result.additionalObservations || null,
+            result.modelUsed,
+            totalTime,
+          ],
         );
-       } catch (saveError) {
+      } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);
       }
 
@@ -54,8 +102,8 @@ export class NvidiaController extends BaseController {
           timestamp: new Date().toISOString(),
           cameraId,
           cameraName,
-          sceneContext: result.sceneContext
-        }
+          sceneContext: result.sceneContext,
+        },
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'nvidia analyze');
@@ -68,7 +116,14 @@ export class NvidiaController extends BaseController {
     if (trimmed.startsWith('{')) {
       try {
         const parsed = JSON.parse(trimmed);
-        return parsed.scene_description || parsed.sceneDescription || parsed.description || parsed.summary || parsed.overall_summary || text;
+        return (
+          parsed.scene_description ||
+          parsed.sceneDescription ||
+          parsed.description ||
+          parsed.summary ||
+          parsed.overall_summary ||
+          text
+        );
       } catch {
         try {
           const match = trimmed.match(/"scene_description"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -81,10 +136,27 @@ export class NvidiaController extends BaseController {
 
   private buildOpenCVFallbackResult(detections: any[], startTime: number): any {
     const persons = detections.filter((d: any) => d.class === 'person');
-    const vehicles = detections.filter((d: any) => ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class));
-    const animals = detections.filter((d: any) => ['dog', 'cat', 'bird', 'horse', 'cow'].includes(d.class));
-    const otherObjects = detections.filter((d: any) =>
-      !['person', 'car', 'truck', 'bus', 'motorcycle', 'bicycle', 'dog', 'cat', 'bird', 'horse', 'cow'].includes(d.class)
+    const vehicles = detections.filter((d: any) =>
+      ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class),
+    );
+    const animals = detections.filter((d: any) =>
+      ['dog', 'cat', 'bird', 'horse', 'cow'].includes(d.class),
+    );
+    const otherObjects = detections.filter(
+      (d: any) =>
+        ![
+          'person',
+          'car',
+          'truck',
+          'bus',
+          'motorcycle',
+          'bicycle',
+          'dog',
+          'cat',
+          'bird',
+          'horse',
+          'cow',
+        ].includes(d.class),
     );
 
     const getDescriptions = (items: any[], label: string): string[] => {
@@ -95,12 +167,12 @@ export class NvidiaController extends BaseController {
         counts.set(c, (counts.get(c) || 0) + 1);
       }
       return Array.from(counts.entries()).map(([cls, count]) =>
-        count > 1 ? `${count}× ${cls}` : cls
+        count > 1 ? `${count}× ${cls}` : cls,
       );
     };
 
-    const personDescs = persons.map((p: any, i: number) =>
-      `Person ${i + 1} detected near center of frame`
+    const personDescs = persons.map(
+      (p: any, i: number) => `Person ${i + 1} detected near center of frame`,
     );
 
     const sceneParts: string[] = [];
@@ -120,11 +192,12 @@ export class NvidiaController extends BaseController {
       sceneParts.push(`${objectTypes.join(', ')}`);
     }
 
-    const sceneDescription = sceneParts.length > 0
-      ? `Scene contains ${sceneParts.join('; ')}. Total ${detections.length} objects detected.`
-      : `No significant objects detected in the scene.`;
+    const sceneDescription =
+      sceneParts.length > 0
+        ? `Scene contains ${sceneParts.join('; ')}. Total ${detections.length} objects detected.`
+        : `No significant objects detected in the scene.`;
 
-    const threatLevel = persons.length > 0 ? 'medium' : (vehicles.length > 0 ? 'low' : 'low');
+    const threatLevel = persons.length > 0 ? 'medium' : vehicles.length > 0 ? 'low' : 'low';
     const threatConfidence = persons.length > 2 ? 75 : persons.length > 0 ? 50 : 10;
 
     const factors: string[] = [];
@@ -134,7 +207,8 @@ export class NvidiaController extends BaseController {
     const recommendedActions: string[] = [];
     if (persons.length > 0) recommendedActions.push('Review person detection footage');
     if (vehicles.length > 0) recommendedActions.push('Check vehicle activity');
-    if (persons.length > 2) recommendedActions.push('Multiple persons detected — verify if expected');
+    if (persons.length > 2)
+      recommendedActions.push('Multiple persons detected — verify if expected');
     if (animals.length > 0) recommendedActions.push('Animal activity in frame');
 
     return {
@@ -150,39 +224,50 @@ export class NvidiaController extends BaseController {
         vehicles: getDescriptions(vehicles, 'vehicle'),
         animals: getDescriptions(animals, 'animal'),
         objects: getDescriptions(otherObjects, 'object'),
-        actions: []
+        actions: [],
       },
       recommendedActions,
       additionalObservations: [
         `Analysis via OpenCV object detection (${detections.length} objects)`,
-        persons.length > 0 ? `${persons.length} person(s) in frame` : 'No persons detected'
+        persons.length > 0 ? `${persons.length} person(s) in frame` : 'No persons detected',
       ],
       processing_time_ms: Date.now() - startTime,
-      model: 'opencv-fallback'
+      model: 'opencv-fallback',
     };
   }
 
   async analyzeEvent(req: Request, res: Response): Promise<void> {
     try {
       const { eventId, useStoredImage = true } = req.body;
-      if (!eventId) { this.badRequest(res, 'eventId is required'); return; }
+      if (!eventId) {
+        this.badRequest(res, 'eventId is required');
+        return;
+      }
 
       const { AppDataSource } = await import('../database.js');
       const { Event } = await import('../models/index.js');
       const eventRepository = AppDataSource.getRepository(Event);
       const event = await eventRepository.findOne({ where: { id: eventId } });
-      if (!event) { this.notFound(res, 'Event not found'); return; }
+      if (!event) {
+        this.notFound(res, 'Event not found');
+        return;
+      }
 
       // Check cache: return persisted analysis if available
       try {
         const cachedResult = await AppDataSource.query(
-          `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`, [eventId]
+          `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`,
+          [eventId],
         );
         if (cachedResult && cachedResult.length > 0) {
           const c = cachedResult[0];
           const safeJson = (val: any) => {
             if (!val) return [];
-            try { return typeof val === 'object' ? val : JSON.parse(val); } catch { return []; }
+            try {
+              return typeof val === 'object' ? val : JSON.parse(val);
+            } catch {
+              return [];
+            }
           };
           const cachedSceneDesc = this.normalizeSceneDescription(c.scene_description || '');
           res.json({
@@ -194,15 +279,30 @@ export class NvidiaController extends BaseController {
               vehicles: safeJson(c.detected_vehicles),
               activities: [],
               overall_summary: cachedSceneDesc,
-              threatAssessment: { level: c.threat_level || 'low', factors: [], confidence: c.threat_confidence || 0 },
-              detectedEntities: { people: safeJson(c.detected_people), vehicles: safeJson(c.detected_vehicles), animals: safeJson(c.detected_animals), objects: safeJson(c.detected_objects), actions: [] },
+              threatAssessment: {
+                level: c.threat_level || 'low',
+                factors: [],
+                confidence: c.threat_confidence || 0,
+              },
+              detectedEntities: {
+                people: safeJson(c.detected_people),
+                vehicles: safeJson(c.detected_vehicles),
+                animals: safeJson(c.detected_animals),
+                objects: safeJson(c.detected_objects),
+                actions: [],
+              },
               recommendedActions: safeJson(c.recommended_actions),
               additionalObservations: c.additional_observations || [],
               processing_time_ms: c.processing_time_ms || 0,
               model: c.model_used || 'cached',
-              cached: true
+              cached: true,
             },
-            event: { id: event.id, eventType: event.event_type, cameraId: event.camera_id, timestamp: event.timestamp }
+            event: {
+              id: event.id,
+              eventType: event.event_type,
+              cameraId: event.camera_id,
+              timestamp: event.timestamp,
+            },
           });
           return;
         }
@@ -223,36 +323,70 @@ export class NvidiaController extends BaseController {
           }
           possiblePaths.push(storedPath);
         }
-        possiblePaths.push(path.join(process.cwd(), storedPath), path.join(process.cwd(), '..', storedPath));
-        possiblePaths.push(path.join(process.cwd(), 'public', 'events', filename), path.join(process.cwd(), 'public', filename));
+        possiblePaths.push(
+          path.join(process.cwd(), storedPath),
+          path.join(process.cwd(), '..', storedPath),
+        );
+        possiblePaths.push(
+          path.join(process.cwd(), 'public', 'events', filename),
+          path.join(process.cwd(), 'public', filename),
+        );
 
         const dateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
         if (dateMatch) {
           const yearMonth = `${dateMatch[1]}-${dateMatch[2]}`;
           const eventTypeDir = storedPath.includes('/faces/') ? 'faces' : 'motion';
           possiblePaths.push(
-            path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
-            path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+            path.join(
+              process.cwd(),
+              'data',
+              'detections',
+              yearMonth,
+              'events',
+              eventTypeDir,
+              filename,
+            ),
+            path.join(
+              process.cwd(),
+              '..',
+              'data',
+              'detections',
+              yearMonth,
+              'events',
+              eventTypeDir,
+              filename,
+            ),
             `/app/data/detections/${yearMonth}/events/${eventTypeDir}/${filename}`,
           );
         }
 
         for (const p of possiblePaths) {
-          if (fs.existsSync(p)) { imagePath = p; break; }
+          if (fs.existsSync(p)) {
+            imagePath = p;
+            break;
+          }
         }
       }
 
-      if (!imagePath) { this.badRequest(res, 'Event image file not found'); return; }
+      if (!imagePath) {
+        this.badRequest(res, 'Event image file not found');
+        return;
+      }
 
       const context = {
         cameraId: event.camera_id ?? undefined,
-        cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
+        cameraName:
+          event.camera_id === 'cam1'
+            ? 'Front Door'
+            : event.camera_id === 'cam2'
+              ? 'Back Door'
+              : undefined,
         triggerReason: 'event analysis',
         eventType: event.event_type,
-        detectedObjects: event.object_detections.map(d => d.class),
+        detectedObjects: event.object_detections.map((d) => d.class),
         confidence: event.confidence ?? undefined,
         timestamp: event.timestamp.toString(),
-        yoloDetections: event.object_detections
+        yoloDetections: event.object_detections,
       };
 
       let result: any;
@@ -269,17 +403,26 @@ export class NvidiaController extends BaseController {
         const { getOpenCVServiceUrl } = await import('../config/index.js');
         try {
           const imageBuffer = fs.readFileSync(imagePath);
-          const opencvResponse = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
-            headers: {
-              'Content-Type': 'image/jpeg',
-              ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
+          const opencvResponse = await axios.post(
+            `${getOpenCVServiceUrl()}/detect-objects`,
+            imageBuffer,
+            {
+              headers: {
+                'Content-Type': 'image/jpeg',
+                ...(process.env.OPENCV_API_TOKEN
+                  ? { 'X-API-Token': process.env.OPENCV_API_TOKEN }
+                  : {}),
+              },
+              timeout: 30000,
             },
-            timeout: 30000
-          });
+          );
           const detections: any[] = opencvResponse.data.detections || [];
           result = this.buildOpenCVFallbackResult(detections, startTime);
         } catch (opencvError: unknown) {
-          this.serverError(res, `Analysis failed: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}. OpenCV fallback also failed.`);
+          this.serverError(
+            res,
+            `Analysis failed: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}. OpenCV fallback also failed.`,
+          );
           return;
         }
       }
@@ -296,11 +439,17 @@ export class NvidiaController extends BaseController {
           activities: result.detectedEntities?.actions || result.activities || [],
           overall_summary: normalizedDesc,
           threatAssessment: result.threatAssessment || { level: 'low', factors: [], confidence: 0 },
-          detectedEntities: result.detectedEntities || { people: [], vehicles: [], animals: [], objects: [], actions: [] },
+          detectedEntities: result.detectedEntities || {
+            people: [],
+            vehicles: [],
+            animals: [],
+            objects: [],
+            actions: [],
+          },
           recommendedActions: result.recommendedActions || [],
           additionalObservations: result.additionalObservations || [],
           processing_time_ms: result.processingTime || 0,
-          model: result.modelUsed || 'nvidia'
+          model: result.modelUsed || 'nvidia',
         };
       }
 
@@ -313,19 +462,37 @@ export class NvidiaController extends BaseController {
           `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, detected_animals, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
            ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, detected_vehicles = EXCLUDED.detected_vehicles, detected_objects = EXCLUDED.detected_objects, detected_animals = EXCLUDED.detected_animals, recommended_actions = EXCLUDED.recommended_actions, model_used = EXCLUDED.model_used, processing_time_ms = EXCLUDED.processing_time_ms, analyzed_at = NOW()`,
-          [eventId, filename, event.camera_id, result.overall_summary || result.sceneDescription || '', JSON.stringify(result.sceneContext || null), threatLevel, threatConfidence,
-           JSON.stringify(entities.people || result.persons || []), JSON.stringify(entities.vehicles || result.vehicles || []),
-           JSON.stringify(entities.objects || []), JSON.stringify(entities.animals || []),
-           JSON.stringify(result.recommendedActions || []), result.additionalObservations || null,
-           result.model || result.modelUsed || 'unknown', result.processing_time_ms || result.processingTime || (Date.now() - startTime)]
+          [
+            eventId,
+            filename,
+            event.camera_id,
+            result.overall_summary || result.sceneDescription || '',
+            JSON.stringify(result.sceneContext || null),
+            threatLevel,
+            threatConfidence,
+            JSON.stringify(entities.people || result.persons || []),
+            JSON.stringify(entities.vehicles || result.vehicles || []),
+            JSON.stringify(entities.objects || []),
+            JSON.stringify(entities.animals || []),
+            JSON.stringify(result.recommendedActions || []),
+            result.additionalObservations || null,
+            result.model || result.modelUsed || 'unknown',
+            result.processing_time_ms || result.processingTime || Date.now() - startTime,
+          ],
         );
       } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to persist analysis', 'NVIDIA', saveError);
       }
 
       res.json({
-        success: true, analysis: result,
-        event: { id: event.id, eventType: event.event_type, cameraId: event.camera_id, timestamp: event.timestamp }
+        success: true,
+        analysis: result,
+        event: {
+          id: event.id,
+          eventType: event.event_type,
+          cameraId: event.camera_id,
+          timestamp: event.timestamp,
+        },
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'analyzeEvent');
@@ -335,7 +502,12 @@ export class NvidiaController extends BaseController {
   async health(req: Request, res: Response): Promise<void> {
     try {
       const healthResult = await checkApiHealth();
-      res.json({ success: true, available: healthResult.available, model: healthResult.model, error: healthResult.error || null });
+      res.json({
+        success: true,
+        available: healthResult.available,
+        model: healthResult.model,
+        error: healthResult.error || null,
+      });
     } catch (error: unknown) {
       this.serverError(res, error, 'nvidia health');
     }
@@ -345,24 +517,38 @@ export class NvidiaController extends BaseController {
     try {
       const { AppDataSource } = await import('../database.js');
       const results = await AppDataSource.query(
-        `SELECT id, event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at FROM ai_analysis_results ORDER BY analyzed_at DESC LIMIT 100`
+        `SELECT id, event_id, event_filename, camera_id, scene_description, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at FROM ai_analysis_results ORDER BY analyzed_at DESC LIMIT 100`,
       );
 
       const safeJson = (val: any) => {
         if (!val) return [];
-        try { return typeof val === 'object' ? val : JSON.parse(val); } catch { return []; }
+        try {
+          return typeof val === 'object' ? val : JSON.parse(val);
+        } catch {
+          return [];
+        }
       };
 
       res.json({
-        success: true, count: results.length,
+        success: true,
+        count: results.length,
         results: results.map((r: any) => ({
-          id: r.id, eventId: r.event_id, eventFilename: r.event_filename, cameraId: r.camera_id,
-          sceneDescription: r.scene_description || '', threatLevel: r.threat_level || 'low',
-          detectedPeople: safeJson(r.detected_people), detectedVehicles: safeJson(r.detected_vehicles),
-          detectedObjects: safeJson(r.detected_objects), boundingBoxes: safeJson(r.bounding_boxes),
-          recommendedActions: safeJson(r.recommended_actions), additionalObservations: r.additional_observations,
-          modelUsed: r.model_used, processingTimeMs: r.processing_time_ms, analyzedAt: r.analyzed_at
-        }))
+          id: r.id,
+          eventId: r.event_id,
+          eventFilename: r.event_filename,
+          cameraId: r.camera_id,
+          sceneDescription: r.scene_description || '',
+          threatLevel: r.threat_level || 'low',
+          detectedPeople: safeJson(r.detected_people),
+          detectedVehicles: safeJson(r.detected_vehicles),
+          detectedObjects: safeJson(r.detected_objects),
+          boundingBoxes: safeJson(r.bounding_boxes),
+          recommendedActions: safeJson(r.recommended_actions),
+          additionalObservations: r.additional_observations,
+          modelUsed: r.model_used,
+          processingTimeMs: r.processing_time_ms,
+          analyzedAt: r.analyzed_at,
+        })),
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'nvidia getResults');
@@ -370,23 +556,51 @@ export class NvidiaController extends BaseController {
   }
 
   getModels(req: Request, res: Response): void {
-    const configuredModel = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nomo-omni-30b-a3b-reasoning';
+    const configuredModel =
+      process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nomo-omni-30b-a3b-reasoning';
     const apiKey = process.env.NVIDIA_API_KEY ? 'configured' : 'not set';
     const availableModels = [
-      { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', name: 'Nemotron 3 Nano Omni', description: 'Multimodal model with vision and reasoning capabilities', recommended: true },
-      { id: 'nvidia/nemotron-4-mini-holodeck', name: 'Nemotron 4 Mini Holodeck', description: 'Latest multimodal model with enhanced vision understanding' },
-      { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision', description: 'Meta\'s large vision model for instruction following' },
-      { id: 'google/gemma-2-27b-it', name: 'Gemma 2 27B', description: 'Google\'s instruction-tuned vision model' }
+      {
+        id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+        name: 'Nemotron 3 Nano Omni',
+        description: 'Multimodal model with vision and reasoning capabilities',
+        recommended: true,
+      },
+      {
+        id: 'nvidia/nemotron-4-mini-holodeck',
+        name: 'Nemotron 4 Mini Holodeck',
+        description: 'Latest multimodal model with enhanced vision understanding',
+      },
+      {
+        id: 'meta/llama-3.2-90b-vision-instruct',
+        name: 'Llama 3.2 90B Vision',
+        description: "Meta's large vision model for instruction following",
+      },
+      {
+        id: 'google/gemma-2-27b-it',
+        name: 'Gemma 2 27B',
+        description: "Google's instruction-tuned vision model",
+      },
     ];
-    res.json({ success: true, configured: { model: configuredModel, apiKeyStatus: apiKey }, available: availableModels });
+    res.json({
+      success: true,
+      configured: { model: configuredModel, apiKeyStatus: apiKey },
+      available: availableModels,
+    });
   }
 
   updateConfig(req: Request, res: Response): void {
     try {
       const { model } = req.body;
-      if (!model) { this.badRequest(res, 'model is required'); return; }
+      if (!model) {
+        this.badRequest(res, 'model is required');
+        return;
+      }
       process.env.NVIDIA_MODEL = model;
-      this.ok(res, { message: `Model updated to: ${model}`, note: 'This change is temporary for the current session' });
+      this.ok(res, {
+        message: `Model updated to: ${model}`,
+        note: 'This change is temporary for the current session',
+      });
     } catch (error: unknown) {
       this.serverError(res, error, 'nvidia updateConfig');
     }
@@ -395,28 +609,64 @@ export class NvidiaController extends BaseController {
   async analyzeWithBboxes(req: Request, res: Response): Promise<void> {
     try {
       const startTime = Date.now();
-      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp, yoloDetections } = req.body;
+      const {
+        image,
+        imagePath: imgPath,
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        detectedObjects,
+        confidence,
+        timestamp,
+        yoloDetections,
+      } = req.body;
 
-      if (!image && !imgPath) { this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required'); return; }
+      if (!image && !imgPath) {
+        this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required');
+        return;
+      }
 
       let imageInput: string;
       if (image) {
         imageInput = image;
       } else if (imgPath) {
         imageInput = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
-        if (!fs.existsSync(imageInput)) { this.badRequest(res, `Image file not found: ${imgPath}`); return; }
+        if (!fs.existsSync(imageInput)) {
+          this.badRequest(res, `Image file not found: ${imgPath}`);
+          return;
+        }
       }
 
-      const context = { cameraId, cameraName, triggerReason, eventType, detectedObjects, confidence, timestamp: timestamp || new Date().toISOString(), yoloDetections };
+      const context = {
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        detectedObjects,
+        confidence,
+        timestamp: timestamp || new Date().toISOString(),
+        yoloDetections,
+      };
       const result = await analyzeWithBoundingBoxes(imageInput!, context);
       const totalTime = Date.now() - startTime;
 
       res.json({
-        success: true, boxes: result.boxes, sceneDescription: result.sceneDescription,
-        annotatedImage: result.annotatedImage ? `data:image/jpeg;base64,${result.annotatedImage}` : null,
+        success: true,
+        boxes: result.boxes,
+        sceneDescription: result.sceneDescription,
+        annotatedImage: result.annotatedImage
+          ? `data:image/jpeg;base64,${result.annotatedImage}`
+          : null,
         rawAnalysis: result.rawAnalysis,
         sceneContext: result.sceneContext,
-        metadata: { processingTime: totalTime, modelUsed: result.modelUsed, timestamp: new Date().toISOString(), cameraId, cameraName }
+        metadata: {
+          processingTime: totalTime,
+          modelUsed: result.modelUsed,
+          timestamp: new Date().toISOString(),
+          cameraId,
+          cameraName,
+        },
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'analyzeWithBboxes');
@@ -426,22 +676,51 @@ export class NvidiaController extends BaseController {
   async analyzePersons(req: Request, res: Response): Promise<void> {
     try {
       const startTime = Date.now();
-      const { image, imagePath: imgPath, cameraId, cameraName, triggerReason, eventType, onlyOnMotion, timestamp, eventId } = req.body;
+      const {
+        image,
+        imagePath: imgPath,
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        onlyOnMotion,
+        timestamp,
+        eventId,
+      } = req.body;
 
-      if (!image && !imgPath) { this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required'); return; }
+      if (!image && !imgPath) {
+        this.badRequest(res, 'Either "image" (base64) or "imagePath" (file path) is required');
+        return;
+      }
 
-      const eventIdentifier = eventId || imgPath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
+      const eventIdentifier =
+        eventId || imgPath?.split('/').pop()?.replace('.jpg', '') || `analysis_${Date.now()}`;
       const { AppDataSource } = await import('../database.js');
 
       try {
-        const cachedResult = await AppDataSource.query(`SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`, [eventIdentifier]);
+        const cachedResult = await AppDataSource.query(
+          `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`,
+          [eventIdentifier],
+        );
         if (cachedResult && cachedResult.length > 0) {
           res.json({
-            success: true, count: cachedResult[0].detected_people ? JSON.parse(cachedResult[0].detected_people).length : 0,
-            people: cachedResult[0].detected_people ? JSON.parse(cachedResult[0].detected_people) : [],
+            success: true,
+            count: cachedResult[0].detected_people
+              ? JSON.parse(cachedResult[0].detected_people).length
+              : 0,
+            people: cachedResult[0].detected_people
+              ? JSON.parse(cachedResult[0].detected_people)
+              : [],
             sceneDescription: cachedResult[0].scene_description,
             threatAssessment: { level: cachedResult[0].threat_level },
-            metadata: { processingTime: cachedResult[0].processing_time_ms, modelUsed: cachedResult[0].model_used, timestamp: cachedResult[0].analyzed_at, cameraId: cachedResult[0].camera_id, cameraName: cachedResult[0].camera_id, cached: true }
+            metadata: {
+              processingTime: cachedResult[0].processing_time_ms,
+              modelUsed: cachedResult[0].model_used,
+              timestamp: cachedResult[0].analyzed_at,
+              cameraId: cachedResult[0].camera_id,
+              cameraName: cachedResult[0].camera_id,
+              cached: true,
+            },
           });
           return;
         }
@@ -454,10 +733,19 @@ export class NvidiaController extends BaseController {
         imageInput = image;
       } else if (imgPath) {
         imageInput = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
-        if (!fs.existsSync(imageInput)) { this.badRequest(res, `Image file not found: ${imgPath}`); return; }
+        if (!fs.existsSync(imageInput)) {
+          this.badRequest(res, `Image file not found: ${imgPath}`);
+          return;
+        }
       }
 
-      const context = { cameraId, cameraName, triggerReason, eventType, timestamp: timestamp || new Date().toISOString() };
+      const context = {
+        cameraId,
+        cameraName,
+        triggerReason,
+        eventType,
+        timestamp: timestamp || new Date().toISOString(),
+      };
       const result = await analyzePersons(imageInput!, context);
       const totalTime = Date.now() - startTime;
 
@@ -466,15 +754,40 @@ export class NvidiaController extends BaseController {
           `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, bounding_boxes, recommended_actions, model_used, processing_time_ms, analyzed_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
            ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, bounding_boxes = EXCLUDED.bounding_boxes, analyzed_at = NOW()`,
-          [eventIdentifier, imgPath?.split('/').pop() || null, cameraId || cameraName || null, result.sceneDescription || null, JSON.stringify(result.sceneContext || null), 'low', result.people?.length > 0 ? 70 : 30, JSON.stringify(result.people || []), '[]', '[]', JSON.stringify(result.people?.map((p: any) => p.position) || []), JSON.stringify(['Review if person detected']), result.modelUsed, totalTime]
+          [
+            eventIdentifier,
+            imgPath?.split('/').pop() || null,
+            cameraId || cameraName || null,
+            result.sceneDescription || null,
+            JSON.stringify(result.sceneContext || null),
+            'low',
+            result.people?.length > 0 ? 70 : 30,
+            JSON.stringify(result.people || []),
+            '[]',
+            '[]',
+            JSON.stringify(result.people?.map((p: any) => p.position) || []),
+            JSON.stringify(['Review if person detected']),
+            result.modelUsed,
+            totalTime,
+          ],
         );
       } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to save analysis', 'NVIDIA', saveError);
       }
 
       res.json({
-        success: true, count: result.count, people: result.people, sceneDescription: result.sceneDescription,
-        metadata: { processingTime: totalTime, modelUsed: result.modelUsed, timestamp: new Date().toISOString(), cameraId, cameraName, triggeredOnMotion: onlyOnMotion || false }
+        success: true,
+        count: result.count,
+        people: result.people,
+        sceneDescription: result.sceneDescription,
+        metadata: {
+          processingTime: totalTime,
+          modelUsed: result.modelUsed,
+          timestamp: new Date().toISOString(),
+          cameraId,
+          cameraName,
+          triggeredOnMotion: onlyOnMotion || false,
+        },
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'analyzePersons');
@@ -484,13 +797,19 @@ export class NvidiaController extends BaseController {
   async analyzeEventWithBboxes(req: Request, res: Response): Promise<void> {
     try {
       const { eventId, includeAnnotatedImage = true } = req.body;
-      if (!eventId) { this.badRequest(res, 'eventId is required'); return; }
+      if (!eventId) {
+        this.badRequest(res, 'eventId is required');
+        return;
+      }
 
       const { AppDataSource } = await import('../database.js');
       const { Event } = await import('../models/index.js');
       const eventRepository = AppDataSource.getRepository(Event);
       const event = await eventRepository.findOne({ where: { id: eventId } });
-      if (!event) { this.notFound(res, 'Event not found'); return; }
+      if (!event) {
+        this.notFound(res, 'Event not found');
+        return;
+      }
 
       let imagePath: string | null = null;
       if (event.file_path) {
@@ -505,46 +824,90 @@ export class NvidiaController extends BaseController {
           }
           possiblePaths.push(storedPath);
         }
-        possiblePaths.push(path.join(process.cwd(), storedPath), path.join(process.cwd(), '..', storedPath));
-        possiblePaths.push(path.join(process.cwd(), 'public', 'events', filename), path.join(process.cwd(), 'public', filename));
+        possiblePaths.push(
+          path.join(process.cwd(), storedPath),
+          path.join(process.cwd(), '..', storedPath),
+        );
+        possiblePaths.push(
+          path.join(process.cwd(), 'public', 'events', filename),
+          path.join(process.cwd(), 'public', filename),
+        );
 
         const dateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
         if (dateMatch) {
           const yearMonth = `${dateMatch[1]}-${dateMatch[2]}`;
           const eventTypeDir = storedPath.includes('/faces/') ? 'faces' : 'motion';
           possiblePaths.push(
-            path.join(process.cwd(), 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
-            path.join(process.cwd(), '..', 'data', 'detections', yearMonth, 'events', eventTypeDir, filename),
+            path.join(
+              process.cwd(),
+              'data',
+              'detections',
+              yearMonth,
+              'events',
+              eventTypeDir,
+              filename,
+            ),
+            path.join(
+              process.cwd(),
+              '..',
+              'data',
+              'detections',
+              yearMonth,
+              'events',
+              eventTypeDir,
+              filename,
+            ),
             `/app/data/detections/${yearMonth}/events/${eventTypeDir}/${filename}`,
           );
         }
 
         for (const p of possiblePaths) {
-          if (fs.existsSync(p)) { imagePath = p; break; }
+          if (fs.existsSync(p)) {
+            imagePath = p;
+            break;
+          }
         }
       }
 
-      if (!imagePath) { this.badRequest(res, 'Event image file not found'); return; }
+      if (!imagePath) {
+        this.badRequest(res, 'Event image file not found');
+        return;
+      }
 
       const context = {
         cameraId: event.camera_id ?? undefined,
-        cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
+        cameraName:
+          event.camera_id === 'cam1'
+            ? 'Front Door'
+            : event.camera_id === 'cam2'
+              ? 'Back Door'
+              : undefined,
         triggerReason: 'event bbox analysis',
         eventType: event.event_type,
-        detectedObjects: event.object_detections.map(d => d.class),
+        detectedObjects: event.object_detections.map((d) => d.class),
         confidence: event.confidence ?? undefined,
         timestamp: event.timestamp.toString(),
-        yoloDetections: event.object_detections
+        yoloDetections: event.object_detections,
       };
 
       const result = await analyzeWithBoundingBoxes(imagePath, context);
 
       res.json({
-        success: true, boxes: result.boxes, sceneDescription: result.sceneDescription,
-        annotatedImage: includeAnnotatedImage && result.annotatedImage ? `data:image/jpeg;base64,${result.annotatedImage}` : null,
+        success: true,
+        boxes: result.boxes,
+        sceneDescription: result.sceneDescription,
+        annotatedImage:
+          includeAnnotatedImage && result.annotatedImage
+            ? `data:image/jpeg;base64,${result.annotatedImage}`
+            : null,
         rawAnalysis: result.rawAnalysis,
-        event: { id: event.id, eventType: event.event_type, cameraId: event.camera_id, timestamp: event.timestamp },
-        metadata: { processingTime: result.processingTime, modelUsed: result.modelUsed }
+        event: {
+          id: event.id,
+          eventType: event.event_type,
+          cameraId: event.camera_id,
+          timestamp: event.timestamp,
+        },
+        metadata: { processingTime: result.processingTime, modelUsed: result.modelUsed },
       });
     } catch (error: unknown) {
       this.serverError(res, error, 'analyzeEventWithBboxes');

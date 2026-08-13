@@ -1,11 +1,23 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('detection_config')
 export class DetectionConfig {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true, unique: true, comment: 'Camera name (null for global)' })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    unique: true,
+    comment: 'Camera name (null for global)',
+  })
   camera!: string | null;
 
   @Column({

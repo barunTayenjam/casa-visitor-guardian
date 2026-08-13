@@ -27,7 +27,7 @@ describe('Event Model', () => {
       event.event_type = 'motion';
       event.file_path = '/path/to/snapshot.jpg';
       event.camera_id = 'cam1';
-      
+
       expect(event.event_type).toBe('motion');
       expect(event.file_path).toBe('/path/to/snapshot.jpg');
       expect(event.camera_id).toBe('cam1');
@@ -48,11 +48,11 @@ describe('Event Model', () => {
       const metadata = {
         object_count: 3,
         confidence: 0.85,
-        objects: ['person', 'car']
+        objects: ['person', 'car'],
       };
-      
+
       event.metadata = JSON.stringify(metadata);
-      
+
       expect(event.metadata).toBe(JSON.stringify(metadata));
     });
   });
@@ -61,21 +61,21 @@ describe('Event Model', () => {
     it('should support motion event type', () => {
       const event = new Event();
       event.event_type = 'motion';
-      
+
       expect(event.event_type).toBe('motion');
     });
 
     it('should support person detection event type', () => {
       const event = new Event();
       event.event_type = 'person';
-      
+
       expect(event.event_type).toBe('person');
     });
 
     it('should support car detection event type', () => {
       const event = new Event();
       event.event_type = 'car';
-      
+
       expect(event.event_type).toBe('car');
     });
   });

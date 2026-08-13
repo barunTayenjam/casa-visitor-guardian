@@ -53,15 +53,23 @@ describe('TimelineService', () => {
     });
 
     it('should filter by camera', async () => {
-      mockTimelineRepo.createQueryBuilder().getMany.mockResolvedValue([
-        { id: '1', source: 'tracked_object', class_type: 'person', data: {}, timestamp: new Date() }
-      ]);
+      mockTimelineRepo
+        .createQueryBuilder()
+        .getMany.mockResolvedValue([
+          {
+            id: '1',
+            source: 'tracked_object',
+            class_type: 'person',
+            data: {},
+            timestamp: new Date(),
+          },
+        ]);
 
       const result = await timelineService.getTimeline({ camera: 'front_door' });
 
       expect(mockTimelineRepo.createQueryBuilder().andWhere).toHaveBeenCalledWith(
         'timeline.camera = :camera',
-        { camera: 'front_door' }
+        { camera: 'front_door' },
       );
       expect(result.events).toHaveLength(1);
     });
@@ -69,19 +77,19 @@ describe('TimelineService', () => {
     it('should apply date range filters', async () => {
       const startDate = new Date('2024-01-01');
       const endDate = new Date('2024-01-31');
-      
-      const result = await timelineService.getTimeline({ 
-        after: startDate, 
-        before: endDate 
+
+      const result = await timelineService.getTimeline({
+        after: startDate,
+        before: endDate,
       });
 
       expect(mockTimelineRepo.createQueryBuilder().where).toHaveBeenCalledWith(
         'timeline.timestamp >= :after',
-        { after: startDate }
+        { after: startDate },
       );
       expect(mockTimelineRepo.createQueryBuilder().andWhere).toHaveBeenCalledWith(
         'timeline.timestamp <= :before',
-        { before: endDate }
+        { before: endDate },
       );
     });
 
@@ -128,9 +136,9 @@ describe('TimelineService', () => {
         source: 'tracked_object',
         sourceId: 'region_1',
         classType: 'region',
-        data: { 
+        data: {
           box: { x: 0, y: 0, width: 640, height: 480 },
-          grid: { cells: ['0,0', '0,1'] }
+          grid: { cells: ['0,0', '0,1'] },
         },
       };
 
@@ -181,7 +189,7 @@ describe('TimelineService', () => {
           grid: expect.objectContaining({
             cells: expect.arrayContaining(['0,0', '0,0']),
           }),
-        })
+        }),
       );
     });
 
@@ -199,7 +207,7 @@ describe('TimelineService', () => {
           grid: expect.objectContaining({
             cells: expect.arrayContaining(['0,0']),
           }),
-        })
+        }),
       );
     });
   });

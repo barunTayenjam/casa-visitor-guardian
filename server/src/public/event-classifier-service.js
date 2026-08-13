@@ -37,11 +37,11 @@ class EventImageClassifierService {
       const response = await fetch(`${this.apiBaseUrl}/api/events/classify-all`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(options)
+        body: JSON.stringify(options),
       });
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error starting classification:', error);

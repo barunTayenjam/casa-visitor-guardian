@@ -1,13 +1,15 @@
 # Implementation Summary: ADR-003 Detection Pipeline Redesign
 
 ## Overview
+
 This document summarizes the progress made toward implementing the architectural changes proposed in ADR-003 "Pragmatic Edge Detection Pipeline" for the SentryVision home security system.
 
 ## Completed Implementations
 
 ### 1. Python Owns RTSP Ingestion ✅
+
 - **Status**: Complete
-- **Files Modified**: 
+- **Files Modified**:
   - `opencv-service/rtsp_ingestion/` (entire module)
   - `opencv-service/app.py` (RTSP service initialization)
 - **Details**:
@@ -17,6 +19,7 @@ This document summarizes the progress made toward implementing the architectural
   - Node.js now focuses on persistence, notifications, frontend communication, and orchestration
 
 ### 2. WebSocket Instead of Polling ✅
+
 - **Status**: Complete
 - **Files Modified**:
   - `opencv-service/rtsp_ingestion/websocket_publisher.py` (enhanced to handle events)
@@ -29,6 +32,7 @@ This document summarizes the progress made toward implementing the architectural
   - Eliminated duplicate JPEG encode/decode pipeline between Node.js and Python
 
 ### 3. Bounded Queues with Frame Dropping Policies ✅
+
 - **Status**: Complete
 - **Files Modified**:
   - `opencv-service/rtsp_ingestion/queues.py` (DropOldestQueue, DropIfFullQueue implementations)
@@ -41,6 +45,7 @@ This document summarizes the progress made toward implementing the architectural
   - Event Queue: maxsize=100, drop_oldest policy (buffers events during subscriber disconnects)
 
 ### 4. ByteTrack Implementation for Object Tracking ✅
+
 - **Status**: Complete
 - **Files Created**:
   - `opencv-service/byte_tracker.py` (full ByteTrack implementation)
@@ -52,6 +57,7 @@ This document summarizes the progress made toward implementing the architectural
   - Provides track lifecycle events (started, updated, ended)
 
 ### 5. Enhanced Face Recognition with Identity Cache ✅
+
 - **Status**: Complete
 - **Files Modified**:
   - `opencv-service/enhanced_face_recognition.py` (existing enhanced recognition)
@@ -66,6 +72,7 @@ This document summarizes the progress made toward implementing the architectural
 ## Partially Completed / Planned
 
 ### 6. YOLOv8n + ONNX Runtime Integration
+
 - **Status**: Planned (dependencies installed but not yet integrated)
 - **Files To Modify**:
   - `opencv-service/frame_pipeline.py` (detection call)
@@ -76,8 +83,9 @@ This document summarizes the progress made toward implementing the architectural
   - Decouple detection rate from stream FPS using frame_skip
 
 ### 7. Motion Gate (MOG2) as Lightweight Gate
+
 - **Status**: Already Implemented
-- **Files**: 
+- **Files**:
   - `opencv-service/rtsp_ingestion/frame_pipeline.py` (MotionGate class)
   - `opencv-service/app.py` (MotionDetector class)
 - **Details**:
@@ -86,6 +94,7 @@ This document summarizes the progress made toward implementing the architectural
   - Avoids rain alerts, lighting flicker alerts, and IR noise alerts
 
 ### 8. Temporal Intelligence Over Frame Intelligence
+
 - **Status**: Partially Implemented
 - **Files**:
   - `opencv-service/byte_tracker.py` (track lifecycle management)
@@ -96,6 +105,7 @@ This document summarizes the progress made toward implementing the architectural
   - Tracking is the primary event unit rather than per-frame detections
 
 ## Verification of Node.js Backend Consumption
+
 - **Status**: Verified
 - **Details**:
   - Node.js backend already consumes WebSocket connections via SocketService.ts
@@ -104,12 +114,14 @@ This document summarizes the progress made toward implementing the architectural
   - No frontend changes required as Socket.io contracts remain unchanged
 
 ## Migration Status
+
 - **Phase 1 (RTSP Ownership Transfer)**: COMPLETE
 - **Phase 2 (Tracking Integration)**: COMPLETE (ByteTrack implemented)
 - **Phase 3 (Face Recognition Upgrade)**: PARTIAL (identity cache implemented, InsightFace pending)
 - **Phase 4 (Cleanup)**: IN PROGRESS (HTTP endpoints still active but will be deprecated)
 
 ## Next Steps
+
 1. Complete YOLOv8n + ONNX Runtime integration in frame_pipeline.py
 2. Finalize InsightFace ArcFace integration for improved low-light recognition
 3. Update Node.js backend to properly handle WebSocket tracking events
@@ -117,6 +129,7 @@ This document summarizes the progress made toward implementing the architectural
 5. Implement full track lifecycle events (started, updated, ended) in WebSocket protocol
 
 ## Benefits Achieved So Far
+
 - ✅ Eliminated unnecessary CPU waste from duplicate JPEG encode/decode
 - ✅ Improved event quality through object tracking (reduced duplicate alerts)
 - ✅ Simplified architecture by separating concerns (Python=pixels, Node.js=orchestration)
@@ -125,10 +138,11 @@ This document summarizes the progress made toward implementing the architectural
 - ✅ Remained operationally lightweight (no Kafka, Redis Streams, or Kubernetes)
 
 ## Current Architecture
+
 ```
 RTSP Camera
     ↓
-FFmpeg Pipe (Python) 
+FFmpeg Pipe (Python)
     ↓ raw frames (numpy)
 Python CV Service
     ├── Motion Gate (MOG2)
@@ -144,10 +158,11 @@ Node.js Gateway
 ```
 
 ## Target Architecture (Post-YOLOv8n Integration)
+
 ```
 RTSP Camera
     ↓
-FFmpeg Pipe (Python) 
+FFmpeg Pipe (Python)
     ↓ raw frames (numpy)
 Python CV Service
     ├── Motion Gate (MOG2)
@@ -163,6 +178,7 @@ Node.js Gateway
 ```
 
 ## Files Created/Modified
+
 - Created: `opencv-service/byte_tracker.py`
 - Modified: `opencv-service/rtsp_ingestion/frame_pipeline.py`
 - Modified: `opencv-service/rtsp_ingestion/websocket_publisher.py`

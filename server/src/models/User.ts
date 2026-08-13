@@ -1,5 +1,15 @@
 // File: server/src/models/User.ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 import { AuditLog } from './AuditLog.js';
 import { PasswordHistory } from './PasswordHistory.js';
@@ -30,12 +40,12 @@ export class User {
   @JoinColumn({ name: 'role_id' })
   role!: Role;
 
-  @Column({ 
+  @Column({
     name: 'status',
-    type: 'varchar', 
-    length: 20, 
+    type: 'varchar',
+    length: 20,
     default: 'active',
-    enum: ['active', 'inactive', 'suspended', 'locked']
+    enum: ['active', 'inactive', 'suspended', 'locked'],
   })
   status!: 'active' | 'inactive' | 'suspended' | 'locked';
 
@@ -69,13 +79,13 @@ export class User {
   @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy!: string | null;
 
-  @OneToMany(() => UserSession, session => session.user)
+  @OneToMany(() => UserSession, (session) => session.user)
   sessions!: UserSession[];
 
-  @OneToMany(() => AuditLog, auditLog => auditLog.user)
+  @OneToMany(() => AuditLog, (auditLog) => auditLog.user)
   auditLogs!: AuditLog[];
 
-  @OneToMany(() => PasswordHistory, passwordHistory => passwordHistory.user)
+  @OneToMany(() => PasswordHistory, (passwordHistory) => passwordHistory.user)
   passwordHistory!: PasswordHistory[];
 
   /**

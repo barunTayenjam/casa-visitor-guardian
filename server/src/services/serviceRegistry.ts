@@ -148,7 +148,7 @@ class ServiceRegistry {
     if (!service) {
       throw new Error(
         `ServiceRegistry: Service '${key}' has not been initialized. ` +
-        `Ensure serviceRegistry.set${key.charAt(0).toUpperCase() + key.slice(1)}() is called during startup.`
+          `Ensure serviceRegistry.set${key.charAt(0).toUpperCase() + key.slice(1)}() is called during startup.`,
       );
     }
     return service as T;

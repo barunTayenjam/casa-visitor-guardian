@@ -31,7 +31,7 @@ export class RetentionPolicyService extends EventEmitter {
 
   private constructor() {
     super();
-     logger.info('RetentionPolicyService: Initializing', 'RetentionPolicyService');
+    logger.info('RetentionPolicyService: Initializing', 'RetentionPolicyService');
   }
 
   static getInstance(): RetentionPolicyService {
@@ -55,9 +55,9 @@ export class RetentionPolicyService extends EventEmitter {
       }
 
       this.initialized = true;
-       logger.info('RetentionPolicyService initialized', 'RetentionPolicyService');
+      logger.info('RetentionPolicyService initialized', 'RetentionPolicyService');
     } catch (error) {
-       logger.error('Failed to initialize RetentionPolicyService', 'RetentionPolicyService', error);
+      logger.error('Failed to initialize RetentionPolicyService', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -76,7 +76,7 @@ export class RetentionPolicyService extends EventEmitter {
 
       return await AppDataSource.getRepository(RetentionPolicy).save(policy);
     } catch (error) {
-       logger.error('Error creating global retention policy', 'RetentionPolicyService', error);
+      logger.error('Error creating global retention policy', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -109,7 +109,11 @@ export class RetentionPolicyService extends EventEmitter {
       this.policyCache.set(cacheKey, { policy, timestamp: Date.now() });
       return policy;
     } catch (error) {
-       logger.error(`Error retrieving retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error retrieving retention policy for ${camera || 'global'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
@@ -121,7 +125,7 @@ export class RetentionPolicyService extends EventEmitter {
         .orderBy('rp.camera', 'ASC')
         .getMany();
     } catch (error) {
-       logger.error('Error retrieving all retention policies', 'RetentionPolicyService', error);
+      logger.error('Error retrieving all retention policies', 'RetentionPolicyService', error);
       throw error;
     }
   }
@@ -159,12 +163,19 @@ export class RetentionPolicyService extends EventEmitter {
 
       return await AppDataSource.getRepository(RetentionPolicy).save(policy);
     } catch (error) {
-       logger.error(`Error creating retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error creating retention policy for ${camera || 'global'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
 
-  async updatePolicy(camera: string | null, config: Partial<RetentionConfig>): Promise<RetentionPolicy> {
+  async updatePolicy(
+    camera: string | null,
+    config: Partial<RetentionConfig>,
+  ): Promise<RetentionPolicy> {
     try {
       const policy = await this.getPolicy(camera || undefined);
 
@@ -173,7 +184,8 @@ export class RetentionPolicyService extends EventEmitter {
       if (config.previewsDays !== undefined) policy.previews_days = config.previewsDays;
       if (config.snapshotsDays !== undefined) policy.snapshots_days = config.snapshotsDays;
       if (config.eventsDays !== undefined) policy.events_days = config.eventsDays;
-      if (config.retainIndefinitely !== undefined) policy.retain_indefinitely = config.retainIndefinitely;
+      if (config.retainIndefinitely !== undefined)
+        policy.retain_indefinitely = config.retainIndefinitely;
 
       const updatedPolicy = await AppDataSource.getRepository(RetentionPolicy).save(policy);
 
@@ -181,7 +193,11 @@ export class RetentionPolicyService extends EventEmitter {
 
       return updatedPolicy;
     } catch (error) {
-       logger.error(`Error updating retention policy for ${camera || 'global'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error updating retention policy for ${camera || 'global'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
@@ -196,7 +212,11 @@ export class RetentionPolicyService extends EventEmitter {
 
       this.emit('policyDeleted', { camera });
     } catch (error) {
-       logger.error(`Error deleting retention policy for ${camera}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error deleting retention policy for ${camera}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
@@ -216,28 +236,32 @@ export class RetentionPolicyService extends EventEmitter {
       const expiredFiles: string[] = [];
 
       if (category === 'alerts' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('alerts', camera, cutoffDate));
+        expiredFiles.push(...(await this.findExpiredFiles('alerts', camera, cutoffDate)));
       }
 
       if (category === 'detections' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('detections', camera, cutoffDate));
+        expiredFiles.push(...(await this.findExpiredFiles('detections', camera, cutoffDate)));
       }
 
       if (category === 'previews' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('previews', camera, cutoffDate));
+        expiredFiles.push(...(await this.findExpiredFiles('previews', camera, cutoffDate)));
       }
 
       if (category === 'snapshots' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('snapshots', camera, cutoffDate));
+        expiredFiles.push(...(await this.findExpiredFiles('snapshots', camera, cutoffDate)));
       }
 
       if (category === 'events' || !category) {
-        expiredFiles.push(...await this.findExpiredFiles('events', camera, cutoffDate));
+        expiredFiles.push(...(await this.findExpiredFiles('events', camera, cutoffDate)));
       }
 
       return expiredFiles;
     } catch (error) {
-       logger.error(`Error finding expired files for ${camera || 'global'}/${category || 'all'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error finding expired files for ${camera || 'global'}/${category || 'all'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
@@ -260,12 +284,16 @@ export class RetentionPolicyService extends EventEmitter {
           policy.detections_days,
           policy.previews_days,
           policy.snapshots_days,
-          policy.events_days
+          policy.events_days,
         );
     }
   }
 
-  private async findExpiredFiles(category: string, camera: string | undefined, cutoffDate: Date): Promise<string[]> {
+  private async findExpiredFiles(
+    category: string,
+    camera: string | undefined,
+    cutoffDate: Date,
+  ): Promise<string[]> {
     const expiredFiles: string[] = [];
     const detectionsDir = process.env.DETECTIONS_DIR || '/app/data/detections';
 
@@ -284,7 +312,10 @@ export class RetentionPolicyService extends EventEmitter {
           }
         }
       } catch (error) {
-         logger.warn(`Error scanning ${category} directory for ${camera || 'global'}`, 'RetentionPolicyService');
+        logger.warn(
+          `Error scanning ${category} directory for ${camera || 'global'}`,
+          'RetentionPolicyService',
+        );
       }
       return expiredFiles;
     }
@@ -292,8 +323,8 @@ export class RetentionPolicyService extends EventEmitter {
     try {
       const entries = await fs.readdir(detectionsDir, { withFileTypes: true });
       const monthDirs = entries
-        .filter(e => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
-        .map(e => e.name);
+        .filter((e) => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
+        .map((e) => e.name);
 
       for (const monthDir of monthDirs) {
         const scanPath = path.join(detectionsDir, monthDir);
@@ -310,7 +341,7 @@ export class RetentionPolicyService extends EventEmitter {
         }
       }
     } catch (error) {
-       logger.warn(`Error scanning detections for ${camera || 'global'}`, 'RetentionPolicyService');
+      logger.warn(`Error scanning detections for ${camera || 'global'}`, 'RetentionPolicyService');
     }
 
     return expiredFiles;
@@ -332,7 +363,10 @@ export class RetentionPolicyService extends EventEmitter {
     }
   }
 
-  private async scanDirectory(dirPath: string, maxDepth = 3): Promise<Array<{ path: string; mtime: Date }>> {
+  private async scanDirectory(
+    dirPath: string,
+    maxDepth = 3,
+  ): Promise<Array<{ path: string; mtime: Date }>> {
     const files: Array<{ path: string; mtime: Date }> = [];
 
     try {
@@ -352,12 +386,12 @@ export class RetentionPolicyService extends EventEmitter {
               mtime: stats.mtime,
             });
           } catch (error) {
-             logger.warn(`Error reading file stats for ${fullPath}`, 'RetentionPolicyService');
+            logger.warn(`Error reading file stats for ${fullPath}`, 'RetentionPolicyService');
           }
         }
       }
     } catch (error) {
-       logger.warn(`Error scanning directory ${dirPath}`, 'RetentionPolicyService');
+      logger.warn(`Error scanning directory ${dirPath}`, 'RetentionPolicyService');
     }
 
     return files;
@@ -388,7 +422,11 @@ export class RetentionPolicyService extends EventEmitter {
         totalExpiredFiles,
       };
     } catch (error) {
-       logger.error(`Error getting retention summary for ${camera || 'global'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error getting retention summary for ${camera || 'global'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }
@@ -403,17 +441,25 @@ export class RetentionPolicyService extends EventEmitter {
           await fs.unlink(filePath);
           deletedCount++;
         } catch (error) {
-           logger.warn(`Error deleting expired file ${filePath}`, 'RetentionPolicyService');
+          logger.warn(`Error deleting expired file ${filePath}`, 'RetentionPolicyService');
         }
       }
 
       if (deletedCount > 0) {
-        this.emit('retentionApplied', { camera: camera || 'global', category: category || 'all', deletedCount });
+        this.emit('retentionApplied', {
+          camera: camera || 'global',
+          category: category || 'all',
+          deletedCount,
+        });
       }
 
       return deletedCount;
     } catch (error) {
-       logger.error(`Error applying retention policy for ${camera || 'global'}/${category || 'all'}`, 'RetentionPolicyService', error);
+      logger.error(
+        `Error applying retention policy for ${camera || 'global'}/${category || 'all'}`,
+        'RetentionPolicyService',
+        error,
+      );
       throw error;
     }
   }

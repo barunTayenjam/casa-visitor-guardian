@@ -16,7 +16,7 @@ export class FaceEmbedding {
   @Column({
     name: 'embedding_vector',
     type: 'real',
-    array: true
+    array: true,
   })
   embeddingVector!: number[];
 

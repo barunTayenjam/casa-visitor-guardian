@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+logs
+coverage
+.vite
+.planning
+*.lock
+package-lock.json
+server/dist
+frontend/dist
+opencv-service/__pycache__

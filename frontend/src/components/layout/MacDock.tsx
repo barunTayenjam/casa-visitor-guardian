@@ -1,18 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Shield,
-  Bell,
-  Settings,
-  LogOut,
-  Film,
-} from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Shield, Bell, Settings, LogOut, Film } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +46,7 @@ export const MacDock: React.FC = () => {
                         'relative flex items-center justify-center w-10 h-10 md:w-11 md:h-11 rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 group',
                         isActive
                           ? 'bg-primary text-primary-foreground shadow-[0_4px_16px_rgba(59,130,246,0.25)] scale-110'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]',
                       )}
                       style={{
                         animation: `fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms both`,
@@ -69,7 +58,10 @@ export const MacDock: React.FC = () => {
                       )}
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5">
+                  <TooltipContent
+                    side="top"
+                    className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5"
+                  >
                     {item.label}
                   </TooltipContent>
                 </Tooltip>
@@ -90,12 +82,21 @@ export const MacDock: React.FC = () => {
                     </button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5">
+                <TooltipContent
+                  side="top"
+                  className="mb-2 rounded-full bg-white/[0.06] backdrop-blur-3xl border border-white/[0.14] text-xs px-3 py-1.5"
+                >
                   Logout
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="center" className="w-48 mt-2 rounded-[1.25rem] bg-black/80 backdrop-blur-3xl border border-white/[0.14] p-1">
-                <DropdownMenuItem onClick={handleLogout} className="rounded-[0.75rem] text-sm py-2.5 hover:bg-white/[0.06] cursor-pointer">
+              <DropdownMenuContent
+                align="center"
+                className="w-48 mt-2 rounded-[1.25rem] bg-black/80 backdrop-blur-3xl border border-white/[0.14] p-1"
+              >
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="rounded-[0.75rem] text-sm py-2.5 hover:bg-white/[0.06] cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>

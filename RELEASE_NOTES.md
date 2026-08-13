@@ -17,23 +17,27 @@ This release fundamentally re-architects the SentryVision stack for low-resource
 ## New Features
 
 ### One-Click Install (`scripts/install.sh`)
+
 - Zero-interaction install: detects LAN IP, generates secure secrets (`openssl rand`), writes `.env`, creates empty camera configs, builds and starts everything.
 - `curl -fsSL https://raw.githubusercontent.com/barunTayenjam/sentryvision/main/scripts/install.sh | bash`
 - Cameras are added later through the web UI — no terminal editing required.
 - Re-runnable: running again detects the existing install and rebuilds if needed.
 
 ### go2rtc Integration
+
 - go2rtc (`alexxit/go2rtc:1.9.14`) proxies at `/go2rtc` via `http-proxy-middleware` in Express.
 - Manual WebSocket upgrade handler (not `proxy.ws:true`) to avoid intercepting Socket.io paths.
 - WebRTC candidates auto-populated (LAN IP + optional public IP via entrypoint script).
 - Single RTSP connection to cameras — Python FFmpegReader consumes go2rtc's internal re-stream instead of connecting to cameras directly.
 
 ### Class-Whitelisted YOLOv8n Detection
+
 - YOLOv8n ONNX (~215ms inference, 2× faster than YOLOv5n at higher mAP).
 - Class whitelist (`_relevant_classes`) restricts to: `person`, `car`, `truck`, `bus`, `motorcycle`, `bicycle`, `dog`, `cat`, `bird`, `horse`. Blocks COCO false positives (`train`, `surfboard`, `vase`, `potted plant`).
 - Tuned confidence thresholds: person 0.30, car 0.35, default 0.50.
 
 ### Stream Fallback Chain
+
 - **WebRTC** (lowest latency, LAN only — UDP via port 8555).
 - **MSE** (fMP4 via WebSocket — works through Cloudflare Tunnel TCP-only).
 - **Canvas** (last resort — JPEG frames from Python pipeline).
@@ -44,18 +48,21 @@ This release fundamentally re-architects the SentryVision stack for low-resource
 ## Bug Fixes
 
 ### Python RTSP Pipeline (Root Cause of Zero Frames)
+
 - **Camera RTSP connection limit**: TP-LINK cameras reject a 2nd concurrent RTSP connection with `Operation not permitted`. go2rtc now holds the sole allowed slot; Python reads from `rtsp://go2rtc:8554/{camera_id}` instead of hitting cameras directly.
 - **Collapsed dual FFmpeg readers to single reader per camera**: Both previously connected to the same go2rtc stream, wasting one FFmpeg + one RTSP connection per camera.
 - **Removed VAAPI hwaccel flags** (`-hwaccel vaapi -hwaccel_device /dev/dri/renderD128`) from `ffmpeg_reader.py` — no longer needed (and was crashing on non-Intel hosts).
 - **Fixed YOLOv8 ONNX output parsing**: Transposes `(84,8400)` → `(8400,84)` and uses unified pixel-space bbox scaling (640×640 blob, not normalized).
 
 ### Backend API Fixes
+
 - **Fixed 6 hanging detection endpoints**: `authenticate` → `requireUser` middleware mismatch in `detectionRoutes.ts` and `detectionRedoRoutes.ts`.
 - **Fixed CSP for WebSocket/MediaSource/workers**: Relaxed helmet Content-Security-Policy to allow `ws:` connections and Web Workers.
 - **Immutable cache headers**: Added `Cache-Control: public, max-age=31536000, immutable` for content-hashed static assets.
 - **Fixed MSE settle race condition**: `video.srcObject = ms` → `video.src = URL.createObjectURL(ms)`.
 
 ### Frontend
+
 - **Stream reconnection stability**: Rewritten `CameraStream.tsx` with robust fallback chain, proper lifecycle cleanup, and watchdog timer.
 - **Grid layout fix**: Fixed height calculation so the camera grid doesn't overflow.
 
@@ -63,13 +70,13 @@ This release fundamentally re-architects the SentryVision stack for low-resource
 
 ## Performance Improvements
 
-| Metric | Before (1.5.0) | After (1.6.0) |
-|--------|----------------|----------------|
-| Containers | 5 (frontend + backend + opencv + postgres + redis) | 4 (backend + opencv + postgres + go2rtc) |
-| RAM idle | ~2.1 GB | ~700 MB |
-| RAM full pipeline | ~3.5 GB | ~1.5 GB |
-| YOLO inference | ~400ms (YOLOv5n) | ~215ms (YOLOv8n) |
-| RTSP connections per camera | 2 (FFmpeg × 2) | 1 (go2rtc → multiple consumers) |
+| Metric                      | Before (1.5.0)                                     | After (1.6.0)                            |
+| --------------------------- | -------------------------------------------------- | ---------------------------------------- |
+| Containers                  | 5 (frontend + backend + opencv + postgres + redis) | 4 (backend + opencv + postgres + go2rtc) |
+| RAM idle                    | ~2.1 GB                                            | ~700 MB                                  |
+| RAM full pipeline           | ~3.5 GB                                            | ~1.5 GB                                  |
+| YOLO inference              | ~400ms (YOLOv5n)                                   | ~215ms (YOLOv8n)                         |
+| RTSP connections per camera | 2 (FFmpeg × 2)                                     | 1 (go2rtc → multiple consumers)          |
 
 ---
 
@@ -109,6 +116,7 @@ docker compose up -d --build
 ```
 
 **Post-upgrade steps:**
+
 1. Remove old `redis` service if you had one in your compose override.
 2. If you had YOLO weights in `opencv-service/models/`, they are replaced by the baked-in model.
 3. Update `go2rtc.yaml` if you were running go2rtc separately — the new config uses port 8555 for WebRTC.

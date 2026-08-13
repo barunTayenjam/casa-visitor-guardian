@@ -20,30 +20,51 @@ function buildResult(parsed: any, processingTime: number, model: string): Nvidia
     sceneContext: p.scene_context || p.sceneContext || { environment: 'unknown' },
     threatAssessment: {
       level: p.threat_assessment?.level || p.threatAssessment?.level || 'low',
-      factors: p.threat_assessment?.reasoning ? [p.threat_assessment.reasoning] : (p.threat_assessment?.factors || p.threatAssessment?.factors || []),
-      confidence: p.threat_assessment?.confidence || p.threatAssessment?.confidence || 50
+      factors: p.threat_assessment?.reasoning
+        ? [p.threat_assessment.reasoning]
+        : p.threat_assessment?.factors || p.threatAssessment?.factors || [],
+      confidence: p.threat_assessment?.confidence || p.threatAssessment?.confidence || 50,
     },
     detectedEntities: {
-      people: normalizeEntityArray(p.detected_entities?.people || p.detectedEntities?.people, 'person'),
-      vehicles: normalizeEntityArray(p.detected_entities?.vehicles || p.detectedEntities?.vehicles, 'vehicle'),
-      animals: normalizeEntityArray(p.detected_entities?.animals || p.detectedEntities?.animals, 'animal'),
-      objects: normalizeEntityArray(p.detected_entities?.objects || p.detectedEntities?.objects, 'object'),
-      actions: normalizeEntityArray(p.detected_entities?.actions || p.detectedEntities?.actions, 'action')
+      people: normalizeEntityArray(
+        p.detected_entities?.people || p.detectedEntities?.people,
+        'person',
+      ),
+      vehicles: normalizeEntityArray(
+        p.detected_entities?.vehicles || p.detectedEntities?.vehicles,
+        'vehicle',
+      ),
+      animals: normalizeEntityArray(
+        p.detected_entities?.animals || p.detectedEntities?.animals,
+        'animal',
+      ),
+      objects: normalizeEntityArray(
+        p.detected_entities?.objects || p.detectedEntities?.objects,
+        'object',
+      ),
+      actions: normalizeEntityArray(
+        p.detected_entities?.actions || p.detectedEntities?.actions,
+        'action',
+      ),
     },
     recommendedActions: p.recommended_actions || p.recommendedActions || [],
     additionalObservations: p.additional_observations || p.additionalObservations || [],
     processingTime,
-    modelUsed: model
+    modelUsed: model,
   };
 }
 
 export function parseAIResponse(
   responseContent: string,
   processingTime: number,
-  model: string
+  model: string,
 ): NvidianalysisResult {
   const tryParse = (str: string): any | null => {
-    try { return JSON.parse(str); } catch { return null; }
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
+    }
   };
 
   try {
@@ -100,7 +121,7 @@ export function parseAIResponse(
         recommendedActions: [],
         additionalObservations: ['Raw text used as description (JSON parsing failed)'],
         processingTime,
-        modelUsed: model
+        modelUsed: model,
       };
     }
 
@@ -117,7 +138,7 @@ export function parseAIResponse(
         recommendedActions: [],
         additionalObservations: ['Raw text used as description (JSON parsing failed)'],
         processingTime,
-        modelUsed: model
+        modelUsed: model,
       };
     }
 
@@ -128,41 +149,43 @@ export function parseAIResponse(
       recommendedActions: [],
       additionalObservations: ['Response parsing encountered issues'],
       processingTime,
-      modelUsed: model
+      modelUsed: model,
     };
   }
 }
 
 export { buildResult };
 
-export async function drawBoundingBoxes(
-  imagePath: string,
-  boxes: BoundingBox[]
-): Promise<string> {
+export async function drawBoundingBoxes(imagePath: string, boxes: BoundingBox[]): Promise<string> {
   try {
     const metadata = await sharp(imagePath).metadata();
     const width = metadata.width || 1920;
     const height = metadata.height || 1080;
 
-    const boxElements = boxes.map(box => {
-      const x = (box.x / 100) * width;
-      const y = (box.y / 100) * height;
-      const w = (box.width / 100) * width;
-      const h = (box.height / 100) * height;
+    const boxElements = boxes
+      .map((box) => {
+        const x = (box.x / 100) * width;
+        const y = (box.y / 100) * height;
+        const w = (box.width / 100) * width;
+        const h = (box.height / 100) * height;
 
-      let strokeColor = '#FF0000';
-      if (box.label.toLowerCase().includes('person')) {
-        strokeColor = '#00FF00';
-      } else if (box.label.toLowerCase().includes('vehicle') ||
-                 box.label.toLowerCase().includes('car')) {
-        strokeColor = '#00FFFF';
-      } else if (box.label.toLowerCase().includes('animal') ||
-                 box.label.toLowerCase().includes('dog') ||
-                 box.label.toLowerCase().includes('cat')) {
-        strokeColor = '#FF00FF';
-      }
+        let strokeColor = '#FF0000';
+        if (box.label.toLowerCase().includes('person')) {
+          strokeColor = '#00FF00';
+        } else if (
+          box.label.toLowerCase().includes('vehicle') ||
+          box.label.toLowerCase().includes('car')
+        ) {
+          strokeColor = '#00FFFF';
+        } else if (
+          box.label.toLowerCase().includes('animal') ||
+          box.label.toLowerCase().includes('dog') ||
+          box.label.toLowerCase().includes('cat')
+        ) {
+          strokeColor = '#FF00FF';
+        }
 
-      return `
+        return `
         <rect 
           x="${x}" y="${y}" 
           width="${w}" height="${h}" 
@@ -184,7 +207,8 @@ export async function drawBoundingBoxes(
           font-weight="bold"
         >${box.label} (${Math.round(box.confidence)}%)</text>
       `;
-    }).join('');
+      })
+      .join('');
 
     const svg = `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -193,11 +217,13 @@ export async function drawBoundingBoxes(
     `;
 
     const annotatedBuffer = await sharp(imagePath)
-      .composite([{
-        input: Buffer.from(svg),
-        top: 0,
-        left: 0
-      }])
+      .composite([
+        {
+          input: Buffer.from(svg),
+          top: 0,
+          left: 0,
+        },
+      ])
       .jpeg({ quality: 90 })
       .toBuffer();
 

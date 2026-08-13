@@ -1,15 +1,15 @@
-import { Server as SocketIOServer } from "socket.io";
-import path from "path";
-import { promises as fsp } from "fs";
-import { generateTestJpegFrame } from "../utils/testImageGenerator.js";
-import { logger } from "../utils/logger.js";
-import { config, getCameraById, type CameraConfig } from "../config/index.js";
-import { getDetectionsPath, getEventPath } from "../config/paths.js";
-import { AppDataSource } from "../database.js";
-import { Event } from "../models/Event.js";
-import { StreamHealthMonitor } from "./streamHealthMonitor.js";
-import { serviceRegistry } from "../services/serviceRegistry.js";
-import { getOpenCVClient } from "../services/opencvMicroserviceClient.js";
+import { Server as SocketIOServer } from 'socket.io';
+import path from 'path';
+import { promises as fsp } from 'fs';
+import { generateTestJpegFrame } from '../utils/testImageGenerator.js';
+import { logger } from '../utils/logger.js';
+import { config, getCameraById, type CameraConfig } from '../config/index.js';
+import { getDetectionsPath, getEventPath } from '../config/paths.js';
+import { AppDataSource } from '../database.js';
+import { Event } from '../models/Event.js';
+import { StreamHealthMonitor } from './streamHealthMonitor.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
+import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
 
 let configuredCameras: CameraConfig[] = [];
 
@@ -46,7 +46,7 @@ export class StreamManager {
     this.healthMonitor = new StreamHealthMonitor(io, {
       intervalMs: 30000,
       staleThresholdMs: 120000,
-      maxRestarts: 3
+      maxRestarts: 3,
     });
     this.healthMonitor.setStreamManager(this);
 
@@ -56,7 +56,7 @@ export class StreamManager {
 
     this.initializing = false;
 
-    this.persistCameras().catch(err => {
+    this.persistCameras().catch((err) => {
       logger.error(`Failed to persist cameras after init: ${err}`, 'StreamManager');
     });
 
@@ -102,7 +102,10 @@ export class StreamManager {
             pythonWs.subscribe(camId);
             this.activeSubscriptions.add(camId);
           } else {
-            logger.debug(`Subscription already exists for camera ${camId} on reconnect, preserving existing`, 'StreamManager');
+            logger.debug(
+              `Subscription already exists for camera ${camId} on reconnect, preserving existing`,
+              'StreamManager',
+            );
           }
           this.healthMonitor.resetRestartCounter(camId, 'live');
           this.healthMonitor.resetRestartCounter(camId, 'detect');
@@ -117,88 +120,101 @@ export class StreamManager {
     }
     if (!pythonWs) return;
 
-    pythonWs.on('frame', (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {
-      const { cameraId, data } = message;
-      if (!cameraId) return;
+    pythonWs.on(
+      'frame',
+      (message: { cameraId: string | null; data: Buffer; timestamp: number }) => {
+        const { cameraId, data } = message;
+        if (!cameraId) return;
 
-      const camera = this.cameras.get(cameraId);
-      if (!camera) return;
+        const camera = this.cameras.get(cameraId);
+        if (!camera) return;
 
-      camera.lastFrame = data;
-      this.healthMonitor.recordFrameEmitted(cameraId, 'live');
+        camera.lastFrame = data;
+        this.healthMonitor.recordFrameEmitted(cameraId, 'live');
 
-      const viewerCount = camera.activeViewers.size;
-      const adaptiveFps = this.getOptimalFps(viewerCount);
-      camera.adaptiveFps = adaptiveFps;
+        const viewerCount = camera.activeViewers.size;
+        const adaptiveFps = this.getOptimalFps(viewerCount);
+        camera.adaptiveFps = adaptiveFps;
 
-      const now = Date.now();
-      const frameIntervalMs = 1000 / adaptiveFps;
-      if (now - camera.lastFrameEmitTime < frameIntervalMs) {
-        return;
-      }
-      camera.lastFrameEmitTime = now;
+        const now = Date.now();
+        const frameIntervalMs = 1000 / adaptiveFps;
+        if (now - camera.lastFrameEmitTime < frameIntervalMs) {
+          return;
+        }
+        camera.lastFrameEmitTime = now;
 
-      const roomName = `camera-${cameraId}-live`;
-      if (viewerCount > 0) {
-        this.io.to(roomName).emit("frame", {
+        const roomName = `camera-${cameraId}-live`;
+        if (viewerCount > 0) {
+          this.io.to(roomName).emit('frame', {
+            cameraId,
+            role: 'live',
+            timestamp: new Date().toISOString(),
+            data,
+          });
+        }
+
+        const detectRoom = `camera-${cameraId}-detect`;
+        this.io.to(detectRoom).emit('frame', {
           cameraId,
-          role: 'live',
+          role: 'detect',
           timestamp: new Date().toISOString(),
-          data
+          data,
         });
-      }
-
-      const detectRoom = `camera-${cameraId}-detect`;
-      this.io.to(detectRoom).emit("frame", {
-        cameraId,
-        role: 'detect',
-        timestamp: new Date().toISOString(),
-        data
-      });
-    });
+      },
+    );
   }
 
   private setupConnectionTracking(): void {
     logger.info('Setting up Socket.io connection tracking', 'STREAM');
     this.io.on('connection', (socket) => {
       logger.info(`Socket.io client connected: ${socket.id}`, 'STREAM');
-      socket.on('requestStream', (data: { cameraId: string; role?: 'live' | 'detect' | 'record'; tier?: 'HIGH' | 'MEDIUM' | 'LOW' }) => {
-        const { cameraId, role = 'live', tier = 'MEDIUM' } = data;
-         logger.info(`Received requestStream for camera ${cameraId} role ${role} tier ${tier}`, 'STREAM');
-        const camera = this.cameras.get(cameraId);
-        if (!camera) {
-          socket.emit('streamError', { cameraId, error: 'Camera not found' });
-          return;
-        }
+      socket.on(
+        'requestStream',
+        (data: {
+          cameraId: string;
+          role?: 'live' | 'detect' | 'record';
+          tier?: 'HIGH' | 'MEDIUM' | 'LOW';
+        }) => {
+          const { cameraId, role = 'live', tier = 'MEDIUM' } = data;
+          logger.info(
+            `Received requestStream for camera ${cameraId} role ${role} tier ${tier}`,
+            'STREAM',
+          );
+          const camera = this.cameras.get(cameraId);
+          if (!camera) {
+            socket.emit('streamError', { cameraId, error: 'Camera not found' });
+            return;
+          }
 
-        camera.activeViewers.add(socket.id);
-        const viewerCount = camera.activeViewers.size;
+          camera.activeViewers.add(socket.id);
+          const viewerCount = camera.activeViewers.size;
 
-        const roomName = `camera-${cameraId}-live`;
-        socket.join(roomName);
+          const roomName = `camera-${cameraId}-live`;
+          socket.join(roomName);
 
-        camera.isActive = true;
+          camera.isActive = true;
 
-        this.cancelDebouncedUnsubscribe(cameraId);
+          this.cancelDebouncedUnsubscribe(cameraId);
 
-        const pythonWs = serviceRegistry.getPythonWsClient();
-        if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
-          pythonWs.subscribe(cameraId);
-          this.activeSubscriptions.add(cameraId);
-        }
+          const pythonWs = serviceRegistry.getPythonWsClient();
+          if (pythonWs && pythonWs.connected && !this.activeSubscriptions.has(cameraId)) {
+            pythonWs.subscribe(cameraId);
+            this.activeSubscriptions.add(cameraId);
+          }
 
-        if (viewerCount === 1 && pythonWs && pythonWs.connected) {
-          pythonWs.send(JSON.stringify({ type: 'start_live', cameraId }));
-        }
+          if (viewerCount === 1 && pythonWs && pythonWs.connected) {
+            pythonWs.send(JSON.stringify({ type: 'start_live', cameraId }));
+          }
 
-        socket.emit('streamStarted', {
-          cameraId,
-          role,
-          fps: camera.adaptiveFps,
-          viewerCount,
-          tier,
-        });
-      });
+          socket.emit('streamStarted', {
+            cameraId,
+            role,
+            fps: camera.adaptiveFps,
+            viewerCount,
+            tier,
+          });
+        },
+      );
 
       socket.on('stopStream', (data: { cameraId: string; role?: 'live' | 'detect' | 'record' }) => {
         const { cameraId, role = 'live' } = data;
@@ -215,7 +231,7 @@ export class StreamManager {
         socket.emit('streamStopped', {
           cameraId,
           role,
-          viewerCount: camera.activeViewers.size
+          viewerCount: camera.activeViewers.size,
         });
       });
 
@@ -251,7 +267,7 @@ export class StreamManager {
     this.cameras.set(camera.id, camera);
 
     if (!this.initializing) {
-      this.persistCameras().catch(err => {
+      this.persistCameras().catch((err) => {
         logger.error(`Failed to persist cameras after addCamera: ${err}`, 'StreamManager');
       });
     }
@@ -274,7 +290,10 @@ export class StreamManager {
     camera.isActive = true;
 
     if (this.activeSubscriptions.has(cameraId)) {
-      logger.debug(`Subscription already exists for camera ${cameraId}, skipping duplicate`, 'StreamManager');
+      logger.debug(
+        `Subscription already exists for camera ${cameraId}, skipping duplicate`,
+        'StreamManager',
+      );
       return true;
     }
 
@@ -316,7 +335,10 @@ export class StreamManager {
     const pythonWs = serviceRegistry.getPythonWsClient();
 
     if (!pythonWs || !pythonWs.connected) {
-      logger.warn(`[StreamManager] Cannot restart ${cameraId}: Python WS disconnected, forcing reconnect`, 'StreamManager');
+      logger.warn(
+        `[StreamManager] Cannot restart ${cameraId}: Python WS disconnected, forcing reconnect`,
+        'StreamManager',
+      );
       if (pythonWs) {
         pythonWs.disconnect();
         pythonWs.connect();
@@ -349,7 +371,7 @@ export class StreamManager {
         const testFrame = generateTestJpegFrame(cameraId);
         camera.lastFrame = testFrame;
 
-        this.io.to(`camera-${cameraId}-live`).emit("frame", {
+        this.io.to(`camera-${cameraId}-live`).emit('frame', {
           cameraId,
           role: 'live',
           data: testFrame,
@@ -370,7 +392,7 @@ export class StreamManager {
     Object.assign(camera.config, updates);
 
     if (!this.initializing) {
-      this.persistCameras().catch(err => {
+      this.persistCameras().catch((err) => {
         logger.error(`Failed to persist cameras after updateCamera: ${err}`, 'StreamManager');
       });
     }
@@ -393,10 +415,10 @@ export class StreamManager {
     this.cameras.delete(cameraId);
 
     if (!this.initializing) {
-      this.persistCameras().catch(err => {
+      this.persistCameras().catch((err) => {
         logger.error(`Failed to persist cameras after removeCamera: ${err}`, 'StreamManager');
       });
-      AppDataSource.query('DELETE FROM cameras WHERE id = $1', [cameraId]).catch(err => {
+      AppDataSource.query('DELETE FROM cameras WHERE id = $1', [cameraId]).catch((err) => {
         logger.warn(`Failed to delete camera ${cameraId} from DB: ${err}`, 'StreamManager');
       });
     }
@@ -404,21 +426,18 @@ export class StreamManager {
     return true;
   }
 
-  async takeSnapshot(
-    cameraId: string,
-    _resolution?: string,
-  ): Promise<string | null> {
+  async takeSnapshot(cameraId: string, _resolution?: string): Promise<string | null> {
     const camera = this.cameras.get(cameraId);
     if (!camera) return null;
 
     const frame = camera.lastFrame;
     if (!frame) {
-       logger.warn(`No frame available for snapshot for camera ${cameraId}`, 'STREAM');
+      logger.warn(`No frame available for snapshot for camera ${cameraId}`, 'STREAM');
       return null;
     }
 
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `snapshot_${cameraId}_${timestamp}.jpg`;
       const snapshotDate = new Date();
       const snapshotsPath = getDetectionsPath('snapshots', snapshotDate);
@@ -430,7 +449,7 @@ export class StreamManager {
       return filename;
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-       logger.error(`Error saving snapshot for camera ${cameraId}: ${msg}`, 'STREAM');
+      logger.error(`Error saving snapshot for camera ${cameraId}: ${msg}`, 'STREAM');
       return null;
     }
   }
@@ -451,27 +470,31 @@ export class StreamManager {
 
     camera.config.nightMode = enabled;
     logger.info(
-      `Night mode ${enabled ? "enabled" : "disabled"} for camera ${cameraId}`,
+      `Night mode ${enabled ? 'enabled' : 'disabled'} for camera ${cameraId}`,
       'StreamManager',
     );
 
     if (!this.initializing) {
-      this.persistCameras().catch(err => {
+      this.persistCameras().catch((err) => {
         logger.error(`Failed to persist cameras after toggleNightMode: ${err}`, 'StreamManager');
       });
     }
 
     const opencvClient = getOpenCVClient();
-    opencvClient.pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>).catch(err => {
-      logger.warn(`Failed to push night mode config to Python: ${err}`, 'StreamManager');
-    });
+    opencvClient
+      .pushDetectionConfig(cameraId, camera.config as unknown as Record<string, unknown>)
+      .catch((err) => {
+        logger.warn(`Failed to push night mode config to Python: ${err}`, 'StreamManager');
+      });
 
     return true;
   }
 
   async persistCameras(): Promise<void> {
     try {
-      await this.persistence.persist(Array.from(this.cameras.values()).map(camera => camera.config));
+      await this.persistence.persist(
+        Array.from(this.cameras.values()).map((camera) => camera.config),
+      );
     } catch (error) {
       logger.error(`Failed to persist camera config: ${error}`, 'StreamManager');
     }
@@ -487,7 +510,10 @@ export class StreamManager {
 
     const filename = await this.takeSnapshot(cameraId);
     if (!filename) {
-       logger.error(`[StreamManager] Failed to take snapshot for simulation on ${cameraId}`, 'STREAM');
+      logger.error(
+        `[StreamManager] Failed to take snapshot for simulation on ${cameraId}`,
+        'STREAM',
+      );
       return;
     }
 
@@ -495,7 +521,7 @@ export class StreamManager {
 
     const detections = [
       { class: 'person', confidence: 0.85, bbox: { x: 100, y: 50, width: 80, height: 180 } },
-      { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } }
+      { class: 'car', confidence: 0.72, bbox: { x: 300, y: 200, width: 120, height: 80 } },
     ];
 
     this.io.to(`camera-${cameraId}-live`).emit('detection', {
@@ -510,14 +536,14 @@ export class StreamManager {
       timestamp,
     });
 
-    this.io.emit("motionDetected", {
+    this.io.emit('motionDetected', {
       id: `motion_${Date.now()}`,
       cameraId,
       timestamp,
       confidence: 85,
       labels: ['person', 'car'],
       detections,
-      detectionResolution: { width: 1920, height: 1080 }
+      detectionResolution: { width: 1920, height: 1080 },
     });
 
     try {
@@ -526,7 +552,7 @@ export class StreamManager {
       event.camera_id = cameraId;
       const snapshotDate = new Date();
       const yearMonth = `${snapshotDate.getFullYear()}-${String(snapshotDate.getMonth() + 1).padStart(2, '0')}`;
-       event.file_path = path.join(config.storage.detectionsDir, yearMonth, 'snapshots', filename);
+      event.file_path = path.join(config.storage.detectionsDir, yearMonth, 'snapshots', filename);
       event.timestamp = new Date(timestamp);
       event.confidence = 0.85;
       event.persons_detected = 1;
@@ -541,12 +567,12 @@ export class StreamManager {
         hasPersons: true,
         hasFaces: false,
         personCount: 1,
-        faceCount: 0
+        faceCount: 0,
       });
 
       await AppDataSource.getRepository(Event).save(event);
     } catch (error) {
-       logger.error('[StreamManager] Failed to save simulation event to database', 'STREAM', error);
+      logger.error('[StreamManager] Failed to save simulation event to database', 'STREAM', error);
     }
   }
 
@@ -554,10 +580,16 @@ export class StreamManager {
     return null;
   }
 
-  getStream(_cameraId: string, _role: 'live' | 'detect' | 'record'): { width: number; height: number } | undefined {
+  getStream(
+    _cameraId: string,
+    _role: 'live' | 'detect' | 'record',
+  ): { width: number; height: number } | undefined {
     const camera = this.cameras.get(_cameraId);
     if (!camera) return undefined;
-    return { width: camera.config.streams[0]?.width || 1920, height: camera.config.streams[0]?.height || 1080 };
+    return {
+      width: camera.config.streams[0]?.width || 1920,
+      height: camera.config.streams[0]?.height || 1080,
+    };
   }
 
   shutdown(): void {
@@ -588,7 +620,7 @@ export async function setupRTSPStreams(
   io: SocketIOServer,
   cameras: CameraConfig[] = [],
 ): Promise<StreamManager> {
-   logger.info("Setting up RTSP stream manager", 'STREAM');
+  logger.info('Setting up RTSP stream manager', 'STREAM');
 
   configuredCameras = cameras;
   config.cameras = cameras;
@@ -600,12 +632,15 @@ export async function setupRTSPStreams(
   }
 
   streamManager.healthMonitor.start();
-   logger.info("Stream health monitor started", 'STREAM');
+  logger.info('Stream health monitor started', 'STREAM');
 
   setTimeout(() => {
     streamManager.getAllCameras().forEach((camera) => {
       if (!camera.config.enabled) {
-        logger.info(`Skipping auto-start for disabled camera: ${camera.id} (${camera.name})`, 'STREAM');
+        logger.info(
+          `Skipping auto-start for disabled camera: ${camera.id} (${camera.name})`,
+          'STREAM',
+        );
         return;
       }
       logger.info(`Auto-starting RTSP stream for camera: ${camera.id} (${camera.name})`, 'STREAM');

@@ -6,7 +6,7 @@ import type { AnalysisContext, NormalizedDetection } from './types.js';
 export function normalizeEntityArray(input: unknown, type: string): string[] {
   if (!input) return [];
   if (Array.isArray(input)) {
-    return input.map(item => {
+    return input.map((item) => {
       if (typeof item === 'string') return item;
       if (typeof item === 'object' && item !== null) {
         const obj = item as Record<string, unknown>;
@@ -28,9 +28,7 @@ export function normalizeEntityArray(input: unknown, type: string): string[] {
 }
 
 export function imageToBase64(imagePath: string): string {
-  const absolutePath = path.isAbsolute(imagePath)
-    ? imagePath
-    : path.join(process.cwd(), imagePath);
+  const absolutePath = path.isAbsolute(imagePath) ? imagePath : path.join(process.cwd(), imagePath);
 
   const imageBuffer = fs.readFileSync(absolutePath);
   return imageBuffer.toString('base64');
@@ -40,7 +38,7 @@ export async function callNvidiaApi(
   base64Image: string,
   context: AnalysisContext,
   model: string,
-  systemPrompt: string
+  systemPrompt: string,
 ): Promise<any> {
   const apiKey = process.env.NVIDIA_API_KEY;
   const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
@@ -50,17 +48,21 @@ export async function callNvidiaApi(
   }
 
   const yoloInfo = context.yoloDetections?.length
-    ? `YOLO Detections: ${context.yoloDetections.map(d => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
+    ? `YOLO Detections: ${context.yoloDetections.map((d) => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
     : null;
 
   const contextInfo = [
     context.cameraName ? `Camera: ${context.cameraName}` : null,
     context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
     context.eventType ? `Event Type: ${context.eventType}` : null,
-    context.detectedObjects?.length ? `Detected Objects: ${context.detectedObjects.join(', ')}` : null,
+    context.detectedObjects?.length
+      ? `Detected Objects: ${context.detectedObjects.join(', ')}`
+      : null,
     yoloInfo,
     context.timestamp ? `Timestamp: ${context.timestamp}` : null,
-  ].filter(Boolean).join(' | ');
+  ]
+    .filter(Boolean)
+    .join(' | ');
 
   const userMessage = contextInfo
     ? `Context: ${contextInfo}\n\nAnalyze this image and compare with YOLO detections above. Note any discrepancies. Respond with only valid JSON: {`
@@ -71,28 +73,28 @@ export async function callNvidiaApi(
     messages: [
       {
         role: 'system',
-        content: systemPrompt
+        content: systemPrompt,
       },
       {
         role: 'user',
         content: [
           {
             type: 'text',
-            text: userMessage
+            text: userMessage,
           },
           {
             type: 'image_url',
             image_url: {
-              url: `data:image/jpeg;base64,${base64Image}`
-            }
-          }
-        ]
-      }
+              url: `data:image/jpeg;base64,${base64Image}`,
+            },
+          },
+        ],
+      },
     ],
     temperature: 0.0,
     max_tokens: 4096,
     stream: false,
-    top_p: 0.9
+    top_p: 0.9,
   };
 
   let lastError: Error | null = null;
@@ -102,14 +104,16 @@ export async function callNvidiaApi(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`);
+        throw new Error(
+          `NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`,
+        );
       }
 
       return await response.json();
@@ -117,7 +121,7 @@ export async function callNvidiaApi(
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < 3) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

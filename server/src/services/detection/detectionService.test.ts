@@ -48,17 +48,15 @@ describe('DetectionService', () => {
     });
 
     it('should fall back to global config when camera config not found', async () => {
-      mockConfigRepo.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'uuid-2',
-          camera: null,
-          config: {
-            thresholds: { person: { min_score: 0.4, threshold: 0.6 } },
-            labelmap: {},
-            score_history_length: 5,
-          },
-        });
+      mockConfigRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: 'uuid-2',
+        camera: null,
+        config: {
+          thresholds: { person: { min_score: 0.4, threshold: 0.6 } },
+          labelmap: {},
+          score_history_length: 5,
+        },
+      });
 
       const result = await detectionService.getConfig('back_door');
 
@@ -84,7 +82,7 @@ describe('DetectionService', () => {
               person: { min_score: 0.35, threshold: 0.55 },
             }),
           }),
-        })
+        }),
       );
     });
 
@@ -106,7 +104,7 @@ describe('DetectionService', () => {
           config: expect.objectContaining({
             labelmap: { truck: 'vehicle' },
           }),
-        })
+        }),
       );
     });
 
@@ -128,7 +126,7 @@ describe('DetectionService', () => {
           config: expect.objectContaining({
             score_history_length: 10,
           }),
-        })
+        }),
       );
     });
   });
@@ -174,9 +172,7 @@ describe('DetectionService', () => {
     });
 
     it('should pass through unknown labels', () => {
-      const detections = [
-        { label: 'unknown_type', score: 0.6 },
-      ];
+      const detections = [{ label: 'unknown_type', score: 0.6 }];
 
       const result = detectionService.filterDetections(detections);
 
@@ -211,8 +207,12 @@ describe('DetectionService', () => {
     it('should return score history for known object', () => {
       (detectionService as any).scoreHistories.set('obj1', {
         scores: [0.5, 0.6, 0.7],
-        get median() { return this.scores[1]; },
-        add() { return this.median; },
+        get median() {
+          return this.scores[1];
+        },
+        add() {
+          return this.median;
+        },
       });
 
       const result = detectionService.getScoreHistory('obj1');

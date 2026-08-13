@@ -8,9 +8,7 @@ interface AppLayoutProps {
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <div className="flex h-dvh flex-col">
-      <main className="relative flex-1 pb-28 min-h-0">
-        {children}
-      </main>
+      <main className="relative flex-1 pb-28 min-h-0">{children}</main>
       <MacDock />
     </div>
   );

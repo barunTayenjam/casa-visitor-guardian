@@ -20,26 +20,24 @@ describe('Express App Setup', () => {
   describe('Middleware', () => {
     it('should have CORS enabled', async () => {
       app.use(cors());
-      
+
       const response = await request(app).get('/api/test');
-      
+
       expect(response.headers['access-control-allow-origin']).toBeDefined();
     });
 
     it('should have helmet security headers', async () => {
       app.use(helmet());
-      
+
       const response = await request(app).get('/api/test');
-      
+
       expect(response.headers['x-dns-prefetch-control']).toBeDefined();
     });
 
     it('should handle JSON body parsing', async () => {
       app.use(express.json());
-      
-      const response = await request(app)
-        .post('/api/test')
-        .send({ test: 'data' });
+
+      const response = await request(app).post('/api/test').send({ test: 'data' });
 
       expect(response.status).toBeGreaterThanOrEqual(200);
     });
@@ -48,7 +46,7 @@ describe('Express App Setup', () => {
   describe('Error Handling', () => {
     it('should return 404 for unknown routes', async () => {
       const response = await request(app).get('/api/unknown-route');
-      
+
       expect(response.status).toBe(404);
     });
 
@@ -62,7 +60,7 @@ describe('Express App Setup', () => {
       });
 
       const response = await request(app).get('/api/test');
-      
+
       expect(response.status).toBe(500);
     });
   });

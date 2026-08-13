@@ -16,7 +16,10 @@ export function validateBody<T>(schema: ZodSchema<T>) {
         message: issue.message,
         code: issue.code,
       }));
-      logger.warn(`Body validation failed: ${details.map(d => `${d.field}: ${d.message}`).join(', ')}`, 'Validation');
+      logger.warn(
+        `Body validation failed: ${details.map((d) => `${d.field}: ${d.message}`).join(', ')}`,
+        'Validation',
+      );
       res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -41,7 +44,10 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
         field: issue.path.join('.'),
         message: issue.message,
       }));
-      logger.warn(`Query validation failed: ${details.map(d => `${d.field}: ${d.message}`).join(', ')}`, 'Validation');
+      logger.warn(
+        `Query validation failed: ${details.map((d) => `${d.field}: ${d.message}`).join(', ')}`,
+        'Validation',
+      );
       res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -67,7 +73,10 @@ export function validateParams<T>(schema: ZodSchema<T>) {
         field: issue.path.join('.'),
         message: issue.message,
       }));
-      logger.warn(`Params validation failed: ${details.map(d => `${d.field}: ${d.message}`).join(', ')}`, 'Validation');
+      logger.warn(
+        `Params validation failed: ${details.map((d) => `${d.field}: ${d.message}`).join(', ')}`,
+        'Validation',
+      );
       res.status(400).json({
         success: false,
         error: 'Validation failed',

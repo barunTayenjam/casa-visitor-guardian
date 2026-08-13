@@ -25,39 +25,49 @@ const corsOrigins = (() => {
   return isDev ? true : ['http://localhost:3000', 'http://localhost:5173'];
 })();
 
-app.use(cors({
-  origin: corsOrigins,
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+  }),
+);
 
 const go2rtcUrl = process.env.GO2RTC_URL || 'http://go2rtc:1984';
-app.use('/go2rtc', createProxyMiddleware({
-  target: go2rtcUrl,
-  changeOrigin: true,
-  pathRewrite: { '^/go2rtc': '' },
-}));
+app.use(
+  '/go2rtc',
+  createProxyMiddleware({
+    target: go2rtcUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/go2rtc': '' },
+  }),
+);
 
 app.use(express.json());
-app.use(helmet({
-  strictTransportSecurity: process.env.NODE_ENV === 'production' ? {
-    maxAge: 31536000,
-    includeSubDomains: true,
-  } : false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      mediaSrc: ["'self'", "blob:", "data:"],
-      workerSrc: ["'self'", "blob:"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
-    }
-  },
-}));
+app.use(
+  helmet({
+    strictTransportSecurity:
+      process.env.NODE_ENV === 'production'
+        ? {
+            maxAge: 31536000,
+            includeSubDomains: true,
+          }
+        : false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        mediaSrc: ["'self'", 'blob:', 'data:'],
+        workerSrc: ["'self'", 'blob:'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+      },
+    },
+  }),
+);
 
 const server = http.createServer(app);
 
@@ -67,7 +77,16 @@ server.on('upgrade', (req, socket, head) => {
 
   const targetPath = req.url.replace('/go2rtc', '') || '/';
   const headers: Record<string, string> = {};
-  const blockedHeaders = new Set(['authorization', 'cookie', 'cookie2', 'proxy-authorization', 'proxy-connection', 'x-forwarded-for', 'x-real-ip', 'forwarded']);
+  const blockedHeaders = new Set([
+    'authorization',
+    'cookie',
+    'cookie2',
+    'proxy-authorization',
+    'proxy-connection',
+    'x-forwarded-for',
+    'x-real-ip',
+    'forwarded',
+  ]);
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
     const key = req.rawHeaders[i].toLowerCase();
     if (blockedHeaders.has(key)) continue;
@@ -87,10 +106,26 @@ server.on('upgrade', (req, socket, head) => {
   });
 
   proxyReq.on('upgrade', (_proxyRes, proxySocket, proxyHead) => {
-    proxySocket.on('error', () => { try { socket.destroy(); } catch {} });
-    socket.on('error', () => { try { proxySocket.destroy(); } catch {} });
-    socket.on('close', () => { try { proxySocket.destroy(); } catch {} });
-    proxySocket.on('close', () => { try { socket.destroy(); } catch {} });
+    proxySocket.on('error', () => {
+      try {
+        socket.destroy();
+      } catch {}
+    });
+    socket.on('error', () => {
+      try {
+        proxySocket.destroy();
+      } catch {}
+    });
+    socket.on('close', () => {
+      try {
+        proxySocket.destroy();
+      } catch {}
+    });
+    proxySocket.on('close', () => {
+      try {
+        socket.destroy();
+      } catch {}
+    });
 
     let responseLine = 'HTTP/1.1 101 Switching Protocols\r\n';
     for (const [k, v] of Object.entries(_proxyRes.headers)) {
@@ -106,24 +141,27 @@ server.on('upgrade', (req, socket, head) => {
     socket.pipe(proxySocket);
   });
 
-  proxyReq.on('error', () => { try { socket.destroy(); } catch {} });
+  proxyReq.on('error', () => {
+    try {
+      socket.destroy();
+    } catch {}
+  });
   proxyReq.end();
 });
 const io = new SocketIOServer(server, {
   cors: {
     origin: corsOrigins,
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
 await initializeServices(io);
-  configureRoutes(app, io);
-  
-  // SPA Fallback
-  app.get('*', (req: express.Request, res: express.Response) => {
-    res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
-  });
+configureRoutes(app, io);
 
+// SPA Fallback
+app.get('*', (req: express.Request, res: express.Response) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
 
 logger.info('Routes configured successfully', 'SERVER');
 

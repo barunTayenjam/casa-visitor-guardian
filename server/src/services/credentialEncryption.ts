@@ -18,13 +18,7 @@ export interface EncryptedCredential {
 let encryptionKey: Buffer | null = null;
 
 function deriveKey(password: string, salt: Buffer): Buffer {
-  return crypto.pbkdf2Sync(
-    password,
-    salt,
-    PBKDF2_ITERATIONS,
-    KEY_LENGTH,
-    'sha256'
-  );
+  return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha256');
 }
 
 function getEncryptionKey(): Buffer {
@@ -61,7 +55,7 @@ export function encryptCredential(plaintext: string): EncryptedCredential {
       encrypted,
       iv: iv.toString('base64'),
       tag: tag.toString('base64'),
-      version: 1
+      version: 1,
     };
   } catch (error) {
     logger.error('Failed to encrypt credential', 'CredentialEncryption', error);

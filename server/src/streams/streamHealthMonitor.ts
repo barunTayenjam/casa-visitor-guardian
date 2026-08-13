@@ -1,6 +1,6 @@
-import { Server as SocketIOServer } from "socket.io";
-import { logger } from "../utils/logger.js";
-import { serviceRegistry } from "../services/serviceRegistry.js";
+import { Server as SocketIOServer } from 'socket.io';
+import { logger } from '../utils/logger.js';
+import { serviceRegistry } from '../services/serviceRegistry.js';
 
 interface HealthCheckConfig {
   intervalMs: number; // How often to check health (default: 30 seconds)
@@ -28,11 +28,11 @@ export class StreamHealthMonitor {
     this.io = io;
     this.healthStatus = new Map();
     this.checkInterval = null;
-    
+
     this.config = {
       intervalMs: config?.intervalMs || 30000, // 30 seconds
       staleThresholdMs: config?.staleThresholdMs || 300000, // 5 minutes (increased from 2 min)
-      maxRestarts: config?.maxRestarts || 3
+      maxRestarts: config?.maxRestarts || 3,
     };
   }
 
@@ -49,7 +49,7 @@ export class StreamHealthMonitor {
     logger.info('Starting stream health monitor', 'HealthMonitor', {
       intervalMs: this.config.intervalMs,
       staleThresholdMs: this.config.staleThresholdMs,
-      maxRestarts: this.config.maxRestarts
+      maxRestarts: this.config.maxRestarts,
     });
 
     this.checkInterval = setInterval(() => {
@@ -69,14 +69,14 @@ export class StreamHealthMonitor {
   recordFrameEmitted(cameraId: string, role: 'live' | 'detect' | 'record'): void {
     const key = `${cameraId}-${role}`;
     const now = Date.now();
-    
+
     const status = this.healthStatus.get(key) || {
       cameraId,
       role,
       lastFrameTime: 0,
       restartAttempts: 0,
       lastRestartTime: 0,
-      isActive: false
+      isActive: false,
     };
 
     status.lastFrameTime = now;
@@ -117,10 +117,28 @@ export class StreamHealthMonitor {
         const timeSinceLastFrame = now - status.lastFrameTime;
 
         if (timeSinceLastFrame > this.config.staleThresholdMs) {
-          this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
-        } else if (camera.activeRoles && !camera.activeRoles.has(role) && wasActive && (role === 'detect' || role === 'record')) {
-          logger.info(`[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`, 'STREAM');
-          this.handleStaleStream(camera.id, role as 'live' | 'detect' | 'record', timeSinceLastFrame, status);
+          this.handleStaleStream(
+            camera.id,
+            role as 'live' | 'detect' | 'record',
+            timeSinceLastFrame,
+            status,
+          );
+        } else if (
+          camera.activeRoles &&
+          !camera.activeRoles.has(role) &&
+          wasActive &&
+          (role === 'detect' || role === 'record')
+        ) {
+          logger.info(
+            `[HealthMonitor] ${camera.id} ${role} lost active role but was running — restarting`,
+            'STREAM',
+          );
+          this.handleStaleStream(
+            camera.id,
+            role as 'live' | 'detect' | 'record',
+            timeSinceLastFrame,
+            status,
+          );
         }
       });
     });
@@ -130,14 +148,14 @@ export class StreamHealthMonitor {
     cameraId: string,
     role: 'live' | 'detect' | 'record',
     staleTime: number,
-    status: CameraHealthStatus
+    status: CameraHealthStatus,
   ): void {
     const staleMinutes = Math.floor(staleTime / 60000);
-    
+
     // Check if we've restarted too many times recently
     const timeSinceLastRestart = Date.now() - status.lastRestartTime;
     const oneHour = 3600000; // 1 hour in ms
-    
+
     if (timeSinceLastRestart > oneHour) {
       // Reset counter if it's been more than an hour
       status.restartAttempts = 0;
@@ -147,21 +165,24 @@ export class StreamHealthMonitor {
       logger.error(
         `Camera ${cameraId} ${role} stream is stale (${staleMinutes} min) but max restarts reached`,
         'HealthMonitor',
-        { cameraId, role, staleMinutes, restartAttempts: status.restartAttempts }
+        { cameraId, role, staleMinutes, restartAttempts: status.restartAttempts },
       );
-      
+
       this.io.emit('streamHealthAlert', {
         cameraId,
         role,
         severity: 'critical',
         message: `Stream unavailable for ${staleMinutes} minutes. Max restart attempts reached.`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       try {
         const pythonWs = serviceRegistry.getPythonWsClient();
         if (pythonWs && !pythonWs.connected) {
-          logger.warn('[HealthMonitor] Force reconnecting Python WS client after max restart failures', 'HealthMonitor');
+          logger.warn(
+            '[HealthMonitor] Force reconnecting Python WS client after max restart failures',
+            'HealthMonitor',
+          );
           pythonWs.disconnect();
           pythonWs.connect();
           status.restartAttempts = 0;
@@ -177,7 +198,7 @@ export class StreamHealthMonitor {
     logger.warn(
       `Camera ${cameraId} ${role} stream is stale (${staleMinutes} min), restarting...`,
       'HealthMonitor',
-      { cameraId, role, staleMinutes, restartAttempt: status.restartAttempts + 1 }
+      { cameraId, role, staleMinutes, restartAttempt: status.restartAttempts + 1 },
     );
 
     // Emit alert to clients
@@ -186,50 +207,40 @@ export class StreamHealthMonitor {
       role,
       severity: 'warning',
       message: `Stream was stale for ${staleMinutes} minutes. Restarting...`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     // Restart the stream
     try {
       const success = this.streamManager.restartStream(cameraId, role);
-      
+
       if (success) {
         status.restartAttempts++;
         status.lastRestartTime = Date.now();
         this.healthStatus.set(`${cameraId}-${role}`, status);
-        
-        logger.info(
-          `Successfully restarted stale stream for ${cameraId} ${role}`,
-          'HealthMonitor'
-        );
-        
+
+        logger.info(`Successfully restarted stale stream for ${cameraId} ${role}`, 'HealthMonitor');
+
         // Emit success notification
         this.io.emit('streamHealthAlert', {
           cameraId,
           role,
           severity: 'info',
           message: `Stream restarted successfully after being stale for ${staleMinutes} minutes`,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       } else {
-        logger.error(
-          `Failed to restart stale stream for ${cameraId} ${role}`,
-          'HealthMonitor'
-        );
+        logger.error(`Failed to restart stale stream for ${cameraId} ${role}`, 'HealthMonitor');
       }
     } catch (error) {
-      logger.error(
-        `Error restarting stale stream for ${cameraId} ${role}`,
-        'HealthMonitor',
-        error
-      );
+      logger.error(`Error restarting stale stream for ${cameraId} ${role}`, 'HealthMonitor', error);
     }
   }
 
   getHealthStatus(): Array<{ key: string; status: CameraHealthStatus }> {
     return Array.from(this.healthStatus.entries()).map(([key, status]) => ({
       key,
-      status
+      status,
     }));
   }
 

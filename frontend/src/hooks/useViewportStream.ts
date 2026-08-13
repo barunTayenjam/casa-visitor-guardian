@@ -62,7 +62,7 @@ interface UseViewportStreamConfig {
 
 export function useViewportStream(
   elementRef: React.RefObject<HTMLElement | null>,
-  config: UseViewportStreamConfig = {}
+  config: UseViewportStreamConfig = {},
 ): { isVisible: boolean } {
   const { debounceMs = 300, rootMargin = '100px', threshold = 0.1 } = config;
   const [isVisible, setIsVisible] = useState(false);
@@ -81,7 +81,7 @@ export function useViewportStream(
           setIsVisible(entry.isIntersecting);
         }, debounceMs);
       },
-      { rootMargin, threshold }
+      { rootMargin, threshold },
     );
 
     observer.observe(element);

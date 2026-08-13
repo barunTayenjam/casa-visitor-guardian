@@ -23,7 +23,7 @@ class CacheService {
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
       ttl: parseInt(process.env.CACHE_TTL || '1800'), // 30 min default (down from 1 hour)
-      ...config
+      ...config,
     };
   }
 
@@ -32,37 +32,37 @@ class CacheService {
     if (this.connectionAttempted) {
       return;
     }
-    
+
     this.connectionAttempted = true;
-    
+
     // Check if Redis is disabled via environment variable
     if (process.env.REDIS_DISABLED === 'true') {
-       logger.info('Redis explicitly disabled, using memory cache only', 'CacheService');
+      logger.info('Redis explicitly disabled, using memory cache only', 'CacheService');
       this.isConnected = false;
       this.client = null;
       return;
     }
-    
+
     try {
       this.client = createClient({
-        url: this.config.password 
+        url: this.config.password
           ? `redis://:${this.config.password}@${this.config.host}:${this.config.port}`
           : `redis://${this.config.host}:${this.config.port}`,
         socket: {
-          connectTimeout: 5000
-        }
+          connectTimeout: 5000,
+        },
       });
 
       this.client.on('error', (err) => {
         // Suppress repeated error messages - only log once
         if (this.isConnected) {
-           logger.warn('Redis connection lost, switching to memory cache', 'CacheService');
+          logger.warn('Redis connection lost, switching to memory cache', 'CacheService');
         }
         this.isConnected = false;
       });
 
       this.client.on('connect', () => {
-         logger.info('Redis Client Connected', 'CacheService');
+        logger.info('Redis Client Connected', 'CacheService');
         this.isConnected = true;
         this.redisAvailable = true;
       });
@@ -73,14 +73,20 @@ class CacheService {
 
       await this.client.connect();
     } catch (error) {
-       logger.info('Redis not available, using memory cache for this session', 'CacheService');
-       logger.info('Tip: To enable Redis caching, start Redis server or set REDIS_HOST/PORT', 'CacheService');
-       logger.info('To disable Redis completely, set REDIS_DISABLED=true', 'CacheService');
+      logger.info('Redis not available, using memory cache for this session', 'CacheService');
+      logger.info(
+        'Tip: To enable Redis caching, start Redis server or set REDIS_HOST/PORT',
+        'CacheService',
+      );
+      logger.info('To disable Redis completely, set REDIS_DISABLED=true', 'CacheService');
       this.isConnected = false;
       this.client = null;
     }
 
-    this.cleanupTimer = setInterval(() => this.cleanupMemoryCache(), parseInt(process.env.CACHE_CLEANUP_INTERVAL || '60000'));
+    this.cleanupTimer = setInterval(
+      () => this.cleanupMemoryCache(),
+      parseInt(process.env.CACHE_CLEANUP_INTERVAL || '60000'),
+    );
   }
 
   async disconnect(): Promise<void> {
@@ -106,7 +112,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = await this.client.get(key) as string | null;
+      const value = (await this.client.get(key)) as string | null;
       return value ?? null;
     } catch (error) {
       logger.warn('Redis get error, falling back to memory', 'CacheService');
@@ -121,7 +127,7 @@ class CacheService {
 
     try {
       if (!this.client) throw new Error('Client not initialized');
-      const value = await this.client.get(key) as string | null;
+      const value = (await this.client.get(key)) as string | null;
       return value ? JSON.parse(value) : null;
     } catch (error) {
       logger.warn('Redis get error, falling back to memory', 'CacheService');
@@ -155,7 +161,7 @@ class CacheService {
       // Also set memory cache as backup
       this.setMemoryCache(key, value, ttl);
     } catch (error) {
-       logger.warn('Redis set error, using memory cache only', 'CacheService');
+      logger.warn('Redis set error, using memory cache only', 'CacheService');
       this.setMemoryCache(key, value, ttl);
     }
   }
@@ -171,7 +177,7 @@ class CacheService {
       await this.client.del(key);
       this.delMemoryCache(key);
     } catch (error) {
-       logger.warn('Redis delete error', 'CacheService');
+      logger.warn('Redis delete error', 'CacheService');
       this.delMemoryCache(key);
     }
   }
@@ -186,7 +192,7 @@ class CacheService {
       const result = await this.client.exists(key);
       return result === 1;
     } catch (error) {
-       logger.warn('Redis exists error', 'CacheService');
+      logger.warn('Redis exists error', 'CacheService');
       return this.memoryCache.has(key);
     }
   }
@@ -204,7 +210,7 @@ class CacheService {
       }
       return result;
     } catch (error) {
-       logger.warn('Redis incr error, using memory', 'CacheService');
+      logger.warn('Redis incr error, using memory', 'CacheService');
       return this.incrMemoryCache(key, ttl);
     }
   }
@@ -215,12 +221,12 @@ class CacheService {
   private getMemoryCache(key: string): any {
     const item = this.memoryCache.get(key);
     if (!item) return null;
-    
+
     if (Date.now() > item.expiry) {
       this.memoryCache.delete(key);
       return null;
     }
-    
+
     return item.value;
   }
 
@@ -234,7 +240,7 @@ class CacheService {
     }
     this.memoryCache.set(key, {
       value,
-      expiry: Date.now() + (ttl * 1000)
+      expiry: Date.now() + ttl * 1000,
     });
   }
 
@@ -245,11 +251,11 @@ class CacheService {
   private incrMemoryCache(key: string, ttl?: number): number {
     let value = 0;
     const item = this.memoryCache.get(key);
-    
+
     if (item && Date.now() <= item.expiry) {
       value = typeof item.value === 'number' ? item.value : 0;
     }
-    
+
     value++;
     this.setMemoryCache(key, value, ttl || this.config.ttl);
     return value;
@@ -265,7 +271,11 @@ class CacheService {
   }
 
   // Rate limiting helpers
-  async checkRateLimit(key: string, limit: number, windowMs: number): Promise<{
+  async checkRateLimit(
+    key: string,
+    limit: number,
+    windowMs: number,
+  ): Promise<{
     allowed: boolean;
     remaining: number;
     resetTime: number;
@@ -278,7 +288,7 @@ class CacheService {
     return {
       allowed,
       remaining,
-      resetTime
+      resetTime,
     };
   }
 

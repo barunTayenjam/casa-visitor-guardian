@@ -12,7 +12,8 @@ const __dirname = path.dirname(__filename);
 export interface AuditLogEntry {
   timestamp: string;
   level: 'INFO' | 'WARN' | 'ERROR' | 'SECURITY';
-  category: 'AUTH' | 'CAMERA' | 'SYSTEM' | 'API' | 'SECURITY' | 'USER' | 'MOTION' | 'CONFIG' | 'VISITOR';
+  category:
+    'AUTH' | 'CAMERA' | 'SYSTEM' | 'API' | 'SECURITY' | 'USER' | 'MOTION' | 'CONFIG' | 'VISITOR';
   action: string;
   userId?: string;
   username?: string;
@@ -34,12 +35,12 @@ class AuditLogger {
 
   constructor() {
     const logsDir = path.join(__dirname, '../../logs/audit');
-    
+
     // Ensure logs directory exists
     if (!fs.existsSync(logsDir)) {
       fs.mkdirSync(logsDir, { recursive: true });
     }
-    
+
     this.logFile = path.join(logsDir, `audit-${new Date().toISOString().split('T')[0]}.log`);
   }
 
@@ -62,18 +63,18 @@ class AuditLogger {
   // Write audit entry to file and console
   private writeLog(entry: AuditLogEntry): void {
     this.rotateLogFile();
-    
+
     const logLine = JSON.stringify(entry) + '\n';
-    
+
     try {
       fs.appendFileSync(this.logFile, logLine);
     } catch (error) {
       logger.error(`Failed to write audit log: ${error}`, 'AuditLogger');
     }
-    
+
     // Also log to console with structured format
     const logMessage = `[${entry.level}] ${entry.category}: ${entry.action} - User: ${entry.username || 'anonymous'} (${entry.ip})`;
-    
+
     switch (entry.level) {
       case 'ERROR':
         logger.error(logMessage, 'Audit', entry.details);
@@ -93,9 +94,9 @@ class AuditLogger {
   log(entry: Omit<AuditLogEntry, 'timestamp'>): void {
     const fullEntry: AuditLogEntry = {
       timestamp: new Date().toISOString(),
-      ...entry
+      ...entry,
     };
-    
+
     this.writeLog(fullEntry);
   }
 
@@ -106,15 +107,13 @@ class AuditLogger {
       category: 'USER',
       action,
       ip: 'system',
-      details
+      details,
     });
   }
 
   // Helper methods to extract request information
   public getClientIP(req: Request): string {
-    return req.ip ||
-           req.socket?.remoteAddress ||
-           'unknown';
+    return req.ip || req.socket?.remoteAddress || 'unknown';
   }
 
   public getUserId(req: Request): string | undefined {
@@ -134,7 +133,13 @@ class AuditLogger {
   }
 
   // API operations
-  logApi(action: string, req: Request, success: boolean, duration?: number, details?: Record<string, any>): void {
+  logApi(
+    action: string,
+    req: Request,
+    success: boolean,
+    duration?: number,
+    details?: Record<string, any>,
+  ): void {
     this.log({
       level: success ? 'INFO' : 'ERROR',
       category: 'API',
@@ -147,7 +152,7 @@ class AuditLogger {
       details,
       success,
       duration,
-      requestId: this.getRequestId(req)
+      requestId: this.getRequestId(req),
     });
   }
 
@@ -156,27 +161,28 @@ class AuditLogger {
     return (req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
       const action = `${req.method} ${req.path}`;
-      
+
       // Generate request ID if not present
-      const requestId = req.get('x-request-id') || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const requestId =
+        req.get('x-request-id') || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       req.headers['x-request-id'] = requestId as string;
-      
+
       const originalSend = res.send;
-      
-      (res as any).send = function(data: any) {
+
+      (res as any).send = function (data: any) {
         const duration = Date.now() - startTime;
         const success = res.statusCode < 400;
-        
+
         auditLogger.logApi(action, req, success, duration, {
           method: req.method,
           url: req.url,
           statusCode: res.statusCode,
-          responseSize: data ? Buffer.byteLength(JSON.stringify(data)) : 0
+          responseSize: data ? Buffer.byteLength(JSON.stringify(data)) : 0,
         });
-        
+
         return originalSend.call(this, data);
       };
-      
+
       next();
     };
   }

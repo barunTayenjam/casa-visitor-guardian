@@ -56,9 +56,9 @@ export const OptimizationSettings = () => {
             <Label>Low Resource Mode</Label>
             <p className="text-xs text-muted-foreground">Reduce CPU/MEM usage</p>
           </div>
-          <Switch 
-            checked={config?.lowResourceMode || false} 
-            onCheckedChange={(val) => updateConfig({ lowResourceMode: val })} 
+          <Switch
+            checked={config?.lowResourceMode || false}
+            onCheckedChange={(val) => updateConfig({ lowResourceMode: val })}
           />
         </div>
 
@@ -67,9 +67,11 @@ export const OptimizationSettings = () => {
             <Label>FFmpeg Threads</Label>
             <span className="font-bold">{localThreads}</span>
           </div>
-          <Slider 
-            value={[localThreads]} 
-            min={1} max={8} step={1}
+          <Slider
+            value={[localThreads]}
+            min={1}
+            max={8}
+            step={1}
             onValueChange={(val) => setLocalThreads(val[0])}
             onValueCommit={(val) => updateConfig({ ffmpegThreads: val[0] })}
           />

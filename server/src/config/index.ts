@@ -159,7 +159,7 @@ export const config: AppConfig = {
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'sentryvision',
     username: process.env.DB_USER || process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD
+    password: process.env.DB_PASSWORD,
   },
   mqtt: {
     enabled: process.env.MQTT_ENABLED === 'true',
@@ -168,7 +168,7 @@ export const config: AppConfig = {
     topicPrefix: process.env.MQTT_TOPIC_PREFIX || 'sentryvision',
     user: process.env.MQTT_USER,
     password: process.env.MQTT_PASSWORD,
-    qos: parseInt(process.env.MQTT_QOS || '0', 10) as 0 | 1 | 2
+    qos: parseInt(process.env.MQTT_QOS || '0', 10) as 0 | 1 | 2,
   },
   cameras: [] as CameraConfig[],
   security: {
@@ -176,16 +176,17 @@ export const config: AppConfig = {
     maxLoginAttempts: parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5', 10),
     lockoutDuration: parseInt(process.env.LOCKOUT_DURATION || '900000', 10), // 15 minutes
     rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10), // 15 minutes
-    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10)
+    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   },
   storage: {
     snapshotsDir: process.env.SNAPSHOTS_DIR || path.join(process.cwd(), '../public/snapshots'),
     eventsDir: process.env.EVENTS_DIR || path.join(process.cwd(), '../public/events'),
     detectionsDir: process.env.DETECTIONS_DIR || path.join(process.cwd(), '../data/detections'),
     retentionDays: parseInt(process.env.DETECTIONS_RETENTION_DAYS || '7', 10),
-    archivePath: process.env.DETECTIONS_ARCHIVE_PATH || path.join(process.cwd(), '../data/detections/archive'),
+    archivePath:
+      process.env.DETECTIONS_ARCHIVE_PATH || path.join(process.cwd(), '../data/detections/archive'),
     enableFileIndexing: process.env.ENABLE_FILE_INDEXING === 'true',
-    fileIndexOnSave: process.env.FILE_INDEX_ON_SAVE === 'true'
+    fileIndexOnSave: process.env.FILE_INDEX_ON_SAVE === 'true',
   },
   streaming: {
     frameInterval: parseInt(process.env.FRAME_INTERVAL || '1000', 10),
@@ -193,12 +194,12 @@ export const config: AppConfig = {
     inactivityTimeout: parseInt(process.env.STREAM_INACTIVITY_TIMEOUT || '300000', 10),
     threads: parseInt(process.env.FFMPEG_THREADS || '2', 10),
     defaultFps: parseInt(process.env.DEFAULT_FPS || '2', 10),
-    defaultResolution: process.env.DEFAULT_RESOLUTION || '640x360'
+    defaultResolution: process.env.DEFAULT_RESOLUTION || '640x360',
   },
   pipeline: {
     mode: (process.env.PIPELINE_MODE as PipelineConfig['mode']) || 'python-only',
-    pythonWsUrl: process.env.PYTHON_WS_URL || 'ws://opencv:9090'
-  }
+    pythonWsUrl: process.env.PYTHON_WS_URL || 'ws://opencv:9090',
+  },
 };
 
 export interface StreamingConfig {
@@ -208,10 +209,10 @@ export interface StreamingConfig {
   threads: number;
   defaultFps: number;
   defaultResolution: string;
-};
+}
 
 export const getCameraById = (id: string): CameraConfig | undefined => {
-  return config.cameras.find(camera => camera.id === id);
+  return config.cameras.find((camera) => camera.id === id);
 };
 
 export function setCameras(cameras: CameraConfig[]): void {
@@ -233,7 +234,11 @@ export const validateConfig = (): void => {
     errors.push('JWT_ACCESS_SECRET must be at least 32 characters long');
   }
 
-  if (config.database.host && config.database.port && (config.database.port <= 0 || config.database.port > 65535)) {
+  if (
+    config.database.host &&
+    config.database.port &&
+    (config.database.port <= 0 || config.database.port > 65535)
+  ) {
     errors.push(`Invalid database port: ${config.database.port}`);
   }
 

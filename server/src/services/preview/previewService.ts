@@ -19,9 +19,19 @@ const DEFAULT_OPTIONS: PreviewOptions = {
 const CACHE_TTL = 3600;
 
 export class PreviewService {
-  constructor(private readonly timelineService: { getActiveObjects: (camera: string) => Promise<Map<string, { label: string; lastSeen: Date; score: number }>> }) {}
+  constructor(
+    private readonly timelineService: {
+      getActiveObjects: (
+        camera: string,
+      ) => Promise<Map<string, { label: string; lastSeen: Date; score: number }>>;
+    },
+  ) {}
 
-  async generatePreview(segmentId: string, camera: string, options: PreviewOptions = {}): Promise<string> {
+  async generatePreview(
+    segmentId: string,
+    camera: string,
+    options: PreviewOptions = {},
+  ): Promise<string> {
     const { fps, resolution, quality } = { ...DEFAULT_OPTIONS, ...options };
     const outputDir = path.join(PREVIEW_DIR, camera);
     const outputPath = path.join(outputDir, `${segmentId}.mp4`);
@@ -34,15 +44,24 @@ export class PreviewService {
     return new Promise((resolve, reject) => {
       const ffmpegArgs = [
         '-y',
-        '-f', 'rtsp',
-        '-i', `rtsp://localhost:8554/${camera}`,
-        '-vf', `fps=${fps},scale=${resolution},eq=saturation=0.7`,
-        '-c:v', 'libx264',
-        '-crf', String(quality),
-        '-preset', 'ultrafast',
-        '-tune', 'fastdecode',
-        '-movflags', '+faststart',
-        '-t', '60',
+        '-f',
+        'rtsp',
+        '-i',
+        `rtsp://localhost:8554/${camera}`,
+        '-vf',
+        `fps=${fps},scale=${resolution},eq=saturation=0.7`,
+        '-c:v',
+        'libx264',
+        '-crf',
+        String(quality),
+        '-preset',
+        'ultrafast',
+        '-tune',
+        'fastdecode',
+        '-movflags',
+        '+faststart',
+        '-t',
+        '60',
         outputPath,
       ];
 
@@ -55,13 +74,11 @@ export class PreviewService {
 
       ffmpeg.on('close', (code: number) => {
         if (code === 0) {
-           logger.info(`Preview generated: ${outputPath}`, 'PreviewService');
+          logger.info(`Preview generated: ${outputPath}`, 'PreviewService');
           resolve(outputPath);
         } else {
           if (errorOutput.includes('404') || errorOutput.includes('Invalid')) {
-            this.generateFallbackPreview(segmentId, camera, outputPath)
-              .then(resolve)
-              .catch(reject);
+            this.generateFallbackPreview(segmentId, camera, outputPath).then(resolve).catch(reject);
           } else {
             reject(new Error(`FFmpeg failed: ${errorOutput.substring(0, 200)}`));
           }
@@ -74,14 +91,16 @@ export class PreviewService {
 
       setTimeout(() => {
         ffmpeg.kill();
-        this.generateFallbackPreview(segmentId, camera, outputPath)
-          .then(resolve)
-          .catch(reject);
+        this.generateFallbackPreview(segmentId, camera, outputPath).then(resolve).catch(reject);
       }, 60000);
     });
   }
 
-  private async generateFallbackPreview(segmentId: string, camera: string, outputPath: string): Promise<string> {
+  private async generateFallbackPreview(
+    segmentId: string,
+    camera: string,
+    outputPath: string,
+  ): Promise<string> {
     const thumbPath = path.join(PREVIEW_DIR, camera, `${segmentId}_thumb.jpg`);
     const tempPath = path.join(PREVIEW_DIR, camera, `${segmentId}_temp.mp4`);
 
@@ -91,7 +110,7 @@ export class PreviewService {
       await fs.rename(tempPath, outputPath);
       return outputPath;
     } catch (err) {
-       logger.error(`Fallback preview failed: ${err}`, 'PreviewService');
+      logger.error(`Fallback preview failed: ${err}`, 'PreviewService');
       await fs.writeFile(outputPath, Buffer.from([]));
       return outputPath;
     }
@@ -101,11 +120,16 @@ export class PreviewService {
     return new Promise((resolve) => {
       const ffmpeg = spawn('ffmpeg', [
         '-y',
-        '-f', 'rtsp',
-        '-i', `rtsp://localhost:8554/${camera}`,
-        '-vf', 'scale=320:-2',
-        '-vframes', '1',
-        '-q:v', '2',
+        '-f',
+        'rtsp',
+        '-i',
+        `rtsp://localhost:8554/${camera}`,
+        '-vf',
+        'scale=320:-2',
+        '-vframes',
+        '1',
+        '-q:v',
+        '2',
         outputPath,
       ]);
 
@@ -135,7 +159,7 @@ export class PreviewService {
       await cacheService.set(cacheKey, content.toString('base64'), CACHE_TTL);
       return content;
     } catch (err) {
-       logger.error(`Preview stream error: ${err}`, 'PreviewService');
+      logger.error(`Preview stream error: ${err}`, 'PreviewService');
       return null;
     }
   }
@@ -156,7 +180,7 @@ export class PreviewService {
       await this.extractThumbnailFromVideo(previewPath, thumbPath);
       return thumbPath;
     } catch (err) {
-       logger.error(`Thumbnail path error: ${err}`, 'PreviewService');
+      logger.error(`Thumbnail path error: ${err}`, 'PreviewService');
       return null;
     }
   }
@@ -165,10 +189,14 @@ export class PreviewService {
     return new Promise((resolve) => {
       const ffmpeg = spawn('ffmpeg', [
         '-y',
-        '-i', videoPath,
-        '-vf', 'scale=320:-2',
-        '-vframes', '1',
-        '-q:v', '2',
+        '-i',
+        videoPath,
+        '-vf',
+        'scale=320:-2',
+        '-vframes',
+        '1',
+        '-q:v',
+        '2',
         thumbPath,
       ]);
 
@@ -196,7 +224,7 @@ export class PreviewService {
         }
       }
     } catch (err) {
-       logger.error(`Preview cleanup error: ${err}`, 'PreviewService');
+      logger.error(`Preview cleanup error: ${err}`, 'PreviewService');
     }
 
     return count;

@@ -11,7 +11,9 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'disconnected' | 'error'
+  >('connecting');
 
   const connect = useCallback(async () => {
     if (socketService.isConnected()) {
@@ -50,14 +52,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     connected: connectionStatus === 'connected',
     connectionStatus,
     socket: socketService,
-    reconnect: connect
+    reconnect: connect,
   };
 
-  return (
-    <SocketContext.Provider value={value}>
-      {children}
-    </SocketContext.Provider>
-  );
+  return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 };
 
 export const useSocketContext = () => {

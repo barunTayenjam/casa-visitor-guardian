@@ -43,14 +43,14 @@ export class AuthService {
     const payload: JWTPayload = {
       userId: user.id,
       username: user.username,
-      role: user.role
+      role: user.role,
     };
     const expires = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
     try {
       return jwt.sign(payload, config.jwtSecret, {
         expiresIn: expires,
         issuer: 'home-security-system',
-        audience: 'home-security-client'
+        audience: 'home-security-client',
       } as jwt.SignOptions);
     } catch (error) {
       logger.error(`Refresh JWT signing error: ${error}`, 'AuthService');
@@ -62,14 +62,14 @@ export class AuthService {
     const payload: JWTPayload = {
       userId: user.id,
       username: user.username,
-      role: user.role
+      role: user.role,
     };
 
     try {
       return jwt.sign(payload, config.jwtSecret, {
         expiresIn: config.jwtExpiresIn,
         issuer: 'home-security-system',
-        audience: 'home-security-client'
+        audience: 'home-security-client',
       } as jwt.SignOptions);
     } catch (error) {
       logger.error(`JWT signing error: ${error}`, 'AuthService');
@@ -81,7 +81,7 @@ export class AuthService {
     try {
       const decoded = jwt.verify(token, config.jwtSecret, {
         issuer: 'home-security-system',
-        audience: 'home-security-client'
+        audience: 'home-security-client',
       }) as JWTPayload;
 
       return decoded;
@@ -112,42 +112,44 @@ export class AuthService {
 
       const result = await AppDataSource.query(
         `SELECT id FROM users WHERE username = $1 OR email = $2`,
-        [userData.username, userData.email]
+        [userData.username, userData.email],
       );
 
       if (result && result.length > 0) {
         return {
           success: false,
-          error: 'User with this username or email already exists'
+          error: 'User with this username or email already exists',
         };
       }
 
       const hashedPassword = await this.hashPassword(userData.password);
-      const roleResult = await AppDataSource.query(
-        `SELECT id FROM roles WHERE name = $1`,
-        [userData.role || 'user']
-      );
+      const roleResult = await AppDataSource.query(`SELECT id FROM roles WHERE name = $1`, [
+        userData.role || 'user',
+      ]);
       const roleId = roleResult && roleResult.length > 0 ? roleResult[0].id : null;
 
       const newUserResult = await AppDataSource.query(
         `INSERT INTO users (username, email, password_hash, role_id, status, mfa_enabled, email_verified, failed_login_attempts, created_at, updated_at)
          VALUES ($1, $2, $3, $4, 'active', false, true, 0, NOW(), NOW())
          RETURNING id, username, email, created_at, updated_at`,
-        [userData.username, userData.email, hashedPassword, roleId]
+        [userData.username, userData.email, hashedPassword, roleId],
       );
 
       if (newUserResult && newUserResult.length > 0) {
         const dbUser = newUserResult[0];
-      try {
-        await AppDataSource.query(
-          'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
-          [dbUser.id]
-        );
-      } catch (resetError) {
-        logger.error(`Failed to reset lockout counters for user ${dbUser.id}: ${resetError}`, 'AuthService');
-      }
+        try {
+          await AppDataSource.query(
+            'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
+            [dbUser.id],
+          );
+        } catch (resetError) {
+          logger.error(
+            `Failed to reset lockout counters for user ${dbUser.id}: ${resetError}`,
+            'AuthService',
+          );
+        }
 
-      const user: User = {
+        const user: User = {
           id: dbUser.id,
           username: dbUser.username,
           email: dbUser.email,
@@ -155,7 +157,7 @@ export class AuthService {
           role: userData.role || 'user',
           isActive: true,
           createdAt: dbUser.created_at,
-          updatedAt: dbUser.updated_at
+          updatedAt: dbUser.updated_at,
         };
 
         logger.info(`New user registered: ${user.username}`, 'AuthService');
@@ -166,7 +168,7 @@ export class AuthService {
         return {
           success: true,
           user: userWithoutPassword,
-          token
+          token,
         };
       }
 
@@ -177,10 +179,7 @@ export class AuthService {
     }
   }
 
-  async login(credentials: {
-    username: string;
-    password: string;
-  }): Promise<AuthResult> {
+  async login(credentials: { username: string; password: string }): Promise<AuthResult> {
     try {
       if (!AppDataSource.isInitialized) {
         return { success: false, error: 'Database not available' };
@@ -193,7 +192,7 @@ export class AuthService {
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
          WHERE u.username = $1`,
-        [credentials.username]
+        [credentials.username],
       );
 
       if (!result || result.length === 0) {
@@ -208,20 +207,28 @@ export class AuthService {
       }
 
       if (dbUser.locked_until && new Date(dbUser.locked_until) > new Date()) {
-        return { success: false, error: 'Account is temporarily locked due to too many failed login attempts. Try again later.' };
+        return {
+          success: false,
+          error:
+            'Account is temporarily locked due to too many failed login attempts. Try again later.',
+        };
       }
 
-      const isPasswordValid = await this.comparePassword(credentials.password, dbUser.password_hash);
+      const isPasswordValid = await this.comparePassword(
+        credentials.password,
+        dbUser.password_hash,
+      );
 
       if (!isPasswordValid) {
         const attempts = (dbUser.failed_login_attempts || 0) + 1;
-        const lockUntil = attempts >= config.security.maxLoginAttempts
-          ? new Date(Date.now() + config.security.lockoutDuration)
-          : null;
+        const lockUntil =
+          attempts >= config.security.maxLoginAttempts
+            ? new Date(Date.now() + config.security.lockoutDuration)
+            : null;
 
         await AppDataSource.query(
           'UPDATE users SET failed_login_attempts = $1, locked_until = $2, updated_at = NOW() WHERE id = $3',
-          [attempts, lockUntil, dbUser.id]
+          [attempts, lockUntil, dbUser.id],
         );
 
         return { success: false, error: 'Invalid username or password' };
@@ -230,21 +237,16 @@ export class AuthService {
       if (dbUser.failed_login_attempts > 0 || dbUser.locked_until) {
         await AppDataSource.query(
           'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
-          [dbUser.id]
+          [dbUser.id],
         );
       }
 
-      await AppDataSource.query(
-        'UPDATE users SET last_login = NOW() WHERE id = $1',
-        [dbUser.id]
-      );
+      await AppDataSource.query('UPDATE users SET last_login = NOW() WHERE id = $1', [dbUser.id]);
 
       if (dbUser.mfa_enabled) {
-        const pendingToken = jwt.sign(
-          { userId: dbUser.id, purpose: 'mfa' },
-          config.jwtSecret,
-          { expiresIn: '5m' } as jwt.SignOptions
-        );
+        const pendingToken = jwt.sign({ userId: dbUser.id, purpose: 'mfa' }, config.jwtSecret, {
+          expiresIn: '5m',
+        } as jwt.SignOptions);
         return {
           success: true,
           mfaRequired: true,
@@ -253,7 +255,7 @@ export class AuthService {
             id: dbUser.id,
             username: dbUser.username,
             email: dbUser.email,
-            role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+            role: (dbUser.role_name as 'admin' | 'user' | 'viewer') || 'user',
             isActive: true,
             createdAt: dbUser.created_at,
             updatedAt: dbUser.updated_at,
@@ -266,10 +268,10 @@ export class AuthService {
         username: dbUser.username,
         email: dbUser.email,
         password: dbUser.password_hash,
-        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        role: (dbUser.role_name as 'admin' | 'user' | 'viewer') || 'user',
         isActive: true,
         createdAt: dbUser.created_at,
-        updatedAt: dbUser.updated_at
+        updatedAt: dbUser.updated_at,
       };
 
       logger.info(`User logged in: ${user.username}`, 'AuthService');
@@ -280,7 +282,7 @@ export class AuthService {
       return {
         success: true,
         user: userWithoutPassword,
-        token
+        token,
       };
     } catch (error) {
       logger.error(`Login error: ${error}`, 'AuthService');
@@ -299,7 +301,7 @@ export class AuthService {
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
          WHERE u.id = $1`,
-        [userId]
+        [userId],
       );
 
       if (!result || result.length === 0) {
@@ -311,11 +313,11 @@ export class AuthService {
         id: dbUser.id,
         username: dbUser.username,
         email: dbUser.email,
-        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        role: (dbUser.role_name as 'admin' | 'user' | 'viewer') || 'user',
         isActive: dbUser.status === 'active',
         createdAt: dbUser.created_at,
         updatedAt: dbUser.updated_at,
-        lastLogin: dbUser.last_login
+        lastLogin: dbUser.last_login,
       };
     } catch (error) {
       logger.error(`getUserById error: ${error}`, 'AuthService');
@@ -333,18 +335,18 @@ export class AuthService {
         `SELECT u.id, u.username, u.email, u.status, r.name as role_name, u.created_at, u.updated_at, u.last_login
          FROM users u
          LEFT JOIN roles r ON u.role_id = r.id
-         ORDER BY u.created_at DESC`
+         ORDER BY u.created_at DESC`,
       );
 
       return result.map((dbUser: any) => ({
         id: dbUser.id,
         username: dbUser.username,
         email: dbUser.email,
-        role: dbUser.role_name as 'admin' | 'user' | 'viewer' || 'user',
+        role: (dbUser.role_name as 'admin' | 'user' | 'viewer') || 'user',
         isActive: dbUser.status === 'active',
         createdAt: dbUser.created_at,
         updatedAt: dbUser.updated_at,
-        lastLogin: dbUser.last_login
+        lastLogin: dbUser.last_login,
       }));
     } catch (error) {
       logger.error(`getAllUsers error: ${error}`, 'AuthService');
@@ -352,7 +354,11 @@ export class AuthService {
     }
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<AuthResult> {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<AuthResult> {
     try {
       if (!AppDataSource.isInitialized) {
         return { success: false, error: 'Database not available' };
@@ -360,7 +366,7 @@ export class AuthService {
 
       const result = await AppDataSource.query(
         `SELECT id, password_hash FROM users WHERE id = $1`,
-        [userId]
+        [userId],
       );
 
       if (!result || result.length === 0) {
@@ -368,7 +374,10 @@ export class AuthService {
       }
 
       const dbUser = result[0];
-      const isCurrentPasswordValid = await this.comparePassword(currentPassword, dbUser.password_hash);
+      const isCurrentPasswordValid = await this.comparePassword(
+        currentPassword,
+        dbUser.password_hash,
+      );
 
       if (!isCurrentPasswordValid) {
         return { success: false, error: 'Current password is incorrect' };
@@ -376,7 +385,7 @@ export class AuthService {
 
       const historyEntries = await AppDataSource.query(
         'SELECT password_hash FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
-        [userId]
+        [userId],
       );
       for (const entry of historyEntries) {
         const isReused = await this.comparePassword(newPassword, entry.password_hash);
@@ -388,13 +397,13 @@ export class AuthService {
       const newPasswordHash = await this.hashPassword(newPassword);
       await AppDataSource.query(
         `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-        [newPasswordHash, userId]
+        [newPasswordHash, userId],
       );
 
       await AppDataSource.query(
         `INSERT INTO password_history (id, user_id, password_hash, created_at)
          VALUES (gen_random_uuid(), $1, $2, NOW())`,
-        [userId, dbUser.password_hash]
+        [userId, dbUser.password_hash],
       );
 
       logger.info(`Password changed for user: ${userId}`, 'AuthService');

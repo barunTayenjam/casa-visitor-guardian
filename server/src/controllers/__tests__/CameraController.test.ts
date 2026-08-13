@@ -51,7 +51,9 @@ describe('CameraController', () => {
       persistCameras: jest.fn().mockResolvedValue(undefined),
     };
 
-    spyGetStreamManager = jest.spyOn(serviceRegistry, 'getStreamManager').mockReturnValue(mockStreamManager);
+    spyGetStreamManager = jest
+      .spyOn(serviceRegistry, 'getStreamManager')
+      .mockReturnValue(mockStreamManager);
   });
 
   describe('listAll', () => {
@@ -87,7 +89,7 @@ describe('CameraController', () => {
               status: 'online',
             }),
           ]),
-        })
+        }),
       );
     });
 
@@ -103,7 +105,7 @@ describe('CameraController', () => {
         expect.objectContaining({
           success: true,
           cameras: [],
-        })
+        }),
       );
     });
   });
@@ -127,7 +129,7 @@ describe('CameraController', () => {
         expect.objectContaining({
           success: true,
           camera: expect.objectContaining({ id: 'cam1' }),
-        })
+        }),
       );
     });
 
@@ -144,7 +146,7 @@ describe('CameraController', () => {
         expect.objectContaining({
           success: false,
           error: 'Camera not found',
-        })
+        }),
       );
     });
   });
@@ -169,7 +171,7 @@ describe('CameraController', () => {
         expect.objectContaining({
           name: 'Back Yard',
           enabled: true,
-        })
+        }),
       );
       expect(mockStreamManager.persistCameras).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
@@ -177,7 +179,7 @@ describe('CameraController', () => {
         expect.objectContaining({
           success: true,
           camera: expect.objectContaining({ name: 'Back Yard' }),
-        })
+        }),
       );
     });
   });

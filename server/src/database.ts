@@ -12,9 +12,10 @@ const __dirname = path.dirname(__filename);
 
 // Load all entity files from models directory, excluding test files
 const modelsDir = path.join(__dirname, 'models');
-const entityFiles = fs.readdirSync(modelsDir)
-  .filter(file => (file.endsWith('.ts') || file.endsWith('.js')) && !file.includes('.test.'))
-  .map(file => path.join(modelsDir, file));
+const entityFiles = fs
+  .readdirSync(modelsDir)
+  .filter((file) => (file.endsWith('.ts') || file.endsWith('.js')) && !file.includes('.test.'))
+  .map((file) => path.join(modelsDir, file));
 
 // Note: Entities are registered to allow Repository usage
 // but direct SQL queries are also used in some places.
@@ -37,7 +38,7 @@ export const AppDataSource = new DataSource({
     idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE || '10000'),
     acquireTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
     connectionTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
-  }
+  },
 });
 
 export async function initializeDatabase() {

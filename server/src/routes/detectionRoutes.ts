@@ -35,7 +35,9 @@ const CameraDetectionConfigSchema = DetectionConfigSchema.extend({
 router.get('/', requireUser, async (req: Request, res: Response) => {
   try {
     const camera = typeof req.query.camera === 'string' ? req.query.camera : undefined;
-    const globalConfig = await import('../services/detection/detectionService.js').then(m => m.detectionService?.getConfig(camera));
+    const globalConfig = await import('../services/detection/detectionService.js').then((m) =>
+      m.detectionService?.getConfig(camera),
+    );
 
     const config = globalConfig || {
       thresholds: {
@@ -54,7 +56,7 @@ router.get('/', requireUser, async (req: Request, res: Response) => {
 
     res.json({ success: true, data: config });
   } catch (err) {
-     logger.error('Get detection config error', 'Detection', err);
+    logger.error('Get detection config error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to get detection config' });
   }
 });
@@ -70,11 +72,13 @@ router.put('/', requireUser, async (req: Request, res: Response) => {
     const parsed = CameraDetectionConfigSchema.parse(req.body);
     const { camera: _, ...config } = parsed;
 
-    await import('../services/detection/detectionService.js').then(m => m.detectionService?.updateConfig(camera, config as any));
+    await import('../services/detection/detectionService.js').then((m) =>
+      m.detectionService?.updateConfig(camera, config as any),
+    );
 
     res.json({ success: true, message: 'Detection configuration updated' });
   } catch (err) {
-     logger.error('Update detection config error', 'Detection', err);
+    logger.error('Update detection config error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to update detection config' });
   }
 });
@@ -87,15 +91,17 @@ router.post('/filter', requireUser, async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Detections must be an array' });
     }
 
-    const config = await import('../services/detection/detectionService.js').then(m => m.detectionService?.getConfig(camera));
+    const config = await import('../services/detection/detectionService.js').then((m) =>
+      m.detectionService?.getConfig(camera),
+    );
 
-    const filtered = await import('../services/detection/detectionService.js').then(m =>
-      m.detectionService?.filterDetections(detections, camera)
+    const filtered = await import('../services/detection/detectionService.js').then((m) =>
+      m.detectionService?.filterDetections(detections, camera),
     );
 
     res.json({ success: true, data: { filtered, config } });
   } catch (err) {
-     logger.error('Filter detections error', 'Detection', err);
+    logger.error('Filter detections error', 'Detection', err);
     res.status(500).json({ success: false, error: 'Failed to filter detections' });
   }
 });
@@ -110,12 +116,16 @@ router.get('/stats', requireUser, async (req: Request, res: Response) => {
     const configRepo = AppDataSource.getRepository(DetectionConfig);
     const timelineService = new TimelineService(
       AppDataSource.getRepository(Timeline),
-      AppDataSource.getRepository(AdaptiveRegion)
+      AppDataSource.getRepository(AdaptiveRegion),
     );
-    const enhancedDetectionService = new EnhancedDetectionService(eventRepo, timelineService, configRepo);
+    const enhancedDetectionService = new EnhancedDetectionService(
+      eventRepo,
+      timelineService,
+      configRepo,
+    );
 
     const stats = await enhancedDetectionService.getDetectionStats(
-      typeof cameraId === 'string' ? cameraId : undefined
+      typeof cameraId === 'string' ? cameraId : undefined,
     );
 
     res.json({
@@ -123,7 +133,7 @@ router.get('/stats', requireUser, async (req: Request, res: Response) => {
       stats,
     });
   } catch (error) {
-     logger.error('Get detection stats error', 'Detection', error);
+    logger.error('Get detection stats error', 'Detection', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get detection stats',

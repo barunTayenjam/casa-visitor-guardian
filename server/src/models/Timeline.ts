@@ -14,7 +14,11 @@ export class Timeline {
   @Column({ type: 'varchar', length: 20, comment: 'Camera name' })
   camera!: string;
 
-  @Column({ type: 'varchar', length: 20, comment: 'Event source: tracked_object, audio, api, system' })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    comment: 'Event source: tracked_object, audio, api, system',
+  })
   source!: 'tracked_object' | 'audio' | 'api' | 'system';
 
   @Column({ type: 'varchar', length: 30, comment: 'Source-specific ID' })

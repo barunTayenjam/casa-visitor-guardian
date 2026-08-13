@@ -97,7 +97,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           token: 'jwt-token-123',
-        })
+        }),
       );
       const jsonCall = res.json.mock.calls[0][0];
       expect(jsonCall.user.username).toBe('admin');
@@ -124,7 +124,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: false,
           error: 'Invalid username or password',
-        })
+        }),
       );
     });
   });
@@ -158,7 +158,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           token: 'reg-token-456',
-        })
+        }),
       );
     });
 
@@ -182,7 +182,7 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-        })
+        }),
       );
     });
   });
@@ -214,7 +214,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           token: 'new-jwt-token',
-        })
+        }),
       );
     });
 
@@ -233,7 +233,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: false,
           error: 'Not authenticated',
-        })
+        }),
       );
     });
   });
@@ -256,7 +256,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           message: 'Password changed successfully',
-        })
+        }),
       );
     });
   });
@@ -282,7 +282,7 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-        })
+        }),
       );
       const jsonCall = res.json.mock.calls[0][0];
       expect(jsonCall.user.username).toBe('admin');

@@ -9,7 +9,12 @@ export const authService = {
     return response.json();
   },
 
-  async register(userData: { username: string; email: string; password: string; role?: 'admin' | 'user' | 'viewer' }) {
+  async register(userData: {
+    username: string;
+    email: string;
+    password: string;
+    role?: 'admin' | 'user' | 'viewer';
+  }) {
     const response = await fetchWithRetry(`${API_URL}/auth/register`, {
       method: 'POST',
       body: JSON.stringify(userData),
@@ -46,23 +51,34 @@ export const authService = {
 
   async setupMFA(): Promise<{ success: boolean; qrCode: string; secretPreview: string }> {
     try {
-      const response = await apiClient.get<{ success: boolean; qrCode: string; secretPreview: string }>('/auth/mfa/setup');
+      const response = await apiClient.get<{
+        success: boolean;
+        qrCode: string;
+        secretPreview: string;
+      }>('/auth/mfa/setup');
       if (response.success) return response;
       throw new ApiError('Failed to setup MFA', 400, 'MFA_SETUP_ERROR');
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to setup MFA', 500, 'MFA_SETUP_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+      throw new ApiError('Failed to setup MFA', 500, 'MFA_SETUP_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 
   async verifyMFA(code: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiClient.post<{ success: boolean; message: string }>('/auth/mfa/verify', { code });
+      const response = await apiClient.post<{ success: boolean; message: string }>(
+        '/auth/mfa/verify',
+        { code },
+      );
       if (response.success) return response;
       throw new ApiError('MFA verification failed', 400, 'MFA_VERIFY_ERROR');
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('MFA verification failed', 500, 'MFA_VERIFY_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+      throw new ApiError('MFA verification failed', 500, 'MFA_VERIFY_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 
@@ -76,12 +92,16 @@ export const authService = {
 
   async disableMFA(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiClient.post<{ success: boolean; message: string }>('/auth/mfa/disable');
+      const response = await apiClient.post<{ success: boolean; message: string }>(
+        '/auth/mfa/disable',
+      );
       if (response.success) return response;
       throw new ApiError('Failed to disable MFA', 400, 'MFA_DISABLE_ERROR');
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to disable MFA', 500, 'MFA_DISABLE_ERROR', { originalError: error instanceof Error ? error.message : String(error) });
+      throw new ApiError('Failed to disable MFA', 500, 'MFA_DISABLE_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 };

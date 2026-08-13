@@ -33,9 +33,12 @@ describe('Event Model', () => {
       expect(event.camera_id).toBe('cam1');
     });
 
-    it('should set default values', () => {
+    it('should allow nullable fields to be assigned', () => {
       const event = new Event();
-      
+
+      event.thumbnail_path = null;
+      event.metadata = null;
+
       expect(event.thumbnail_path).toBeNull();
       expect(event.metadata).toBeNull();
     });

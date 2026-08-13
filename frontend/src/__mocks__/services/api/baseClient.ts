@@ -34,7 +34,7 @@ export function setAuthToken(token: string | null): void {
   else localStorage.removeItem('auth_token');
 }
 
-export async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+export async function fetchWithRetry(url: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers },

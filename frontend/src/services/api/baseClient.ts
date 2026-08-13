@@ -31,7 +31,6 @@ export class TimeoutError extends ApiError {
 
 // ==================== CONFIGURATION ====================
 
-const isDev = import.meta.env.DEV;
 // Use relative URLs — Vite proxies /api to backend in dev, nginx proxies in prod
 export const API_URL = '/api';
 export const BACKEND_URL = '';

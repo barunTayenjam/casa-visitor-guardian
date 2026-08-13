@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
 
-jest.mock('../middleware/authenticate.js');
+jest.mock('./middleware/auth.js');
 
 describe('Express App Setup', () => {
   let app: express.Express;
@@ -17,7 +19,7 @@ describe('Express App Setup', () => {
 
   describe('Middleware', () => {
     it('should have CORS enabled', async () => {
-      app.use(require('cors')());
+      app.use(cors());
       
       const response = await request(app).get('/api/test');
       
@@ -25,7 +27,7 @@ describe('Express App Setup', () => {
     });
 
     it('should have helmet security headers', async () => {
-      app.use(require('helmet')());
+      app.use(helmet());
       
       const response = await request(app).get('/api/test');
       
@@ -51,8 +53,11 @@ describe('Express App Setup', () => {
     });
 
     it('should handle errors gracefully', async () => {
+      app.use('/api/test', () => {
+        throw new Error('test error');
+      });
+
       app.use((err: any, req: any, res: any, next: any) => {
-        console.error(err.stack);
         res.status(500).json({ error: 'Internal Server Error' });
       });
 

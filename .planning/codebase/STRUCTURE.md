@@ -1,77 +1,96 @@
+---
+mapped: 2026-08-13
+focus: arch
+---
+
 # Codebase Structure
 
-**Analysis Date:** 2026-08-13
+> Generated from codebase analysis on 2026-08-13
 
-## Directory Layout
+## Top-Level Layout
 
 ```
-[project-root]/
-├── data/               # Persistent data (snapshots, detections, events)
-├── database/           # DB migrations & initialization
-├── frontend/           # React frontend source
-├── opencv-service/     # Python-based computer vision service
-├── server/             # Node.js Express backend source
-└── public/             # Static public assets
+sentryvision/
+├── frontend/             # React/TypeScript frontend application
+├── server/               # Express/TypeScript backend API
+├── opencv-service/       # Python OpenCV for AI processing
+├── database/             # TypeORM database migrations
+├── docs/                 # Project documentation and diagrams
+├── scripts/              # Utility scripts (health, diagnose, deploy, etc.)
+├── .planning/            # Codebase analysis, plans, and generated documents
+├── docker/               # Docker-related files
+├── data/                 # Persistent data storage (detections, snapshots, logs)
+├── public/               # Frontend build output and static assets
+├── package.json          # Node.js project dependencies and scripts
+├── docker-compose.yml    # Docker Compose setup for all services
+├── .env                  # Environment variables for local development
+└── README.md             # Project overview and setup instructions
 ```
 
-## Directory Purposes
+## Key Locations
 
-**`server/`:**
-- Purpose: Backend API, streaming management, business logic
-- Contains: `src/`, `dist/`, `scripts/`, `package.json`
-- Key files: `src/index.ts` (entry), `src/bootstrap.ts` (init), `src/services/serviceRegistry.ts`
+### Frontend (`frontend/src/`)
+- **Pages**: `frontend/src/pages/` - Route-level views like `StreamDashboard.tsx`, `EventsPage.tsx`, `Settings.tsx`
+- **Components**: `frontend/src/components/` - Reusable UI components organized by domain (`live/`, `events/`, `layout/`, `ui/`)
+- **Services**: `frontend/src/services/` - API clients (`api/`) and Socket.io client (`SocketService.ts`)
+- **Contexts**: `frontend/src/contexts/` - React Context providers (`AuthContext.tsx`, `CameraContext.tsx`, `SocketContext.tsx`)
+- **Hooks**: `frontend/src/hooks/` - Custom React hooks
+- **Types**: `frontend/src/types/` - TypeScript type definitions
+- **Lib**: `frontend/src/lib/` - Utility functions (`utils.ts`, `logger.ts`)
 
-**`frontend/`:**
-- Purpose: Web UI
-- Contains: `src/`, `public/`, `package.json`, `vite.config.ts`
-- Key files: `src/main.tsx` (entry), `src/App.tsx` (main)
+### Backend (`server/src/`)
+- **Entry Point**: `server/src/index.ts` - Express app bootstrap, Socket.io setup
+- **Bootstrap**: `server/src/bootstrap.ts` - Service initialization, database connection, camera loading
+- **Controllers**: `server/src/controllers/` - MVC controllers handling request logic (e.g., `CameraController.ts`, `EventController.ts`)
+- **Routes**: `server/src/routes/` - Express route definitions, mounting controllers (e.g., `auth.ts`, `cameras.ts`, `events.ts`)
+- **Services**: `server/src/services/` - Business logic, external integrations (e.g., `nvidiaAnalysisService.ts`, `opencvMicroserviceClient.ts`, `retentionPolicyService.ts`)
+- **Models**: `server/src/models/` - TypeORM entities (e.g., `User.ts`, `Event.ts`, `Camera.ts`)
+- **Middleware**: `server/src/middleware/` - Authentication, validation, rate limiting
+- **Config**: `server/src/config/` - Application configuration
+- **Utils**: `server/src/utils/` - Helper functions (`logger.ts`, `cronJobs.ts`)
+- **Streams**: `server/src/streams/` - RTSP stream management (`rtspManager.ts`)
+- **Database**: `server/src/database.ts` - TypeORM data source and initialization
+- **Migrations**: `server/src/migrations/` - TypeORM database migrations
 
-**`opencv-service/`:**
-- Purpose: Python computer vision processing
-- Contains: ML models, RTSP ingestion, routes
-- Key files: `rtsp_ingestion/`, `models/`
-
-## Key File Locations
-
-**Entry Points:**
-- Server: `server/src/index.ts`
-- Frontend: `frontend/src/main.tsx`
-
-**Configuration:**
-- Server: `server/src/config/index.ts`
-- Docker: `docker-compose.dev.yml`
-
-**Core Logic:**
-- Streaming: `server/src/streams/rtspManager.ts`
-- Detection: `server/src/detection/consolidatedDetectionService.ts`
-
-**Testing:**
-- Backend tests: `server/src/services/__tests__/`, `server/src/routes/*.test.ts`
-- Frontend tests: `frontend/src/__tests__/`, `frontend/src/tests/`
+### OpenCV Service (`opencv-service/`)
+- **Main App**: `opencv-service/app.py` - Flask application entry point
+- **Pipeline**: `opencv-service/pipeline.py` - Core detection pipeline logic
+- **Models**: `opencv-service/models/` - AI model files
+- **Routes**: `opencv-service/routes/` - Flask API routes
+- **RTSP Ingestion**: `opencv-service/rtsp_ingestion/` - RTSP stream reading components
 
 ## Naming Conventions
 
-**Files:**
-- TypeScript: `kebab-case.ts` / `PascalCase.tsx`
-- Python: `snake_case.py`
+### Files
+- **TypeScript/React**:
+  - Components: PascalCase (e.g., `StreamDashboard.tsx`, `AppLayout.tsx`)
+  - Utilities/Services: camelCase (e.g., `apiService.ts`, `utils.ts`, `auth.ts`)
+  - Contexts: PascalCase (e.g., `AuthContext.tsx`)
+  - Type definitions: camelCase (e.g., `api.ts`, `camera.ts`)
+- **Python**: snake_case (e.g., `app.py`, `pipeline.py`)
 
-**Directories:**
-- `kebab-case`
+### Directories
+- **Frontend**: kebab-case (e.g., `components/live`, `services/api`)
+- **Backend**: kebab-case (e.g., `controllers`, `services`, `middleware`)
+- **OpenCV**: snake_case (e.g., `rtsp_ingestion`)
 
-## Where to Add New Code
+## Module Organization
 
-**New Backend API:**
-- Create file in `server/src/routes/`
-- Add to `server/src/routes/index.ts`
-- Add to `server/src/controllers/`
+### Frontend
+- Organized primarily by **type** (pages, components, services, contexts).
+- Components are further organized by **feature/domain** within `components/` (e.g., `components/live`, `components/events`).
 
-**New Backend Service:**
-- Create in `server/src/services/`
-- Register in `server/src/services/serviceRegistry.ts`
-- Initialize in `server/src/bootstrap.ts`
+### Backend
+- Primarily organized by **type** (controllers, routes, services, models, middleware).
+- Services are further organized into **sub-domains** within `services/` (e.g., `services/detection/`, `services/review/`).
 
-**New Frontend Component:**
-- `frontend/src/components/`
+## Configuration Locations
+
+- **Environment Variables**: `.env`, `.env.example` at the project root for local development and deployment.
+- **Backend Config**: `server/src/config/index.ts` for application-wide settings.
+- **Camera Config**: `server/cameras.json` (gitignored, template in `cameras.example.json`) for camera-specific RTSP URLs, zones, and tracked objects.
+- **Vite Config**: `frontend/vite.config.ts` for frontend build and API proxy settings.
+- **Docker Compose**: `docker-compose.yml` for service definitions and environment variables.
 
 ---
 

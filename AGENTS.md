@@ -111,7 +111,14 @@ frontend/src/
 
 ```
 server/src/
-├── index.ts                  # Express app bootstrap
+├── index.ts                  # Express app bootstrap, middleware, and route configuration
+├── bootstrap.ts              # Orchestrates service, database, and cron job initialization
+├── initializers/             # Modular initialization logic
+│   ├── database.ts           # Database connection and shutdown
+│   ├── services.ts           # Core application services setup
+│   └── cron.ts               # Scheduled cron jobs initialization
+├── pipeline/                 # Core real-time detection pipeline logic
+│   ├── detectionPersistence.ts # Persisting detection events to DB and triggering notifications
 ├── database.ts               # TypeORM connection
 ├── controllers/              # MVC pattern
 │   ├── CameraController.ts   # Camera CRUD + snapshots

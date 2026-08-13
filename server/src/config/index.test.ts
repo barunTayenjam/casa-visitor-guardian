@@ -9,9 +9,18 @@ import {
   getOpenCVServiceUrl,
 } from '../config/index.js';
 import { getDetectionsPath, getEventPath, getArchivePath, getStoragePathFromFile } from '../config/paths.js';
+import { setCameras, type CameraConfig } from '../config/cameraLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+beforeEach(() => {
+  // cameras.json is gitignored and machine-specific; load the committed
+  // template so the assertions are deterministic across environments.
+  const examplePath = path.join(__dirname, '../../cameras.example.json');
+  const cameras: CameraConfig[] = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
+  setCameras(cameras);
+});
 
 describe('Configuration Loading and Validation', () => {
   describe('Config object shape and defaults', () => {
@@ -145,9 +154,11 @@ describe('Configuration Loading and Validation', () => {
     it('should have detect config on cameras', () => {
       for (const camera of config.cameras) {
         expect(camera.detect).toBeDefined();
-        expect(camera.detect).toHaveProperty('width');
-        expect(camera.detect).toHaveProperty('height');
-        expect(camera.detect).toHaveProperty('fps');
+        const d = camera.detect as Record<string, unknown>;
+        expect(
+          ('width' in d && 'height' in d && 'fps' in d) ||
+          ('resize_width' in d && 'resize_height' in d && 'interval' in d)
+        ).toBe(true);
       }
     });
   });

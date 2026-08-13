@@ -583,12 +583,12 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   )}
 
                   {/* Recommended Actions */}
-                  {analysis.recommendedActions?.length > 0 && (
+                  {(analysis.recommendedActions?.length ?? 0) > 0 && (
                     <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
                       <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-3">
                         <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/60 mb-2.5">Recommended Actions</p>
                         <div className="space-y-1.5">
-                          {analysis.recommendedActions.map((action, i) => (
+                          {analysis.recommendedActions?.map((action, i) => (
                             <div key={i} className="flex items-start gap-2.5">
                               <div className="p-[1px] rounded-full bg-blue-500/30 mt-0.5 flex-shrink-0">
                                 <div className="rounded-full bg-blue-500/10 w-4 h-4 flex items-center justify-center">

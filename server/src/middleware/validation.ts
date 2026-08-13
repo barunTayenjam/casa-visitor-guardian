@@ -174,24 +174,36 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction): 
     return str
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/<\/?(?:script|iframe|object|embed|form|link|meta|style|title)\b[^>]*>/gi, '')
+      .replace(/<[a-z][a-z0-9-]*(?:\s+[a-z0-9-]+=(?:"[^"]*"|'[^']*'|[^\s>]*))*\s*\/?>/gi, (tag) =>
+        tag.replace(/\bon[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '').replace(/javascript:/gi, '')
+      )
       .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '');
+      .replace(/\bon[a-z]+\s*=/gi, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
   };
 
-  // Sanitize query parameters
-  for (const key in req.query) {
-    if (typeof req.query[key] === 'string') {
-      req.query[key] = sanitizeString(req.query[key] as string).trim();
+  const sanitizeValue = (value: unknown): unknown => {
+    if (typeof value === 'string') return sanitizeString(value).trim();
+    if (Array.isArray(value)) return value.map(sanitizeValue);
+    if (value && typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const key of Object.keys(value)) {
+        result[key] = sanitizeValue((value as Record<string, unknown>)[key]);
+      }
+      return result;
     }
+    return value;
+  };
+
+  // Sanitize query parameters (query values can be strings or arrays)
+  for (const key in req.query) {
+    req.query[key] = sanitizeValue(req.query[key]) as never;
   }
 
-  // Sanitize body parameters
+  // Sanitize body parameters (recursively, including nested objects/arrays)
   if (req.body && typeof req.body === 'object') {
-    for (const key in req.body) {
-      if (typeof req.body[key] === 'string') {
-        req.body[key] = sanitizeString(req.body[key]).trim();
-      }
-    }
+    req.body = sanitizeValue(req.body);
   }
 
   next();

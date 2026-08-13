@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { authService, JWTPayload } from '../auth/index.js';
 import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
+import cacheService from '../services/cacheService.js';
 
 // Extend Request interface to include user
 declare module 'express-serve-static-core' {
@@ -14,6 +15,33 @@ export interface AuthOptions {
   required?: boolean;
   roles?: string[];
   skipValidation?: boolean;
+}
+
+// Cache session validity per-user to avoid a DB round-trip on every request.
+// TTL bounds the window a logged-out user could keep using cached sessions.
+const SESSION_CHECK_TTL_SECONDS = 30;
+
+function sessionCacheKey(userId: string): string {
+  return `auth:session:${userId}`;
+}
+
+export function invalidateSessionCache(userId: string): void {
+  void cacheService.del(sessionCacheKey(userId));
+}
+
+async function hasActiveSession(userId: string): Promise<boolean> {
+  const cached = await cacheService.get(sessionCacheKey(userId));
+  if (cached !== null) {
+    return cached === '1';
+  }
+
+  const session = await AppDataSource.query(
+    'SELECT id FROM user_sessions WHERE user_id = $1 AND is_active = true LIMIT 1',
+    [userId]
+  );
+  const active = !!session && session.length > 0;
+  await cacheService.set(sessionCacheKey(userId), active ? '1' : '0', SESSION_CHECK_TTL_SECONDS);
+  return active;
 }
 
 export function authenticate(options: AuthOptions = {}) {
@@ -62,11 +90,8 @@ export function authenticate(options: AuthOptions = {}) {
       // Verify user has an active session (not logged out)
       try {
         if (AppDataSource.isInitialized) {
-          const session = await AppDataSource.query(
-            'SELECT id FROM user_sessions WHERE user_id = $1 AND is_active = true LIMIT 1',
-            [payload.userId]
-          );
-          if (!session || session.length === 0) {
+          const active = await hasActiveSession(payload.userId);
+          if (!active) {
             if (required) {
               return res.status(401).json({
                 success: false,

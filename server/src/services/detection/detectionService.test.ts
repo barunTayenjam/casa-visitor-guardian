@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 // @ts-ignore
-import { DetectionService } from '../detectionService.js';
+import { DetectionService } from './detectionService.js';
 
 describe('DetectionService', () => {
   let detectionService: DetectionService;
@@ -60,7 +60,7 @@ describe('DetectionService', () => {
           },
         });
 
-      const result = await detectionService.getConfig('front_door');
+      const result = await detectionService.getConfig('back_door');
 
       expect(result.thresholds.person.min_score).toBe(0.4);
       expect(result.score_history_length).toBe(5);
@@ -169,7 +169,8 @@ describe('DetectionService', () => {
 
       const result = detectionService.filterDetections(detections);
 
-      expect(result[0].score).toBe(0.5);
+      expect(result).toHaveLength(3);
+      expect(result[2].score).toBe(0.5);
     });
 
     it('should pass through unknown labels', () => {

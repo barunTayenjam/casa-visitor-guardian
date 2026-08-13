@@ -143,33 +143,33 @@ describe('InMemoryStateService', () => {
   });
 
   describe('acknowledgeAlert', () => {
-    it('should mark alert as acknowledged', () => {
-      service.addAlert({ type: 'motion', severity: 'warning', message: 'Test' });
+    it('should mark alert as acknowledged', async () => {
+      await service.addAlert({ type: 'motion', severity: 'warning', message: 'Test' });
       const alerts = service.getAlerts();
       const alertId = alerts[0].id;
-      const result = service.acknowledgeAlert(alertId);
+      const result = await service.acknowledgeAlert(alertId);
       expect(result).toBe(true);
       expect(service.getAlerts()[0].acknowledged).toBe(true);
     });
 
-    it('should return false for non-existent alert', () => {
-      const result = service.acknowledgeAlert('non-existent-id');
+    it('should return false for non-existent alert', async () => {
+      const result = await service.acknowledgeAlert('non-existent-id');
       expect(result).toBe(false);
     });
   });
 
   describe('deleteAlert', () => {
-    it('should remove alert by id', () => {
-      service.addAlert({ type: 'motion', severity: 'warning', message: 'To Delete' });
+    it('should remove alert by id', async () => {
+      await service.addAlert({ type: 'motion', severity: 'warning', message: 'To Delete' });
       const alerts = service.getAlerts();
       const alertId = alerts[0].id;
-      const result = service.deleteAlert(alertId);
+      const result = await service.deleteAlert(alertId);
       expect(result).toBe(true);
       expect(service.getAlerts().length).toBe(0);
     });
 
-    it('should return false for non-existent alert', () => {
-      const result = service.deleteAlert('non-existent-id');
+    it('should return false for non-existent alert', async () => {
+      const result = await service.deleteAlert('non-existent-id');
       expect(result).toBe(false);
     });
   });

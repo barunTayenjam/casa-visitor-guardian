@@ -17,6 +17,7 @@ const analysisSchema = z.object({
 router.post('/analyze', authenticate(), validateBody(analysisSchema), (req, res) => nvidiaController.analyze(req, res));
 router.post('/analyze-event', authenticate(), validateBody(analysisSchema), (req, res) => nvidiaController.analyzeEvent(req, res));
 router.get('/health', (req, res) => nvidiaController.health(req, res));
+router.get('/status', (req, res) => nvidiaController.health(req, res));
 router.get('/results', authenticate(), (req, res) => nvidiaController.getResults(req, res));
 router.get('/models', authenticate(), (req, res) => nvidiaController.getModels(req, res));
 router.put('/config', authenticate(), (req, res) => nvidiaController.updateConfig(req, res));

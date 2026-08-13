@@ -64,6 +64,7 @@ services:
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
       - OPENCV_SERVICE_URL=http://opencv:8084
+      - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
       - DETECTIONS_DIR=/app/data/detections
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - NVIDIA_API_BASE_URL=${NVIDIA_API_BASE_URL}
@@ -130,6 +131,7 @@ services:
       - POSTGRES_USER=sentryvision
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - DETECTIONS_DIR=/app/data/detections
+      - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
     devices:
       - /dev/dri:/dev/dri
     volumes:

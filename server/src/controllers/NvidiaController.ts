@@ -245,12 +245,12 @@ export class NvidiaController extends BaseController {
       if (!imagePath) { this.badRequest(res, 'Event image file not found'); return; }
 
       const context = {
-        cameraId: event.camera_id,
+        cameraId: event.camera_id ?? undefined,
         cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
         triggerReason: 'event analysis',
         eventType: event.event_type,
         detectedObjects: event.object_detections.map(d => d.class),
-        confidence: event.confidence,
+        confidence: event.confidence ?? undefined,
         timestamp: event.timestamp.toString(),
         yoloDetections: event.object_detections
       };
@@ -270,7 +270,11 @@ export class NvidiaController extends BaseController {
         try {
           const imageBuffer = fs.readFileSync(imagePath);
           const opencvResponse = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
-            headers: { 'Content-Type': 'image/jpeg' }, timeout: 30000
+            headers: {
+              'Content-Type': 'image/jpeg',
+              ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {})
+            },
+            timeout: 30000
           });
           const detections: any[] = opencvResponse.data.detections || [];
           result = this.buildOpenCVFallbackResult(detections, startTime);
@@ -523,12 +527,12 @@ export class NvidiaController extends BaseController {
       if (!imagePath) { this.badRequest(res, 'Event image file not found'); return; }
 
       const context = {
-        cameraId: event.camera_id,
+        cameraId: event.camera_id ?? undefined,
         cameraName: event.camera_id === 'cam1' ? 'Front Door' : event.camera_id === 'cam2' ? 'Back Door' : undefined,
         triggerReason: 'event bbox analysis',
         eventType: event.event_type,
         detectedObjects: event.object_detections.map(d => d.class),
-        confidence: event.confidence,
+        confidence: event.confidence ?? undefined,
         timestamp: event.timestamp.toString(),
         yoloDetections: event.object_detections
       };

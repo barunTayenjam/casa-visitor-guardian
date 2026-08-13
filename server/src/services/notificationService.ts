@@ -286,7 +286,7 @@ export class NotificationService {
   }
 
   static async notifyMotionEvent(event: Event): Promise<void> {
-    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
+    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -311,7 +311,7 @@ export class NotificationService {
   }
 
   static async notifyUnknownFace(event: Event): Promise<void> {
-    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
+    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -340,7 +340,7 @@ export class NotificationService {
     event: Event,
     objects: string[]
   ): Promise<void> {
-    const cameraName = this.cameraNames.get(event.camera_id) || event.camera_id;
+    const cameraName = event.camera_id ? (this.cameraNames.get(event.camera_id) || event.camera_id) : 'Unknown camera';
     const timeStr = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',

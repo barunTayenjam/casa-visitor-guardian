@@ -1,103 +1,44 @@
-# Coding Conventions
-
-**Analysis Date:** 2026-08-13
-
-## Naming Patterns
-
-**Files:**
-- Frontend components/pages: `PascalCase.tsx` (e.g., `Login.tsx`, `CameraStream.tsx`)
-- Frontend hooks: `useCamelCase.ts` (e.g., `use-toast.ts`)
-- Frontend utilities/services: `camelCase.ts` (e.g., `utils.ts`, `SocketService.ts`)
-- Server files: `camelCase.ts` (e.g., `index.ts`, `auth.ts`, `database.ts`)
-- Test files: `*.test.ts` or `*.test.tsx` (e.g., `baseClient.test.ts`, `AuthController.test.ts`)
-
-**Functions:**
-- `camelCase` for most functions (e.g., `login`, `hashPassword`, `generateTokenPair`).
-- React components use `PascalCase` (e.g., `App`, `CameraStream`).
-
-**Variables:**
-- `camelCase` for local variables and properties.
-- `PascalCase` for type names (interfaces, types).
-- Constants in global scope or module scope may use `SCREAMING_SNAKE_CASE` (not explicitly observed but common).
-
-**Types:**
-- `PascalCase` for interfaces and type aliases (e.g., `ApiError`, `Config`, `User`).
-
-## Code Style
-
-**Formatting:**
-- Controlled by ESLint. No explicit Prettier config found, ESLint likely handles formatting rules.
-- Indentation: 2 spaces (inferred from `eslint.config.js` and common TypeScript practices).
-
-**Linting:**
-- **Tool used:** ESLint with `typescript-eslint` plugin.
-- **Config:** `/home/barun/Documents/sentryvision/frontend/eslint.config.js`
-- **Key rules:**
-    - `js.configs.recommended`: Standard ESLint recommended rules.
-    - `tseslint.configs.recommended`: TypeScript ESLint recommended rules.
-    - `react-hooks/recommended`: Rules for React Hooks.
-    - `react-refresh/only-export-components`: `off` (allows non-default exports in files with components).
-    - `@typescript-eslint/no-unused-vars`: `off` (allows unused variables).
-
-## Import Organization
-
-**Order:**
-Not strictly enforced by configuration. Common patterns observed:
-1. Third-party library imports.
-2. Project-internal imports, often grouped by module.
-
-**Path Aliases:**
-- `@/*`: Maps to `./src/*` in both frontend and server `tsconfig.json`.
-  - Example: `import { cn } from "@/lib/utils"`
-
-## Error Handling
-
-**Patterns:**
-- Custom error classes: `ApiError`, `NetworkError`, `TimeoutError` in frontend (`src/__tests__/baseClient.test.ts`) for structured API error handling.
-- Service methods often return objects with `success` boolean and `errors` array or `error` string for consistent error reporting from business logic (e.g., `AuthenticationService.register` returns `{ success: boolean, errors?: string[] }`).
-- `try...catch` blocks for asynchronous operations and external calls.
-
-## Logging
-
-**Framework:**
-- Frontend: `console` directly or a wrapper `src/lib/logger.ts`. Mocks exist for testing (`src/__mocks__/lib/logger.ts`).
-- Server: Not explicitly configured in initial scan, likely direct `console` or a simple wrapper.
-
-**Patterns:**
-- Basic `console.log`, `console.error`, `console.warn` for development and debugging.
-- No sophisticated logging framework like Winston or Pino detected.
-
-## Comments
-
-**When to Comment:**
-- Not strictly enforced. Code is generally self-documenting.
-- Explanations for complex logic or non-obvious choices.
-
-**JSDoc/TSDoc:**
-- Minimal usage observed. Type definitions are often inline or in interfaces.
-
-## Function Design
-
-**Size:**
-- Functions generally focused on a single responsibility. No explicit size limits configured.
-
-**Parameters:**
-- Clearly typed parameters using TypeScript.
-- Object destructuring common for multiple parameters.
-
-**Return Values:**
-- Clearly typed return values.
-- Objects with `success` and `data`/`errors` properties are common for service layer operations.
-
-## Module Design
-
-**Exports:**
-- Default exports for components and pages.
-- Named exports for utilities, hooks, and multiple related items from a single module.
-
-**Barrel Files:**
-- Not extensively used. Modules tend to export directly from their definition files.
-
+---
+mapped: 2026-08-13
+focus: quality
 ---
 
+# Coding Conventions
+
+> Generated from codebase analysis on 2026-08-13
+
+## Language Conventions
+- **TypeScript Strictness**: Frontend (`frontend/tsconfig.json`) and Backend (`server/tsconfig.json`) both have `strict: false`. Prefer explicit types where possible, but use `noImplicitAny: false`.
+- **Async/Await**: Everywhere. Controllers are async, services are async. Use `try-catch` blocks liberally, especially in controllers and service methods involving network or DB.
+- **ESM**: Node.js backend (`server/package.json` with `type: "module"`) and Vite frontend use ESM modules.
+
+## Naming Conventions
+- **Files**: PascalCase for components (`CameraGrid.tsx`, `CameraController.ts`), camelCase for utilities (`apiService.ts`, `authMiddleware.ts`).
+- **Variables/Functions**: camelCase.
+- **Entities/Models**: PascalCase (e.g., `Event.ts`, `User.ts`).
+
+## Code Organization
+- **Imports**: External libraries first, then absolute path aliases (`@/*` in frontend, `src/*` in backend), then relative paths.
+- **Barrel Files**: `server/src/models/index.ts` is used to re-export entities.
+
+## Error Handling
+- **Controllers**: Always wrap in `try-catch`.
+- **API Errors**: Use custom classes like `ApiError`, `NetworkError`, `TimeoutError` (see `frontend/src/services/api/baseClient.ts`).
+- **Middleware**: Validation middleware `server/src/middleware/validation.ts` catches validation issues and returns structured JSON responses.
+
+## State Management
+- **Frontend**: React Context (`frontend/src/contexts/AuthContext.tsx`) for global authentication state.
+
+## API Patterns
+- **Base Client**: `frontend/src/services/api/baseClient.ts` uses `fetch` with automatic retries and auth header injection.
+- **Response Format**: Consistent JSON responses. OK responses use `{ success: true, ...data }`. Errors use `{ success: false, error: "..." }`.
+
+## Logging & Observability
+- **Logger**: A centralized logger exists in `server/src/utils/logger.ts`. It logs to console, error/combined/access log files, and optionally the database.
+
+## Linting & Formatting
+- **Linting**: ESLint (`frontend/eslint.config.js`) for React/TS. Use `npm run lint` and `npm run lint:fix`.
+- **Formatting**: Not explicitly configured with a formatter tool, but maintain consistent spacing.
+
+---
 *Convention analysis: 2026-08-13*

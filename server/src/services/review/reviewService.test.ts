@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 // @ts-ignore
-import { ReviewService } from '../reviewService.js';
+import { ReviewService } from './reviewService.js';
 
 describe('ReviewService', () => {
   let reviewService: ReviewService;
@@ -62,6 +62,7 @@ describe('ReviewService', () => {
       const mockSegments = [
         { id: 'segment_1', camera: 'cam1', severity: 'alert' },
         { id: 'segment_2', camera: 'cam1', severity: 'detection' },
+        { id: 'segment_3', camera: 'cam1', severity: 'detection' },
       ];
       mockReviewSegmentRepo.createQueryBuilder().getManyAndCount.mockResolvedValue([mockSegments, 5]);
 

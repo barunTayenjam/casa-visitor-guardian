@@ -1,143 +1,50 @@
-# Codebase Concerns
+---
+mapped: 2026-08-13
+focus: concerns
+---
 
-**Analysis Date:** 2026-08-13
+# Technical Concerns
 
-## Tech Debt
+> Generated from codebase analysis on 2026-08-13
 
-**Logging Infrastructure:**
-- Issue: logDatabase disabled, needs migration to PostgreSQL audit_logs
-- Files: `server/src/utils/logger.ts:110`
-- Impact: Audit logging incomplete, may miss security events
-- Fix approach: Implement PostgreSQL audit_logs table and migrate logging
+## Technical Debt
 
-**Multiple Detection Services:**
-- Issue: Duplicate detection implementations across services
-- Files: `server/src/services/detection/consolidatedDetectionService.ts`, `server/src/detection/DetectionService.ts`, `server/src/detection/ConsolidatedDetectionService.ts`
-- Impact: Confusion about which service to use, maintenance burden
-- Fix approach: Consolidate to single detection service interface
+- **Hardcoded configuration dependencies:** Various services rely on environment variables (`process.env.PORT`, `process.env.GO2RTC_URL`) that lack robust validation schemas, increasing the risk of runtime failure during misconfiguration.
+- **WebSocket proxy complexity:** The `server/src/index.ts` manually handles WebSocket upgrades for `/go2rtc`, which is highly fragile and bypasses standard middleware, making it difficult to maintain and secure.
+- **Fragmented routing:** `server/src/routes/index.ts` requires manual registration of numerous controller-based routes; this does not scale well and creates potential for circular dependencies if not managed carefully.
+- **Service bootstrap:** `server/src/bootstrap.ts` is a monolithic file for service initialization, which makes it harder to test individual services or introduce new ones without affecting the whole boot sequence.
 
-**Error Handling Patterns:**
-- Issue: Inconsistent use of `return null` for error cases
-- Files: `server/src/services/cacheService.ts:134,138,217,221`, `server/src/streams/rtspManager.ts:418,423,440,446,560`, `server/src/controllers/NvidiaController.ts:91,184,185,348,349`
-- Impact: Silent failures, hard to debug production issues
-- Fix approach: Use Result<T> pattern or explicit error returns
+## Known Issues
 
-## Known Bugs
+- **Port in use:** `server/src/index.ts` explicitly handles `EADDRINUSE` but relies on user manual intervention (`fuser -k`), which is not suitable for containerized or automated deployment environments.
+- **In-memory cache reliance:** While `server/src/services/cacheService.ts` supports Redis, the default fallback is in-memory, which may lead to consistency issues in multi-node deployments of the backend service.
 
-**No TypeScript Test Suite:**
-- Symptoms: Only JavaScript test file exists (`server/tests/simple.test.js`)
-- Files: `server/tests/simple.test.js`
-- Trigger: Running `npm test` executes Jest but coverage is minimal
-- Workaround: None - testing gap is significant
+## Security Concerns
 
-## Security Considerations
+- **`unsafe-inline` CSP:** `server/src/index.ts` includes `'unsafe-inline'` and `'unsafe-eval'` in the Content Security Policy, which is necessary for some Vite/SPA features but significantly weakens the security posture against XSS attacks.
+- **Proxy security:** The proxy for `/go2rtc` in `server/src/index.ts` blindly forwards request headers, potentially exposing internal services to header-based attacks.
 
-**CORS Configuration:**
-- Risk: Loose CORS policies may allow unauthorized access
-- Files: `server/src/config/cors.ts`
-- Current mitigation: Environment-based whitelist (`CORS_ORIGINS`)
-- Recommendations: Validate all origins are HTTPS in production, add CSP headers
+## Performance Concerns
 
-**Session Management:**
-- Risk: Multiple session implementations (express-session, passport)
-- Files: `server/src/config/session.ts`, `server/src/config/passport.ts`
-- Current mitigation: Standard session configuration
-- Recommendations: Audit session storage security, ensure proper timeout
-
-**API Key Handling:**
-- Risk: Multiple API key configs (OpenCV, OpenAI) may leak in logs
-- Files: `server/src/config/index.ts:31-41`
-- Current mitigation: Environment variables with defaults
-- Recommendations: Mask sensitive keys in logs, rotate periodically
-
-## Performance Bottlenecks
-
-**RTSP Stream Memory:**
-- Problem: RTSPManager keeps all active stream references in memory
-- Files: `server/src/streams/rtspManager.ts:45`
-- Cause: Map stores all Stream objects, no cleanup on disconnect
-- Improvement path: Add LRU eviction or explicit stream cleanup
-
-**Detection Pipeline:**
-- Problem: Multiple detection services may run in parallel
-- Files: `server/src/detection/ConsolidatedDetectionService.ts`
-- Cause: Detection called from multiple routes without deduplication
-- Improvement path: Implement detection request coalescing
+- **SPA Fallback:** `server/src/index.ts` catches all routes `/*` to serve the SPA `index.html`. This can mask misconfigured API routes, leading to `200 OK` responses for non-existent API endpoints (returning the frontend HTML instead of 404).
+- **Service initialization:** All services are initialized at boot in `server/src/bootstrap.ts`, causing a long startup time that might hit timeout limits in resource-constrained environments.
 
 ## Fragile Areas
 
-**Camera Configuration:**
-- Files: `server/src/config/cameraLoader.ts`, `server/src/config/cameras.ts`
-- Why fragile: Multiple camera config sources, potential conflicts
-- Safe modification: Use CameraPersistence as single source of truth
-- Test coverage: None
+- **`server/src/routes/staticRoutes.ts`:** Reliance on static files being served via `express.static` alongside SPA routing fallback in `index.ts` can lead to confusing behavior regarding file resolution precedence.
+- **Python-Node communication:** Communication with the OpenCV microservice depends on WebSocket stability. The code in `server/src/services/opencvMicroserviceClient.ts` does not explicitly implement circuit breakers, making it susceptible to cascading failures.
 
-**Database Migrations:**
-- Files: `server/src/database/migrations/`
-- Why fragile: Manual migration scripts, no rollback mechanism
-- Safe modification: Test migrations on staging first
-- Test coverage: None
+## Dependency Risks
 
-**WebSocket Events:**
-- Files: `server/src/socket.ts`, `server/src/services/eventService.ts`
-- Why fragile: Complex event emission across multiple services
-- Safe modification: Document event contracts
-- Test coverage: None
+- **TypeORM:** While powerful, the heavy usage of TypeORM with 26 migrations suggests a complex and potentially fragile database schema where schema changes could easily break existing detection pipelines.
+- **`http-proxy-middleware`:** Used for routing to go2rtc; while standard, proxying binary/WebSocket streams requires careful handling that the current code does not robustly test.
 
-## Scaling Limits
+## Missing Features / Gaps
 
-**Active Streams:**
-- Current capacity: ~10 concurrent RTSP streams
-- Limit: Memory pressure at 4GB+ with 20+ streams
-- Scaling path: Add stream pooling, limit max concurrent connections
+- **Automated health checks:** No comprehensive automated health check strategy that includes the Python OpenCV microservice, leading to "zombie" states where the backend is up but detection is down.
+- **Structured logging:** While a logger exists, logs are not consistently leveled or structured (e.g., JSON), making it difficult to ingest them into modern observability platforms (ELK/Datadog/etc.).
 
-**Detection Queue:**
-- Current capacity: Single detection request at a time
-- Limit: Queue buildup during high-traffic periods
-- Scaling path: Implement request coalescing, add priority queue
+## Code Quality Issues
 
-## Dependencies at Risk
-
-**TypeORM:**
-- Risk: Heavy ORM overhead for simple operations
-- Impact: Performance degradation at scale
-- Migration plan: Consider lighter alternatives (Kysely) for read-heavy queries
-
-**Socket.io:**
-- Risk: Complex state management for room connections
-- Impact: Memory leaks if connections not cleaned up
-- Migration plan: Audit connection lifecycle, add health checks
-
-## Missing Critical Features
-
-**Rate Limiting Gaps:**
-- Problem: No rate limiting on internal service calls
-- Blocks: Abuse prevention for detection endpoints
-
-**Request Validation:**
-- Problem: Inconsistent input validation across routes
-- Blocks: Security hardening, API stability
-
-## Test Coverage Gaps
-
-**Detection Pipeline:**
-- What's not tested: End-to-end detection flow
-- Files: `server/src/services/detection/*.ts`
-- Risk: Detection failures may go unnoticed
-- Priority: High
-
-**Stream Management:**
-- What's not tested: RTSP stream lifecycle, error recovery
-- Files: `server/src/streams/rtspManager.ts`
-- Risk: Stream failures may crash server
-- Priority: High
-
-**Database Operations:**
-- What's not tested: Migration scripts, complex queries
-- Files: `server/src/services/*.ts`
-- Risk: Data corruption on schema changes
-- Priority: Medium
-
----
-
-*Concerns audit: 2026-08-13*
+- **Service dependency injection:** `initializeServices(io)` passes the `io` instance directly, which is a tight coupling pattern. A proper dependency injection container or clearer service registration would decouple services from the socket server instance.
+- **Lack of unit tests:** The codebase lacks a comprehensive unit test suite in the `server/` directory, meaning changes to business logic (e.g., `server/src/services/nvidiaAnalysisService.ts`) are difficult to verify without E2E tests.

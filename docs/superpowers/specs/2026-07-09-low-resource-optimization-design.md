@@ -5,6 +5,8 @@
 **Cameras:** 2-3 simultaneous  
 **Approach:** Balanced Optimization (Approach 2)
 
+> **Status: IMPLEMENTED (v1.6.0)** — core optimization landed in release v1.6.0 (see `RELEASE_NOTES.md`): frontend now served as static files by the backend (Docker drops 5 → 4 services), Redis replaced by in-memory cache (`REDIS_DISABLED`). The `DayHighlights.tsx` lazy-import snippet in this old design no longer reflects the current frontend (that page was removed); retain this spec only as historical design context.
+
 ---
 
 ## Executive Summary

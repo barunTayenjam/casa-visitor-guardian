@@ -1,3 +1,9 @@
+/**
+ * DetectionService — Normalization & filtering logic.
+ * Normalizes raw detection data, filters by class thresholds, calculates medians.
+ * Triggers EnhancedDetectionService for DB persistence.
+ * See: consolidatedDetectionService (settings), enhancedDetectionService (DB persistence).
+ */
 import { Repository } from 'typeorm';
 import { DetectionConfig } from '../../models/DetectionConfig.js';
 import { Event } from '../../models/Event.js';

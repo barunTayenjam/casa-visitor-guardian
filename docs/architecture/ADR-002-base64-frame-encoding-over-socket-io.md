@@ -1,6 +1,6 @@
 # ADR-002: Binary Frame Delivery over Socket.io (Socket.io Binary Mode)
 
-**Status**: Accepted
+**Status**: Accepted — retained for **detection-event captures** (Python → backend → Events UI). Superseded for **live viewing** by ADR-008 (go2rtc WebRTC) — see `docs/adr/008-web-media-pipeline.md`. The live grid renders `<video>` via `RTCPeerConnection`, not `<img>` Blob frames.
 **Date**: 2026-05-29
 **Deciders**: Engineering team
 

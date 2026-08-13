@@ -1,9 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'node:path';
-import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { decryptCredential, isEncryptedCredential, type EncryptedCredential } from '../services/credentialEncryption.js';
-import { logger } from '../utils/logger.js';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -12,110 +9,8 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-// Note: Security event logging deferred to avoid circular dependency with database
-// This function will be called later when database is available
-async function logSecurityEventDeferred(eventType: string, details: Record<string, unknown>): Promise<void> {
-  try {
-    // Import dynamically to avoid circular dependency during initialization
-    const { AppDataSource: DS } = await import('../database.js');
-    const { SecurityEvent, SecurityEventType } = await import('../models/SecurityEvent.js');
-
-    if (!DS.isInitialized) {
-      logger.warn(`Security event (database not ready): ${eventType}`, 'Config', details);
-      return;
-    }
-
-    const securityEventRepo = DS.getRepository(SecurityEvent);
-    const event = securityEventRepo.create({
-      eventType: eventType as any,
-      details
-    });
-    await securityEventRepo.save(event);
-  } catch (error) {
-    logger.error('Failed to log security event', 'Config', error);
-  }
-}
-
-function decryptStreamPath(streamPath: string | EncryptedCredential): string {
-  if (isEncryptedCredential(streamPath)) {
-    try {
-      const decrypted = decryptCredential(streamPath);
-      logger.debug('Successfully decrypted RTSP credential', 'Config');
-      return decrypted;
-    } catch (error) {
-      logger.error('Failed to decrypt credential, logging security event', 'Config', error);
-      logSecurityEventDeferred('CREDENTIAL_DECRYPTION_FAILED', {
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
-      }).catch((err: unknown) => {
-        logger.error('Deferred security log (decryption failed) failed', 'Config', err);
-      });
-      throw error;
-    }
-  } else {
-    logger.warn('Detected plaintext RTSP credential in configuration', 'Config');
-    logSecurityEventDeferred('PLAINTEXT_CREDENTIALS_DETECTED', {
-      timestamp: new Date().toISOString()
-    }).catch((err: unknown) => {
-      logger.error('Deferred security log (plaintext) failed', 'Config', err);
-    });
-    return streamPath;
-  }
-}
-
 export function getOpenCVServiceUrl(): string {
   return process.env.OPENCV_SERVICE_URL || 'http://opencv:8084';
-}
-
-function convertLegacyCameraConfig(camera: any): CameraConfig {
-  return {
-    id: camera.id,
-    name: camera.name,
-    enabled: true,
-    streams: [
-      {
-        path: camera.rtspUrl,
-        roles: ['detect', 'record', 'live'],
-        width: parseInt(camera.resolution?.split('x')[0]) || 1920,
-        height: parseInt(camera.resolution?.split('x')[1]) || 1080,
-        fps: camera.frameRate || 15
-      }
-    ],
-    detect: {
-      width: 640,
-      height: 360,
-      fps: 5,
-      minInitialized: 2,
-      maxDisappeared: 25
-    },
-    record: {
-      enabled: true,
-      retainDays: 30,
-      mode: 'active_objects',
-      alerts: {
-        preCapture: 5,
-        postCapture: 5,
-        retainDays: 14
-      }
-    },
-    objects: {
-      track: ['person', 'car', 'dog', 'cat'],
-      filters: {
-        person: {
-          minArea: 5000,
-          maxArea: 100000,
-          threshold: 0.7
-        },
-        car: {
-          minArea: 10000,
-          maxArea: 200000,
-          threshold: 0.7
-        }
-      }
-    },
-    nightMode: camera.nightMode || false,
-    credentialId: camera.credentialId
-  };
 }
 
 export interface CameraStreamConfig {
@@ -323,88 +218,5 @@ export function setCameras(cameras: CameraConfig[]): void {
   config.cameras = cameras;
 }
 
-export function loadCamerasFromFile(): CameraConfig[] {
-  try {
-    if (process.env.CAMERAS) {
-      const parsed = JSON.parse(process.env.CAMERAS);
-      return parsed.map((camera: any) => {
-        if (camera.streams && Array.isArray(camera.streams)) return camera;
-        return convertLegacyCameraConfig(camera);
-      }).map((camera: any) => ({
-        ...camera,
-        streams: camera.streams.map((stream: any) => ({
-          ...stream,
-          path: decryptStreamPath(stream.path)
-        }))
-      }));
-    }
-    const camerasPath = path.join(__dirname, '../../cameras.json');
-    if (fs.existsSync(camerasPath)) {
-      const camerasData = fs.readFileSync(camerasPath, 'utf8');
-      const parsed = JSON.parse(camerasData);
-      return parsed.map((camera: any) => {
-        if (camera.streams && Array.isArray(camera.streams)) return camera;
-        return convertLegacyCameraConfig(camera);
-      }).map((camera: any) => ({
-        ...camera,
-        streams: camera.streams.map((stream: any) => ({
-          ...stream,
-          path: decryptStreamPath(stream.path)
-        }))
-      }));
-    }
-    return [];
-  } catch (error) {
-    logger.warn('Failed to load cameras from file (non-critical, DB is primary source)', 'Config', error);
-    return [];
-  }
-}
-
-export const getDetectionsPath = (type: 'events' | 'snapshots' | 'batch' | 'temp', date: Date = new Date()): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const yearMonth = `${year}-${month}`;
-
-  if (type === 'events') {
-    return path.join(config.storage.detectionsDir, yearMonth, 'events');
-  } else if (type === 'snapshots') {
-    return path.join(config.storage.detectionsDir, yearMonth, 'snapshots');
-  } else if (type === 'batch') {
-    return path.join(config.storage.detectionsDir, yearMonth, 'batch-results');
-  } else {
-    return path.join(config.storage.detectionsDir, yearMonth, 'temp');
-  }
-};
-
-export const getEventPath = (subType: 'faces' | 'motion', date: Date = new Date()): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const yearMonth = `${year}-${month}`;
-  return path.join(config.storage.detectionsDir, yearMonth, 'events', subType);
-};
-
-export const getArchivePath = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const yearMonth = `${year}-${month}`;
-  return path.join(config.storage.archivePath, yearMonth);
-};
-
-export const getStoragePathFromFile = (fileType: 'event_face' | 'event_motion' | 'snapshot' | 'batch_result' | 'temp', date: Date = new Date()): string => {
-  if (fileType === 'event_face') {
-    return getEventPath('faces', date);
-  } else if (fileType === 'event_motion') {
-    return getEventPath('motion', date);
-  } else if (fileType === 'snapshot') {
-    return getDetectionsPath('snapshots', date);
-  } else if (fileType === 'batch_result') {
-    return getDetectionsPath('batch', date);
-  } else {
-    return getDetectionsPath('temp', date);
-  }
-};
-
 export const validateConfig = (): void => {
-  // JWT secret is now enforced at config load time (fail-fast).
-  // This function is kept for future validation needs.
 };

@@ -1,35 +1,29 @@
----
-mapped: 2026-08-13
-focus: quality
----
-
 # Testing
 
-> Generated from codebase analysis on 2026-08-13
+> Generated: 2026-08-15 | Focus: Quality | Scope: full repo
 
-## Test Framework
-- **Runner**: Jest.
-- **Config**: `server/jest.config.js`, `frontend/jest.config.ts`.
-- **Environment**: Backend (`node`), Frontend (`jsdom`).
+## Testing Stack
 
-## Test File Organization
-- **Location**: Co-located with code or in `__tests__/` directories.
-- **Naming**: `*.test.ts` or `*.spec.ts`.
+- **Framework**: Jest
+- **Run**: `npm run test`, `npm run test:all` (with coverage)
+- **Frontend Environment**: `jest-environment-jsdom`
+- **Python Framework**: pytest (in `opencv-service/tests/`)
 
-## Test Structure
-- **Suite Organization**: Use `describe` blocks.
-- **Setup**: `setupFilesAfterEnv` points to `jest.setup.ts`.
+## Structure
 
-## Mocking
-- **Mocking**: Used in `frontend/src/__mocks__/` to mock services like `baseClient` or `authService` during testing.
+- Frontend tests live in `frontend/src/__tests__/`, `frontend/src/tests/`.
+- Python tests in `opencv-service/tests/` using fixtures and mocks.
+- Service-specific tests in `server/src/services/__tests__/` (e.g. `circuitBreaker.test.ts`).
 
-## Coverage
-- **Threshold**: Global 80% coverage (branches, functions, lines, statements) enforced in Jest configs.
+## Approach
 
-## Running Tests
-- **Frontend**: `npm run test` (executes `jest`).
-- **Backend**: `npm run test:server` (executes `jest` via `node --experimental-vm-modules`).
-- **All**: `npm run test:all` (executes `jest --coverage`).
+- **Unit tests**: Focus on isolated business logic, service clients, hooks, and utility functions.
+- **Mocking**: Use mocks for API calls (`jest.mock`), external service clients, and DB connections.
+- **Regression**: Capture snapshots for UI components to prevent unintended visual drifts.
+- **Pipeline**: Python OpenCV tests ensure detection components work independently of Node.
 
----
-*Testing analysis: 2026-08-13*
+## CI/CD
+
+- `npm run health:check` in root package triggers build + lint validation.
+- Tests are part of the `package.json` script structure (`test:*`).
+- Database migrations tested against `sentryvision_test` database via `.env` variables.

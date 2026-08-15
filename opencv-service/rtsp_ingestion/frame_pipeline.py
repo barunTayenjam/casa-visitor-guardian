@@ -65,6 +65,7 @@ from .byte_tracker import ByteTracker
 from scene_analyzer import SceneAnalyzer
 from person_analyzer import PersonAnalyzer
 from threat_detector import ThreatDetector
+from person_verifier import HumanVerifier
 
 
 class MotionGate:
@@ -715,6 +716,28 @@ class FramePipeline:
             return {}
         return self._yolo_detector.get_metrics()
 
+    _uniface_analyzer = None
+    _uniface_init_lock = __import__("threading").Lock()
+
+    @classmethod
+    def _get_uniface(cls):
+        """Singleton FaceAnalyzer — model load is expensive, never per-call."""
+        with cls._uniface_init_lock:
+            if cls._uniface_analyzer is None:
+                from uniface import FaceAnalyzer
+                cls._uniface_analyzer = FaceAnalyzer()
+            return cls._uniface_analyzer
+
+    _human_verifier = None
+    _human_verifier_init_lock = __import__("threading").Lock()
+
+    @classmethod
+    def _get_human_verifier(cls):
+        with cls._human_verifier_init_lock:
+            if cls._human_verifier is None:
+                cls._human_verifier = HumanVerifier()
+            return cls._human_verifier
+
     def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
         results = []
         person_attrs_cache = {}
@@ -729,6 +752,20 @@ class FramePipeline:
                 x, y, w_b, h_b = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
             else:
                 x, y, w_b, h_b = 0, 0, 0, 0
+
+            # --- HUMAN VERIFICATION ---
+            # Now uses MediaPipe pose keypoints + face check (HumanVerifier)
+            # instead of uniface face-only + Haar fallback.
+            if obj.get("class") == "person" and w_b > 20 and h_b > 20:
+                person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
+                if person_roi.size > 0:
+                    human = self._get_human_verifier().verify(person_roi, yolo_score=obj.get("score", 0))
+                    if human:
+                        obj["human_verified"] = True
+                    else:
+                        print(f"[FramePipeline] Discarding false positive person: {tid}")
+                        continue
+            # ---------------------------
 
             if obj.get("event") == "track_started" and self._face_recognition_fn and w_b > 20 and h_b > 20:
                 cached = self._identity_cache.get(tid)

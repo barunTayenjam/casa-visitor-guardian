@@ -158,11 +158,6 @@ const io = new SocketIOServer(server, {
 await initializeServices(io);
 configureRoutes(app, io);
 
-// SPA Fallback
-app.get('*', (req: express.Request, res: express.Response) => {
-  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
-});
-
 logger.info('Routes configured successfully', 'SERVER');
 
 app.use(staticRoutes);

@@ -1,37 +1,49 @@
----
-mapped: 2026-08-13
-focus: tech
----
+# External Integrations & Services
 
-# External Integrations
+> Generated: 2026-08-15 | Focus: Tech | Scope: full repo
 
-> Generated from codebase analysis on 2026-08-13
+## Databases & Storage
 
-## Databases
+- **PostgreSQL 15+**: Primary persistent store for users, events, face embeddings, visitor timelines, audit logs, and system settings. Connected via TypeORM (`server/src/database.ts`) and direct psycopg2 in Python.
+- **Local File System Storage**:
+  - Detection image captures: `./data/detections` (configured via `DETECTIONS_DIR`)
+  - Event snapshots: `./data/events`, `./public/events`
+  - Timelapse video output: `./public/timelapse`
+  - Face embeddings / known faces: `./opencv-service/known_faces`
 
-- **PostgreSQL 15+**: Central data store for auth, events, settings, and detection metadata. Connected via TypeORM in `server/src/database.ts` using `pg` driver.
+## Media & Streaming Services
 
-## External APIs
+- **go2rtc (v1.9.14)**: RTSP-to-WebRTC/MSE/HLS bridge (`sentryvision-go2rtc`). Consumes RTSP streams from configured cameras (`server/cameras.json`) and exposes WebRTC on port 8555 and HTTP API on port 1984.
+- **FFmpeg**: Subprocess capture in Python OpenCV service (`FFmpegReader`) capturing raw BGR24 frames from RTSP streams at 640x360 @ 5 FPS.
 
-- **NVIDIA AI API**: Used via `NVIDIA_API_KEY` for advanced scene analysis. Configured in `server/src/services/nvidiaAnalysisService.ts`.
-- **RTSP Streams**: External camera feeds integrated via `server/cameras.json` and processed through `go2rtc` and `opencv-service`.
+## AI & Vision Microservices
 
-## Authentication Providers
+- **OpenCV Python Service (`sentryvision-opencv`)**:
+  - Flask REST API on port `8084` (`/health`, analyze endpoints)
+  - WebSocket publisher on port `9090` sending JPEG frames + JSON tracking events to Node.js
+  - YOLOv8n / YOLOv5n / yolov4-tiny object detection chain (OpenCV DNN)
+  - ByteTracker multi-object tracking (Kalman filter)
+  - InsightFace ArcFace face recognition (30s identity cache)
+- **NVIDIA AI Build API (`integrate.api.nvidia.com`)**:
+  - LLM / Vision Scene Analysis integration (`server/src/services/nvidia/`)
+  - Endpoints: `/api/nvidia/analyze`, `/api/nvidia/analyze-event`, `/api/nvidia/analyze-event-with-bboxes`, `/api/nvidia/analyze-persons`
+  - Circuit breaker and retry mechanisms for API resilience (`server/src/services/nvidia/nvidiaClient.ts`)
+  - Default model: `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` (configurable via `NVIDIA_MODEL`)
 
-- **JWT-based**: Custom auth implementation using `jsonwebtoken` for access/refresh token patterns, `bcrypt` for password hashing, and `speakeasy` for TOTP/MFA. Handled in `server/src/controllers/AuthController.ts` and `server/src/middleware/auth.ts`.
+## Protocols & Real-Time Communication
 
-## Message Queues / Event Systems
+- **Socket.io (v4.7)**: Real-time bidirectional communication between Frontend and Backend (live camera frames, motion alerts, event updates).
+- **WebSockets (`ws`)**: Node-to-Python communication link (`pythonWsClient.ts` connecting to `ws://opencv:9090`).
 
-- **Socket.io**: Used for real-time WebSocket communication between client and server for events and live camera frames.
-- **Node EventEmitter**: Used internally for event routing within the server.
+## Authentication & Security
 
-## Webhooks
+- **JWT (JSON Web Tokens)**: Access tokens and refresh tokens (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`).
+- **TOTP / MFA**: Two-factor authentication via `speakeasy` and QR code generation (`qrcode`).
+- **Credential Encryption**: AES-256-GCM encryption for stored RTSP camera credentials (`server/src/services/credentialEncryption.ts`).
+- **Rate Limiting**: `express-rate-limit` counters stored in PostgreSQL (`rate_limit_counters`).
 
-- **Incoming**: None explicitly defined in public routes; events are mostly polled or received via WebSocket.
-- **Outgoing**: `web-push` library usage suggests support for web push notifications for alerts.
+## External Notifications & Webhooks
 
-## Third-Party Services
-
-- **go2rtc**: Acts as a bridge for camera RTSP feeds to WebRTC, integrated via `server/src/index.ts` proxying.
-- **FFmpeg**: Subprocess execution for RTSP frame capture in `opencv-service`.
-- **Redis (Optional)**: Support configured but generally `REDIS_DISABLED=true`.
+- **Web Push**: VAPID browser push notifications (`web-push` library with public/private VAPID keys).
+- **Email (SMTP)**: Optional email notifications (configured via SMTP environment variables).
+- **Webhook placeholders**: Slack, Discord, Telegram webhook slots available in configuration (not actively wired).

@@ -11,9 +11,9 @@ api:
 webrtc:
   listen: ":8555"
   candidates:
-    - 192.168.31.99:8555
-    - 49.42.125.123:8555
-    - stun:8555
+    - ${GO2RTC_ADVERTISED_HOST}:8555
+    - stun:stun.l.google.com:19302
+    - stun:stun1.l.google.com:19302
 
 log:
   level: "info"

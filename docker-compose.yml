@@ -175,6 +175,7 @@ services:
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       - TZ=Asia/Kolkata
+      - GO2RTC_ADVERTISED_HOST=${GO2RTC_ADVERTISED_HOST:-localhost}
     restart: always
     networks:
       - sentryvision_network

@@ -216,6 +216,61 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     swipeDetectionRef.current = null;
   }, []);
 
+  const cleanupHLS = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
+    }
+  }, []);
+
+  const startHLS = useCallback((): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      cleanupHLS();
+      console.log(`[CameraStream:${camera.name}] Starting HLS stream via go2rtc`);
+      const hlsUrl = `${GO2RTC_BASE}/api/stream.m3u8?src=${camera.id}`;
+      const video = videoRef.current;
+
+      if (!video) {
+        reject(new Error('No video element'));
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        reject(new Error('HLS connection timeout'));
+      }, 15000);
+
+      const onPlay = () => {
+        clearTimeout(timeout);
+        lastFrameTimeRef.current = Date.now();
+        lastVideoTimeRef.current = 0;
+        lastVideoTimeUpdateRef.current = Date.now();
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
+        const elapsed = Date.now() - streamStartTimeRef.current;
+        setMetrics((prev) => ({ ...prev, latency: elapsed }));
+        connectionAttemptsRef.current = 0;
+        setConnectionState('connected');
+        video.removeEventListener('playing', onPlay);
+        resolve();
+      };
+
+      const onError = () => {
+        clearTimeout(timeout);
+        video.removeEventListener('error', onError);
+        reject(new Error('HLS playback error'));
+      };
+
+      video.addEventListener('playing', onPlay);
+      video.addEventListener('error', onError);
+      video.src = hlsUrl;
+      video.play().catch((e) => {
+        if (e.name !== 'AbortError') console.warn('HLS play failed:', e);
+      });
+    });
+  }, [camera.id, camera.name, cleanupHLS]);
+
   const cleanupPeerConnection = useCallback(() => {
     if (pcRef.current) {
       console.log(`[CameraStream:${camera.name}] Cleaning up PeerConnection`);
@@ -664,11 +719,23 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
           isWanRef.current = false;
           console.log(`[CameraStream:${camera.name}] MSE connected`);
           startWatchdog();
-        } catch {
-          console.log(`[CameraStream:${camera.name}] MSE failed, falling back to WAN canvas`);
+        } catch (mseError) {
+          console.log(`[CameraStream:${camera.name}] MSE failed (${mseError}), trying HLS...`);
           cleanupMSE();
-          isWanRef.current = true;
-          setupWanStream();
+          try {
+            const hlsTimeout = new Promise<void>((_, reject) =>
+              setTimeout(() => reject(new Error('HLS timeout')), 15000),
+            );
+            await Promise.race([startHLS(), hlsTimeout]);
+            isWanRef.current = false;
+            console.log(`[CameraStream:${camera.name}] HLS connected`);
+            startWatchdog();
+          } catch (hlsError) {
+            console.log(`[CameraStream:${camera.name}] HLS failed (${hlsError}), falling back to WAN canvas`);
+            cleanupHLS();
+            isWanRef.current = true;
+            setupWanStream();
+          }
         }
       }
     } catch (err) {
@@ -684,6 +751,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
       setIsWanStream(false);
       cleanupPeerConnection();
       cleanupMSE();
+      cleanupHLS();
       stopFrameRender();
       streamActionRef.current = null;
     }
@@ -693,8 +761,10 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     startCameraStream,
     startWebRTC,
     startMSE,
+    startHLS,
     cleanupPeerConnection,
     cleanupMSE,
+    cleanupHLS,
     stopFrameRender,
     setupWanStream,
     startWatchdog,
@@ -714,6 +784,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     setConnectionState('idle');
     cleanupPeerConnection();
     cleanupMSE();
+    cleanupHLS();
     stopFrameRender();
     stopCameraStream(camera.id).catch(() => {});
   }, [
@@ -722,6 +793,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     stopCameraStream,
     cleanupPeerConnection,
     cleanupMSE,
+    cleanupHLS,
     stopFrameRender,
   ]);
 
@@ -790,6 +862,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
       }
       cleanupPeerConnection();
       cleanupMSE();
+      cleanupHLS();
       streamActionRef.current = null;
       stopCameraStream(camera.id).catch(() => {});
     };
@@ -948,9 +1021,10 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     return () => {
       cleanupPeerConnection();
       cleanupMSE();
+      cleanupHLS();
       stopFrameRender();
     };
-  }, [cleanupPeerConnection, cleanupMSE, stopFrameRender]);
+  }, [cleanupPeerConnection, cleanupMSE, cleanupHLS, stopFrameRender]);
 
   return {
     videoRef,

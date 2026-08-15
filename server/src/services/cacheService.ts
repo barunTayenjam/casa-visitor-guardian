@@ -53,7 +53,7 @@ class CacheService {
         lazyConnect: true,
       });
 
-      this.client.on('error', (err) => {
+      this.client.on('error', (err: Error) => {
         if (this.isConnected) {
           logger.warn('Redis connection lost, switching to memory cache', 'CacheService', err);
         }

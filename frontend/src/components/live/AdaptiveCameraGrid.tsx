@@ -431,7 +431,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             {activeCameras.length > 1 && (
               <>
                 <button
-                  className="absolute left-2 top-1/2 -translate-y-1/2 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigateCamera('prev');
@@ -440,10 +440,10 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   title="Previous camera"
                   aria-label="Previous camera"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-7 w-7" />
                 </button>
                 <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigateCamera('next');
@@ -452,7 +452,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   title="Next camera"
                   aria-label="Next camera"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-7 w-7" />
                 </button>
               </>
             )}

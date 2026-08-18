@@ -27,7 +27,7 @@ export const colors = {
   },
   detection: {
     motion: '#f59e0b',
-    person: '#22c55e',
+    person: '#10b981', // Changed from #22c55e to Emerald-500
     vehicle: '#3b82f6',
     face: '#8b5cf6',
     package: '#06b6d4',
@@ -44,18 +44,22 @@ export const lightTokens = {
 
 export const typography = {
   fontFamily: {
-    sans: '"Geist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    sans: '"Inter", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     mono: '"JetBrains Mono", "Fira Code", monospace',
   },
   fontSize: {
-    xs: '0.6875rem',
-    sm: '0.8125rem',
+    xs: '0.75rem',
+    sm: '0.875rem',
     base: '1rem',
-    lg: '1.125rem',
-    xl: '1.375rem',
-    '2xl': '1.75rem',
-    '3xl': '2.5rem',
-    '4xl': '3.5rem',
+    lg: '1.25rem',
+    xl: '1.5rem',
+    '2xl': '2rem',
+    '3xl': '3rem',
+    '4xl': '4.5rem',
+  },
+  letterSpacing: {
+    tight: '-0.02em',
+    tighter: '-0.04em',
   },
 };
 
@@ -74,11 +78,11 @@ export const bezier = {
 
 export const shadows = {
   sm: '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-  md: '0 4px 12px rgba(0, 0, 0, 0.4)',
-  lg: '0 8px 30px rgba(0, 0, 0, 0.5)',
-  xl: '0 20px 60px rgba(0, 0, 0, 0.6)',
-  glow: '0 0 40px rgba(59, 130, 246, 0.15)',
-  diffuse: '0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2)',
+  md: '0 6px 20px rgba(0, 0, 0, 0.45)', // Enhanced depth
+  lg: '0 12px 40px rgba(0, 0, 0, 0.6)', // Enhanced depth
+  xl: '0 24px 80px rgba(0, 0, 0, 0.75)', // Enhanced depth
+  glow: '0 0 50px rgba(59, 130, 246, 0.25)', // Bolder glow
+  diffuse: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)',
 };
 
 export const zIndex = {

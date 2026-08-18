@@ -37,17 +37,22 @@ npm run dev:full         # Both (kills stale ports first)
 # Build
 npm run build            # Frontend (Vite)
 npm run build:server     # Backend (tsc → dist/)
-npm run build:full       # Both
+npm run build:opencv     # OpenCV service assets
+npm run build:full       # All of the above
 
 # Quality
 npm run lint             # ESLint (frontend)
+npm run lint:server      # ESLint (server)
+npm run lint:fix         # ESLint autofix (frontend)
+npm run format           # Prettier write (frontend + server + root)
 npm run typecheck        # tsc --noEmit (frontend)
-npm run test             # Jest (frontend)
+npm run test             # Jest (frontend; tests in frontend/src/__tests__/)
 
 # Server (cd server)
-npm run dev              # Nodemon hot reload
+npm run dev              # Nodemon hot reload (watches src + cameras.json)
 npm run build            # Compile TS
 npm start                # Production
+npm run test:server      # Jest (--experimental-vm-modules)
 
 # Database (cd database)
 npm run migrate          # Run pending migrations
@@ -62,14 +67,15 @@ docker-compose up -d / down / ps / logs -f
 
 ```
 frontend/src/
+├── App.tsx                   # Router + layout (pages mount under /app/*)
 ├── pages/                    # Route-level views
-│   ├── App.tsx               # Router + layout
 │   ├── EventsPage.tsx        # Main events view with filters
-│   ├── Analytics.tsx         # Charts and stats
-│   ├── Settings.tsx          # System settings
-│   ├── DayHighlights.tsx     # Daily highlight reels
+│   ├── PeoplePage.tsx        # People / face clusters (/app/people)
+│   ├── TimelapsePage.tsx     # Timelapse view (/app/timelapse)
 │   ├── StreamDashboard.tsx   # Live camera view
-│   └── Login.tsx
+│   ├── Settings.tsx          # System settings
+│   ├── Login.tsx
+│   └── NotFound.tsx
 ├── components/
 │   ├── live/                 # AdaptiveCameraGrid, StreamPanel, RecentDetectionsSection
 │   ├── events/               # EventDetailPanel, SmartFilters, EventTimeline, RelatedEvents
@@ -87,6 +93,7 @@ frontend/src/
 │   │   ├── cameraService.ts  # Camera CRUD + snapshots
 │   │   ├── eventService.ts   # Event listing/detail
 │   │   ├── detectionService.ts
+│   │   ├── personService.ts  # People / face clusters
 │   │   ├── authService.ts
 │   │   ├── systemService.ts
 │   │   ├── settingsService.ts
@@ -97,6 +104,8 @@ frontend/src/
 │   ├── CameraContext.tsx      # Camera state, stream management
 │   └── SocketContext.tsx      # Socket.io connection
 ├── hooks/
+│   ├── useCameraStream.ts     # Camera stream lifecycle
+│   ├── useViewportStream.ts
 │   └── use-toast.ts
 ├── types/
 │   └── security.ts
@@ -134,14 +143,13 @@ server/src/
 │   ├── AlertController.ts
 │   └── NvidiaController.ts   # AI scene analysis
 ├── routes/                   # Route definitions
-│   ├── index.ts              # Mount all routes
-│   ├── auth.ts, cameras.ts, events.ts, streams.ts
+│   ├── index.ts              # Mount all routes under /api/*
+│   ├── auth.ts, cameras.ts, events.ts, streams.ts, staticRoutes.ts
 │   ├── detection-operations.ts, detectionRedoRoutes.ts, detectionRoutes.ts
-│   ├── motion.ts, faceConfigRoutes.ts, faceEmbeddingRoutes.ts
+│   ├── motion.ts, face-clusters.ts   # face-clusters mounted at /api/face-clusters
 │   ├── notificationRoutes.ts, nvidiaRoutes.ts
-│   ├── review.ts, settings.ts, highlights.ts
-│   ├── visitorRoutes.ts, analytics.ts, alerts.ts
-│   └── event-search.ts
+│   ├── settings.ts, highlights.ts, timelapse.ts
+│   └── analytics.ts, alerts.ts, event-search.ts
 ├── services/                 # Business logic
 │   ├── nvidiaAnalysisService.ts       # NVIDIA AI integration
 │   ├── eventSearchService.ts          # Full-text event search

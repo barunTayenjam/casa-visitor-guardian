@@ -418,7 +418,7 @@ const EventsPage = () => {
 
       const response = await eventService.getEnhancedEventsList({
         page: currentPage,
-        pageSize: 25,
+        pageSize: 12,
         camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
         start_date: startDate,
         end_date: endDate,

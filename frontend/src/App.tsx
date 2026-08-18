@@ -23,7 +23,7 @@ const StreamDashboard = lazy(() => import('./pages/StreamDashboard'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const TimelapsePage = lazy(() => import('./pages/TimelapsePage'));
-
+const PeoplePage = lazy(() => import('./pages/PeoplePage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const AuthRedirect = () => {
@@ -221,6 +221,18 @@ const App = () => {
                                 <AppLayout>
                                   <ErrorBoundary fallback={ErrorFallback}>
                                     <TimelapsePage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/people"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <PeoplePage />
                                   </ErrorBoundary>
                                 </AppLayout>
                               </ProtectedRoute>

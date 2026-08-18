@@ -5,14 +5,14 @@
         "enabled": true,
         "streams": [
             {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream1",
+                "path": "rtsp://go2rtc:8554/cam1",
                 "roles": ["live", "record"],
                 "width": 2304,
                 "height": 1296,
                 "fps": 2
             },
             {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream2",
+                "path": "rtsp://go2rtc:8554/cam1",
                 "roles": ["detect"],
                 "width": 640,
                 "height": 360,
@@ -123,14 +123,14 @@
         "enabled": true,
         "streams": [
             {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream1",
+                "path": "rtsp://go2rtc:8554/cam2",
                 "roles": ["live", "record"],
                 "width": 2304,
                 "height": 1296,
                 "fps": 2
             },
             {
-                "path": "rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream2",
+                "path": "rtsp://go2rtc:8554/cam2",
                 "roles": ["detect"],
                 "width": 640,
                 "height": 360,

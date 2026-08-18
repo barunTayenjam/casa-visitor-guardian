@@ -176,6 +176,8 @@ services:
     environment:
       - TZ=Asia/Kolkata
       - GO2RTC_ADVERTISED_HOST=${GO2RTC_ADVERTISED_HOST:-localhost}
+      - CAM1_RTSP_URL=${CAM1_RTSP_URL:?CAM1_RTSP_URL missing - set it in .env}
+      - CAM2_RTSP_URL=${CAM2_RTSP_URL:?CAM2_RTSP_URL missing - set it in .env}
     restart: always
     networks:
       - sentryvision_network

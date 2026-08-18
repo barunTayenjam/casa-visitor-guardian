@@ -1,8 +1,8 @@
 streams:
   cam1:
-    - rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.62:554/stream1
+    - ${CAM1_RTSP_URL}
   cam2:
-    - rtsp://***REMOVED-EMAIL***:***REMOVED***@192.168.31.61:554/stream1
+    - ${CAM2_RTSP_URL}
 
 api:
   listen: ":1984"

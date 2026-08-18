@@ -6,7 +6,9 @@ import { MotionEvent } from '@/types/security';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { eventService } from '@/services/api/eventService';
+import { Calendar } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -188,7 +190,12 @@ const EventsPage = () => {
   return (
     <div className="w-full min-h-[100dvh] flex flex-col">
       <div className="px-5 pt-6 pb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
+            Security Log
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
+        </div>
         <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
           <SelectTrigger className="w-[130px] h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
             <SelectValue />
@@ -227,9 +234,12 @@ const EventsPage = () => {
               ))}
             </div>
           ) : events.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-              No events found for the current filters
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No events found"
+              description="No confirmed person events match these filters. Try widening the date range or switching to All Events."
+              className="py-20"
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {events.map((event) => (
@@ -266,7 +276,7 @@ const EventsPage = () => {
                       <p className="text-sm font-medium text-foreground truncate">
                         {event.cameraName}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                         {event.timestamp.toLocaleString()}
                       </p>
                     </div>

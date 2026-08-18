@@ -1,8 +1,15 @@
+ffmpeg:
+  h264_main: "-codec:v libx264 -g:v 30 -preset:v superfast -tune:v zerolatency -profile:v main"
+
 streams:
   cam1:
     - ${CAM1_RTSP_URL}
+  cam1_sub:
+    - ffmpeg:${CAM1_SUB_RTSP_URL}#video=h264_main
   cam2:
     - ${CAM2_RTSP_URL}
+  cam2_sub:
+    - ${CAM2_SUB_RTSP_URL}
 
 api:
   listen: ":1984"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, Bell, Settings, LogOut, Film } from 'lucide-react';
+import { Shield, Bell, Settings, LogOut, Film, Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/app/streams', label: 'Streams', icon: Shield },
   { href: '/app/events', label: 'Timeline', icon: Bell },
   { href: '/app/timelapse', label: 'Timelapse', icon: Film },
+  { href: '/app/people', label: 'People', icon: Users },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -42,16 +43,16 @@ export const MacDock: React.FC = () => {
                   <TooltipTrigger asChild>
                     <Link
                       to={item.href}
-                      className={cn(
-                        'relative flex items-center justify-center w-10 h-10 md:w-11 md:h-11 rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 group',
-                        isActive
-                          ? 'bg-primary text-primary-foreground shadow-[0_4px_16px_rgba(59,130,246,0.25)] scale-110'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]',
-                      )}
-                      style={{
-                        animation: `fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms both`,
-                      }}
-                    >
+                        className={cn(
+                          'relative flex items-center justify-center w-10 h-10 md:w-11 md:h-11 rounded-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 group',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-[0_8px_32px_rgba(59,130,246,0.4)] scale-110 rotate-3'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06] hover:scale-105',
+                        )}
+                        style={{
+                          animation: `fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms both`,
+                        }}
+                      >
                       <item.icon className="h-4 w-4 md:h-[18px] md:w-[18px]" />
                       {isActive && (
                         <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary-foreground/60" />

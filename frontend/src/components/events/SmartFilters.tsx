@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   format,
@@ -106,7 +105,6 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
   filters,
   onFiltersChange,
 }) => {
-  const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<
     Record<
@@ -116,15 +114,12 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
   >({});
   const [showCalendar, setShowCalendar] = useState(false);
 
-  useEffect(() => {
-    const count = [
-      filters.cameraId !== 'all',
-      filters.detectionType !== 'all',
-      filters.quickRange !== 'all',
-      filters.dateRange.start !== undefined,
-    ].filter(Boolean).length;
-    setActiveFilterCount(count);
-  }, [filters]);
+  const activeFilterCount = [
+    filters.cameraId !== 'all',
+    filters.detectionType !== 'all',
+    filters.quickRange !== 'all',
+    filters.dateRange.start !== undefined,
+  ].filter(Boolean).length;
 
   const updateFilter = useCallback(
     <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
@@ -387,61 +382,6 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
           )}
         </div>
       </div>
-
-      {activeFilterCount > 0 && (
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          {filters.quickRange !== 'all' && (
-            <Badge
-              variant="default"
-              className="cursor-pointer text-[10px]"
-              onClick={() => updateFilter('quickRange', 'all')}
-            >
-              {quickRangeOptions.find((o) => o.value === filters.quickRange)?.label}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {filters.cameraId !== 'all' && (
-            <Badge
-              variant="default"
-              className="cursor-pointer text-[10px]"
-              onClick={() => updateFilter('cameraId', 'all')}
-            >
-              <Camera className="h-2.5 w-2.5 mr-1" />
-              {cameras.find((c) => c.id === filters.cameraId)?.name || filters.cameraId}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {filters.detectionType !== 'all' && (
-            <Badge
-              variant="default"
-              className="cursor-pointer text-[10px]"
-              onClick={() => updateFilter('detectionType', 'all')}
-            >
-              {filters.detectionType}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-          {filters.dateRange.start && (
-            <Badge
-              variant="default"
-              className="cursor-pointer text-[10px]"
-              onClick={() => {
-                const cleared = {
-                  ...filters,
-                  dateRange: { start: undefined, end: undefined },
-                  quickRange: 'all' as const,
-                };
-                onFiltersChange?.(cleared);
-              }}
-            >
-              <Calendar className="h-2.5 w-2.5 mr-1" />
-              {format(filters.dateRange.start, 'MMM d')}
-              {filters.dateRange.end ? ` - ${format(filters.dateRange.end, 'MMM d')}` : ''}
-              <X className="h-2.5 w-2.5 ml-1" />
-            </Badge>
-          )}
-        </div>
-      )}
     </div>
   );
 };

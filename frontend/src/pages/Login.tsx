@@ -180,10 +180,10 @@ export default function Login() {
 
         {/* Double-Bezel Card */}
         <div
-          className="p-[1px] rounded-[4px] bg-white/[0.06] animate-fade-in-up"
+          className="p-1.5 rounded-[1.75rem] bg-white/[0.06] border border-white/[0.08] animate-fade-in-up"
           style={{ animationDelay: '150ms' }}
         >
-          <div className="rounded-[calc(1.75rem-1px)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
+          <div className="rounded-[calc(1.75rem-0.375rem)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
             <div className="p-6">
               <Tabs defaultValue="login" className="w-full">
                 <TabsList

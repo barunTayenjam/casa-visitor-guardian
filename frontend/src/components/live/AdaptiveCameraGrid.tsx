@@ -17,7 +17,8 @@ const ViewportCameraCard: React.FC<{
   gridKey: string;
   className?: string;
   absolute?: boolean;
-}> = ({ camera, slotManager, onClick, onKeyDown, gridKey, className, absolute }) => {
+  variant?: 'main' | 'sub';
+}> = ({ camera, slotManager, onClick, onKeyDown, gridKey, className, absolute, variant }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { isVisible } = useViewportStream(cardRef);
   const [slotAcquired, setSlotAcquired] = useState(false);
@@ -65,7 +66,7 @@ const ViewportCameraCard: React.FC<{
       aria-label={`${camera.name} camera feed`}
       onKeyDown={onKeyDown}
     >
-      <CameraStream key={gridKey} camera={camera} autoStart={shouldStream} />
+      <CameraStream key={gridKey} camera={camera} autoStart={shouldStream} variant={variant} />
     </div>
   );
 };
@@ -338,8 +339,9 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                 key={camera.id}
                 camera={camera}
                 slotManager={slotManagerRef.current}
-                gridKey={`grid-${camera.id}`}
+                gridKey={`grid-${camera.id}-${focusedCameraId === camera.id ? 'main' : 'sub'}`}
                 absolute={!!focusedCameraId}
+                variant={focusedCameraId === camera.id ? 'main' : 'sub'}
                 className={cn(
                   focusedCameraId && 'absolute inset-0',
                   focusedCameraId &&

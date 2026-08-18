@@ -18,8 +18,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['"Geist"', '"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
-				mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
+				sans: ['"Geist Variable"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+				mono: ['"Geist Mono Variable"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',

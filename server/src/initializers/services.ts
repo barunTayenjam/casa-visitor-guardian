@@ -15,6 +15,7 @@ import { retentionPolicyService } from '../services/retentionPolicyService.js';
 import { automatedCleanupService } from '../services/automatedCleanupService.js';
 import NotificationService from '../services/notificationService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
+import { serviceLogService } from '../services/serviceLogService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from '../services/pythonWsClient.js';
 import { persistDetectionEvent } from '../pipeline/detectionPersistence.js';
@@ -23,6 +24,9 @@ import { UserReviewStatus } from '../models/UserReviewStatus.js';
 import { Timeline } from '../models/Timeline.js';
 import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
 import { DetectionConfig } from '../models/DetectionConfig.js';
+
+const PERSON_MIN_CONFIDENCE = parseFloat(process.env.PERSON_MIN_CONFIDENCE || '0.55');
+const PERSON_MIN_TRACK_HITS = parseInt(process.env.PERSON_MIN_TRACK_HITS || '3', 10);
 
 export async function initializeServices(io: SocketIOServer): Promise<void> {
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -56,6 +60,27 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       { bbox: { x: number; y: number; w: number; h: number }; ts: number }
     >();
 
+    pythonWsClient.on(
+      'logEvent',
+      (ev: {
+        level: string;
+        module?: string;
+        message?: string;
+        cameraId?: string;
+        metadata?: Record<string, unknown>;
+      }) => {
+        const level = ev.level === 'error' ? 'error' : ev.level === 'info' ? 'info' : 'warn';
+        serviceLogService.recordLog({
+          service: 'opencv',
+          level,
+          module: ev.module,
+          cameraId: ev.cameraId ?? undefined,
+          message: ev.message ?? '',
+          metadata: ev.metadata,
+        });
+      },
+    );
+
     pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
       const {
         cameraId,
@@ -68,6 +93,12 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
         identityConfidence,
       } = ev;
       if (!cameraId) return;
+
+      const trackKey = `${cameraId}:${trackId}`;
+      if (eventType === 'track_ended') {
+        persistedTracks.delete(trackKey);
+        return;
+      }
 
       const BROADCAST_MIN_SCORE = 0.5;
       const broadcastWorthy = (score ?? 0) >= BROADCAST_MIN_SCORE;
@@ -113,7 +144,6 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
         });
       }
 
-      const trackKey = `${cameraId}:${trackId}`;
       if (
         !persistedTracks.has(trackKey) &&
         (eventType === 'track_started' || eventType === 'track_updated')
@@ -144,9 +174,12 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
           return;
         }
 
-        const minPersonConfidence = parseFloat(process.env.PERSON_MIN_CONFIDENCE || '0.45');
-        if ((score ?? 0) < minPersonConfidence) {
+        if ((score ?? 0) < PERSON_MIN_CONFIDENCE) {
           persistedTracks.add(trackKey);
+          return;
+        }
+
+        if ((ev.trackletLen ?? 0) < PERSON_MIN_TRACK_HITS) {
           return;
         }
 

@@ -245,6 +245,7 @@ export const eventService = {
     end_date?: string;
     searchQuery?: string;
     sortBy?: string;
+    min_confidence?: number;
     confidence?: 'all' | 'high' | 'medium' | 'low';
     faceStatus?: 'all' | 'has_faces' | 'known_faces' | 'unknown_faces' | 'no_faces';
   }): Promise<EnhancedEventsResponse> {
@@ -260,6 +261,8 @@ export const eventService = {
         if (options.end_date) params.append('end_date', options.end_date);
         if (options.searchQuery) params.append('searchQuery', options.searchQuery);
         if (options.sortBy) params.append('sortBy', options.sortBy);
+        if (options.min_confidence !== undefined)
+          params.append('min_confidence', options.min_confidence.toString());
 
         // Map confidence level to min/max confidence (DB stores 0-1 range)
         if (options.confidence && options.confidence !== 'all') {

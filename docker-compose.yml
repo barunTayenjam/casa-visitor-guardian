@@ -69,7 +69,8 @@ services:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - NVIDIA_API_BASE_URL=${NVIDIA_API_BASE_URL}
       - NVIDIA_MODEL=${NVIDIA_MODEL}
-      - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.45}
+      - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
+      - PERSON_MIN_TRACK_HITS=${PERSON_MIN_TRACK_HITS:-3}
       - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-true}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
       - DEFAULT_FPS=${DEFAULT_FPS:-2}
@@ -88,6 +89,8 @@ services:
       - ./data/snapshots:/app/data/snapshots
       - ./public/events:/app/public/events
       - ./public/timelapse:/app/public/timelapse
+    logging:
+      driver: journald
     depends_on:
       postgres:
         condition: service_healthy
@@ -178,6 +181,10 @@ services:
       - GO2RTC_ADVERTISED_HOST=${GO2RTC_ADVERTISED_HOST:-localhost}
       - CAM1_RTSP_URL=${CAM1_RTSP_URL:?CAM1_RTSP_URL missing - set it in .env}
       - CAM2_RTSP_URL=${CAM2_RTSP_URL:?CAM2_RTSP_URL missing - set it in .env}
+      - CAM1_SUB_RTSP_URL=${CAM1_SUB_RTSP_URL:?CAM1_SUB_RTSP_URL missing - set it in .env}
+      - CAM2_SUB_RTSP_URL=${CAM2_SUB_RTSP_URL:?CAM2_SUB_RTSP_URL missing - set it in .env}
+    logging:
+      driver: journald
     restart: always
     networks:
       - sentryvision_network

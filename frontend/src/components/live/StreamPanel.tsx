@@ -36,6 +36,7 @@ export interface StreamPanelProps {
   motionDetected: boolean;
   motionConfidence: number;
   objectCount: number;
+  activeIdentity?: string;
   onScreenshot?: () => void;
   onFullscreen?: () => void;
   imgRef?: React.RefObject<HTMLImageElement>;
@@ -64,6 +65,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({
   motionDetected,
   motionConfidence,
   objectCount,
+  activeIdentity,
   onFullscreen,
   imgRef,
   videoRef,
@@ -130,6 +132,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({
                     <span className="text-[10px] ml-2 opacity-80">
                       {motionConfidence}% confidence
                       {objectCount > 0 && ` · ${objectCount} object${objectCount > 1 ? 's' : ''}`}
+                      {activeIdentity && ` · ${activeIdentity}`}
                     </span>
                   </div>
                 </div>

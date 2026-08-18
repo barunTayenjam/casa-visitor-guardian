@@ -6,6 +6,7 @@ import { initializeDb, shutdownDb } from './initializers/database.js';
 import { initializeServices as initAllServices } from './initializers/services.js';
 import { initializeCron } from './initializers/cron.js';
 import { serviceRegistry } from './services/serviceRegistry.js';
+import { serviceLogService } from './services/serviceLogService.js';
 import { inMemoryState } from './services/inMemoryStateService.js';
 import { AppDataSource } from './database.js';
 import authService from './auth/index.js';
@@ -128,6 +129,8 @@ export async function gracefulShutdown(
     } catch (err) {
       logger.debug('Timelapse service shutdown skipped (may not be initialized)', 'BOOTSTRAP', err);
     }
+
+    await serviceLogService.shutdown();
 
     io.disconnectSockets(true);
     io.close();

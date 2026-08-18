@@ -6,9 +6,6 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import log database
-// import { getLogDatabase } from '../services/logDatabase.js';
-
 // Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, '../../logs');
 if (!fs.existsSync(logsDir)) {
@@ -37,7 +34,6 @@ const LOGGING_CONFIG = {
   enableStreamLogs: true,
   enableSocketLogs: true,
   enableFileLogging: false, // Disable file logging temporarily to fix HTTP hanging
-  enableDatabaseLogging: true, // Re-enabled after HTTP hanging fix
   maxLogFileSize: 10 * 1024 * 1024, // 10MB max file size
   maxLogFiles: 5, // Keep 5 log files max
 };
@@ -95,22 +91,9 @@ const writeToFile = (filePath: string, message: string) => {
   });
 };
 
-// Database logging utility
-const writeToDatabase = async (
-  level: string,
-  message: string,
-  source?: string,
-  error?: unknown,
-  metadata?: Record<string, unknown>,
-) => {
-  if (!LOGGING_CONFIG.enableDatabaseLogging) return;
-
-  // General logs are not persisted to the security_events table.
-  // Security/audit events use logSecurityEvent() which targets SecurityEvent
-  // with its strict eventType enum. Generic DB log persistence is intentionally
-  // unimplemented to avoid polluting the audit table.
-  return;
-};
+// Security/audit events use logSecurityEvent() which targets the SecurityEvent
+// table with its strict eventType enum. Generic DB log persistence is handled by
+// serviceLogService (service_logs table) for warn/error levels.
 
 const log = (
   level: string,
@@ -158,6 +141,27 @@ const log = (
     originalConsoleLog(logMessage);
   }
 
+  if (level === 'warn' || level === 'error') {
+    void import('../services/serviceLogService.js')
+      .then(({ serviceLogService }) =>
+        serviceLogService.recordLog({
+          service: 'backend',
+          level,
+          module: source,
+          message,
+          metadata: {
+            ...(metadata ?? {}),
+            ...(error instanceof Error
+              ? { error: error.message }
+              : error !== undefined
+                ? { error: String(error) }
+                : {}),
+          },
+        }),
+      )
+      .catch(() => {});
+  }
+
   // Write all logs to combined log file
   writeToFile(combinedLogFile, logMessage);
 
@@ -165,35 +169,6 @@ const log = (
   if (source === 'API' || source === 'SOCKET') {
     writeToFile(accessLogFile, logMessage);
   }
-
-  // Write to database (async, don't block) - only if enabled
-  if (LOGGING_CONFIG.enableDatabaseLogging) {
-    // Use setImmediate to avoid blocking the current request
-    setImmediate(() => {
-      writeToDatabase(level, message, source, error, metadata).catch((err) => {
-        // Silently ignore database logging errors to prevent infinite loops
-        originalConsoleError('Database logging failed:', err);
-      });
-    });
-  }
-};
-
-// Override console methods to also log to file
-
-console.log = (...args: any[]) => {
-  originalConsoleLog(...args);
-};
-
-console.error = (...args: any[]) => {
-  originalConsoleError(...args);
-};
-
-console.warn = (...args: any[]) => {
-  originalConsoleWarn(...args);
-};
-
-console.debug = (...args: any[]) => {
-  originalConsoleDebug(...args);
 };
 
 export const logger = {

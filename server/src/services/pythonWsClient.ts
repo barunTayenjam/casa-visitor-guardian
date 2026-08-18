@@ -134,6 +134,15 @@ export class PythonWsClient extends EventEmitter {
               identity: parsed.identity ?? null,
               identityConfidence: parsed.identityConfidence ?? parsed.identity_confidence ?? 0,
             } as TrackingEvent);
+          } else if (parsed.type === 'log_event') {
+            this.emit('logEvent', {
+              level: parsed.level,
+              module: parsed.module,
+              message: parsed.message,
+              cameraId: parsed.cameraId,
+              metadata: parsed.metadata,
+              timestamp: parsed.timestamp,
+            });
           }
         } catch {
           // ignore malformed messages

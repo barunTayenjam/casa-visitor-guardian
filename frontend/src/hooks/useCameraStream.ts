@@ -666,6 +666,45 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     setConnectionState('connected');
   }, [camera.id, stopFrameRender, startFrameRender]);
 
+  const getStreamErrorMessage = useCallback((err: unknown, mode: 'initial' | 'webrtc' | 'mse' | 'hls' | 'socket' = 'initial') => {
+    if (mode === 'socket') {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Socket errors are already formatted by the server; pass through concisely
+      return msg.length > 80 ? msg.slice(0, 77) + '...' : msg;
+    }
+
+    const base = err instanceof Error ? err.message : 'Failed to start stream';
+
+    switch (mode) {
+      case 'initial':
+        if (base.includes('timeout')) {
+          return 'Connection timed out. Check your network and try again.';
+        }
+        if (base.includes('WebRTC')) {
+          return 'WebRTC connection failed. Trying MSE fallback...';
+        }
+        if (base.includes('MSE')) {
+          return 'MSE stream failed. Trying HLS fallback...';
+        }
+        if (base.includes('HLS')) {
+          return 'HLS playback failed. Falling back to browser canvas.';
+        }
+        return 'Failed to start stream. Please try again.';
+
+      case 'webrtc':
+        return 'WebRTC connection lost. Check network and restart stream.';
+
+      case 'mse':
+        return 'MSE stream error. Switching to alternative playback method.';
+
+      case 'hls':
+        return 'HLS stream error. Video will play via browser fallback.';
+
+      default:
+        return base;
+    }
+  }, []);
+
   const handleStreamStart = useCallback(async () => {
     if (streamActionRef.current === 'start') return;
 
@@ -688,7 +727,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     connectionTimeoutRef.current = setTimeout(() => {
       streamActionRef.current = null;
       setConnectionState('error');
-      setError('Connection timeout. Please try again.');
+      setError(getStreamErrorMessage('Connection timeout', 'initial'));
       setIsStreaming(false);
     }, 30000);
 
@@ -744,7 +783,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
       }
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start stream';
+      const errorMessage = getStreamErrorMessage(err, 'initial');
       setError(errorMessage);
       setConnectionState('error');
       setIsStreaming(false);
@@ -998,7 +1037,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
 
     const handleError = (data: { cameraId: string; error: string }) => {
       if (data.cameraId === camera.id) {
-        setError(data.error);
+        setError(getStreamErrorMessage(data.error, 'socket'));
         setConnectionState('error');
         setIsStreaming(false);
       }

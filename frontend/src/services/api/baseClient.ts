@@ -158,7 +158,7 @@ export async function fetchWithRetry(
       return fetchWithRetry(url, options, retries - 1, isRetryAfterRefresh);
     }
 
-    if (error instanceof ApiError) {
+    if (error instanceof ApiError || (error instanceof Error && (url.includes('/auth/login') && (error.message.includes('401') || error.message.includes('403'))))) {
       throw error;
     }
 

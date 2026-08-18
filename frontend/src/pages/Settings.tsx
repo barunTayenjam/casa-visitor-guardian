@@ -16,6 +16,7 @@ import {
   BellOff,
   Volume2,
   Mail,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -831,11 +832,26 @@ const SettingsPage = () => {
             </SettingCard>
 
             <div className="mb-6 mt-8">
-              <h2 className="text-xl font-semibold text-foreground">Security</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Two-factor authentication settings
-              </p>
+              <h2 className="text-xl font-semibold text-foreground">System Logs</h2>
+              <p className="text-sm text-muted-foreground mt-1">Review persistent system logs</p>
             </div>
+
+            <SettingCard>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-[0.5rem] bg-indigo-500/10">
+                    <FileText className="h-5 w-5 text-indigo-500" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">View Logs</Label>
+                    <p className="text-xs text-muted-foreground">Access stored operational logs</p>
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => navigate('/app/logs')}>
+                  Open Viewer
+                </Button>
+              </div>
+            </SettingCard>
 
             <SettingCard>
               <div className="space-y-4">

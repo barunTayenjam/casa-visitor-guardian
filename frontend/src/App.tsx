@@ -24,6 +24,7 @@ const EventsPage = lazy(() => import('./pages/EventsPage'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const TimelapsePage = lazy(() => import('./pages/TimelapsePage'));
 const PeoplePage = lazy(() => import('./pages/PeoplePage'));
+const LogsPage = lazy(() => import('./pages/LogsPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const AuthRedirect = () => {
@@ -233,6 +234,18 @@ const App = () => {
                                 <AppLayout>
                                   <ErrorBoundary fallback={ErrorFallback}>
                                     <PeoplePage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/logs"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <LogsPage />
                                   </ErrorBoundary>
                                 </AppLayout>
                               </ProtectedRoute>

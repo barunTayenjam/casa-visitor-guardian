@@ -603,8 +603,13 @@ class FramePipeline:
             daemon=True,
         )
         self._detection_thread.start()
+        self._live_reader.log_fn = self._queue_pipeline_log
         self._live_reader.start(self._on_live_frame)
         print(f"[FramePipeline:{self._camera_id}] Started (single reader, live+detect)")
+        self._queue_pipeline_log(
+            "info", "FramePipeline",
+            f"Pipeline started (live {self._live_width}x{self._live_height}, detect {self._detect_width}x{self._detect_height})",
+        )
 
     def start_live(self) -> None:
         pass
@@ -618,6 +623,13 @@ class FramePipeline:
         if self._detection_thread:
             self._detection_thread.join(timeout=5)
         print(f"[FramePipeline:{self._camera_id}] Stopped")
+        self._queue_pipeline_log("info", "FramePipeline", "Pipeline stopped")
+
+    def _queue_pipeline_log(self, level: str, module: str, message: str, **meta) -> None:
+        try:
+            self._publisher.queue_log(level, module, message, camera_id=self._camera_id, **meta)
+        except Exception:
+            pass
 
     def _on_live_frame(self, frame_data: dict) -> None:
         self._frame_counter += 1

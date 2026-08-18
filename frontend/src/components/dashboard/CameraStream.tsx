@@ -6,6 +6,8 @@ import socketService from '@/services/SocketService';
 import { Camera } from '@/types/security';
 import { ConnectionStateOverlay } from '@/components/live/ConnectionStateOverlay';
 import { StreamPanel } from '@/components/live/StreamPanel';
+import { DetectionBoxes, TrackedDetection } from '@/components/live/DetectionBoxes';
+import { StreamTimestamp } from '@/components/live/StreamTimestamp';
 import { CameraStreamSkeleton } from '@/components/ui/LoadingSkeleton';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +33,14 @@ interface MotionState {
 }
 
 const GO2RTC_BASE = '/go2rtc';
+
+const DETECTION_SPACE_WIDTH = 640;
+const DETECTION_SPACE_HEIGHT = 360;
+const TRACK_TTL_MS = 2500;
+const TRACK_SYNC_INTERVAL_MS = 300;
+const PERSON_CONFIDENCE_FLOOR = 50;
+const OTHER_CONFIDENCE_FLOOR = 40;
+const PERSON_CHIP_MIN_HITS = 2;
 
 export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = true }) => {
   const { startCameraStream, stopCameraStream } = useCameras();
@@ -64,6 +74,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
     lastMotionTime: 0,
   });
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoAspectRef = useRef<number>(16 / 9);
+  const [videoRect, setVideoRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const liveTracksRef = useRef<Map<string, TrackedDetection>>(new Map());
+  const tracksDirtyRef = useRef(false);
+  const [liveTracks, setLiveTracks] = useState<TrackedDetection[]>([]);
+  const [personCount, setPersonCount] = useState(0);
+
   const streamActionRef = useRef<'start' | 'stop' | null>(null);
   const connectionStartTimeRef = useRef<number>(0);
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,7 +118,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
   const MAX_FAILURE_COUNT = 3;
   const CONNECTION_RATE_LIMIT_MS = 3000;
   const MAX_CONNECTION_ATTEMPTS_PER_MINUTE = 10;
-  const STALL_THRESHOLD_MS = 5000;
+  const STALL_THRESHOLD_MS = 8000;
   const STARTUP_GRACE_PERIOD_MS = 10000;
 
   const rateLimitResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -222,20 +245,56 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
     swipeDetectionRef.current = null;
   }, []);
 
-  const cleanupPeerConnection = useCallback(() => {
-    if (pcRef.current) {
-      console.log(`[CameraStream:${camera.name}] Cleaning up PeerConnection`);
-      pcRef.current.close();
-      pcRef.current = null;
+  const recomputeVideoRect = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const cw = el.clientWidth;
+    const ch = el.clientHeight;
+    if (!cw || !ch) return;
+    const aspect = videoAspectRef.current || 16 / 9;
+    let width: number;
+    let height: number;
+    if (cw / ch > aspect) {
+      height = ch;
+      width = ch * aspect;
+    } else {
+      width = cw;
+      height = cw / aspect;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    if (watchdogIntervalRef.current) {
-      clearInterval(watchdogIntervalRef.current);
-      watchdogIntervalRef.current = null;
-    }
-  }, [camera.name]);
+    setVideoRect({
+      left: (cw - width) / 2,
+      top: (ch - height) / 2,
+      width,
+      height,
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => recomputeVideoRect());
+    observer.observe(el);
+    recomputeVideoRect();
+    return () => observer.disconnect();
+  }, [recomputeVideoRect]);
+
+  const cleanupPeerConnection = useCallback(
+    (keepVideo = false) => {
+      if (pcRef.current) {
+        console.log(`[CameraStream:${camera.name}] Cleaning up PeerConnection`);
+        pcRef.current.close();
+        pcRef.current = null;
+      }
+      if (!keepVideo && videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      if (!keepVideo && watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+        watchdogIntervalRef.current = null;
+      }
+    },
+    [camera.name],
+  );
 
   const isStreamingRef = useRef(isStreaming);
   const connectionStateRef = useRef(connectionState);
@@ -257,7 +316,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
           if (now - lastVideoTimeUpdateRef.current > STALL_THRESHOLD_MS * 2) {
             console.warn(`[CameraStream:${camera.name}] ICE disconnected too long, restarting`);
             failureCountRef.current++;
-            handleStreamRestart();
+            reconnectStreamRef.current();
           }
           return;
         }
@@ -291,15 +350,19 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
           failureCountRef.current = 0;
         } else if (now - lastVideoTimeUpdateRef.current > STALL_THRESHOLD_MS) {
           console.warn(`[CameraStream:${camera.name}] Stream stalled detected by watchdog`);
-          handleStreamRestart();
+          reconnectStreamRef.current();
         }
       }
     }, 2000);
-  }, [camera.name, handleStreamRestart]);
+  }, [camera.name]);
+
+  const pendingStreamRef = useRef<MediaStream | null>(null);
+  const reconnectStreamRef = useRef<() => void>(() => {});
 
   const startWebRTC = useCallback((): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
-      cleanupPeerConnection();
+      cleanupPeerConnection(true);
+      pendingStreamRef.current = null;
 
       console.log(`[CameraStream:${camera.name}] Starting WebRTC connection`);
       const pc = new RTCPeerConnection({
@@ -312,18 +375,25 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
 
       let settled = false;
 
+      const swapToStream = (stream: MediaStream) => {
+        if (!videoRef.current) return;
+        videoRef.current.srcObject = stream;
+        lastFrameTimeRef.current = Date.now();
+        lastVideoTimeRef.current = 0;
+        lastVideoTimeUpdateRef.current = Date.now();
+        videoRef.current.play().catch((e) => {
+          if (e.name !== 'AbortError') console.warn('Video play failed:', e);
+        });
+      };
+
       pc.ontrack = (event) => {
         if (pcRef.current !== pc) return;
         console.log(`[CameraStream:${camera.name}] Received video track`);
-        if (videoRef.current && event.streams[0]) {
-          videoRef.current.srcObject = event.streams[0];
-          lastFrameTimeRef.current = Date.now();
-          lastVideoTimeRef.current = 0;
-          lastVideoTimeUpdateRef.current = Date.now();
-
-          videoRef.current.play().catch((e) => {
-            if (e.name !== 'AbortError') console.warn('Video play failed:', e);
-          });
+        if (event.streams[0]) {
+          pendingStreamRef.current = event.streams[0];
+          if (videoRef.current && !videoRef.current.srcObject) {
+            swapToStream(event.streams[0]);
+          }
         }
       };
 
@@ -335,7 +405,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
         if (settled) {
           if (state === 'failed') {
             failureCountRef.current++;
-            handleStreamRestart();
+            reconnectStreamRef.current();
           } else if (state === 'disconnected') {
             console.log(`[CameraStream:${camera.name}] ICE disconnected, waiting for recovery...`);
             setConnectionState('reconnecting');
@@ -344,6 +414,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
             lastVideoTimeRef.current = 0;
             lastVideoTimeUpdateRef.current = Date.now();
             setConnectionState('connected');
+            if (pendingStreamRef.current) {
+              swapToStream(pendingStreamRef.current);
+              pendingStreamRef.current = null;
+            }
           }
           return;
         }
@@ -361,6 +435,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
           setMetrics((prev) => ({ ...prev, latency: elapsed }));
           connectionAttemptsRef.current = 0;
           setConnectionState('connected');
+          if (pendingStreamRef.current) {
+            swapToStream(pendingStreamRef.current);
+            pendingStreamRef.current = null;
+          }
           resolve();
         } else if (state === 'failed') {
           settled = true;
@@ -396,7 +474,32 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
         }
       })();
     });
-  }, [camera.id, camera.name, cleanupPeerConnection, handleStreamRestart]);
+  }, [camera.id, camera.name, cleanupPeerConnection]);
+
+  const reconnectStream = useCallback(() => {
+    if (!canRestartStream()) {
+      console.log(`[CameraStream:${camera.name}] Reconnect suppressed by rate limit or cooldown`);
+      return;
+    }
+    if (isWanRef.current) {
+      handleStreamRestart();
+      return;
+    }
+    console.log(`[CameraStream:${camera.name}] Reconnecting WebRTC in place`);
+    setConnectionState('reconnecting');
+    startWebRTC()
+      .then(() => {
+        failureCountRef.current = 0;
+      })
+      .catch((err: unknown) => {
+        console.log(
+          `[CameraStream:${camera.name}] In-place reconnect failed (${err}), falling back to full restart`,
+        );
+        handleStreamRestart();
+      });
+  }, [canRestartStream, camera.name, handleStreamRestart, startWebRTC]);
+
+  reconnectStreamRef.current = reconnectStream;
 
   const cleanupMSE = useCallback(() => {
     mseSettledRef.current = false;
@@ -607,6 +710,13 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
         }
         latestFrameRef.current = img;
         hasNewFrameRef.current = true;
+        if (img.naturalWidth && img.naturalHeight) {
+          const aspect = img.naturalWidth / img.naturalHeight;
+          if (Math.abs(aspect - videoAspectRef.current) > 0.01) {
+            videoAspectRef.current = aspect;
+            recomputeVideoRect();
+          }
+        }
       };
       img.onerror = () => URL.revokeObjectURL(url);
       img.src = url;
@@ -617,7 +727,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
       connectionTimeoutRef.current = null;
     }
     setConnectionState('connected');
-  }, [camera.id, stopFrameRender, startFrameRender]);
+  }, [camera.id, stopFrameRender, startFrameRender, recomputeVideoRect]);
 
   const handleStreamStart = useCallback(async () => {
     if (streamActionRef.current === 'start') return;
@@ -720,6 +830,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
     setIsStreaming(false);
     setIsWanStream(false);
     setConnectionState('idle');
+    liveTracksRef.current.clear();
+    tracksDirtyRef.current = false;
+    setLiveTracks([]);
+    setPersonCount(0);
     cleanupPeerConnection();
     cleanupMSE();
     stopFrameRender();
@@ -896,7 +1010,14 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
 
     const handleDetection = (data: {
       cameraId: string;
-      detections: { class?: string; confidence?: number }[];
+      detections: {
+        class?: string;
+        confidence?: number;
+        bbox?: { x: number; y: number; width: number; height: number };
+        trackId?: string | number;
+        identity?: string;
+        identityConfidence?: number;
+      }[];
       timestamp: string;
       metadata?: { confidence?: number };
     }) => {
@@ -914,6 +1035,31 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
         setTimeout(() => {
           setMotion((prev) => ({ ...prev, detected: false }));
         }, 3000);
+
+        const now = Date.now();
+        for (const det of detections) {
+          if (!det.bbox) continue;
+          const floor = det.class === 'person' ? PERSON_CONFIDENCE_FLOOR : OTHER_CONFIDENCE_FLOOR;
+          if ((det.confidence ?? 0) < floor) continue;
+          const key = String(det.trackId ?? `${det.class}-${det.bbox.x}-${det.bbox.y}`);
+          const prev = liveTracksRef.current.get(key);
+          liveTracksRef.current.set(key, {
+            trackId: key,
+            className: det.class ?? 'object',
+            confidence: det.confidence ?? 0,
+            bbox: {
+              x: Math.max(0, Math.min(1, det.bbox.x / DETECTION_SPACE_WIDTH)),
+              y: Math.max(0, Math.min(1, det.bbox.y / DETECTION_SPACE_HEIGHT)),
+              width: Math.max(0, Math.min(1, det.bbox.width / DETECTION_SPACE_WIDTH)),
+              height: Math.max(0, Math.min(1, det.bbox.height / DETECTION_SPACE_HEIGHT)),
+            },
+            identity: det.identity ?? prev?.identity,
+            identityConfidence: det.identityConfidence ?? prev?.identityConfidence,
+            hitCount: (prev?.hitCount ?? 0) + 1,
+            lastSeen: now,
+          });
+        }
+        tracksDirtyRef.current = true;
       }
 
       const now = Date.now();
@@ -941,12 +1087,39 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
 
     const detectionUnsubscribe = socketService.on('detection', handleDetection);
     const errorUnsubscribe = socketService.on('camera-error', handleError);
+    const tracks = liveTracksRef.current;
 
     return () => {
       detectionUnsubscribe();
       errorUnsubscribe();
+      tracks.clear();
+      tracksDirtyRef.current = false;
     };
   }, [camera.id]);
+
+  useEffect(() => {
+    const sync = setInterval(() => {
+      const now = Date.now();
+      let expired = false;
+      for (const [key, track] of liveTracksRef.current) {
+        if (now - track.lastSeen > TRACK_TTL_MS) {
+          liveTracksRef.current.delete(key);
+          expired = true;
+        }
+      }
+      if (expired) tracksDirtyRef.current = true;
+      if (!tracksDirtyRef.current) return;
+      tracksDirtyRef.current = false;
+      const tracks = Array.from(liveTracksRef.current.values());
+      setLiveTracks(tracks);
+      setPersonCount(
+        tracks.filter(
+          (t) => t.className === 'person' && (t.hitCount ?? 0) >= PERSON_CHIP_MIN_HITS,
+        ).length,
+      );
+    }, TRACK_SYNC_INTERVAL_MS);
+    return () => clearInterval(sync);
+  }, []);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = isMuted;
@@ -960,8 +1133,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
     };
   }, [cleanupPeerConnection, cleanupMSE, stopFrameRender]);
 
+  const activeIdentity = liveTracks.find(
+    (t) => t.identity && t.identity !== 'unknown',
+  )?.identity;
+
   return (
-    <div className="relative w-full h-full bg-black">
+    <div ref={containerRef} className="relative w-full h-full bg-black">
       {camera.status === 'offline' && !isStreaming ? (
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
@@ -983,9 +1160,18 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onLoadedMetadata={() => {
+              const video = videoRef.current;
+              if (video && video.videoWidth && video.videoHeight) {
+                const aspect = video.videoWidth / video.videoHeight;
+                if (Math.abs(aspect - videoAspectRef.current) > 0.01) {
+                  videoAspectRef.current = aspect;
+                  recomputeVideoRect();
+                }
+              }
+            }}
             onStalled={() => {
               console.warn(`[CameraStream:${camera.name}] Video stalled`);
-              lastVideoTimeUpdateRef.current = 0; // Force watchdog to see it as stalled
             }}
             onWaiting={() => {
               console.log(`[CameraStream:${camera.name}] Video waiting for data`);
@@ -1000,6 +1186,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
               (!isStreaming || !isWanStream) && 'hidden',
             )}
           />
+
+          <DetectionBoxes tracks={liveTracks} videoRect={videoRect} />
+          <StreamTimestamp visible={connectionState === 'connected' && isStreaming} />
 
           {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
             <div className="absolute inset-0 z-0">
@@ -1064,6 +1253,12 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
                   {isWanStream ? 'STREAM' : 'LIVE'}
                 </span>
               )}
+              {personCount > 0 && connectionState === 'connected' && isStreaming && (
+                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {personCount} {personCount === 1 ? 'Person' : 'Persons'}
+                </span>
+              )}
             </div>
             {!isWanStream && connectionState === 'connected' && isStreaming && (
               <button
@@ -1097,6 +1292,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({ camera, autoStart = 
             motionDetected={motion.detected}
             motionConfidence={motion.confidence}
             objectCount={motion.objectCount}
+            activeIdentity={activeIdentity}
             videoRef={videoRef}
           />
         </>

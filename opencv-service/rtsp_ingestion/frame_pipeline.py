@@ -167,9 +167,9 @@ class InProcessYOLO:
             "fire hydrant",
         }
         self._class_thresholds = {
-            "person": 0.20, "car": 0.35, "truck": 0.40, "bus": 0.40,
-            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.20, "cat": 0.20,
-            "bird": 0.20, "horse": 0.40, "backpack": 0.40, "umbrella": 0.45,
+            "person": 0.55, "car": 0.35, "truck": 0.40, "bus": 0.40,
+            "motorcycle": 0.40, "bicycle": 0.40, "dog": 0.40, "cat": 0.40,
+            "bird": 0.40, "horse": 0.40, "backpack": 0.40, "umbrella": 0.45,
             "handbag": 0.45, "suitcase": 0.45, "cell phone": 0.45,
             "chair": 0.45, "couch": 0.45, "potted plant": 0.50,
             "tv": 0.45, "laptop": 0.45, "book": 0.45, "clock": 0.45,
@@ -399,7 +399,7 @@ class InProcessYOLO:
                 )
                 for (x, y, w, h), weight in zip(rects, weights):
                     score = min(0.99, max(0.15, weight))
-                    if score >= 0.20:
+                    if score >= 0.60:
                         results.append({
                             "bbox": [int(x), int(y), int(w), int(h)],
                             "score": round(score, 4),
@@ -654,6 +654,27 @@ class FramePipeline:
                 import traceback
                 traceback.print_exc()
 
+    def _apply_camera_filters(self, detections):
+        objects_cfg = self._config.get("objects", {})
+        track_classes = objects_cfg.get("track", [])
+        filters = objects_cfg.get("filters", {})
+        filtered = []
+        for det in detections:
+            cname = det.get("class")
+            if track_classes and cname not in track_classes:
+                continue
+            f = filters.get(cname, {}) if cname else {}
+            thresh = f.get("threshold")
+            if thresh is not None and det.get("score", 0) < thresh:
+                continue
+            min_area = f.get("minArea", 0)
+            bbox = det.get("bbox", [0, 0, 0, 0])
+            area = bbox[2] * bbox[3] if isinstance(bbox, (list, tuple)) and len(bbox) == 4 else 0
+            if min_area and area < min_area:
+                continue
+            filtered.append(det)
+        return filtered
+
     def _process_detection(self, frame: np.ndarray) -> None:
         if not self._adaptive_frame_processor.should_process_frame():
             return
@@ -667,9 +688,9 @@ class FramePipeline:
             return
 
         print(f"[FramePipeline:{self._camera_id}] MOTION DETECTED — running YOLO")
-        detections = self._run_detection(frame)
+        detections = self._apply_camera_filters(self._run_detection(frame))
         if not detections:
-            print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections")
+            print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections after camera filters")
             return
 
         self._scene_frame_counter += 1

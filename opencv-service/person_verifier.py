@@ -9,7 +9,7 @@ Config:
     HUMAN_VERIFIER_ENABLED    (default 1)  master switch
     HUMAN_VERIFIER_KEEP_BACK_FACING (default 1)  keep persons with no face
     HUMAN_VERIFIER_MIN_KEYPOINTS (default 3)  min pose keypoints to count as human
-    HUMAN_VERIFIER_SCORE      (default 0.35)  YOLO score floor when face absent
+    HUMAN_VERIFIER_SCORE      (default 0.75) YOLO score floor when no face/pose evidence
 """
 
 import os
@@ -26,7 +26,7 @@ class HumanVerifier:
         self.enabled = int(os.environ.get("HUMAN_VERIFIER_ENABLED", "1"))
         self.keep_back_facing = int(os.environ.get("HUMAN_VERIFIER_KEEP_BACK_FACING", "1"))
         self.min_keypoints = int(os.environ.get("HUMAN_VERIFIER_MIN_KEYPOINTS", "3"))
-        self.score_floor = float(os.environ.get("HUMAN_VERIFIER_SCORE", "0.35"))
+        self.score_floor = float(os.environ.get("HUMAN_VERIFIER_SCORE", "0.75"))
 
     @property
     def pts(self):
@@ -69,6 +69,15 @@ class HumanVerifier:
         # Tier 1: High YOLO confidence → trust it completely.
         if yolo_score >= 0.9:
             return True
+
+        # Small ROIs (640x360 detection frames) starve face/pose models — upscale.
+        if roi.shape[0] > 0 and roi.shape[0] < 96:
+            scale = 128.0 / roi.shape[0]
+            roi = cv2.resize(
+                roi,
+                (max(1, int(roi.shape[1] * scale)), 128),
+                interpolation=cv2.INTER_LINEAR,
+            )
 
         # Tier 2: Face verification via uniface.
         fa = self.face_analyzer

@@ -69,7 +69,10 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       } = ev;
       if (!cameraId) return;
 
-      if (eventType === 'track_started' || eventType === 'track_updated') {
+      const BROADCAST_MIN_SCORE = 0.5;
+      const broadcastWorthy = (score ?? 0) >= BROADCAST_MIN_SCORE;
+
+      if ((eventType === 'track_started' || eventType === 'track_updated') && broadcastWorthy) {
         const detection = {
           class: className,
           confidence: Math.round(score * 100),
@@ -153,7 +156,7 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
         });
       }
 
-      if (eventType === 'track_started') {
+      if (eventType === 'track_started' && broadcastWorthy) {
         io.emit('motionDetected', {
           id: `track_${trackId}_${Date.now()}`,
           cameraId,

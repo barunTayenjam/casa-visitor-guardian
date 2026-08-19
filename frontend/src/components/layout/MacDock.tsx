@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, Bell, Settings, LogOut, Film, Users, Crosshair } from 'lucide-react';
+import { Shield, Bell, Settings, LogOut, Film, Users, Crosshair, MessageSquare } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/app/timelapse', label: 'Timelapse', icon: Film },
   { href: '/app/people', label: 'People', icon: Users },
   { href: '/app/detections', label: 'Detections', icon: Crosshair },
+  { href: '/app/ask', label: 'Ask', icon: MessageSquare },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
 

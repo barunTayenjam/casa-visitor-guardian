@@ -1,0 +1,262 @@
+import { z } from 'zod';
+import { logger } from '../../utils/logger.js';
+import { ChatMessage, ChatResponse } from '../../types/chat.js';
+import { chatLlm, extractJsonObject } from './chatLlm.js';
+import {
+  humanCounts,
+  humanCountsParamsSchema,
+  periodReportParamsSchema,
+  resolveVehicleClasses,
+  vehicleTimeline,
+  vehicleTimelineParamsSchema,
+} from './queryTools.js';
+import {
+  RangeToken,
+  resolveIsoRange,
+  resolveRange,
+  rangeTokenSchema,
+} from './dateResolver.js';
+import { collectReportStats, reportMarkdown, reportTables } from './reportGenerator.js';
+
+const TOOLS_PROMPT = `You classify a home-security camera question into one of four tools and return ONLY JSON: {"tool": string, "params": object}.
+
+Tools:
+1. tool="vehicle_timeline" — question asks when a vehicle came/went/left/returned/appeared.
+   params: { "vehicle": string, "range": string|{from,to}, "camera": string|null }
+   Vehicle aliases (map user words to these keys): scooter|bike|motorcycle, suv|car|sedan, truck|lorry, bus, bicycle|cycle. Use the user's word as the vehicle value (e.g. "scooter", "suv").
+   range tokens: "today" | "yesterday" | "last_7_days" | "last_30_days" | "this_week", or explicit {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"} (ISO dates). NEVER compute a calendar date or day-of-week — if the user names an absolute date, pass {"from","to"}; otherwise prefer a token.
+   camera: a camera name the user named, else null.
+
+2. tool="human_counts" — question asks how many humans/people were seen, by time of day / hour / period.
+   params: { "range": same as above, "camera": string|null, "hour_from": int|null, "hour_to": int|null }
+   hour_from/hour_to are 0-24 hour-of-day bounds (e.g. "6-7pm" => hour_from 18, hour_to 19; "evening" => 18..24; "morning" => 6..12). Omit if the user gives no time-of-day.
+
+3. tool="period_report" — question asks for a report/summary of what happened over a period.
+   params: { "range": same as above, "camera": string|null }
+
+4. tool="fallback" — any question none of the above fits (e.g. asking for advice, general info, or data the system cannot provide). params: {}.
+
+Accuracy rules — MANDATORY:
+- Never invent dates, times, counts, camera names, or vehicle classes.
+- The detection classes are COCO only: person, bicycle, car, motorcycle, bus, truck. A scooter is classified as motorcycle; an SUV as car.
+- If the question names a time range you cannot map to a token or ISO date, use range {"from":"<ISO>","to":"<ISO>"} only when the user gave explicit dates; otherwise fall back to "today".
+- Respond with only the JSON object.`;
+
+const FALLBACK_SYSTEM = `You answer questions about a home security camera system's recorded detection data.
+Facts about the data you may reference:
+- Persisted detections contain classes: person, bicycle, car, motorcycle, bus, truck (COCO vocabulary). A scooter is recorded as "motorcycle"; an SUV as "car".
+- Data covers detections, per-camera tracks, human verification (verified vs unverified person detections), face recognition identities, and scene/threat assessments.
+- You do NOT have live video, audio, weather, or events outside the recorded window.
+Be honest: if the question asks for something the data cannot answer, say so plainly. Do not invent statistics, times, or counts. Keep answers short. Use markdown.`;
+
+export class ChatError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
+const classificationSchema = z.object({
+  tool: z.enum(['vehicle_timeline', 'human_counts', 'period_report', 'fallback']),
+  params: z.record(z.unknown()),
+});
+
+function buildCaveat(d: { detections: number; events: number; cameras: string[] }, windowLabel: string): string {
+  const cams = d.cameras.length > 0 ? d.cameras.join(', ') : '—';
+  return `Based on ${d.detections} detections / ${d.events} events · window: ${windowLabel} · cameras: ${cams}. No detections = observation gap, not proof of absence.`;
+}
+
+/** Drop narrative sentences whose numbers are absent from the stats payload. */
+export function stripUnverifiedNumbers(narrative: string, statsJson: string): string {
+  const sentences = narrative.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const kept = sentences.filter((s) => {
+    const nums = s.match(/\d{2,}/g);
+    if (!nums) return true;
+    return nums.every((n) => statsJson.includes(n));
+  });
+  return kept.join(' ');
+}
+
+interface ResolvedRange {
+  from: Date;
+  to: Date;
+  label: string;
+}
+
+function resolveParamsRange(params: { range?: unknown }): ResolvedRange {
+  if (!params.range) return resolveRange('today');
+  const parsed = rangeTokenSchema.safeParse(params.range);
+  if (parsed.success) return resolveRange(parsed.data as RangeToken);
+  const iso = z.object({ from: z.string(), to: z.string() }).safeParse(params.range);
+  if (iso.success) return resolveIsoRange(iso.data.from, iso.data.to);
+  throw new ChatError('Could not understand the time range', 400);
+}
+
+async function classify(message: string): Promise<{ tool: string; params: Record<string, unknown> }> {
+  const reply = await chatLlm(TOOLS_PROMPT, `Question: ${message}`);
+  const parsed = classificationSchema.safeParse(extractJsonObject(reply));
+  if (!parsed.success) {
+    // One retry with corrective feedback.
+    const reply2 = await chatLlm(
+      TOOLS_PROMPT,
+      `Question: ${message}\nYour previous reply was not valid: ${JSON.stringify(parsed.error.flatten().fieldErrors)}. Reply with only the JSON object.`,
+    );
+    const parsed2 = classificationSchema.safeParse(extractJsonObject(reply2));
+    if (!parsed2.success) {
+      throw new ChatError('Could not classify the question', 422);
+    }
+    return parsed2.data;
+  }
+  return parsed.data;
+}
+
+async function answerFallback(message: string, history: ChatMessage[]): Promise<ClassifiedChatResult> {
+  const context = history
+    .slice(-6)
+    .map((m) => `${m.role}: ${m.content}`)
+    .join('\n');
+  const userPrompt = context ? `Conversation so far:\n${context}\n\nQuestion: ${message}` : `Question: ${message}`;
+  const content = await chatLlm(FALLBACK_SYSTEM, userPrompt, { maxTokens: 700 });
+  return {
+    tool: 'fallback',
+    params: {},
+    answer: { type: 'markdown', content },
+    tables: [],
+    evidence: { detections: 0, events: 0, cameras: [], window: 'n/a' },
+  };
+}
+
+export type ClassifiedChatResult = Omit<ChatResponse, 'caveat'>;
+
+export async function runClassifiedChat(
+  message: string,
+  history: ChatMessage[] = [],
+): Promise<ClassifiedChatResult> {
+  const trimmed = message.trim();
+  if (!trimmed) throw new ChatError('Message is required', 400);
+
+  const classified = await classify(trimmed);
+  const tool = classified.tool;
+
+  if (tool === 'fallback') return answerFallback(trimmed, history);
+
+  const range = resolveParamsRange(classified.params);
+
+  if (tool === 'vehicle_timeline') {
+    const parsed = vehicleTimelineParamsSchema.safeParse(classified.params);
+    if (!parsed.success) throw new ChatError('Missing/invalid vehicle params', 422);
+    if (resolveVehicleClasses(parsed.data.vehicle).length === 0) {
+      return answerFallback(trimmed, history);
+    }
+    const { tables, evidence } = await vehicleTimeline({
+      vehicle: parsed.data.vehicle,
+      camera: parsed.data.camera,
+      from: range.from,
+      to: range.to,
+    });
+    const rowCount = tables[0].rows.length;
+    const lines: string[] = [];
+    if (rowCount === 0) {
+      lines.push(`No ${parsed.data.vehicle} sightings in the window (${range.label}).`);
+    } else {
+      lines.push(`## ${parsed.data.vehicle} — ${rowCount} sighting${rowCount === 1 ? '' : 's'}`);
+      lines.push('');
+      for (const r of tables[0].rows) {
+        lines.push(`- ${r[2]} (${r[0]}, track #${r[1]}, ${r[3]} observation${Number(r[3]) === 1 ? '' : 's'})`);
+      }
+    }
+    const answer = lines.join('\n');
+    return {
+      tool,
+      params: { vehicle: parsed.data.vehicle, range: range.label, camera: parsed.data.camera ?? null },
+      answer: { type: 'markdown', content: answer },
+      tables,
+      evidence: { ...evidence, window: range.label },
+    };
+  }
+
+  if (tool === 'human_counts') {
+    const parsed = humanCountsParamsSchema.safeParse(classified.params);
+    if (!parsed.success) throw new ChatError('Missing/invalid counts params', 422);
+    const { tables, evidence } = await humanCounts({
+      from: range.from,
+      to: range.to,
+      camera: parsed.data.camera,
+      hour_from: parsed.data.hour_from,
+      hour_to: parsed.data.hour_to,
+    });
+    const rows = tables[0].rows;
+    const lines: string[] = [];
+    if (rows.length === 0) {
+      lines.push(`No person detections in the window (${range.label}).`);
+    } else {
+      lines.push(`## Humans by hour — ${range.label}`);
+      lines.push('');
+      for (const r of rows) {
+        lines.push(`- **${r[0]}**: ${r[1]} unique human${Number(r[1]) === 1 ? '' : 's'} (${r[3]} verified, ${r[2]} person detections)`);
+      }
+    }
+    return {
+      tool,
+      params: {
+        range: range.label,
+        camera: parsed.data.camera ?? null,
+        hour_from: parsed.data.hour_from ?? null,
+        hour_to: parsed.data.hour_to ?? null,
+      },
+      answer: { type: 'markdown', content: lines.join('\n') },
+      tables,
+      evidence: { ...evidence, window: range.label },
+    };
+  }
+
+  // period_report
+  const parsed = periodReportParamsSchema.safeParse(classified.params);
+  if (!parsed.success) throw new ChatError('Missing/invalid report params', 422);
+  const stats = await collectReportStats({ from: range.from, to: range.to, camera: parsed.data.camera });
+  const tables = reportTables(stats);
+  let narrative = '';
+  if (stats.totals.events > 0) {
+    try {
+      const statsJson = JSON.stringify(stats);
+      const narration = await chatLlm(
+        `Write a 4-8 sentence plain-language summary of the detection statistics. Use ONLY the numbers given — do not compute, estimate, or invent any value. If a number appears in your text it must appear in the JSON input. Do not mention the camera system internals. Output markdown prose only, no headings, no lists.`,
+        `Statistics: ${statsJson}`,
+        { maxTokens: 500 },
+      );
+      const safe = stripUnverifiedNumbers(narration, statsJson).trim();
+      if (safe) narrative = safe;
+    } catch (err) {
+      logger.warn('Report narrative generation failed, using numbers only', 'CHAT', err);
+    }
+  }
+  const body = reportMarkdown(stats) + (narrative ? `\n\n${narrative}` : '');
+  return {
+    tool,
+    params: { range: range.label, camera: parsed.data.camera ?? null },
+    answer: { type: 'markdown', content: body },
+    tables,
+    evidence: {
+      detections: stats.totals.detections,
+      events: stats.totals.events,
+      cameras: stats.cameras,
+      window: range.label,
+    },
+  };
+}
+
+export async function handleChatMessage(
+  message: string,
+  history: ChatMessage[] = [],
+): Promise<ChatResponse> {
+  const res = await runClassifiedChat(message, history);
+  return {
+    ...res,
+    caveat:
+      res.tool === 'fallback'
+        ? ''
+        : buildCaveat(res.evidence, res.evidence.window),
+  };
+}

@@ -46,6 +46,7 @@ const TimelapsePage = lazyWithRecovery(() => import('./pages/TimelapsePage'));
 const PeoplePage = lazyWithRecovery(() => import('./pages/PeoplePage'));
 const LogsPage = lazyWithRecovery(() => import('./pages/LogsPage'));
 const DetectionsPage = lazyWithRecovery(() => import('./pages/DetectionsPage'));
+const AskPage = lazyWithRecovery(() => import('./pages/AskPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const AuthRedirect = () => {
@@ -267,6 +268,18 @@ const App = () => {
                                 <AppLayout>
                                   <ErrorBoundary fallback={ErrorFallback}>
                                     <DetectionsPage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/ask"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <AskPage />
                                   </ErrorBoundary>
                                 </AppLayout>
                               </ProtectedRoute>

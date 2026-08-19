@@ -30,8 +30,9 @@ Tools:
    range tokens: "today" | "yesterday" | "last_7_days" | "last_30_days" | "this_week", or explicit {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"} (ISO dates). NEVER compute a calendar date or day-of-week — if the user names an absolute date, pass {"from","to"}; otherwise prefer a token.
    camera: a camera name the user named, else null.
 
-2. tool="human_counts" — question asks how many humans/people were seen, by time of day / hour / period.
-   params: { "range": same as above, "camera": string|null, "hour_from": int|null, "hour_to": int|null }
+2. tool="human_counts" — question asks how many of some object class were seen, by time of day / hour / period (humans/people, dogs, cats, cars, scooters/motorcycles, bicycles).
+   params: { "range": same as above, "camera": string|null, "hour_from": int|null, "hour_to": int|null, "class": string }
+   class is one of: person, dog, cat, car, motorcycle, bicycle, truck, bus (default "person"; a "scooter" question about counts → "motorcycle", an "SUV" → "car").
    hour_from/hour_to are 0-24 hour-of-day bounds (e.g. "6-7pm" => hour_from 18, hour_to 19; "evening" => 18..24; "morning" => 6..12). Omit if the user gives no time-of-day.
 
 3. tool="period_report" — question asks for a report/summary of what happened over a period.
@@ -56,7 +57,8 @@ Accuracy rules — MANDATORY:
 
 const FALLBACK_SYSTEM = `You answer questions about a home security camera system's recorded detection data.
 Facts about the data you may reference:
-- Persisted detections contain classes: person, bicycle, car, motorcycle, bus, truck (COCO vocabulary). A scooter is recorded as "motorcycle"; an SUV as "car".
+- Persisted detections contain classes: person, bicycle, car, motorcycle, bus, truck (COCO vocabulary) plus dog and cat. A scooter is recorded as "motorcycle"; an SUV as "car". Two-wheelers were only added to tracking on 2026-08-19 — there is no scooter/motorcycle data before that date.
+- The tracker splits one physical object into many track IDs (a dog in and out of view can produce dozens of IDs), so distinct track counts overcount objects.
 - Data covers per-camera detections and tracks, human verification (verified vs unverified person detections), face recognition identities, person attributes (clothing, distance, carrying items), per-event threat assessments, and per-day activity.
 - You do NOT have live video, audio, weather, or events outside the recorded window. A day with zero detections on a camera may mean the camera was off or nothing triggered detection — you cannot distinguish the two.
 Be honest: if the question asks for something the data cannot answer, say so plainly. Do not invent statistics, times, or counts. Keep answers short. Use markdown.`;
@@ -83,9 +85,13 @@ const classificationSchema = z.object({
   params: z.record(z.unknown()),
 });
 
-function buildCaveat(d: { detections: number; events: number; cameras: string[] }, windowLabel: string): string {
+function buildCaveat(
+  d: { detections: number; events: number; cameras: string[]; sessions?: number },
+  windowLabel: string,
+): string {
   const cams = d.cameras.length > 0 ? d.cameras.join(', ') : '—';
-  return `Based on ${d.detections} detections / ${d.events} events · window: ${windowLabel} · cameras: ${cams}. No detections = observation gap, not proof of absence.`;
+  const visits = d.sessions !== undefined ? ` / ~${d.sessions} visits` : '';
+  return `Based on ${d.detections} detections / ${d.events} events${visits} · window: ${windowLabel} · cameras: ${cams}. No detections = observation gap, not proof of absence.`;
 }
 
 /** Drop narrative sentences whose numbers are absent from the stats payload. */
@@ -176,15 +182,21 @@ export async function runClassifiedChat(
       from: range.from,
       to: range.to,
     });
-    const rowCount = tables[0].rows.length;
+    const visitRows = tables[0].rows;
     const lines: string[] = [];
-    if (rowCount === 0) {
+    if (visitRows.length === 0) {
       lines.push(`No ${parsed.data.vehicle} sightings in the window (${range.label}).`);
+      const resolved = resolveVehicleClasses(parsed.data.vehicle);
+      if (resolved.includes('motorcycle') || resolved.includes('bicycle')) {
+        lines.push('');
+        lines.push('Note: two-wheelers (scooters, bikes) were only added to tracking on 2026-08-19 — there is no data before that date.');
+      }
     } else {
-      lines.push(`## ${parsed.data.vehicle} — ${rowCount} sighting${rowCount === 1 ? '' : 's'}`);
+      const rawTracks = tables[1].rows.length;
+      lines.push(`## ${parsed.data.vehicle} — ${visitRows.length} separate visit${visitRows.length === 1 ? '' : 's'} (${rawTracks} raw track${rawTracks === 1 ? '' : 's'})`);
       lines.push('');
-      for (const r of tables[0].rows) {
-        lines.push(`- ${r[2]} (${r[0]}, track #${r[1]}, ${r[3]} observation${Number(r[3]) === 1 ? '' : 's'})`);
+      for (const r of visitRows) {
+        lines.push(`- **Visit ${r[1]}** (${r[0]}): ${r[2]} → ${r[3]} — ${r[5]} observation${Number(r[5]) === 1 ? '' : 's'}${Number(r[4]) > 1 ? `, ${r[4]} track fragments merged` : ''}`);
       }
     }
     const answer = lines.join('\n');
@@ -198,24 +210,35 @@ export async function runClassifiedChat(
   }
 
   if (tool === 'human_counts') {
+    if (classified.params.objectClass === undefined && typeof classified.params.class === 'string') {
+      classified.params = { ...classified.params, objectClass: classified.params.class };
+    }
     const parsed = humanCountsParamsSchema.safeParse(classified.params);
     if (!parsed.success) throw new ChatError('Missing/invalid counts params', 422);
+    const objectClass = parsed.data.objectClass;
     const { tables, evidence } = await humanCounts({
       from: range.from,
       to: range.to,
       camera: parsed.data.camera,
-      hour_from: parsed.data.hour_from,
-      hour_to: parsed.data.hour_to,
+      hour_from: parsed.data.hour_from ?? undefined,
+      hour_to: parsed.data.hour_to ?? undefined,
+      objectClass,
     });
     const rows = tables[0].rows;
+    const isPerson = objectClass === 'person';
+    const classLabel = isPerson ? 'Humans' : `${objectClass}s`;
     const lines: string[] = [];
     if (rows.length === 0) {
-      lines.push(`No person detections in the window (${range.label}).`);
+      lines.push(`No ${objectClass} detections in the window (${range.label}).`);
     } else {
-      lines.push(`## Humans by hour — ${range.label}`);
+      lines.push(`## ${classLabel} by hour — ${range.label}`);
       lines.push('');
       for (const r of rows) {
-        lines.push(`- **${r[0]}**: ${r[1]} unique human${Number(r[1]) === 1 ? '' : 's'} (${r[3]} verified, ${r[2]} person detections)`);
+        lines.push(`- **${r[0]}**: ${r[1]} unique ${isPerson ? `human${Number(r[1]) === 1 ? '' : 's'}` : `track${Number(r[1]) === 1 ? '' : 's'}`} (${r[3]} verified, ${r[2]} detection${Number(r[2]) === 1 ? '' : 's'})`);
+      }
+      if (evidence.sessions !== undefined && evidence.tracks !== undefined) {
+        lines.push('');
+        lines.push(`**~${evidence.sessions} separate ${objectClass} visit${evidence.sessions === 1 ? '' : 's'}** estimated across the window (${evidence.tracks} raw track IDs — the tracker splits one object into many IDs, so IDs closer than 5 minutes are merged).`);
       }
     }
     return {
@@ -225,6 +248,7 @@ export async function runClassifiedChat(
         camera: parsed.data.camera ?? null,
         hour_from: parsed.data.hour_from ?? null,
         hour_to: parsed.data.hour_to ?? null,
+        class: objectClass,
       },
       answer: { type: 'markdown', content: lines.join('\n') },
       tables,

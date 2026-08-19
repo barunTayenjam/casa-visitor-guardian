@@ -2,7 +2,9 @@ import { describe, it, expect } from '@jest/globals';
 import {
   ALIAS_MAP,
   classifyTrack,
+  clusterSessions,
   detectDailyAnomalies,
+  humanCountsParamsSchema,
   resolveVehicleClasses,
   VEHICLE_GROUP,
 } from '../queryTools.js';
@@ -54,6 +56,7 @@ describe('dateResolver (IST = UTC+5:30)', () => {
     const r = resolveRange('today', now);
     expect(r.from.toISOString()).toBe('2026-08-18T18:30:00.000Z'); // 19 Aug 00:00 IST
     expect(r.to.toISOString()).toBe('2026-08-19T18:30:00.000Z'); // 20 Aug 00:00 IST
+    expect(r.label).toContain('2026-08-19'); // label shows the IST day, not the UTC instant's date
   });
   it('yesterday lands on the prior IST day', () => {
     const now = new Date('2026-08-19T10:00:00Z');
@@ -86,6 +89,81 @@ describe('stripUnverifiedNumbers', () => {
     const out = stripUnverifiedNumbers('There were 3 people. Total was 999.', stats);
     expect(out).not.toContain('999');
     expect(out).toContain('3 people');
+  });
+});
+
+describe('clusterSessions', () => {
+  const t = (min: number) => new Date(Date.UTC(2026, 7, 19, 4, min)); // 09:xx IST base
+
+  it('merges fragments that start within the gap of the running cluster', () => {
+    const spans = [
+      { camera: 'cam1', first: t(0), last: t(2), obs: 5 },
+      { camera: 'cam1', first: t(4), last: t(6), obs: 3 }, // starts 2 min after cluster end → merge
+    ];
+    const s = clusterSessions(spans);
+    expect(s).toHaveLength(1);
+    expect(s[0].trackCount).toBe(2);
+    expect(s[0].obs).toBe(8);
+    expect(s[0].first.getTime()).toBe(t(0).getTime());
+    expect(s[0].last.getTime()).toBe(t(6).getTime());
+  });
+
+  it('splits visits separated by more than the gap', () => {
+    const spans = [
+      { camera: 'cam1', first: t(0), last: t(2), obs: 5 },
+      { camera: 'cam1', first: t(30), last: t(32), obs: 4 }, // 28 min gap → new visit
+    ];
+    const s = clusterSessions(spans);
+    expect(s).toHaveLength(2);
+    expect(s.map((x) => x.obs)).toEqual([5, 4]);
+  });
+
+  it('clusters per camera independently', () => {
+    const spans = [
+      { camera: 'cam1', first: t(0), last: t(10), obs: 9 },
+      { camera: 'cam2', first: t(1), last: t(2), obs: 2 }, // same time window, other camera
+    ];
+    const s = clusterSessions(spans);
+    expect(s).toHaveLength(2);
+    expect(new Set(s.map((x) => x.camera)).size).toBe(2);
+  });
+
+  it('handles one object scattering into many same-moment track IDs', () => {
+    const spans = Array.from({ length: 12 }, (_, i) => ({
+      camera: 'cam1',
+      first: t(i * 3),
+      last: t(i * 3 + 2),
+      obs: 3,
+    }));
+    const s = clusterSessions(spans);
+    expect(s).toHaveLength(1);
+    expect(s[0].trackCount).toBe(12);
+  });
+
+  it('returns empty for no spans', () => {
+    expect(clusterSessions([])).toEqual([]);
+  });
+});
+
+describe('humanCountsParamsSchema', () => {
+  it('accepts LLM-shaped params with nulls and defaults class to person', () => {
+    const parsed = humanCountsParamsSchema.parse({
+      range: 'today',
+      camera: null,
+      hour_from: null,
+      hour_to: null,
+    });
+    expect(parsed.objectClass).toBe('person');
+    expect(parsed.hour_from).toBeNull();
+  });
+  it('accepts explicit class (dog)', () => {
+    const parsed = humanCountsParamsSchema.parse({ range: 'last_7_days', class: undefined, objectClass: 'dog' });
+    expect(parsed.objectClass).toBe('dog');
+  });
+  it('rejects unknown class', () => {
+    expect(
+      humanCountsParamsSchema.safeParse({ range: 'today', objectClass: 'scooter' }).success,
+    ).toBe(false);
   });
 });
 

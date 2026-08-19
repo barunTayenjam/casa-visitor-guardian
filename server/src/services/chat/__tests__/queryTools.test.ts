@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   ALIAS_MAP,
   classifyTrack,
+  detectDailyAnomalies,
   resolveVehicleClasses,
   VEHICLE_GROUP,
 } from '../queryTools.js';
@@ -85,5 +86,55 @@ describe('stripUnverifiedNumbers', () => {
     const out = stripUnverifiedNumbers('There were 3 people. Total was 999.', stats);
     expect(out).not.toContain('999');
     expect(out).toContain('3 people');
+  });
+});
+
+describe('detectDailyAnomalies', () => {
+  it('flags days far above a camera baseline as spikes', () => {
+    const series = [
+      { day: '2026-08-01', camera: 'cam1', detections: 100 },
+      { day: '2026-08-02', camera: 'cam1', detections: 90 },
+      { day: '2026-08-03', camera: 'cam1', detections: 450 }, // ~3.6x baseline
+      { day: '2026-08-04', camera: 'cam1', detections: 110 },
+    ];
+    const { spikes, gaps } = detectDailyAnomalies(series);
+    expect(spikes.map((s) => s.day)).toEqual(['2026-08-03']);
+    expect(gaps).toEqual([]);
+  });
+
+  it('never flags a quiet camera with tiny counts', () => {
+    const series = [
+      { day: '2026-08-01', camera: 'cam1', detections: 1 },
+      { day: '2026-08-02', camera: 'cam1', detections: 3 },
+      { day: '2026-08-03', camera: 'cam1', detections: 6 },
+      { day: '2026-08-04', camera: 'cam1', detections: 2 },
+    ];
+    const { spikes } = detectDailyAnomalies(series);
+    expect(spikes).toEqual([]);
+  });
+
+  it('collapses consecutive zero days into one gap span', () => {
+    const series = [
+      { day: '2026-08-01', camera: 'cam1', detections: 50 },
+      { day: '2026-08-02', camera: 'cam1', detections: 0 },
+      { day: '2026-08-03', camera: 'cam1', detections: 0 },
+      { day: '2026-08-04', camera: 'cam1', detections: 0 },
+      { day: '2026-08-05', camera: 'cam1', detections: 40 },
+    ];
+    const { gaps } = detectDailyAnomalies(series);
+    expect(gaps).toEqual([
+      { from: '2026-08-02', to: '2026-08-04', camera: 'cam1', days: 3 },
+    ]);
+  });
+
+  it('treats each camera independently', () => {
+    const series = [
+      { day: '2026-08-01', camera: 'cam1', detections: 400 },
+      { day: '2026-08-02', camera: 'cam1', detections: 50 },
+      { day: '2026-08-01', camera: 'cam2', detections: 20 },
+      { day: '2026-08-02', camera: 'cam2', detections: 22 },
+    ];
+    const { spikes } = detectDailyAnomalies(series);
+    expect(spikes.map((s) => s.camera)).toEqual(['cam1']);
   });
 });

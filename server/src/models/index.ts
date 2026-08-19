@@ -23,3 +23,4 @@ export { ServiceLog } from './ServiceLog.js';
 export { HumanVerification } from './HumanVerification.js';
 export { EventDetection } from './EventDetection.js';
 export { RateLimitCounter } from './RateLimitCounter.js';
+export { ChatLog } from './ChatLog.js';

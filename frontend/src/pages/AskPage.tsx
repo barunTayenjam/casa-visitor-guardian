@@ -1,11 +1,20 @@
-import { FormEvent, ReactNode, useMemo, useRef, useState } from 'react';
-import { ArrowUp, Download, Loader2, MessageSquare, Sparkles } from 'lucide-react';
-import { sendChatMessage, ChatMessage, ChatResponse, ChatTable } from '@/services/api/chatService';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUp, Download, Loader2, MessageSquare, Sparkles, Trash2 } from 'lucide-react';
+import {
+  clearChatHistory,
+  fetchChatHistory,
+  sendChatMessage,
+  ChatMessage,
+  ChatResponse,
+  ChatTable,
+} from '@/services/api/chatService';
 
 const SUGGESTIONS = [
   'When did the scooter leave today?',
-  'When did the SUV come and go yesterday?',
   'How many people were seen yesterday evening?',
+  'Which camera was busiest last week?',
+  'Any gaps in detection over the last 30 days?',
+  'When were several people seen at once?',
   'Report for the last 7 days',
 ];
 
@@ -147,6 +156,21 @@ export default function AskPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
+
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    fetchChatHistory()
+      .then((entries) => {
+        if (entries.length > 0) {
+          setMessages(entries.map((e) => ({ role: e.role, content: e.content })));
+        }
+      })
+      .catch(() => {
+        /* history is best-effort; ignore load failures */
+      });
+  }, []);
 
   const lastAssistant = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -200,6 +224,32 @@ export default function AskPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadTranscript = () => {
+    const lines: string[] = [];
+    for (const m of messages) {
+      if (m.role === 'user') lines.push(`**You:** ${m.content}`);
+      else if (m.content) lines.push(`**Assistant:** ${m.content}`);
+      lines.push('');
+    }
+    if (lines.length === 0) return;
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sentryvision-chat-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearAll = async () => {
+    try {
+      await clearChatHistory();
+    } catch {
+      /* ignore */
+    }
+    setMessages([]);
+  };
+
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-28">
       <div className="mb-4 flex items-center gap-2.5">
@@ -218,8 +268,9 @@ export default function AskPage() {
             <div className="flex items-start gap-2.5 text-zinc-500">
               <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p className="text-sm leading-relaxed">
-                Ask about vehicles coming and going, humans seen at certain times, or ask for a
-                report over a period. All answers are computed from your recorded detections.
+                Ask about vehicles coming and going, humans seen at certain times, camera activity,
+                unusual spikes or gaps, or ask for a report over a period. All answers are computed
+                from your recorded detections.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
@@ -284,6 +335,26 @@ export default function AskPage() {
             <Download className="h-4 w-4" />
             .md
           </button>
+        )}
+        {messages.length > 0 && (
+          <>
+            <button
+              onClick={downloadTranscript}
+              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+              aria-label="Download chat transcript"
+            >
+              <Download className="h-4 w-4" />
+              Transcript
+            </button>
+            <button
+              onClick={clearAll}
+              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 text-xs text-zinc-500 transition-colors hover:text-red-300"
+              aria-label="Clear chat history"
+              title="Clear chat history"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
         )}
         <form
           onSubmit={(e: FormEvent) => {

@@ -36,4 +36,11 @@ export interface ChatResponse {
   caveat: string;
 }
 
-export type ToolName = 'vehicle_timeline' | 'human_counts' | 'period_report' | 'fallback';
+export type ToolName =
+  | 'vehicle_timeline'
+  | 'human_counts'
+  | 'period_report'
+  | 'camera_activity'
+  | 'event_correlation'
+  | 'anomalies'
+  | 'fallback';

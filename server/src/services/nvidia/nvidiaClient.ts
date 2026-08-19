@@ -187,3 +187,60 @@ export async function callNvidiaApi(
 export function getNvidiaBreakerState(): string {
   return nvidiaBreaker.getState();
 }
+
+export interface ChatCompletionOptions {
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/**
+ * Text-only chat completion on the same NVIDIA endpoint, key, model, and
+ * circuit breaker as the vision analysis calls. Shared so every LLM path in
+ * the app fails and recovers together.
+ */
+export async function chatCompletion(
+  systemPrompt: string,
+  userPrompt: string,
+  opts: ChatCompletionOptions = {},
+): Promise<string> {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) throw new Error('NVIDIA_API_KEY environment variable is not set');
+  const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+  const model = process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+
+  const requestBody = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: opts.temperature ?? 0,
+    max_tokens: opts.maxTokens ?? 1200,
+    stream: false,
+  };
+
+  const response = await nvidiaBreaker.execute(() =>
+    fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    }),
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      `NVIDIA API error: ${response.status} - ${(errorData as Record<string, unknown>).message || response.statusText}`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty NVIDIA reply');
+  return content;
+}

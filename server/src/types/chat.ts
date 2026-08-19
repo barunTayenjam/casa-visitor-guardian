@@ -34,14 +34,21 @@ export interface ChatAnswer {
   content: string;
 }
 
+/** Snapshot attached to an answer so the user can see what was detected. */
+export interface ChatImage {
+  url: string;
+  caption: string;
+}
+
 export interface ChatResponse {
   tool: string;
   params: Record<string, unknown>;
   answer: ChatAnswer;
   tables: ChatTable[];
   evidence: ChatEvidence;
-  /** Coverage caveat; empty for fallback answers. */
+  /** Caveat shown under the answer; empty for fallback answers. */
   caveat: string;
+  images?: ChatImage[];
 }
 
 export type ToolName =

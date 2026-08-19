@@ -15,11 +15,11 @@ async function persistMessage(
   userId: string,
   role: 'user' | 'assistant',
   content: string,
-  extra: { tool?: string | null; params?: unknown } = {},
+  extra: { tool?: string | null; params?: unknown; response?: unknown } = {},
 ): Promise<void> {
   await AppDataSource.query(
-    `INSERT INTO chat_messages (user_id, role, tool, params, content) VALUES ($1, $2, $3, $4, $5)`,
-    [userId, role, extra.tool ?? null, extra.params ?? null, content],
+    `INSERT INTO chat_messages (user_id, role, tool, params, content, response) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId, role, extra.tool ?? null, extra.params ?? null, content, extra.response ?? null],
   );
 }
 
@@ -48,6 +48,7 @@ export const chatController = {
           await persistMessage(userId, 'assistant', result.answer.content, {
             tool: result.tool,
             params: result.params,
+            response: result as unknown as Record<string, unknown>,
           });
         } catch (err) {
           logger.warn('Failed to persist chat message', 'CHAT', err);
@@ -89,6 +90,7 @@ export const chatController = {
             content: r.content,
             tool: r.tool,
             params: r.params,
+            response: r.response,
             createdAt: r.createdAt,
           })),
         },

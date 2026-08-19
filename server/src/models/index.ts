@@ -20,4 +20,6 @@ export { NotificationPreferences } from './NotificationPreferences.js';
 export { FaceEmbedding } from './FaceEmbedding.js';
 export { SecurityEvent } from './SecurityEvent.js';
 export { ServiceLog } from './ServiceLog.js';
+export { HumanVerification } from './HumanVerification.js';
+export { EventDetection } from './EventDetection.js';
 export { RateLimitCounter } from './RateLimitCounter.js';

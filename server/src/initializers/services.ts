@@ -18,7 +18,7 @@ import { serviceRegistry } from '../services/serviceRegistry.js';
 import { serviceLogService } from '../services/serviceLogService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from '../services/pythonWsClient.js';
-import { persistDetectionEvent } from '../pipeline/detectionPersistence.js';
+import { persistDetectionEvent, type SceneDetection } from '../pipeline/detectionPersistence.js';
 import { ReviewSegment } from '../models/ReviewSegment.js';
 import { UserReviewStatus } from '../models/UserReviewStatus.js';
 import { Timeline } from '../models/Timeline.js';
@@ -60,6 +60,49 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       { bbox: { x: number; y: number; w: number; h: number }; ts: number }
     >();
 
+    // Rolling per-camera scene: every active track (any class), so event
+    // persistence captures the full detection context, not just the trigger.
+    const SCENE_WINDOW_MS = 5000;
+    const sceneByCamera = new Map<string, Map<number, SceneDetection>>();
+
+    const trackScene = (ev: TrackingEvent): void => {
+      if (!ev.cameraId || ev.event === 'track_ended') return;
+      let scene = sceneByCamera.get(ev.cameraId);
+      if (!scene) {
+        scene = new Map();
+        sceneByCamera.set(ev.cameraId, scene);
+      }
+      const now = Date.now();
+      for (const [tid, det] of scene) {
+        if (now - det.lastSeen > SCENE_WINDOW_MS) scene.delete(tid);
+      }
+      scene.set(ev.trackId, {
+        className: ev.class,
+        classId: ev.classId,
+        score: ev.score ?? 0,
+        bbox: {
+          x: ev.bbox?.[0] ?? 0,
+          y: ev.bbox?.[1] ?? 0,
+          width: ev.bbox?.[2] ?? 0,
+          height: ev.bbox?.[3] ?? 0,
+        },
+        trackId: ev.trackId,
+        trackState: ev.trackState,
+        trackletLen: ev.trackletLen,
+        identity: ev.identity,
+        identityConfidence: ev.identityConfidence,
+        humanVerification: ev.humanVerification,
+        lastSeen: now,
+      });
+    };
+
+    const snapshotScene = (cameraId: string): SceneDetection[] => {
+      const scene = sceneByCamera.get(cameraId);
+      if (!scene) return [];
+      const now = Date.now();
+      return Array.from(scene.values()).filter((d) => now - d.lastSeen <= SCENE_WINDOW_MS);
+    };
+
     pythonWsClient.on(
       'logEvent',
       (ev: {
@@ -97,8 +140,11 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       const trackKey = `${cameraId}:${trackId}`;
       if (eventType === 'track_ended') {
         persistedTracks.delete(trackKey);
+        sceneByCamera.get(cameraId)?.delete(trackId);
         return;
       }
+
+      trackScene(ev);
 
       const BROADCAST_MIN_SCORE = 0.5;
       const broadcastWorthy = (score ?? 0) >= BROADCAST_MIN_SCORE;
@@ -171,20 +217,19 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
             bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
             ts: now,
           });
-          return;
-        }
+        } else {
+          if ((score ?? 0) < PERSON_MIN_CONFIDENCE) {
+            persistedTracks.add(trackKey);
+            return;
+          }
 
-        if ((score ?? 0) < PERSON_MIN_CONFIDENCE) {
-          persistedTracks.add(trackKey);
-          return;
-        }
-
-        if ((ev.trackletLen ?? 0) < PERSON_MIN_TRACK_HITS) {
-          return;
+          if ((ev.trackletLen ?? 0) < PERSON_MIN_TRACK_HITS) {
+            return;
+          }
         }
 
         persistedTracks.add(trackKey);
-        persistDetectionEvent(ev).catch((err: unknown) => {
+        persistDetectionEvent(ev, snapshotScene(cameraId)).catch((err: unknown) => {
           logger.error(`Failed to persist detection event for ${cameraId}`, 'INIT', err);
         });
       }

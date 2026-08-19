@@ -608,19 +608,21 @@ export async function humanCounts(
 }> {
   const objectClass = params.objectClass ?? 'person';
   const isPerson = objectClass === 'person';
-  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR, [objectClass]];
-  let conds = 'AND ed.confidence >= $3 AND ed.class = ANY($4)';
+
+  // Two queries with separate bind arrays: Postgres errors when a bind message
+  // supplies parameters the statement never references.
+  const hourValues: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR, [objectClass]];
+  let hourConds = 'AND ed.confidence >= $3 AND ed.class = ANY($4)';
   if (params.camera) {
-    values.push(params.camera);
-    conds += ` AND ed.camera_id = $${values.length}`;
+    hourValues.push(params.camera);
+    hourConds += ` AND ed.camera_id = $${hourValues.length}`;
   }
-  let hourCond = '';
   if (params.hour_from !== undefined || params.hour_to !== undefined) {
     const from = Math.max(0, params.hour_from ?? 0);
     const to = Math.min(24, params.hour_to ?? 24);
-    values.push(from, to);
-    hourCond = ` AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') >= $${values.length - 1}
-                AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') < $${values.length}`;
+    hourValues.push(from, to);
+    hourConds += ` AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') >= $${hourValues.length - 1}
+                  AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') < $${hourValues.length}`;
   }
 
   const rows = await AppDataSource.query(
@@ -631,11 +633,10 @@ export async function humanCounts(
             COUNT(DISTINCT ed.event_id) AS events
      FROM event_detections ed
      WHERE ed.timestamp >= $1 AND ed.timestamp < $2
-       ${conds}
-       ${hourCond}
+       ${hourConds}
      GROUP BY 1
      ORDER BY 1`,
-    values,
+    hourValues,
   ) as Array<Record<string, unknown>>;
 
   const hourRows = rows.map((r) => ({
@@ -646,6 +647,19 @@ export async function humanCounts(
     events: Number(r.events),
   }));
 
+  const spanValues: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR, [objectClass]];
+  let spanConds = 'AND ed.confidence >= $3 AND ed.class = ANY($4)';
+  if (params.camera) {
+    spanValues.push(params.camera);
+    spanConds += ` AND ed.camera_id = $${spanValues.length}`;
+  }
+  if (params.hour_from !== undefined || params.hour_to !== undefined) {
+    const from = Math.max(0, params.hour_from ?? 0);
+    const to = Math.min(24, params.hour_to ?? 24);
+    spanValues.push(from, to);
+    spanConds += ` AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') >= $${spanValues.length - 1}
+                  AND extract(hour FROM ed.timestamp AT TIME ZONE '${IST}') < $${spanValues.length}`;
+  }
   const spanRows = (await AppDataSource.query(
     `SELECT ed.camera_id,
             ed.track_id,
@@ -654,9 +668,9 @@ export async function humanCounts(
             COUNT(*) AS obs
      FROM event_detections ed
      WHERE ed.timestamp >= $1 AND ed.timestamp < $2
-       ${conds}
+       ${spanConds}
      GROUP BY 1, 2`,
-    values,
+    spanValues,
   )) as Array<Record<string, unknown>>;
   const trackSpans = spanRows
     .filter((r) => r.track_id !== null)

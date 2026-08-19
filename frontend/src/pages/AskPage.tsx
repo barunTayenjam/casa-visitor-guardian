@@ -10,11 +10,11 @@ import {
 } from '@/services/api/chatService';
 
 const SUGGESTIONS = [
-  'When did the scooter leave today?',
-  'How many people were seen yesterday evening?',
+  'How many dogs visited today?',
+  'Car visits today',
+  'How many people this evening?',
   'Which camera was busiest last week?',
   'Any gaps in detection over the last 30 days?',
-  'When were several people seen at once?',
   'Report for the last 7 days',
 ];
 
@@ -130,6 +130,9 @@ function TableView({ table }: { table: ChatTable }) {
 
 function toMarkdownFile(res: ChatResponse): string {
   const lines: string[] = [res.answer.content, ''];
+  for (const img of res.images ?? []) {
+    lines.push(`![${img.caption}](${img.url})`);
+  }
   for (const t of res.tables) {
     if (t.caption) lines.push(`## ${t.caption}`);
     lines.push(`| ${t.headers.join(' | ')} |`);
@@ -140,7 +143,10 @@ function toMarkdownFile(res: ChatResponse): string {
   lines.push('---');
   lines.push(`Window: ${res.evidence.window}`);
   if (res.evidence.cameras.length) lines.push(`Cameras: ${res.evidence.cameras.join(', ')}`);
-  lines.push(`Detections: ${res.evidence.detections} · Events: ${res.evidence.events}`);
+  lines.push(
+    `Detections: ${res.evidence.detections} · Events: ${res.evidence.events}` +
+      (res.evidence.sessions !== undefined ? ` · Visits: ~${res.evidence.sessions}` : ''),
+  );
   if (res.caveat) lines.push(`Note: ${res.caveat}`);
   return lines.join('\n');
 }
@@ -155,6 +161,7 @@ export default function AskPage() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef(false);
 
@@ -164,13 +171,30 @@ export default function AskPage() {
     fetchChatHistory()
       .then((entries) => {
         if (entries.length > 0) {
-          setMessages(entries.map((e) => ({ role: e.role, content: e.content })));
+          setMessages(
+            entries.map((e) => ({
+              role: e.role,
+              content: e.content,
+              response: e.response ?? undefined,
+            })),
+          );
         }
       })
       .catch(() => {
         /* history is best-effort; ignore load failures */
       });
   }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!confirmingClear) return;
+    const t = setTimeout(() => setConfirmingClear(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmingClear]);
 
   const lastAssistant = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -227,8 +251,14 @@ export default function AskPage() {
   const downloadTranscript = () => {
     const lines: string[] = [];
     for (const m of messages) {
-      if (m.role === 'user') lines.push(`**You:** ${m.content}`);
-      else if (m.content) lines.push(`**Assistant:** ${m.content}`);
+      if (m.role === 'user') {
+        lines.push(`**You:** ${m.content}`);
+      } else if (m.response) {
+        lines.push(`**Assistant:**`);
+        lines.push(toMarkdownFile(m.response));
+      } else if (m.content) {
+        lines.push(`**Assistant:** ${m.content}`);
+      }
       lines.push('');
     }
     if (lines.length === 0) return;
@@ -242,6 +272,11 @@ export default function AskPage() {
   };
 
   const clearAll = async () => {
+    if (!confirmingClear) {
+      setConfirmingClear(true);
+      return;
+    }
+    setConfirmingClear(false);
     try {
       await clearChatHistory();
     } catch {
@@ -305,10 +340,36 @@ export default function AskPage() {
             ) : (
               <div className="w-full max-w-[95%] rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 backdrop-blur-sm">
                 <Markdown content={m.content} />
+                {m.response?.images && m.response.images.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {m.response.images.map((img, ii) => (
+                      <a
+                        key={ii}
+                        href={img.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={img.caption}
+                        className="group block overflow-hidden rounded-lg border border-zinc-800 transition-colors hover:border-zinc-600"
+                      >
+                        <img
+                          src={img.url}
+                          alt={img.caption}
+                          loading="lazy"
+                          className="h-24 w-auto max-w-[220px] object-cover"
+                        />
+                        <span className="block bg-zinc-900/80 px-2 py-1 text-[10px] text-zinc-400 group-hover:text-zinc-200">
+                          {img.caption}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {m.response?.tables.map((t, ti) => <TableView key={ti} table={t} />)}
                 {m.response && (
                   <div className="mt-3 space-y-1.5 border-t border-zinc-800/70 pt-2.5">
                     <div className="text-[11px] leading-relaxed text-zinc-500">
+                      {m.response.evidence.sessions !== undefined &&
+                        `~${m.response.evidence.sessions} visits · `}
                       {m.response.evidence.detections} detections · {m.response.evidence.events}{' '}
                       events · window: {m.response.evidence.window}
                       {m.response.evidence.cameras.length > 0 &&
@@ -348,11 +409,16 @@ export default function AskPage() {
             </button>
             <button
               onClick={clearAll}
-              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 text-xs text-zinc-500 transition-colors hover:text-red-300"
+              className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs transition-colors ${
+                confirmingClear
+                  ? 'border-red-500/50 bg-red-500/15 text-red-300'
+                  : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-red-300'
+              }`}
               aria-label="Clear chat history"
-              title="Clear chat history"
+              title={confirmingClear ? 'Click again to delete all history' : 'Clear chat history'}
             >
               <Trash2 className="h-4 w-4" />
+              {confirmingClear ? 'Sure?' : ''}
             </button>
           </>
         )}

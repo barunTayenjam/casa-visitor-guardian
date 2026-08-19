@@ -150,6 +150,7 @@ export async function vehicleTimeline(
 ): Promise<{
   tables: import('../../types/chat.js').ChatTable[];
   evidence: import('../../types/chat.js').ToolEvidence;
+  images: import('../../types/chat.js').ChatImage[];
 }> {
   const classes = resolveVehicleClasses(params.vehicle);
   const values: unknown[] = [classes, params.from, params.to, CONFIDENCE_FLOOR];
@@ -164,8 +165,6 @@ export async function vehicleTimeline(
             ed.camera_id,
             MIN(ed.timestamp) AS first_seen,
             MAX(ed.timestamp) AS last_seen,
-            (array_agg(ed.track_state ORDER BY ed.timestamp) FILTER (WHERE ed.track_state IS NOT NULL))[1] AS first_state,
-            (array_agg(ed.track_state ORDER BY ed.timestamp DESC) FILTER (WHERE ed.track_state IS NOT NULL))[1] AS last_state,
             COUNT(*) AS obs,
             COUNT(DISTINCT ed.event_id) AS events
      FROM event_detections ed
@@ -178,26 +177,6 @@ export async function vehicleTimeline(
     values,
   ) as Array<Record<string, unknown>>;
 
-  const trackRows = rows.map((r) => {
-    const kind = classifyTrack(
-      (r.first_state as string) ?? null,
-      (r.last_state as string) ?? null,
-    );
-    const label =
-      kind === 'left'
-        ? `left at ${fmtIstTime(r.last_seen as Date)}`
-        : kind === 'returned'
-          ? `seen from ${fmtIstTime(r.first_seen as Date)}`
-          : `observed ${fmtIstTime(r.first_seen as Date)}→${fmtIstTime(r.last_seen as Date)}`;
-    return {
-      camera: (r.camera_id as string) ?? '?',
-      track: (r.track_id as number) ?? '?',
-      label,
-      obs: Number(r.obs),
-      events: Number(r.events),
-    };
-  });
-
   const sessions = clusterSessions(
     rows.map((r) => ({
       camera: String(r.camera_id ?? '?'),
@@ -206,6 +185,39 @@ export async function vehicleTimeline(
       obs: Number(r.obs),
     })),
   );
+
+  // One snapshot per visit (first few) so the user can see what was detected.
+  const eventRows = (await AppDataSource.query(
+    `SELECT ed.event_id, e.file_path, ed.camera_id,
+            MAX(ed.confidence) AS conf, MIN(ed.timestamp) AS ts
+     FROM event_detections ed
+     JOIN events e ON e.id = ed.event_id
+     WHERE ed.class = ANY($1)
+       AND ed.timestamp >= $2 AND ed.timestamp < $3 AND ed.confidence >= $4
+       AND e.file_path IS NOT NULL
+       ${cameraCond}
+     GROUP BY 1, 2, 3`,
+    values,
+  )) as Array<Record<string, unknown>>;
+  const candidates = eventRows.map((r) => ({
+    camera: String(r.camera_id ?? '?'),
+    file: String(r.file_path ?? '').split('/').pop() ?? '',
+    conf: Number(r.conf),
+    ts: new Date(r.ts as Date),
+  }));
+  const images: import('../../types/chat.js').ChatImage[] = [];
+  for (const [i, s] of sessions.slice(0, 6).entries()) {
+    const inVisit = candidates.filter(
+      (c) => c.camera === s.camera && c.ts >= s.first && c.ts.getTime() <= s.last.getTime() + 60_000,
+    );
+    const best = inVisit.sort((a, b) => b.conf - a.conf)[0];
+    if (best?.file) {
+      images.push({
+        url: `/api/events/image/${best.file}`,
+        caption: `Visit ${i + 1} · ${s.camera} · ${fmtIstTime(s.first)}`,
+      });
+    }
+  }
 
   const detections = rows.reduce((a, r) => a + Number(r.obs), 0);
   const events = rows.reduce((a, r) => a + Number(r.events), 0);
@@ -225,13 +237,9 @@ export async function vehicleTimeline(
           s.obs,
         ]),
       },
-      {
-        caption: `Raw tracks (${classes.join(', ')})`,
-        headers: ['Camera', 'Track', 'Timeline', 'Observations', 'Events'],
-        rows: trackRows.map((t) => [t.camera, t.track, t.label, t.obs, t.events]),
-      },
     ],
     evidence: { detections, events, cameras, sessions: sessions.length, tracks: rows.length },
+    images,
   };
 }
 

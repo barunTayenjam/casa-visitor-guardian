@@ -16,6 +16,13 @@ export interface ChatEvidence {
   events: number;
   cameras: string[];
   window: string;
+  sessions?: number;
+  tracks?: number;
+}
+
+export interface ChatImage {
+  url: string;
+  caption: string;
 }
 
 export interface ChatResponse {
@@ -25,6 +32,7 @@ export interface ChatResponse {
   tables: ChatTable[];
   evidence: ChatEvidence;
   caveat: string;
+  images?: ChatImage[];
 }
 
 export async function sendChatMessage(
@@ -47,6 +55,7 @@ export interface ChatHistoryEntry {
   content: string;
   tool: string | null;
   params: Record<string, unknown> | null;
+  response: ChatResponse | null;
   createdAt: string;
 }
 

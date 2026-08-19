@@ -138,6 +138,7 @@ services:
     devices:
       - /dev/dri:/dev/dri
     volumes:
+      - ./opencv-service/cameras.json:/app/cameras.json
       - ./opencv-service/models:/app/models
       - ./opencv-service/data:/app/data
       - ./opencv-service/known_faces:/app/known_faces

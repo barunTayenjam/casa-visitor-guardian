@@ -92,6 +92,7 @@ export async function collectReportStats(w: Window): Promise<ReportStats> {
             MIN(ed.timestamp) AS first, MAX(ed.timestamp) AS last
      FROM event_detections ed
      WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+       AND ed.track_id IS NOT NULL
      ${cameraCond}
      GROUP BY ed.class, ed.camera_id, ed.track_id
      ORDER BY (MAX(ed.timestamp) - MIN(ed.timestamp)) DESC

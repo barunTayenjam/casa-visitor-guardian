@@ -57,18 +57,42 @@ class HumanVerifier:
             return self._face_analyzer
 
     def verify(self, roi: np.ndarray, yolo_score: float) -> bool:
-        """Return True if ROI contains a human. Tiered check (avoid false negatives).
-        1) YOLO score >= 0.9 → trust it completely.
-        2) Face verification via uniface.
-        3) Pose keypoints via MediaPipe (accept min_keypoints minimum).
-        4) Fallback to YOLO score threshold.
+        """Boolean wrapper around verify_detailed for backward compatibility."""
+        return self.verify_detailed(roi, yolo_score)["verified"]
+
+    def verify_detailed(self, roi: np.ndarray, yolo_score: float) -> dict:
+        """Tiered human-presence check. Returns verification metadata:
+        {verified, tier, keypoints, face_detected, yolo_score, roi_w, roi_h, elapsed_ms}
+        tier: yolo_high | face | pose | score_floor | disabled
         """
+        import time
+
+        t0 = time.perf_counter()
+        result = {
+            "verified": True,
+            "tier": "disabled",
+            "keypoints": 0,
+            "face_detected": False,
+            "yolo_score": round(float(yolo_score), 4),
+            "roi_w": int(roi.shape[1]) if roi is not None else 0,
+            "roi_h": int(roi.shape[0]) if roi is not None else 0,
+            "elapsed_ms": 0,
+        }
+
+        def done(tier, verified, keypoints=0, face=False):
+            result["tier"] = tier
+            result["verified"] = verified
+            result["keypoints"] = keypoints
+            result["face_detected"] = face
+            result["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
+            return result
+
         if not self.enabled:
-            return True
+            return done("disabled", True)
 
         # Tier 1: High YOLO confidence → trust it completely.
         if yolo_score >= 0.9:
-            return True
+            return done("yolo_high", True)
 
         # Small ROIs (640x360 detection frames) starve face/pose models — upscale.
         if roi.shape[0] > 0 and roi.shape[0] < 96:
@@ -84,7 +108,7 @@ class HumanVerifier:
         if fa is not False:
             try:
                 if fa.analyze(roi):
-                    return True
+                    return done("face", True, face=True)
             except Exception:
                 pass
 
@@ -96,7 +120,7 @@ class HumanVerifier:
             if results and results.pose_landmarks:
                 n = sum(1 for lm in results.pose_landmarks.landmark if lm.visibility > 0.2)
                 if n >= self.min_keypoints or (not self.keep_back_facing and n >= 1):
-                    return True
+                    return done("pose", True, keypoints=n)
 
         # Tier 4: Fallback to YOLO confidence threshold.
-        return yolo_score >= self.score_floor
+        return done("score_floor", yolo_score >= self.score_floor)

@@ -219,6 +219,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
     }
   };
 
+  // If analysis already exists, the "Analyze" button is replaced by the "Analyzed" status automatically by the existing logic (analysis prop existence)
+  // ... rest of component stays same
   return (
     <div className="fixed inset-y-0 right-0 z-30 w-full md:w-[600px] lg:w-[700px] flex flex-col text-white">
       {/* Outer shell */}

@@ -373,6 +373,58 @@ export class NvidiaController extends BaseController {
         return;
       }
 
+      const { EventDetection } = await import('../models/index.js');
+      let sensorMetadata: import('../services/nvidia/types.js').SensorMetadata | undefined;
+      try {
+        const detRows = await AppDataSource.getRepository(EventDetection).find({
+          where: { event_id: event.id },
+          order: { id: 'ASC' },
+        });
+        if (detRows.length > 0) {
+          sensorMetadata = {
+            tracks: detRows.map((d) => {
+              const attrs = d.person_attributes as Record<string, unknown> | null;
+              const pos = attrs?.position as
+                | { x: number; y: number; width: number; height: number }
+                | undefined;
+              return {
+                class: d.class,
+                confidence: d.confidence,
+                trackId: d.track_id,
+                trackState: d.track_state,
+                trackletLen: d.tracklet_len,
+                identity: d.identity,
+                identityConfidence: d.identity_confidence,
+                humanVerified: d.human_verified,
+                verificationTier: d.verification_tier,
+                personAttributes: attrs
+                  ? {
+                      clothing: (attrs.clothing as string) ?? null,
+                      clothingColors: (attrs.clothing_colors as string[]) ?? undefined,
+                      facing: (attrs.facing as string) ?? null,
+                      distance: (attrs.distance as string) ?? null,
+                      carryingItem: (attrs.carryingItem as string) ?? null,
+                      bodyLanguage: (attrs.bodyLanguage as string) ?? null,
+                      actions: (attrs.actions as string[]) ?? undefined,
+                      positionPct: pos ?? null,
+                    }
+                  : null,
+              };
+            }),
+            localThreat: (event.threat_assessment as { level?: string; factors?: string[] }) ?? null,
+            sceneContext: event.scene_context ?? null,
+            motionStats:
+              (event.motion_stats as {
+                motion_pixels?: number;
+                motion_percentage?: number;
+                confidence?: number;
+              }) ?? null,
+          };
+        }
+      } catch (metaError) {
+        // metadata is optional enrichment — proceed without it
+      }
+
       const context = {
         cameraId: event.camera_id ?? undefined,
         cameraName:
@@ -387,6 +439,7 @@ export class NvidiaController extends BaseController {
         confidence: event.confidence ?? undefined,
         timestamp: event.timestamp.toString(),
         yoloDetections: event.object_detections,
+        sensorMetadata,
       };
 
       let result: any;
@@ -459,9 +512,9 @@ export class NvidiaController extends BaseController {
         const threatLevel = result.threatAssessment?.level || 'low';
         const threatConfidence = result.threatAssessment?.confidence || 0;
         await AppDataSource.query(
-          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, detected_animals, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
-           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, detected_vehicles = EXCLUDED.detected_vehicles, detected_objects = EXCLUDED.detected_objects, detected_animals = EXCLUDED.detected_animals, recommended_actions = EXCLUDED.recommended_actions, model_used = EXCLUDED.model_used, processing_time_ms = EXCLUDED.processing_time_ms, analyzed_at = NOW()`,
+          `INSERT INTO ai_analysis_results (event_id, event_filename, camera_id, scene_description, scene_context, threat_level, threat_confidence, detected_people, detected_vehicles, detected_objects, detected_animals, bounding_boxes, recommended_actions, additional_observations, model_used, processing_time_ms, analyzed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
+           ON CONFLICT (event_id) DO UPDATE SET scene_description = EXCLUDED.scene_description, scene_context = EXCLUDED.scene_context, threat_level = EXCLUDED.threat_level, detected_people = EXCLUDED.detected_people, detected_vehicles = EXCLUDED.detected_vehicles, detected_objects = EXCLUDED.detected_objects, detected_animals = EXCLUDED.detected_animals, bounding_boxes = EXCLUDED.bounding_boxes, recommended_actions = EXCLUDED.recommended_actions, model_used = EXCLUDED.model_used, processing_time_ms = EXCLUDED.processing_time_ms, analyzed_at = NOW()`,
           [
             eventId,
             filename,
@@ -474,6 +527,7 @@ export class NvidiaController extends BaseController {
             JSON.stringify(entities.vehicles || result.vehicles || []),
             JSON.stringify(entities.objects || []),
             JSON.stringify(entities.animals || []),
+            JSON.stringify(result.boxes || []),
             JSON.stringify(result.recommendedActions || []),
             result.additionalObservations || null,
             result.model || result.modelUsed || 'unknown',

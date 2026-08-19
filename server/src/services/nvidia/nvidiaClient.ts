@@ -58,6 +58,51 @@ export async function callNvidiaApi(
     ? `YOLO Detections: ${context.yoloDetections.map((d) => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
     : null;
 
+  const meta = context.sensorMetadata;
+  const sensorLines: string[] = [];
+  if (meta?.tracks?.length) {
+    const trackLine = (t: (typeof meta.tracks)[number]) => {
+      const parts = [
+        `${t.class}${t.confidence != null ? ` ${Math.round(t.confidence * 100)}%` : ''}`,
+        t.trackId != null ? `track#${t.trackId}` : null,
+        t.trackState ?? null,
+        t.trackletLen != null ? `${t.trackletLen} frames` : null,
+        t.identity && t.identity !== 'unknown'
+          ? `identity=${t.identity}${t.identityConfidence != null ? ` (${Math.round(t.identityConfidence * 100)}%)` : ''}`
+          : null,
+        t.humanVerified != null
+          ? `human-check=${t.verificationTier ?? (t.humanVerified ? 'verified' : 'unverified')}`
+          : null,
+        t.personAttributes?.clothing ? `wearing ${t.personAttributes.clothing}` : null,
+        t.personAttributes?.distance ?? null,
+        t.personAttributes?.carryingItem && t.personAttributes.carryingItem !== 'none'
+          ? `carrying ${t.personAttributes.carryingItem}`
+          : null,
+        t.personAttributes?.bodyLanguage ?? null,
+        t.personAttributes?.actions?.length ? t.personAttributes.actions.join('/') : null,
+      ].filter(Boolean);
+      return parts.join(', ');
+    };
+    sensorLines.push(`Tracked objects (local pipeline, supporting data): ${meta.tracks.map(trackLine).join(' | ')}`);
+  }
+  if (meta?.localThreat?.level) {
+    sensorLines.push(
+      `Local threat detector: ${meta.localThreat.level}${meta.localThreat.factors?.length ? ` (${meta.localThreat.factors.slice(0, 3).join('; ')})` : ''}`,
+    );
+  }
+  if (meta?.sceneContext && Object.keys(meta.sceneContext).length) {
+    sensorLines.push(
+      `Local scene analysis: ${Object.entries(meta.sceneContext)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(', ')}`,
+    );
+  }
+  if (meta?.motionStats) {
+    sensorLines.push(
+      `Motion signal: ${meta.motionStats.motion_percentage ?? 0}% of frame changed (confidence ${meta.motionStats.confidence ?? 0})`,
+    );
+  }
+
   const contextInfo = [
     context.cameraName ? `Camera: ${context.cameraName}` : null,
     context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
@@ -67,12 +112,13 @@ export async function callNvidiaApi(
       : null,
     yoloInfo,
     context.timestamp ? `Timestamp: ${context.timestamp}` : null,
+    ...sensorLines,
   ]
     .filter(Boolean)
     .join(' | ');
 
   const userMessage = contextInfo
-    ? `Context: ${contextInfo}\n\nAnalyze this image and compare with YOLO detections above. Note any discrepancies. Respond with only valid JSON: {`
+    ? `Context: ${contextInfo}\n\nThe image is your primary evidence — analyze it directly. The sensor metadata above (tracked objects, local threat/scene/motion) is supporting context from local detectors that can miss objects or misclassify them, and the image is downscaled so small/distant objects may be hard to see. Use the metadata as hints: it can tell you about objects too small to see, but verify against the image whenever visible and trust your own visual analysis when they conflict. Note discrepancies in your observations. Respond with only valid JSON: {`
     : 'Analyze this image. Respond with only valid JSON: {';
 
   const requestBody = {

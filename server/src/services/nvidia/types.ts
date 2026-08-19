@@ -9,6 +9,37 @@ export interface NormalizedDetection {
   };
 }
 
+export interface PersonAttributeSummary {
+  clothing?: string | null;
+  clothingColors?: string[];
+  facing?: string | null;
+  distance?: string | null;
+  carryingItem?: string | null;
+  bodyLanguage?: string | null;
+  actions?: string[];
+  positionPct?: { x: number; y: number; width: number; height: number } | null;
+}
+
+export interface TrackSummary {
+  class: string;
+  confidence: number | null;
+  trackId?: number | null;
+  trackState?: string | null;
+  trackletLen?: number | null;
+  identity?: string | null;
+  identityConfidence?: number | null;
+  humanVerified?: boolean | null;
+  verificationTier?: string | null;
+  personAttributes?: PersonAttributeSummary | null;
+}
+
+export interface SensorMetadata {
+  tracks: TrackSummary[];
+  localThreat?: { level?: string; factors?: string[] } | null;
+  sceneContext?: Record<string, unknown> | null;
+  motionStats?: { motion_pixels?: number; motion_percentage?: number; confidence?: number } | null;
+}
+
 export interface AnalysisContext {
   cameraId?: string;
   cameraName?: string;
@@ -18,6 +49,7 @@ export interface AnalysisContext {
   detectedObjects?: string[];
   confidence?: number;
   yoloDetections?: NormalizedDetection[];
+  sensorMetadata?: SensorMetadata;
 }
 
 export interface BoundingBox {

@@ -18,13 +18,34 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
 
-const Login = lazy(() => import('./pages/Login'));
-const StreamDashboard = lazy(() => import('./pages/StreamDashboard'));
-const EventsPage = lazy(() => import('./pages/EventsPage'));
-const SettingsPage = lazy(() => import('./pages/Settings'));
-const TimelapsePage = lazy(() => import('./pages/TimelapsePage'));
-const PeoplePage = lazy(() => import('./pages/PeoplePage'));
-const LogsPage = lazy(() => import('./pages/LogsPage'));
+// After a redeploy, a tab left open references chunks that no longer exist.
+// Reload once to pick up the new build instead of surfacing a fetch error.
+const lazyWithRecovery = (
+  load: () => Promise<{ default: React.ComponentType }>,
+): React.LazyExoticComponent<React.ComponentType> =>
+  lazy(() =>
+    load()
+      .then((mod) => {
+        sessionStorage.removeItem('sv:chunk-reloaded');
+        return mod;
+      })
+      .catch((err) => {
+        if (!sessionStorage.getItem('sv:chunk-reloaded')) {
+          sessionStorage.setItem('sv:chunk-reloaded', '1');
+          window.location.reload();
+        }
+        throw err;
+      }),
+  );
+
+const Login = lazyWithRecovery(() => import('./pages/Login'));
+const StreamDashboard = lazyWithRecovery(() => import('./pages/StreamDashboard'));
+const EventsPage = lazyWithRecovery(() => import('./pages/EventsPage'));
+const SettingsPage = lazyWithRecovery(() => import('./pages/Settings'));
+const TimelapsePage = lazyWithRecovery(() => import('./pages/TimelapsePage'));
+const PeoplePage = lazyWithRecovery(() => import('./pages/PeoplePage'));
+const LogsPage = lazyWithRecovery(() => import('./pages/LogsPage'));
+const DetectionsPage = lazyWithRecovery(() => import('./pages/DetectionsPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const AuthRedirect = () => {
@@ -234,6 +255,18 @@ const App = () => {
                                 <AppLayout>
                                   <ErrorBoundary fallback={ErrorFallback}>
                                     <PeoplePage />
+                                  </ErrorBoundary>
+                                </AppLayout>
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/app/detections"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout>
+                                  <ErrorBoundary fallback={ErrorFallback}>
+                                    <DetectionsPage />
                                   </ErrorBoundary>
                                 </AppLayout>
                               </ProtectedRoute>

@@ -721,7 +721,7 @@ export class EventSearchService {
     const event = await this.eventRepository.findOne({ where: { id } });
     if (!event) return null;
 
-    const filename = event.file_path.split('/').pop();
+    const filename = event.file_path?.split('/').pop() ?? null;
     let persons_detected = event.persons_detected || 0;
     let faces_detected = event.faces_detected || 0;
     let known_faces_count = event.known_faces_count || 0;

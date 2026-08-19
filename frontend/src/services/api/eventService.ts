@@ -6,8 +6,17 @@ import { fetchWithRetry, ApiError, API_URL } from './baseClient';
 
 interface DetectionData {
   confidence: number;
-  boundingBox?: number[];
   class?: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  boundingBox?: number[];
+  trackId?: number;
+  trackState?: string | null;
+  trackletLen?: number | null;
+  classId?: number | null;
+  identity?: string | null;
+  identityConfidence?: number | null;
+  humanVerified?: boolean;
+  verificationTier?: string | null;
 }
 
 interface FaceDetectionData {

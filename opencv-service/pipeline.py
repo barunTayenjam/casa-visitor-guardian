@@ -920,11 +920,19 @@ def start_rtsp_service():
 
             def _face_rec_fn(face_roi):
                 if state.face_recognition is None:
-                    return ("unknown", 0.0)
+                    return ("unknown", 0.0, None)
                 try:
-                    return state.face_recognition.recognize_face(face_roi)
+                    rec = state.face_recognition
+                    name, conf = rec.recognize_face(face_roi)
+                    emb = None
+                    if hasattr(rec, "extract_face_embedding"):
+                        try:
+                            emb = rec.extract_face_embedding(face_roi)
+                        except Exception:
+                            pass
+                    return (name, conf, emb)
                 except Exception:
-                    return ("unknown", 0.0)
+                    return ("unknown", 0.0, None)
 
             for pipeline in state._rtsp_service._pipelines.values():
                 pipeline.set_face_recognition(_face_rec_fn)

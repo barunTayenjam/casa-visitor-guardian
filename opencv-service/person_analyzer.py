@@ -21,6 +21,7 @@ class PersonAnalyzer:
                 x, y, bw, bh = bbox.get("x", 0), bbox.get("y", 0), bbox.get("width", 0), bbox.get("height", 0)
             else:
                 x, y, bw, bh = bbox[0], bbox[1], bbox[2], bbox[3]
+            x, y, bw, bh = int(x), int(y), int(bw), int(bh)
 
             conf = det.get("score", det.get("confidence", 0))
             if isinstance(conf, float):
@@ -50,6 +51,7 @@ class PersonAnalyzer:
                 "clothing_colors": clothing.get("colors", []),
                 "actions": [action],
                 "facing": facing,
+                "distance": distance,
                 "estimatedAge": distance_to_age.get(distance, "unknown"),
                 "carryingItem": carrying,
                 "bodyLanguage": body_language,

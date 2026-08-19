@@ -40,8 +40,9 @@ interface ResolvedRange {
   label: string;
 }
 
+/** YYYY-MM-DD of the instant as seen in IST (en-CA yields ISO ordering). */
 function fmtDay(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
 export function resolveRange(

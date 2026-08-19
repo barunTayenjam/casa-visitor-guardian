@@ -34,8 +34,12 @@ export const vehicleTimelineParamsSchema = z.object({
 export const humanCountsParamsSchema = z.object({
   range: rangeSchema,
   camera: z.string().nullable().optional(),
-  hour_from: z.number().int().min(0).max(23).optional(),
-  hour_to: z.number().int().min(1).max(24).optional(),
+  hour_from: z.number().int().min(0).max(23).nullish(),
+  hour_to: z.number().int().min(1).max(24).nullish(),
+  objectClass: z
+    .enum(['person', 'dog', 'cat', 'car', 'motorcycle', 'bicycle', 'truck', 'bus'])
+    .nullish()
+    .transform((v) => v ?? 'person'),
 });
 
 export const periodReportParamsSchema = z.object({
@@ -60,6 +64,58 @@ export interface HumanCountsInput {
   to: Date;
   hour_from?: number;
   hour_to?: number;
+  objectClass?: string;
+}
+
+export interface SpanInput {
+  camera: string;
+  first: Date;
+  last: Date;
+  obs: number;
+}
+
+export interface Session {
+  camera: string;
+  first: Date;
+  last: Date;
+  trackCount: number;
+  obs: number;
+}
+
+/** Track fragments closer than this are treated as one continuous visit. */
+export const SESSION_GAP_MS = 5 * 60 * 1000;
+
+/**
+ * The tracker assigns a new ID whenever an object leaves the frame, so one
+ * dog or parked scooter scatters into many track IDs. Cluster track spans
+ * per camera: spans whose start falls within `gapMs` of the running
+ * cluster's end merge into one visit.
+ */
+export function clusterSessions(spans: SpanInput[], gapMs = SESSION_GAP_MS): Session[] {
+  const byCam = new Map<string, SpanInput[]>();
+  for (const s of spans) {
+    const list = byCam.get(s.camera) ?? [];
+    list.push(s);
+    byCam.set(s.camera, list);
+  }
+  const sessions: Session[] = [];
+  for (const [camera, camSpans] of byCam) {
+    const sorted = [...camSpans].sort((a, b) => a.first.getTime() - b.first.getTime());
+    let cur: Session | null = null;
+    for (const s of sorted) {
+      if (cur && s.first.getTime() <= cur.last.getTime() + gapMs) {
+        cur.last = new Date(Math.max(cur.last.getTime(), s.last.getTime()));
+        cur.trackCount += 1;
+        cur.obs += s.obs;
+      } else {
+        if (cur) sessions.push(cur);
+        cur = { camera, first: s.first, last: s.last, trackCount: 1, obs: s.obs };
+      }
+    }
+    if (cur) sessions.push(cur);
+  }
+  sessions.sort((a, b) => a.first.getTime() - b.first.getTime());
+  return sessions;
 }
 
 export function resolveVehicleClasses(vehicle: string): string[] {
@@ -93,7 +149,7 @@ export async function vehicleTimeline(
   params: VehicleTimelineInput,
 ): Promise<{
   tables: import('../../types/chat.js').ChatTable[];
-  evidence: { detections: number; events: number; cameras: string[] };
+  evidence: import('../../types/chat.js').ToolEvidence;
 }> {
   const classes = resolveVehicleClasses(params.vehicle);
   const values: unknown[] = [classes, params.from, params.to, CONFIDENCE_FLOOR];
@@ -142,6 +198,15 @@ export async function vehicleTimeline(
     };
   });
 
+  const sessions = clusterSessions(
+    rows.map((r) => ({
+      camera: String(r.camera_id ?? '?'),
+      first: new Date(r.first_seen as Date),
+      last: new Date(r.last_seen as Date),
+      obs: Number(r.obs),
+    })),
+  );
+
   const detections = rows.reduce((a, r) => a + Number(r.obs), 0);
   const events = rows.reduce((a, r) => a + Number(r.events), 0);
   const cameras = [...new Set(rows.map((r) => String(r.camera_id ?? '')).filter(Boolean))];
@@ -149,12 +214,24 @@ export async function vehicleTimeline(
   return {
     tables: [
       {
-        caption: `${params.vehicle} sightings (${classes.join(', ')})`,
+        caption: `${params.vehicle} visits (track fragments merged; gaps > ${Math.round(SESSION_GAP_MS / 60000)} min split visits)`,
+        headers: ['Camera', 'Visit', 'From (IST)', 'Until (IST)', 'Track fragments', 'Observations'],
+        rows: sessions.map((s, i) => [
+          s.camera,
+          i + 1,
+          fmtIstTime(s.first),
+          fmtIstTime(s.last),
+          s.trackCount,
+          s.obs,
+        ]),
+      },
+      {
+        caption: `Raw tracks (${classes.join(', ')})`,
         headers: ['Camera', 'Track', 'Timeline', 'Observations', 'Events'],
         rows: trackRows.map((t) => [t.camera, t.track, t.label, t.obs, t.events]),
       },
     ],
-    evidence: { detections, events, cameras },
+    evidence: { detections, events, cameras, sessions: sessions.length, tracks: rows.length },
   };
 }
 
@@ -527,10 +604,12 @@ export async function humanCounts(
   params: HumanCountsInput,
 ): Promise<{
   tables: import('../../types/chat.js').ChatTable[];
-  evidence: { detections: number; events: number; cameras: string[] };
+  evidence: import('../../types/chat.js').ToolEvidence;
 }> {
-  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR];
-  let conds = 'AND ed.confidence >= $3';
+  const objectClass = params.objectClass ?? 'person';
+  const isPerson = objectClass === 'person';
+  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR, [objectClass]];
+  let conds = 'AND ed.confidence >= $3 AND ed.class = ANY($4)';
   if (params.camera) {
     values.push(params.camera);
     conds += ` AND ed.camera_id = $${values.length}`;
@@ -551,8 +630,7 @@ export async function humanCounts(
             COUNT(*) FILTER (WHERE ed.human_verified = true) AS verified,
             COUNT(DISTINCT ed.event_id) AS events
      FROM event_detections ed
-     WHERE ed.class = 'person'
-       AND ed.timestamp >= $1 AND ed.timestamp < $2
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2
        ${conds}
        ${hourCond}
      GROUP BY 1
@@ -568,17 +646,42 @@ export async function humanCounts(
     events: Number(r.events),
   }));
 
+  const spanRows = (await AppDataSource.query(
+    `SELECT ed.camera_id,
+            ed.track_id,
+            MIN(ed.timestamp) AS first_seen,
+            MAX(ed.timestamp) AS last_seen,
+            COUNT(*) AS obs
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2
+       ${conds}
+     GROUP BY 1, 2`,
+    values,
+  )) as Array<Record<string, unknown>>;
+  const trackSpans = spanRows
+    .filter((r) => r.track_id !== null)
+    .map((r) => ({
+      camera: String(r.camera_id ?? '?'),
+      first: new Date(r.first_seen as Date),
+      last: new Date(r.last_seen as Date),
+      obs: Number(r.obs),
+    }));
+  const sessions = clusterSessions(trackSpans);
+
   const label = (h: number) => {
     const s = `${String(h % 24).padStart(2, '0')}:00`;
     const e = `${String((h + 1) % 24).padStart(2, '0')}:00`;
     return `${s}–${e}`;
   };
+  const classLabel = isPerson ? 'Humans' : `${objectClass}s`;
+  const uniqueHeader = isPerson ? 'Unique humans' : 'Unique tracks';
+  const verifiedHeader = isPerson ? 'Verified humans' : 'Verified';
 
   return {
     tables: [
       {
-        caption: 'Humans by hour (IST)',
-        headers: ['Hour', 'Unique humans', 'Person detections', 'Verified humans', 'Events'],
+        caption: `${classLabel} by hour (IST)`,
+        headers: ['Hour', uniqueHeader, `${objectClass} detections`, verifiedHeader, 'Events'],
         rows: hourRows.map((r) => [label(r.hour), r.humans, r.detections, r.verified, r.events]),
       },
     ],
@@ -586,6 +689,8 @@ export async function humanCounts(
       detections: hourRows.reduce((a, r) => a + r.detections, 0),
       events: hourRows.reduce((a, r) => a + r.events, 0),
       cameras: [],
+      sessions: sessions.length,
+      tracks: trackSpans.length,
     },
   };
 }

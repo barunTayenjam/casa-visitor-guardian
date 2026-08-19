@@ -14,10 +14,18 @@ export interface ChatTable {
   rows: Array<(string | number | null)[]>;
 }
 
-export interface ChatEvidence {
+/** Evidence produced by query tools; chatService attaches the window label. */
+export interface ToolEvidence {
   detections: number;
   events: number;
   cameras: string[];
+  /** Estimated distinct object visits (tracker IDs merged across short gaps). */
+  sessions?: number;
+  /** Raw distinct track IDs behind the sessions estimate. */
+  tracks?: number;
+}
+
+export interface ChatEvidence extends ToolEvidence {
   window: string;
 }
 

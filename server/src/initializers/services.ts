@@ -223,6 +223,15 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
             return;
           }
 
+          if (ev.humanVerification?.verified !== true) {
+            logger.warn(
+              `Blocked unverified person track ${trackId} on ${cameraId} at persistence gate`,
+              'INIT',
+            );
+            persistedTracks.add(trackKey);
+            return;
+          }
+
           if ((ev.trackletLen ?? 0) < PERSON_MIN_TRACK_HITS) {
             return;
           }

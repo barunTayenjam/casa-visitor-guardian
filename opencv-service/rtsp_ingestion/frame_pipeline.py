@@ -521,6 +521,15 @@ class FramePipeline:
         self._motion_gate = MotionGate(camera_id=self._camera_id, pixel_threshold=MOTION_PIXEL_THRESHOLD)
         self._tracker = ByteTracker(track_thresh=0.25, match_thresh=0.8, track_buffer=30, frame_rate=DETECTION_FPS)
         self._identity_cache = IdentityCache(ttl=30.0)
+        self._snapshotted_tracks: set = set()
+        # Verification verdict cache: (frame_seen, verdict) per track.
+        # MediaPipe pose + face CNN are the expensive tiers of HumanVerifier;
+        # re-running them on the same track every frame is wasted work, so a
+        # pass is reused for 10 frames and a fail re-checked after 4 (the
+        # bbox grows as a person walks closer, so fails must be retried).
+        self._verify_cache: dict = {}
+        self._person_min_hits = int(os.getenv("PERSON_MIN_TRACK_HITS", "3"))
+        self._person_min_conf = float(os.getenv("PERSON_MIN_CONFIDENCE", "0.55"))
         self._face_recognition_fn = None
         self._scene_analyzer = SceneAnalyzer()
         self._scene_analysis_interval = 60
@@ -546,7 +555,7 @@ class FramePipeline:
         # Native main-stream resolution (up to 2K) is used for YOLO detection,
         # event snapshots, and face/person analysis; live preview is
         # downscaled separately (640x360).
-        go2rtc_url = f"{GO2RTC_RTSP_BASE}/{self._camera_id}"
+        go2rtc_url = f"{GO2RTC_RTSP_BASE}/{self._camera_id}_sub"
 
         self._live_reader = FFmpegReader(
             rtsp_url=go2rtc_url,
@@ -812,6 +821,8 @@ class FramePipeline:
         for obj in tracked:
             if obj.get("event") == "track_ended":
                 self._identity_cache.invalidate(obj["track_id"])
+                self._snapshotted_tracks.discard(obj["track_id"])
+                self._verify_cache.pop(obj["track_id"], None)
                 results.append(obj)
                 continue
             tid = obj["track_id"]
@@ -821,33 +832,59 @@ class FramePipeline:
             else:
                 x, y, w_b, h_b = 0, 0, 0, 0
 
-            if obj.get("event") == "track_started" and obj.get("class") == "person":
-                obj["file_path"] = self._save_snapshot(tid, frame)
-
             # --- HUMAN VERIFICATION ---
             # MediaPipe pose keypoints + face check (HumanVerifier) with
             # structured metadata: tier, keypoint count, latency — persisted
             # by Node into human_verifications for tuning/analytics.
-            if obj.get("class") == "person" and w_b > 20 and h_b > 20:
+            # Every person track is verified (no size bypass) and the
+            # full-res snapshot is written only after verification passes,
+            # so unverified persons leave no event row and no image.
+            if obj.get("class") == "person":
                 person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
-                if person_roi.size > 0:
+                if person_roi.size <= 0:
+                    self._queue_pipeline_log(
+                        "warn",
+                        "HumanVerifier",
+                        f"Discarded person track {tid} with degenerate ROI (bbox={x},{y},{w_b},{h_b})",
+                        track_id=tid,
+                    )
+                    continue
+                cached_v = self._verify_cache.get(tid)
+                if cached_v is not None and self._frame_counter < cached_v[0]:
+                    verdict = cached_v[1]
+                else:
                     verdict = self._get_human_verifier().verify_detailed(
                         person_roi, yolo_score=obj.get("score", 0)
                     )
-                    verdict["track_id"] = tid
-                    if verdict["verified"]:
-                        obj["human_verified"] = True
-                        obj["human_verification"] = verdict
-                    else:
-                        print(f"[FramePipeline] Discarding false positive person: {tid} (tier={verdict['tier']}, score={verdict['yolo_score']})")
-                        self._queue_pipeline_log(
-                            "warn",
-                            "HumanVerifier",
-                            f"Discarded unverified person track {tid} (tier={verdict['tier']}, score={verdict['yolo_score']}, kp={verdict['keypoints']})",
-                            track_id=tid,
-                            verification=verdict,
-                        )
-                        continue
+                    self._verify_cache[tid] = (
+                        self._frame_counter + (10 if verdict["verified"] else 4),
+                        verdict,
+                    )
+                verdict["track_id"] = tid
+                if verdict["verified"]:
+                    obj["human_verified"] = True
+                    obj["human_verification"] = verdict
+                    # Snapshot gate mirrors Node's persistence gates
+                    # (PERSON_MIN_TRACK_HITS / PERSON_MIN_CONFIDENCE) so files
+                    # are only written for events Node will actually persist.
+                    if (
+                        obj.get("tracklet_len", 0) >= self._person_min_hits
+                        and obj.get("score", 0) >= self._person_min_conf
+                        and tid not in self._snapshotted_tracks
+                    ):
+                        obj["file_path"] = self._save_snapshot(tid, frame)
+                        if obj["file_path"]:
+                            self._snapshotted_tracks.add(tid)
+                else:
+                    print(f"[FramePipeline] Discarding false positive person: {tid} (tier={verdict['tier']}, score={verdict['yolo_score']})")
+                    self._queue_pipeline_log(
+                        "warn",
+                        "HumanVerifier",
+                        f"Discarded unverified person track {tid} (tier={verdict['tier']}, score={verdict['yolo_score']}, kp={verdict['keypoints']})",
+                        track_id=tid,
+                        verification=verdict,
+                    )
+                    continue
             # ---------------------------
 
             if obj.get("event") == "track_started" and self._face_recognition_fn and w_b > 20 and h_b > 20:

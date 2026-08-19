@@ -135,6 +135,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - DETECTIONS_DIR=/app/data/detections
       - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
+      - PERSON_MIN_TRACK_HITS=${PERSON_MIN_TRACK_HITS:-3}
+      - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
     devices:
       - /dev/dri:/dev/dri
     volumes:
@@ -159,8 +161,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: ${OPENCV_CPU_LIMIT:-2.0}
-          memory: ${OPENCV_MEM_LIMIT:-1536M}
+          cpus: ${OPENCV_CPU_LIMIT:-3.0}
+          memory: ${OPENCV_MEM_LIMIT:-2g}
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.5}
           memory: ${OPENCV_MEM_RESERVE:-256M}

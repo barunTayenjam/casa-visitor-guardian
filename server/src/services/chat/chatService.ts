@@ -3,6 +3,9 @@ import { logger } from '../../utils/logger.js';
 import { ChatMessage, ChatResponse } from '../../types/chat.js';
 import { chatLlm, extractJsonObject } from './chatLlm.js';
 import {
+  anomalies,
+  cameraActivity,
+  eventCorrelation,
   humanCounts,
   humanCountsParamsSchema,
   periodReportParamsSchema,
@@ -34,7 +37,16 @@ Tools:
 3. tool="period_report" — question asks for a report/summary of what happened over a period.
    params: { "range": same as above, "camera": string|null }
 
-4. tool="fallback" — any question none of the above fits (e.g. asking for advice, general info, or data the system cannot provide). params: {}.
+4. tool="camera_activity" — question compares cameras or asks how busy/active a camera was (which camera saw most, compare cam1 vs cam2, how much happened on a camera).
+   params: { "range": same as above, "camera": string|null }  (camera null when comparing all cameras)
+
+5. tool="event_correlation" — question asks about several things at once / overlapping tracks / multiple people in one event / longest sightings / how long someone or something stayed.
+   params: { "range": same as above, "camera": string|null }
+
+6. tool="anomalies" — question asks about unusual activity, spikes, sudden surges, quiet days, outages, gaps, or a camera being down/no detections.
+   params: { "range": same as above, "camera": string|null }
+
+7. tool="fallback" — any question none of the above fits (e.g. asking for advice, general info, or data the system cannot provide). params: {}.
 
 Accuracy rules — MANDATORY:
 - Never invent dates, times, counts, camera names, or vehicle classes.
@@ -45,8 +57,8 @@ Accuracy rules — MANDATORY:
 const FALLBACK_SYSTEM = `You answer questions about a home security camera system's recorded detection data.
 Facts about the data you may reference:
 - Persisted detections contain classes: person, bicycle, car, motorcycle, bus, truck (COCO vocabulary). A scooter is recorded as "motorcycle"; an SUV as "car".
-- Data covers detections, per-camera tracks, human verification (verified vs unverified person detections), face recognition identities, and scene/threat assessments.
-- You do NOT have live video, audio, weather, or events outside the recorded window.
+- Data covers per-camera detections and tracks, human verification (verified vs unverified person detections), face recognition identities, person attributes (clothing, distance, carrying items), per-event threat assessments, and per-day activity.
+- You do NOT have live video, audio, weather, or events outside the recorded window. A day with zero detections on a camera may mean the camera was off or nothing triggered detection — you cannot distinguish the two.
 Be honest: if the question asks for something the data cannot answer, say so plainly. Do not invent statistics, times, or counts. Keep answers short. Use markdown.`;
 
 export class ChatError extends Error {
@@ -59,7 +71,15 @@ export class ChatError extends Error {
 }
 
 const classificationSchema = z.object({
-  tool: z.enum(['vehicle_timeline', 'human_counts', 'period_report', 'fallback']),
+  tool: z.enum([
+    'vehicle_timeline',
+    'human_counts',
+    'period_report',
+    'camera_activity',
+    'event_correlation',
+    'anomalies',
+    'fallback',
+  ]),
   params: z.record(z.unknown()),
 });
 
@@ -206,6 +226,121 @@ export async function runClassifiedChat(
         hour_from: parsed.data.hour_from ?? null,
         hour_to: parsed.data.hour_to ?? null,
       },
+      answer: { type: 'markdown', content: lines.join('\n') },
+      tables,
+      evidence: { ...evidence, window: range.label },
+    };
+  }
+
+  // camera_activity
+  if (tool === 'camera_activity') {
+    const parsed = periodReportParamsSchema.safeParse(classified.params);
+    if (!parsed.success) throw new ChatError('Missing/invalid camera params', 422);
+    const { tables, evidence } = await cameraActivity({
+      from: range.from,
+      to: range.to,
+      camera: parsed.data.camera,
+    });
+    const rows = tables[0].rows;
+    const lines: string[] = [];
+    if (rows.length === 0) {
+      lines.push(`No detections in the window (${range.label}).`);
+    } else {
+      lines.push(`## Camera activity — ${range.label}`);
+      lines.push('');
+      const busiest = rows[0];
+      lines.push(`Busiest camera: **${busiest[0]}** with ${busiest[1]} detections across ${busiest[2]} events (${busiest[3]} tracks).`);
+      if (rows.length > 1) {
+        lines.push('');
+        for (const r of rows) {
+          lines.push(`- **${r[0]}**: ${r[1]} detections, ${r[2]} events, ${r[3]} tracks (${r[4]})`);
+        }
+      }
+    }
+    return {
+      tool,
+      params: { range: range.label, camera: parsed.data.camera ?? null },
+      answer: { type: 'markdown', content: lines.join('\n') },
+      tables,
+      evidence: { ...evidence, window: range.label },
+    };
+  }
+
+  // event_correlation
+  if (tool === 'event_correlation') {
+    const parsed = periodReportParamsSchema.safeParse(classified.params);
+    if (!parsed.success) throw new ChatError('Missing/invalid correlation params', 422);
+    const { tables, evidence } = await eventCorrelation({
+      from: range.from,
+      to: range.to,
+      camera: parsed.data.camera,
+    });
+    const busy = tables[0].rows;
+    const longTracks = tables[1].rows;
+    const lines: string[] = [];
+    if (busy.length === 0 && longTracks.length === 0) {
+      lines.push(`No multi-track events or long tracks in the window (${range.label}).`);
+    } else {
+      lines.push(`## Event correlation — ${range.label}`);
+      if (busy.length > 0) {
+        lines.push('');
+        lines.push(`Most concurrent tracks (${busy.length} event${busy.length === 1 ? '' : 's'} with 2+ tracks):`);
+        for (const r of busy) {
+          lines.push(`- **${r[0]}** on ${r[1]}: ${r[2]} tracks at once (${r[3]})`);
+        }
+      }
+      if (longTracks.length > 0) {
+        lines.push('');
+        lines.push(`Longest continuous sightings:`);
+        for (const r of longTracks) {
+          lines.push(`- ${r[0]} on ${r[1]} (track #${r[2]}): ${r[3]} — ${r[4]} observations`);
+        }
+      }
+    }
+    return {
+      tool,
+      params: { range: range.label, camera: parsed.data.camera ?? null },
+      answer: { type: 'markdown', content: lines.join('\n') },
+      tables,
+      evidence: { ...evidence, window: range.label },
+    };
+  }
+
+  // anomalies
+  if (tool === 'anomalies') {
+    const parsed = periodReportParamsSchema.safeParse(classified.params);
+    if (!parsed.success) throw new ChatError('Missing/invalid anomalies params', 422);
+    const { tables, evidence } = await anomalies({
+      from: range.from,
+      to: range.to,
+      camera: parsed.data.camera,
+    });
+    const rows = tables[0]?.rows ?? [];
+    const lines: string[] = [];
+    if (rows.length === 0) {
+      lines.push(`No anomalies detected in the window (${range.label}). Activity stayed within each camera's normal range.`);
+    } else {
+      lines.push(`## Anomalies — ${range.label}`);
+      lines.push('');
+      const spikes = rows.filter((r) => r[0] === 'spike');
+      const gaps = rows.filter((r) => r[0] === 'gap');
+      if (spikes.length > 0) {
+        lines.push(`**Spikes** — ${spikes.length} day${spikes.length === 1 ? '' : 's'} with unusually high activity:`);
+        for (const r of spikes) {
+          lines.push(`- ${r[1]}: ${r[2]} detections (${r[3]})`);
+        }
+        lines.push('');
+      }
+      if (gaps.length > 0) {
+        lines.push(`**Gaps** — ${gaps.length} period${gaps.length === 1 ? '' : 's'} with no detections:`);
+        for (const r of gaps) {
+          lines.push(`- ${r[1]}: ${r[3]}`);
+        }
+      }
+    }
+    return {
+      tool,
+      params: { range: range.label, camera: parsed.data.camera ?? null },
       answer: { type: 'markdown', content: lines.join('\n') },
       tables,
       evidence: { ...evidence, window: range.label },

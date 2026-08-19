@@ -158,6 +158,371 @@ export async function vehicleTimeline(
   };
 }
 
+export interface CameraActivityInput {
+  camera?: string | null;
+  from: Date;
+  to: Date;
+}
+
+export async function cameraActivity(
+  params: CameraActivityInput,
+): Promise<{
+  tables: import('../../types/chat.js').ChatTable[];
+  evidence: { detections: number; events: number; cameras: string[] };
+}> {
+  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR];
+  let cameraCond = '';
+  if (params.camera) {
+    values.push(params.camera);
+    cameraCond = `AND ed.camera_id = $${values.length}`;
+  }
+
+  const rows = (await AppDataSource.query(
+    `SELECT ed.camera_id,
+            COUNT(*) AS detections,
+            COUNT(DISTINCT ed.event_id) AS events,
+            COUNT(DISTINCT ed.track_id) AS tracks,
+            string_agg(DISTINCT ed.class, ', ' ORDER BY ed.class) AS class_list,
+            MIN(ed.timestamp) AS first_seen,
+            MAX(ed.timestamp) AS last_seen
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+     ${cameraCond}
+     GROUP BY ed.camera_id
+     ORDER BY detections DESC`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const cameras = rows.map((r) => ({
+    camera: (r.camera_id as string) ?? '?',
+    detections: Number(r.detections),
+    events: Number(r.events),
+    tracks: Number(r.tracks),
+    classes: (r.class_list as string) ?? '',
+    first: r.first_seen as Date,
+    last: r.last_seen as Date,
+  }));
+
+  return {
+    tables: [
+      {
+        caption: 'Camera activity',
+        headers: ['Camera', 'Detections', 'Events', 'Tracks', 'Classes', 'First seen', 'Last seen'],
+        rows: cameras.map((c) => [
+          c.camera,
+          c.detections,
+          c.events,
+          c.tracks,
+          c.classes,
+          c.first ? fmtIstTime(c.first) : '—',
+          c.last ? fmtIstTime(c.last) : '—',
+        ]),
+      },
+    ],
+    evidence: {
+      detections: cameras.reduce((a, c) => a + c.detections, 0),
+      events: cameras.reduce((a, c) => a + c.events, 0),
+      cameras: cameras.map((c) => c.camera),
+    },
+  };
+}
+
+export interface EventCorrelationInput {
+  camera?: string | null;
+  from: Date;
+  to: Date;
+}
+
+export async function eventCorrelation(
+  params: EventCorrelationInput,
+): Promise<{
+  tables: import('../../types/chat.js').ChatTable[];
+  evidence: { detections: number; events: number; cameras: string[] };
+}> {
+  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR];
+  let cameraCond = '';
+  if (params.camera) {
+    values.push(params.camera);
+    cameraCond = `AND ed.camera_id = $${values.length}`;
+  }
+
+  const busy = (await AppDataSource.query(
+    `SELECT ed.event_id,
+            MAX(ed.timestamp) AS ts,
+            ed.camera_id,
+            COUNT(DISTINCT ed.track_id) FILTER (WHERE ed.track_id IS NOT NULL) AS tracks,
+            COUNT(DISTINCT ed.class) AS classes,
+            string_agg(DISTINCT ed.class, ', ' ORDER BY ed.class) AS class_list
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+     ${cameraCond}
+     GROUP BY ed.event_id, ed.camera_id
+     HAVING COUNT(DISTINCT ed.track_id) FILTER (WHERE ed.track_id IS NOT NULL) > 1
+     ORDER BY tracks DESC, ts DESC
+     LIMIT 10`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const longTracks = (await AppDataSource.query(
+    `SELECT ed.class, ed.camera_id, ed.track_id,
+            COUNT(*) AS obs,
+            MIN(ed.timestamp) AS first_seen,
+            MAX(ed.timestamp) AS last_seen
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+       AND ed.track_id IS NOT NULL
+     ${cameraCond}
+     GROUP BY ed.class, ed.camera_id, ed.track_id
+     ORDER BY (MAX(ed.timestamp) - MIN(ed.timestamp)) DESC
+     LIMIT 8`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const countRow = (await AppDataSource.query(
+    `SELECT COUNT(*) AS detections, COUNT(DISTINCT ed.event_id) AS events
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+     ${cameraCond}`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const fmtTrackSpan = (first: Date, last: Date) =>
+    `${fmtIstTime(first)} → ${fmtIstTime(last)}`;
+
+  return {
+    tables: [
+      {
+        caption: 'Busiest events (most concurrent tracks)',
+        headers: ['When (IST)', 'Camera', 'Tracks', 'Classes'],
+        rows: busy.map((r) => [
+          fmtIstTime(r.ts as Date),
+          (r.camera_id as string) ?? '?',
+          Number(r.tracks),
+          (r.class_list as string) ?? '',
+        ]),
+      },
+      {
+        caption: 'Longest continuous tracks',
+        headers: ['Class', 'Camera', 'Track', 'First → last', 'Observations'],
+        rows: longTracks.map((r) => [
+          r.class as string,
+          (r.camera_id as string) ?? '?',
+          Number(r.track_id),
+          fmtTrackSpan(r.first_seen as Date, r.last_seen as Date),
+          Number(r.obs),
+        ]),
+      },
+    ],
+    evidence: {
+      detections: Number(countRow[0]?.detections ?? 0),
+      events: Number(countRow[0]?.events ?? 0),
+      cameras: [...new Set([...busy, ...longTracks].map((r) => String(r.camera_id ?? '')).filter(Boolean))],
+    },
+  };
+}
+
+export interface DailyCount {
+  day: string;
+  camera: string;
+  detections: number;
+}
+
+export interface AnomalyResult {
+  spikes: Array<{
+    day: string;
+    camera: string;
+    detections: number;
+    mean: number;
+  }>;
+  gaps: Array<{ from: string; to: string; camera: string; days: number }>;
+}
+
+/**
+ * Flag daily per-camera counts that deviate from that camera's own baseline:
+ * spikes are days far above mean+2σ (with an absolute floor so noisy quiet
+ * cameras don't flag), gaps are runs of days at or below the floor. The spike
+ * baseline excludes the candidate day so one big day can't hide itself.
+ */
+export function detectDailyAnomalies(
+  series: DailyCount[],
+  opts: { minSpikeDetections?: number; zThreshold?: number; gapFloor?: number } = {},
+): AnomalyResult {
+  const { minSpikeDetections = 10, gapFloor = 0 } = opts;
+  const byCam = new Map<string, DailyCount[]>();
+  for (const r of series) {
+    const list = byCam.get(r.camera) ?? [];
+    list.push(r);
+    byCam.set(r.camera, list);
+  }
+
+  const spikes: AnomalyResult['spikes'] = [];
+  const gaps: AnomalyResult['gaps'] = [];
+
+  for (const [camera, rows] of byCam) {
+    const sorted = [...rows].sort((a, b) => a.day.localeCompare(b.day));
+    const counts = sorted.map((r) => r.detections);
+    const sum = counts.reduce((a, b) => a + b, 0);
+    const sumSq = counts.reduce((a, b) => a + b * b, 0);
+    const n = counts.length;
+
+    for (const r of sorted) {
+      // Baseline excludes the candidate day so one big spike can't hide itself.
+      if (n < 2) continue;
+      const exclMean = (sum - r.detections) / (n - 1);
+      const exclVar = Math.max(0, (sumSq - r.detections ** 2) / (n - 1) - exclMean ** 2);
+      const exclSd = Math.sqrt(exclVar);
+      const threshold = Math.max(exclMean * 2, exclMean + 2 * exclSd);
+      if (r.detections >= minSpikeDetections && r.detections > exclMean && r.detections >= threshold) {
+        spikes.push({
+          day: r.day,
+          camera,
+          detections: r.detections,
+          mean: Math.round(exclMean * 10) / 10,
+        });
+      }
+    }
+
+    let runStart = -1;
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].detections <= gapFloor) {
+        if (runStart === -1) runStart = i;
+      } else if (runStart !== -1) {
+        gaps.push({
+          from: sorted[runStart].day,
+          to: sorted[i - 1].day,
+          camera,
+          days: i - runStart,
+        });
+        runStart = -1;
+      }
+    }
+    if (runStart !== -1) {
+      gaps.push({
+        from: sorted[runStart].day,
+        to: sorted[sorted.length - 1].day,
+        camera,
+        days: sorted.length - runStart,
+      });
+    }
+  }
+
+  spikes.sort((a, b) => b.detections - a.detections);
+  gaps.sort((a, b) => b.days - a.days);
+  return { spikes, gaps };
+}
+
+export interface AnomaliesInput {
+  camera?: string | null;
+  from: Date;
+  to: Date;
+}
+
+export async function anomalies(
+  params: AnomaliesInput,
+): Promise<{
+  tables: import('../../types/chat.js').ChatTable[];
+  evidence: { detections: number; events: number; cameras: string[] };
+}> {
+  const values: unknown[] = [params.from, params.to, CONFIDENCE_FLOOR];
+  let cameraCond = '';
+  if (params.camera) {
+    values.push(params.camera);
+    cameraCond = `AND ed.camera_id = $${values.length}`;
+  }
+
+  const rows = (await AppDataSource.query(
+    `SELECT (ed.timestamp AT TIME ZONE '${IST}')::date::text AS day,
+            ed.camera_id,
+            COUNT(*) AS detections
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+     ${cameraCond}
+     GROUP BY 1, 2
+     ORDER BY 1, 2`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const countRow = (await AppDataSource.query(
+    `SELECT COUNT(*) AS detections, COUNT(DISTINCT ed.event_id) AS events
+     FROM event_detections ed
+     WHERE ed.timestamp >= $1 AND ed.timestamp < $2 AND ed.confidence >= $3
+     ${cameraCond}`,
+    values,
+  )) as Array<Record<string, unknown>>;
+
+  const present = rows.map((r) => ({
+    day: r.day as string,
+    camera: (r.camera_id as string) ?? '?',
+    detections: Number(r.detections),
+  }));
+
+  // GROUP BY only returns days that had detections — a day with zero rows is
+  // invisible. Fill missing calendar days per camera with 0 so outage runs
+  // (e.g. a camera offline for a week) surface as gaps. Only backfill to the
+  // window start for cameras that existed before the window; a camera that
+  // first appeared mid-window legitimately has no earlier days.
+  const firstEverRows = (await AppDataSource.query(
+    `SELECT camera_id, MIN(timestamp) AS first_ever
+     FROM event_detections
+     GROUP BY camera_id`,
+  )) as Array<Record<string, unknown>>;
+  const firstEver = new Map<string, string>();
+  for (const r of firstEverRows) {
+    firstEver.set(String(r.camera_id), String((r.first_ever as Date).toISOString?.() ?? r.first_ever));
+  }
+  const windowFromDay = new Date(params.from.getTime() + (5 * 60 + 30) * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const byCamPresent = new Map<string, Map<string, number>>();
+  for (const r of present) {
+    const m = byCamPresent.get(r.camera) ?? new Map<string, number>();
+    m.set(r.day, r.detections);
+    byCamPresent.set(r.camera, m);
+  }
+  const filled: DailyCount[] = [];
+  for (const [camera, m] of byCamPresent) {
+    const days = [...m.keys()].sort();
+    if (days.length === 0) continue;
+    const firstPresent = days[0];
+    const cameraPrecededWindow = (firstEver.get(camera) ?? '9999-99-99') < windowFromDay;
+    const fillStart = cameraPrecededWindow
+      ? windowFromDay
+      : firstPresent;
+    let cursor = new Date(`${fillStart}T00:00:00Z`);
+    const last = new Date(`${days[days.length - 1]}T00:00:00Z`);
+    while (cursor <= last) {
+      const d = cursor.toISOString().slice(0, 10);
+      filled.push({ day: d, camera, detections: m.get(d) ?? 0 });
+      cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
+
+  const result = detectDailyAnomalies(filled, {});
+
+  const tableRows: Array<(string | number | null)[]> = [
+    ...result.spikes.map((s) => ['spike', `${s.day} (${s.camera})`, s.detections, `baseline ${s.mean}/day`]),
+    ...result.gaps.map((g) => [
+      'gap',
+      `${g.from} → ${g.to} (${g.camera})`,
+      '0',
+      g.days === 1 ? '1 day with no detections' : `${g.days} days with no detections`,
+    ]),
+  ];
+
+  return {
+    tables:
+      tableRows.length > 0
+        ? [{ caption: 'Anomalies', headers: ['Type', 'Period', 'Detections', 'Note'], rows: tableRows }]
+        : [],
+    evidence: {
+      detections: Number(countRow[0]?.detections ?? 0),
+      events: Number(countRow[0]?.events ?? 0),
+      cameras: [...new Set(rows.map((r) => String(r.camera_id ?? '')).filter(Boolean))],
+    },
+  };
+}
+
 export async function humanCounts(
   params: HumanCountsInput,
 ): Promise<{

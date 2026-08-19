@@ -40,3 +40,25 @@ export async function sendChatMessage(
   if (!json.success) throw new Error(json.error || 'Chat request failed');
   return json.data;
 }
+
+export interface ChatHistoryEntry {
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  tool: string | null;
+  params: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export async function fetchChatHistory(limit = 200): Promise<ChatHistoryEntry[]> {
+  const res = await fetchWithRetry(`${API_URL}/chat/history?limit=${limit}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed to load chat history');
+  return json.data.messages;
+}
+
+export async function clearChatHistory(): Promise<void> {
+  const res = await fetchWithRetry(`${API_URL}/chat/history`, { method: 'DELETE' });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed to clear chat history');
+}

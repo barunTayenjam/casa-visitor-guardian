@@ -176,7 +176,7 @@ export async function runClassifiedChat(
     if (resolveVehicleClasses(parsed.data.vehicle).length === 0) {
       return answerFallback(trimmed, history);
     }
-    const { tables, evidence } = await vehicleTimeline({
+    const { tables, evidence, images } = await vehicleTimeline({
       vehicle: parsed.data.vehicle,
       camera: parsed.data.camera,
       from: range.from,
@@ -192,11 +192,14 @@ export async function runClassifiedChat(
         lines.push('Note: two-wheelers (scooters, bikes) were only added to tracking on 2026-08-19 — there is no data before that date.');
       }
     } else {
-      const rawTracks = tables[1].rows.length;
-      lines.push(`## ${parsed.data.vehicle} — ${visitRows.length} separate visit${visitRows.length === 1 ? '' : 's'} (${rawTracks} raw track${rawTracks === 1 ? '' : 's'})`);
+      const first = visitRows[0];
+      const last = visitRows[visitRows.length - 1];
+      lines.push(`## ${parsed.data.vehicle} — ${visitRows.length} visit${visitRows.length === 1 ? '' : 's'}`);
       lines.push('');
-      for (const r of visitRows) {
-        lines.push(`- **Visit ${r[1]}** (${r[0]}): ${r[2]} → ${r[3]} — ${r[5]} observation${Number(r[5]) === 1 ? '' : 's'}${Number(r[4]) > 1 ? `, ${r[4]} track fragments merged` : ''}`);
+      lines.push(`First seen **${first[2]}**, last seen **${last[3]}** · ${evidence.detections} observation${evidence.detections === 1 ? '' : 's'} across ${evidence.tracks} raw track${evidence.tracks === 1 ? '' : 's'} (merged into visits by 5-min gaps).`);
+      if (images.length > 0) {
+        lines.push('');
+        lines.push(`Snapshots below — ${images.length} of ${visitRows.length} visit${visitRows.length === 1 ? '' : 's'}.`);
       }
     }
     const answer = lines.join('\n');
@@ -206,6 +209,7 @@ export async function runClassifiedChat(
       answer: { type: 'markdown', content: answer },
       tables,
       evidence: { ...evidence, window: range.label },
+      images,
     };
   }
 
@@ -231,14 +235,16 @@ export async function runClassifiedChat(
     if (rows.length === 0) {
       lines.push(`No ${objectClass} detections in the window (${range.label}).`);
     } else {
-      lines.push(`## ${classLabel} by hour — ${range.label}`);
+      const totalDetections = rows.reduce((a, r) => a + Number(r[2]), 0);
+      const verified = rows.reduce((a, r) => a + Number(r[3]), 0);
+      const busiest = rows.reduce((a, r) => (Number(r[2]) > Number(a[2]) ? r : a), rows[0]);
+      lines.push(`## ${classLabel} — ${range.label}`);
       lines.push('');
-      for (const r of rows) {
-        lines.push(`- **${r[0]}**: ${r[1]} unique ${isPerson ? `human${Number(r[1]) === 1 ? '' : 's'}` : `track${Number(r[1]) === 1 ? '' : 's'}`} (${r[3]} verified, ${r[2]} detection${Number(r[2]) === 1 ? '' : 's'})`);
-      }
-      if (evidence.sessions !== undefined && evidence.tracks !== undefined) {
-        lines.push('');
-        lines.push(`**~${evidence.sessions} separate ${objectClass} visit${evidence.sessions === 1 ? '' : 's'}** estimated across the window (${evidence.tracks} raw track IDs — the tracker splits one object into many IDs, so IDs closer than 5 minutes are merged).`);
+      const visits = evidence.sessions !== undefined ? `**~${evidence.sessions} visit${evidence.sessions === 1 ? '' : 's'}** · ` : '';
+      const verifiedPart = isPerson && verified > 0 ? `, ${verified} verified` : '';
+      lines.push(`${visits}${totalDetections} detection${totalDetections === 1 ? '' : 's'}${verifiedPart} · busiest hour **${busiest[0]}** (${busiest[2]}).`);
+      if (evidence.tracks !== undefined && evidence.tracks > 1) {
+        lines.push(`(${evidence.tracks} raw track IDs — one object gets a new ID each time it re-enters view; IDs under 5 min apart are merged into one visit.)`);
       }
     }
     return {
@@ -270,16 +276,10 @@ export async function runClassifiedChat(
     if (rows.length === 0) {
       lines.push(`No detections in the window (${range.label}).`);
     } else {
+      const busiest = rows[0];
       lines.push(`## Camera activity — ${range.label}`);
       lines.push('');
-      const busiest = rows[0];
       lines.push(`Busiest camera: **${busiest[0]}** with ${busiest[1]} detections across ${busiest[2]} events (${busiest[3]} tracks).`);
-      if (rows.length > 1) {
-        lines.push('');
-        for (const r of rows) {
-          lines.push(`- **${r[0]}**: ${r[1]} detections, ${r[2]} events, ${r[3]} tracks (${r[4]})`);
-        }
-      }
     }
     return {
       tool,
@@ -306,19 +306,14 @@ export async function runClassifiedChat(
       lines.push(`No multi-track events or long tracks in the window (${range.label}).`);
     } else {
       lines.push(`## Event correlation — ${range.label}`);
+      lines.push('');
       if (busy.length > 0) {
-        lines.push('');
-        lines.push(`Most concurrent tracks (${busy.length} event${busy.length === 1 ? '' : 's'} with 2+ tracks):`);
-        for (const r of busy) {
-          lines.push(`- **${r[0]}** on ${r[1]}: ${r[2]} tracks at once (${r[3]})`);
-        }
+        const peak = busy[0];
+        lines.push(`**${busy.length} event${busy.length === 1 ? '' : 's'} with 2+ tracks** · peak: ${peak[2]} tracks at **${peak[0]}** on ${peak[1]} (${peak[3]}).`);
       }
       if (longTracks.length > 0) {
-        lines.push('');
-        lines.push(`Longest continuous sightings:`);
-        for (const r of longTracks) {
-          lines.push(`- ${r[0]} on ${r[1]} (track #${r[2]}): ${r[3]} — ${r[4]} observations`);
-        }
+        const longest = longTracks[0];
+        lines.push(`Longest sighting: ${longest[0]} on ${longest[1]} — ${longest[3]} (${longest[4]} observations).`);
       }
     }
     return {
@@ -344,23 +339,21 @@ export async function runClassifiedChat(
     if (rows.length === 0) {
       lines.push(`No anomalies detected in the window (${range.label}). Activity stayed within each camera's normal range.`);
     } else {
-      lines.push(`## Anomalies — ${range.label}`);
-      lines.push('');
       const spikes = rows.filter((r) => r[0] === 'spike');
       const gaps = rows.filter((r) => r[0] === 'gap');
+      lines.push(`## Anomalies — ${range.label}`);
+      lines.push('');
+      const parts: string[] = [];
       if (spikes.length > 0) {
-        lines.push(`**Spikes** — ${spikes.length} day${spikes.length === 1 ? '' : 's'} with unusually high activity:`);
-        for (const r of spikes) {
-          lines.push(`- ${r[1]}: ${r[2]} detections (${r[3]})`);
-        }
-        lines.push('');
+        const worst = spikes[0];
+        parts.push(`**${spikes.length} spike day${spikes.length === 1 ? '' : 's'}** (worst: ${worst[2]} detections on ${worst[1]})`);
       }
       if (gaps.length > 0) {
-        lines.push(`**Gaps** — ${gaps.length} period${gaps.length === 1 ? '' : 's'} with no detections:`);
-        for (const r of gaps) {
-          lines.push(`- ${r[1]}: ${r[3]}`);
-        }
+        const gapDays = (r: (string | number | null)[]) => parseInt(String(r[3]), 10) || 0;
+        const longest = gaps.reduce((a, r) => (gapDays(r) > gapDays(a) ? r : a), gaps[0]);
+        parts.push(`**${gaps.length} gap${gaps.length === 1 ? '' : 's'}** (longest: ${String(longest[3]).replace(/ with no detections/, '')}, ${longest[1]})`);
       }
+      lines.push(parts.join(' · ') + '.');
     }
     return {
       tool,

@@ -18,6 +18,9 @@ export class ChatLog {
   @Column({ type: 'jsonb', nullable: true })
   params!: Record<string, unknown> | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  response!: Record<string, unknown> | null;
+
   @Column({ type: 'text' })
   content!: string;
 

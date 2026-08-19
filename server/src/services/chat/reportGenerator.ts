@@ -184,12 +184,8 @@ export function reportMarkdown(s: ReportStats): string {
     lines.push(`**Humans** — ${s.humans.unique} unique humans (${s.humans.detections} person detections, ${s.humans.verified} verified as human).`);
     lines.push('');
     if (s.vehicles.length > 0) {
-      lines.push('**Vehicles** — by class:');
-      for (const v of s.vehicles) {
-        lines.push(
-          `- ${v.class}: ${v.tracks} distinct sighting${v.tracks === 1 ? '' : 's'}, ${v.detections} detections, ${v.arrived} arrival${v.arrived === 1 ? '' : 's'}, ${v.left} departure${v.left === 1 ? '' : 's'}`,
-        );
-      }
+      const vTotal = s.vehicles.reduce((a, v) => a + v.detections, 0);
+      lines.push(`**Vehicles** — ${vTotal} detections across ${s.vehicles.length} class${s.vehicles.length === 1 ? '' : 'es'} (breakdown below).`);
       lines.push('');
     }
     if (s.busyHours.length > 0) {
@@ -204,7 +200,12 @@ export function reportMarkdown(s: ReportStats): string {
       lines.push('');
     }
     if (s.threats.length > 0) {
-      lines.push('**Threat assessments** — ' + s.threats.map((t) => `${t.level}: ${t.events}`).join(', ') + '.');
+      const concerning = s.threats.filter((t) => t.level === 'high' || t.level === 'critical');
+      const assessed = s.threats.reduce((a, t) => a + t.events, 0);
+      const concerningN = concerning.reduce((a, t) => a + t.events, 0);
+      const concerningPart = concerningN > 0 ? `, **${concerningN} high or critical**` : '';
+      const breakdown = s.threats.map((t) => `${t.level}: ${t.events}`).join(', ');
+      lines.push(`**Threat assessments** — ${assessed} event${assessed === 1 ? '' : 's'} assessed${concerningPart} (${breakdown}).`);
     }
   } else {
     lines.push('No detections in this window.');
@@ -214,18 +215,6 @@ export function reportMarkdown(s: ReportStats): string {
 
 export function reportTables(s: ReportStats): ChatTable[] {
   return [
-    {
-      caption: 'Summary',
-      headers: ['Metric', 'Value'],
-      rows: [
-        ['Events', s.totals.events],
-        ['Detections', s.totals.detections],
-        ['Unique humans', s.humans.unique],
-        ['Person detections', s.humans.detections],
-        ['Verified humans', s.humans.verified],
-        ['Cameras', s.cameras.length > 0 ? s.cameras.join(', ') : '—'],
-      ],
-    },
     {
       caption: 'Vehicles',
       headers: ['Class', 'Sightings', 'Detections', 'Arrivals', 'Departures'],

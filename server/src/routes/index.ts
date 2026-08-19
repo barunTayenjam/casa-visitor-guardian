@@ -19,6 +19,7 @@ import settingsRoutes from './settings.js';
 import nvidiaRoutes from './nvidiaRoutes.js';
 import motionRoutes from './motion.js';
 import eventSearchRoutes from './event-search.js';
+import detectionDataRoutes from './detectionData.js';
 import eventRoutes from './events.js';
 import alertRoutes from './alerts.js';
 import notificationRoutes from './notificationRoutes.js';
@@ -242,6 +243,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.use('/api/cameras', cameraRoutes);
   app.use('/api/streams', streamRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/detection-data', detectionDataRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/nvidia', nvidiaRoutes);
   app.use('/api/motion', motionRoutes);

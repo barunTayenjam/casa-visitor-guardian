@@ -71,8 +71,8 @@ class FFmpegReader:
 
         self._frame_size = self.width * self.height * 3
 
-    MAX_OUTPUT_WIDTH = 1280
-    MAX_OUTPUT_HEIGHT = 720
+    MAX_OUTPUT_WIDTH = 2560
+    MAX_OUTPUT_HEIGHT = 1440
 
     def _probe_resolution(self, fallback_w: int, fallback_h: int) -> tuple[int, int]:
         try:

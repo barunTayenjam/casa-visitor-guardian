@@ -2,24 +2,25 @@
 """
 Per-camera frame processing pipeline.
 
-    FFmpegReader (HD 1280x720)
+    FFmpegReader (native main stream, up to 2K)
           │
-          ├─→ JPEG encode → live_queue → WebSocket (always, zero-delay)
+          ├─→ resize(640x360) → JPEG → live_queue → WebSocket (always, zero-delay)
           │
-          └─→ cv2.resize(640x360) → detection_queue
+          └─→ detection_queue (full-res frame)
                                              │
                                        DetectionThread:
                                              │
-                                       MotionGate (MOG2)
+                                       MotionGate (MOG2, on 480x360 downsample)
                                              │  motion
                                              ▼
-                                       YOLO Detection (in-process cv2.dnn)
+                                       YOLO Detection (full-res frame)
                                              ▼
                                        ByteTrack Tracking
                                              ▼
                                        Face Recognition (new tracks, identity cache TTL=30s)
+                                             │
                                              ▼
-                                       WebSocket Publisher (frames + track-lifecycle events)
+                                       Full-res snapshot → event file + WebSocket Publisher
 
 Live streaming is fully decoupled from detection — YOLO inference (1-4s on CPU)
 never blocks the live frame path, eliminating stream latency.
@@ -32,6 +33,7 @@ import numpy as np
 import os
 import hashlib
 import threading
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 try:
@@ -54,6 +56,7 @@ from .config import (
     MOG2_VAR_THRESHOLD,
     MOTION_PIXEL_THRESHOLD,
     JPEG_QUALITY,
+    EVENT_JPEG_QUALITY,
     INFERENCE_BACKEND,
     INFERENCE_TARGET,
     GO2RTC_RTSP_BASE,
@@ -476,24 +479,24 @@ class FramePipeline:
     """Per-camera pipeline with decoupled live streaming and detection.
 
     Architecture:
-        FFmpegReader (HD 1280x720)
+        FFmpegReader (native main stream, up to 2K)
               │
-              ├─→ JPEG encode → live_queue → WebSocket (always, zero-delay)
+              ├─→ resize(640x360) → JPEG → live_queue → WebSocket (always, zero-delay)
               │
-              └─→ cv2.resize(640x360) → detection_queue
-                                                 │
-                                           DetectionThread:
-                                                 │
-                                           MotionGate (MOG2)
-                                                 │  motion
-                                                 ▼
-                                           YOLO Detection
-                                                 ▼
-                                           ByteTrack
-                                                 ▼
-                                           Face Recognition
-                                                 ▼
-                                           event_queue → WebSocket
+              └─→ detection_queue (full-res frame)
+                                                     │
+                                               DetectionThread:
+                                                     │
+                                               MotionGate (MOG2, on 480x360 downsample)
+                                                     │  motion
+                                                     ▼
+                                               YOLO Detection (full-res frame)
+                                                     ▼
+                                               ByteTrack
+                                                     ▼
+                                               Face Recognition
+                                                     ▼
+                                               event_queue → WebSocket
     """
 
     _yolo_detector: Optional[InProcessYOLO] = None
@@ -540,6 +543,9 @@ class FramePipeline:
         # Single reader per camera — go2rtc re-streams the camera's sole RTSP
         # connection to any number of consumers internally, so we only need
         # one FFmpeg process. The live callback splits frames to both queues.
+        # Native main-stream resolution (up to 2K) is used for YOLO detection,
+        # event snapshots, and face/person analysis; live preview is
+        # downscaled separately (640x360).
         go2rtc_url = f"{GO2RTC_RTSP_BASE}/{self._camera_id}"
 
         self._live_reader = FFmpegReader(
@@ -636,13 +642,13 @@ class FramePipeline:
         frame: np.ndarray = frame_data["data"]
 
         if self._frame_counter % self._frame_skip == 0:
-            success, jpeg_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+            live = cv2.resize(frame, (self._live_width, self._live_height), interpolation=cv2.INTER_AREA)
+            success, jpeg_buf = cv2.imencode(".jpg", live, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
             if success:
                 self._live_queue.put(jpeg_buf.tobytes())
 
-        small = cv2.resize(frame, (self._detect_width, self._detect_height), interpolation=cv2.INTER_AREA)
         try:
-            self._detection_queue.put_nowait(small)
+            self._detection_queue.put_nowait(frame)
         except queue.Full:
             pass
 
@@ -691,7 +697,8 @@ class FramePipeline:
         if not self._adaptive_frame_processor.should_process_frame():
             return
 
-        motion_result = self._motion_gate.detect(frame)
+        small = cv2.resize(frame, (self._detect_width, self._detect_height), interpolation=cv2.INTER_AREA)
+        motion_result = self._motion_gate.detect(small)
         self._detect_frame_count = getattr(self, '_detect_frame_count', 0) + 1
         if self._detect_frame_count <= 10 or self._detect_frame_count % 100 == 0:
             print(f"[FramePipeline:{self._camera_id}] MOG2 check #{self._detect_frame_count}: motion={motion_result['motion_detected']} pixels={motion_result['motion_pixels']} confidence={motion_result['confidence']}")
@@ -729,10 +736,19 @@ class FramePipeline:
         self._last_threat = threat
 
         if events:
+            small_h, small_w = small.shape[:2]
+            motion_stats = {
+                "motion_pixels": int(motion_result.get("motion_pixels", 0)),
+                "motion_percentage": round(
+                    motion_result.get("motion_pixels", 0) / max(small_w * small_h, 1) * 100, 2
+                ),
+                "confidence": round(float(motion_result.get("confidence", 0)), 2),
+            }
             for ev in events:
                 ev["scene_context"] = self._last_scene_context.get("scene_context", {})
                 ev["detection_summary"] = self._last_scene_context.get("detection_summary", {})
                 ev["threat_assessment"] = threat
+                ev["motion_stats"] = motion_stats
             if threat["level"] != "low":
                 print(f"[FramePipeline:{self._camera_id}] THREAT: {threat['level']} ({threat['confidence']}%) — {threat['reasoning'][:100]}")
             print(f"[FramePipeline:{self._camera_id}] {len(detections)} detections → {len(tracked)} tracked → {len(events)} events")
@@ -771,6 +787,25 @@ class FramePipeline:
                 cls._human_verifier = HumanVerifier()
             return cls._human_verifier
 
+    def _save_snapshot(self, track_id, frame):
+        """Save a full-resolution event snapshot; returns container path or None."""
+        try:
+            detections_dir = os.getenv("DETECTIONS_DIR", "/app/data/detections")
+            now = datetime.now(timezone.utc)
+            ts = now.strftime("%Y-%m-%dT%H-%M-%S-") + f"{now.microsecond // 1000:03d}Z"
+            filename = f"motion_{self._camera_id}_{ts}_t{track_id}.jpg"
+            subdir = os.path.join(detections_dir, now.strftime("%Y-%m"), "events", "motion")
+            os.makedirs(subdir, exist_ok=True)
+            filepath = os.path.join(subdir, filename)
+            ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, EVENT_JPEG_QUALITY])
+            if ok:
+                with open(filepath, "wb") as f:
+                    f.write(buf.tobytes())
+                return filepath
+        except Exception as e:
+            print(f"[FramePipeline:{self._camera_id}] Snapshot save failed: {e}")
+        return None
+
     def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
         results = []
         person_attrs_cache = {}
@@ -786,17 +821,32 @@ class FramePipeline:
             else:
                 x, y, w_b, h_b = 0, 0, 0, 0
 
+            if obj.get("event") == "track_started" and obj.get("class") == "person":
+                obj["file_path"] = self._save_snapshot(tid, frame)
+
             # --- HUMAN VERIFICATION ---
-            # Now uses MediaPipe pose keypoints + face check (HumanVerifier)
-            # instead of uniface face-only + Haar fallback.
+            # MediaPipe pose keypoints + face check (HumanVerifier) with
+            # structured metadata: tier, keypoint count, latency — persisted
+            # by Node into human_verifications for tuning/analytics.
             if obj.get("class") == "person" and w_b > 20 and h_b > 20:
                 person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
                 if person_roi.size > 0:
-                    human = self._get_human_verifier().verify(person_roi, yolo_score=obj.get("score", 0))
-                    if human:
+                    verdict = self._get_human_verifier().verify_detailed(
+                        person_roi, yolo_score=obj.get("score", 0)
+                    )
+                    verdict["track_id"] = tid
+                    if verdict["verified"]:
                         obj["human_verified"] = True
+                        obj["human_verification"] = verdict
                     else:
-                        print(f"[FramePipeline] Discarding false positive person: {tid}")
+                        print(f"[FramePipeline] Discarding false positive person: {tid} (tier={verdict['tier']}, score={verdict['yolo_score']})")
+                        self._queue_pipeline_log(
+                            "warn",
+                            "HumanVerifier",
+                            f"Discarded unverified person track {tid} (tier={verdict['tier']}, score={verdict['yolo_score']}, kp={verdict['keypoints']})",
+                            track_id=tid,
+                            verification=verdict,
+                        )
                         continue
             # ---------------------------
 
@@ -808,10 +858,17 @@ class FramePipeline:
                 else:
                     try:
                         face_roi = frame[y : y + h_b, x : x + w_b]
-                        name, conf = self._face_recognition_fn(face_roi)
+                        res = self._face_recognition_fn(face_roi)
+                        if isinstance(res, (tuple, list)) and len(res) >= 2:
+                            name, conf = res[0], res[1]
+                            emb = res[2] if len(res) >= 3 else None
+                        else:
+                            name, conf, emb = "unknown", 0.0, None
                         self._identity_cache.put(tid, {"name": name, "confidence": conf})
                         obj["identity"] = name
                         obj["identity_confidence"] = conf
+                        if emb is not None:
+                            obj["face_embedding"] = [float(x) for x in emb]
                     except Exception:
                         pass
 
@@ -828,10 +885,11 @@ class FramePipeline:
                         pass
                 if cache_key in person_attrs_cache:
                     attrs = person_attrs_cache[cache_key]
+                    obj["person_attributes"] = attrs
                     obj["clothing"] = attrs.get("clothing", "unknown")
                     obj["clothing_colors"] = attrs.get("clothing_colors", [])
                     obj["facing"] = attrs.get("facing", "unknown")
-                    obj["distance"] = attrs.get("estimatedAge", "unknown")
+                    obj["distance"] = attrs.get("distance", "unknown")
                     obj["carrying_item"] = attrs.get("carryingItem", "none")
                     obj["body_language"] = attrs.get("bodyLanguage", "neutral")
 

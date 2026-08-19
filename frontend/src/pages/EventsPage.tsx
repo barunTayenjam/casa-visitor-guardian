@@ -8,7 +8,19 @@ import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { eventService } from '@/services/api/eventService';
+import { detectionService } from '@/services/api/detectionService';
 import { Calendar } from 'lucide-react';
+
+type AnalysisEntry = {
+  sceneDescription?: string;
+  summary?: string;
+  threatAssessment?: { level: string; factors: string[]; confidence: number };
+  detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
+  recommendedActions?: string[];
+  processingTime?: number;
+  modelUsed?: string;
+  boxes?: Array<{ label: string; confidence: number; x: number; y: number; width: number; height: number }>;
+};
 import {
   Pagination,
   PaginationContent,
@@ -41,6 +53,26 @@ function getFilterFromParams(params: URLSearchParams): FilterState {
 
 const PERSON_CONFIDENCE_FLOOR = 0.55;
 
+interface HumanVerificationMeta {
+  tier: 'yolo_high' | 'face' | 'pose' | 'score_floor' | 'disabled';
+  keypoints: number;
+  faceDetected: boolean;
+  elapsedMs: number;
+}
+
+const TIER_LABELS: Record<HumanVerificationMeta['tier'], string> = {
+  yolo_high: 'YOLO ≥ 0.90',
+  face: 'Face detected',
+  pose: 'Pose skeleton',
+  score_floor: 'Score floor',
+  disabled: 'Verifier off',
+};
+
+function getVerification(event: MotionEvent): HumanVerificationMeta | null {
+  const hv = event.metadata?.humanVerification as HumanVerificationMeta | undefined;
+  return hv && typeof hv.tier === 'string' ? hv : null;
+}
+
 const EventsPage = () => {
   const { toast } = useToast();
   const { cameras } = useCameras();
@@ -49,11 +81,38 @@ const EventsPage = () => {
   const [events, setEvents] = useState<MotionEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
+  const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
+  const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, AnalysisEntry>>({});
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
   const sortBy = (searchParams.get('sortBy') || 'newest') as SortOption;
   const selectedEventId = searchParams.get('eventId');
   const filters = useMemo(() => getFilterFromParams(searchParams), [searchParams]);
+
+  // Load existing analysis if not in state
+  useEffect(() => {
+    if (selectedEventId && !analysisByEvent[selectedEventId]) {
+      eventService.getEnhancedEventsList({}).then((res) => {
+        const eventWithAnalysis = res.events.find((e) => e.id === selectedEventId);
+        if (eventWithAnalysis?.analysis) {
+          const a = eventWithAnalysis.analysis;
+          setAnalysisByEvent((prev) => ({
+            ...prev,
+            [selectedEventId]: {
+              sceneDescription: a.sceneDescription || '',
+              summary: a.sceneDescription || '',
+              threatAssessment: a.threatAssessment,
+              detectedEntities: a.detectedEntities,
+              recommendedActions: a.recommendedActions,
+              modelUsed: a.modelUsed,
+              processingTime: a.processingTime,
+            },
+          }));
+        }
+      });
+    }
+  }, [selectedEventId, analysisByEvent]);
+
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -84,14 +143,26 @@ const EventsPage = () => {
           cameraId: event.cameraId,
           cameraName: event.cameraName || `Camera ${event.cameraId}`,
           timestamp: new Date(event.timestamp),
-          imageUrl: event.imageUrl || null,
+          // Replace imageUrl: event.imageUrl || null, with:
+imageUrl: event.imageUrl || null,
           confidence: event.confidence,
           labels: event.labels || [event.event_type || 'motion'],
           location: event.cameraName || '',
           duration: 0,
           archived: false,
           metadata: event.metadata,
-          detections: [],
+          detections: (event.object_detections || []).map((d) => ({
+            type: (d.class === 'person' || d.class === 'face' ? d.class : 'object') as 'person' | 'face' | 'object',
+            confidence: typeof d.confidence === 'number' && d.confidence > 1 ? d.confidence / 100 : d.confidence,
+            name: d.identity ?? undefined,
+            isKnown: !!d.identity && d.identity !== 'unknown',
+            boundingBox: {
+              x: d.bbox?.x ?? 0,
+              y: d.bbox?.y ?? 0,
+              width: d.bbox?.width ?? 0,
+              height: d.bbox?.height ?? 0,
+            },
+          })),
           personCount: event.persons_detected,
           faceCount: event.faces_detected,
           knownFaces: event.known_faces_count,
@@ -145,6 +216,65 @@ const EventsPage = () => {
   );
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) || null;
+
+  const handleAnalyzeEvent = useCallback(
+    async (eventId: string) => {
+      setAnalyzingEventId(eventId);
+      try {
+        const [result, boxesResult] = await Promise.allSettled([
+          detectionService.analyzeEvent(eventId),
+          detectionService.analyzeEventWithBboxes(eventId),
+        ]);
+
+        if (result.status === 'fulfilled' && result.value.success && result.value.analysis) {
+          const a = result.value.analysis;
+          const boxes =
+            boxesResult.status === 'fulfilled' ? boxesResult.value.boxes : undefined;
+          setAnalysisByEvent((prev) => ({
+            ...prev,
+            [eventId]: {
+              sceneDescription: a.sceneDescription || a.overall_summary || a.summary || '',
+              summary: a.summary,
+              threatAssessment:
+                a.threatAssessment || { level: 'low', factors: [], confidence: 0 },
+              detectedEntities: a.detectedEntities || {
+                people: (a.persons as string[]) || [],
+                vehicles: (a.vehicles as string[]) || [],
+                animals: [],
+                objects: [],
+              },
+              recommendedActions: a.recommendedActions || [],
+              processingTime: a.processing_time_ms || a.processingTime || 0,
+              modelUsed: a.model || a.modelUsed || 'unknown',
+              boxes,
+            },
+          }));
+          toast({
+            title: 'AI Analysis Complete',
+            description: a.overall_summary || a.sceneDescription || a.summary || 'Event analyzed',
+          });
+        } else {
+          toast({
+            title: 'Analysis Failed',
+            description:
+              result.status === 'fulfilled'
+                ? result.value.message || 'Unknown error'
+                : 'Analysis request failed',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        toast({
+          title: 'Analysis Failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      } finally {
+        setAnalyzingEventId(null);
+      }
+    },
+    [toast],
+  );
 
   const handleEventSelect = useCallback(
     (eventId: string) => {
@@ -242,7 +372,9 @@ const EventsPage = () => {
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {events.map((event) => (
+              {events.map((event) => {
+                const verification = getVerification(event);
+                return (
                 <div
                   key={event.id}
                   className={`p-[1px] rounded-[4px] cursor-pointer transition-all ${
@@ -266,6 +398,15 @@ const EventsPage = () => {
                           No image
                         </div>
                       )}
+                      {verification && (
+                        <div className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-500/30 backdrop-blur-md text-[10px] font-medium text-green-400">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {TIER_LABELS[verification.tier]}
+                          {verification.tier === 'pose' ? ` · ${verification.keypoints} kp` : ''}
+                        </div>
+                      )}
                       {(event.personCount ?? 0) > 0 && (
                         <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px]">
                           {event.personCount} {event.personCount === 1 ? 'person' : 'persons'}
@@ -282,7 +423,8 @@ const EventsPage = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -337,8 +479,42 @@ const EventsPage = () => {
               onPrevious={() => goToSibling(-1)}
               onDelete={handleEventDelete}
               onDownload={handleEventDownload}
+              onAnalyze={handleAnalyzeEvent}
+              analyzing={analyzingEventId === selectedEvent.id}
+              analysis={analysisByEvent[selectedEvent.id] ?? null}
+              boxes={analysisByEvent[selectedEvent.id]?.boxes}
             />
             <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.12] overflow-y-auto bg-black/20">
+              {getVerification(selectedEvent) && (
+                <div className="m-4 p-4 rounded-[0.75rem] bg-white/[0.04] border border-white/[0.08] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
+                      Human Verification
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 border border-green-500/30 text-[10px] font-semibold text-green-400">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Verified
+                    </span>
+                  </div>
+                  {(() => {
+                    const v = getVerification(selectedEvent)!;
+                    const rows: Array<[string, string]> = [
+                      ['Method', TIER_LABELS[v.tier]],
+                      ['Pose keypoints', String(v.keypoints)],
+                      ['Face detected', v.faceDetected ? 'Yes' : 'No'],
+                      ['Check latency', `${v.elapsedMs} ms`],
+                    ];
+                    return rows.map(([label, value]) => (
+                      <div key={label} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="text-foreground/90 font-medium tabular-nums">{value}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
               <RelatedEvents
                 currentEvent={selectedEvent}
                 events={events}

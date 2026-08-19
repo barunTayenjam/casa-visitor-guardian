@@ -16,6 +16,18 @@ import { logger } from './utils/logger.js';
 
 dotenv.config({ path: './.env' });
 
+// Local dev: the NVIDIA LLM config lives in the project-root .env (Docker
+// reads it via compose substitution). Fall back to it for NVIDIA vars only,
+// so server/.env never needs to duplicate credentials.
+try {
+  const rootEnv = dotenv.parse(fs.readFileSync(path.join(process.cwd(), '..', '.env')));
+  for (const k of ['NVIDIA_API_KEY', 'NVIDIA_API_BASE_URL', 'NVIDIA_MODEL']) {
+    if (!process.env[k] && rootEnv[k]) process.env[k] = rootEnv[k];
+  }
+} catch {
+  /* no root .env next to the repo — keep server/.env values */
+}
+
 const app = express();
 app.use(compression());
 

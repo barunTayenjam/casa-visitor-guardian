@@ -23,33 +23,24 @@ export type {
   NvidiaApiError,
 } from './types.js';
 
+const MAX_IMAGE_WIDTH = 1280;
+
 async function prepareBase64Image(imageInput: string | Buffer): Promise<string> {
+  let buffer: Buffer;
   if (Buffer.isBuffer(imageInput)) {
-    const resized = await sharp(imageInput)
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    return resized.toString('base64');
+    buffer = imageInput;
   } else if (imageInput.startsWith('data:')) {
-    const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    const resized = await sharp(buffer)
-      
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    return resized.toString('base64');
+    buffer = Buffer.from(imageInput.replace(/^data:image\/\w+;base64,/, ''), 'base64');
   } else if (imageInput.length > 1000) {
-    const buffer = Buffer.from(imageInput, 'base64');
-    const resized = await sharp(buffer)
-      
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    return resized.toString('base64');
+    buffer = Buffer.from(imageInput, 'base64');
   } else {
-    const resized = await sharp(imageInput)
-      .jpeg({ quality: 85 })
-      .toBuffer();
-    return resized.toString('base64');
+    buffer = fs.readFileSync(imageInput);
   }
+  const resized = await sharp(buffer)
+    .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+  return resized.toString('base64');
 }
 
 export async function analyzeImage(
@@ -62,7 +53,7 @@ export async function analyzeImage(
 ): Promise<NvidianalysisResult> {
   const startTime = Date.now();
 
-  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+  const model = options.model || process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   logger.info(`Starting analysis with model: ${model}`, 'NVIDIA');
@@ -75,7 +66,7 @@ export async function analyzeImage(
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const apiResponse = await callNvidiaApi(base64Image, context, model, SYSTEM_PROMPT);
+      const apiResponse = await callNvidiaApi(base64Image, context, model, SYSTEM_PROMPT, controller.signal);
 
       clearTimeout(timeoutId);
 
@@ -136,7 +127,7 @@ export async function checkApiHealth(): Promise<{
   error?: string;
 }> {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+  const model = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
 
   if (!apiKey) {
     return {
@@ -183,110 +174,38 @@ export async function analyzeWithBoundingBoxes(
 ): Promise<BboxAnalysisResult> {
   const startTime = Date.now();
 
-  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+  const model = options.model || process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   logger.info(`Starting bbox analysis with model: ${model}`, 'NVIDIA');
 
   try {
     let imagePath: string;
-    let base64Image: string;
-
+    let buffer: Buffer;
     if (Buffer.isBuffer(imageInput)) {
-      const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(imageInput)
-        
-        .jpeg({ quality: 85 })
-        .toFile(tempPath);
-      imagePath = tempPath;
-      base64Image = imageInput.toString('base64');
+      buffer = imageInput;
     } else if (imageInput.startsWith('data:')) {
-      const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
-      const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(base64Data, 'base64'))
-        
-        .jpeg({ quality: 85 })
-        .toFile(tempPath);
-      imagePath = tempPath;
-      base64Image = base64Data;
+      buffer = Buffer.from(imageInput.replace(/^data:image\/\w+;base64,/, ''), 'base64');
     } else if (imageInput.length > 1000) {
-      const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
-      await sharp(Buffer.from(imageInput, 'base64'))
-        
-        .jpeg({ quality: 85 })
-        .toFile(tempPath);
-      imagePath = tempPath;
-      base64Image = imageInput;
+      buffer = Buffer.from(imageInput, 'base64');
     } else {
-      const resized = await sharp(imageInput)
-        
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      imagePath = imageInput;
-      base64Image = resized.toString('base64');
+      buffer = fs.readFileSync(imageInput);
     }
-
-    const contextInfo = [
-      context.cameraName ? `Camera: ${context.cameraName}` : null,
-      context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
-    ]
-      .filter(Boolean)
-      .join(' | ');
-
-    const userMessage = contextInfo
-      ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
-      : 'Respond with only valid JSON: {';
-
-    const requestBody = {
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: BBOX_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userMessage },
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-            },
-          ],
-        },
-      ],
-      temperature: 0.0,
-      max_tokens: 4096,
-      stream: false,
-      top_p: 0.9,
-    };
+    const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
+    await sharp(buffer)
+      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(tempPath);
+    imagePath = tempPath;
+    const base64Image = (await sharp(tempPath).toBuffer()).toString('base64');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const apiKey = process.env.NVIDIA_API_KEY;
-    if (!apiKey) {
-      throw new Error('NVIDIA_API_KEY not configured');
-    }
-    const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    const apiResponse = await callNvidiaApi(base64Image, context, model, BBOX_SYSTEM_PROMPT, controller.signal);
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`NVIDIA API error: ${response.status}`);
-    }
-
-    const apiResponse = await response.json();
     const message = apiResponse.choices?.[0]?.message;
     const content = message?.content || message?.reasoning_content || message?.reasoning || '';
     const processingTime = Date.now() - startTime;
@@ -369,7 +288,12 @@ export async function analyzeWithBoundingBoxes(
       modelUsed: model,
     };
   } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    const errMsg = isAbort
+      ? `NVIDIA API request timed out after ${timeout}ms`
+      : error instanceof Error
+        ? error.message
+        : String(error);
     logger.error('Bbox analysis error: ' + errMsg, 'NVIDIA');
     const processingTime = Date.now() - startTime;
 
@@ -394,7 +318,7 @@ export async function analyzePersons(
 ): Promise<PersonDetectionResult> {
   const startTime = Date.now();
 
-  const model = options.model || process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+  const model = options.model || process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
 
   logger.info(`Starting person detection with model: ${model}`, 'NVIDIA');
@@ -402,68 +326,13 @@ export async function analyzePersons(
   try {
     const base64Image = await prepareBase64Image(imageInput);
 
-    const contextInfo = [
-      context.cameraName ? `Camera: ${context.cameraName}` : null,
-      context.triggerReason ? `Trigger: ${context.triggerReason}` : null,
-      context.eventType ? `Event Type: ${context.eventType}` : null,
-    ]
-      .filter(Boolean)
-      .join(' | ');
-
-    const userMessage = contextInfo
-      ? `Context: ${contextInfo}\n\nRespond with only valid JSON: {`
-      : 'Respond with only valid JSON: {';
-
-    const requestBody = {
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: PERSON_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userMessage },
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-            },
-          ],
-        },
-      ],
-      temperature: 0.0,
-      max_tokens: 4096,
-      stream: false,
-      top_p: 0.9,
-    };
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const apiKey = process.env.NVIDIA_API_KEY;
-    if (!apiKey) {
-      throw new Error('NVIDIA_API_KEY not configured');
-    }
-    const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    const apiResponse = await callNvidiaApi(base64Image, context, model, PERSON_SYSTEM_PROMPT, controller.signal);
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`NVIDIA API error: ${response.status}`);
-    }
-
-    const apiResponse = await response.json();
     const personMessage = apiResponse.choices?.[0]?.message;
     const content =
       personMessage?.content || personMessage?.reasoning_content || personMessage?.reasoning || '';
@@ -524,7 +393,12 @@ export async function analyzePersons(
       modelUsed: model,
     };
   } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    const errMsg = isAbort
+      ? `NVIDIA API request timed out after ${timeout}ms`
+      : error instanceof Error
+        ? error.message
+        : String(error);
     logger.error('Person detection error: ' + errMsg, 'NVIDIA');
     const processingTime = Date.now() - startTime;
 

@@ -134,108 +134,6 @@ export class NvidiaController extends BaseController {
     return text;
   }
 
-  private buildOpenCVFallbackResult(detections: any[], startTime: number): any {
-    const persons = detections.filter((d: any) => d.class === 'person');
-    const vehicles = detections.filter((d: any) =>
-      ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(d.class),
-    );
-    const animals = detections.filter((d: any) =>
-      ['dog', 'cat', 'bird', 'horse', 'cow'].includes(d.class),
-    );
-    const otherObjects = detections.filter(
-      (d: any) =>
-        ![
-          'person',
-          'car',
-          'truck',
-          'bus',
-          'motorcycle',
-          'bicycle',
-          'dog',
-          'cat',
-          'bird',
-          'horse',
-          'cow',
-        ].includes(d.class),
-    );
-
-    const getDescriptions = (items: any[], label: string): string[] => {
-      if (items.length === 0) return [];
-      const counts = new Map<string, number>();
-      for (const item of items) {
-        const c = item.class || label;
-        counts.set(c, (counts.get(c) || 0) + 1);
-      }
-      return Array.from(counts.entries()).map(([cls, count]) =>
-        count > 1 ? `${count}× ${cls}` : cls,
-      );
-    };
-
-    const personDescs = persons.map(
-      (p: any, i: number) => `Person ${i + 1} detected near center of frame`,
-    );
-
-    const sceneParts: string[] = [];
-    if (persons.length > 0) {
-      sceneParts.push(`${persons.length} person(s) detected`);
-    }
-    if (vehicles.length > 0) {
-      const vehicleTypes = getDescriptions(vehicles, 'vehicle');
-      sceneParts.push(`${vehicleTypes.join(', ')}`);
-    }
-    if (animals.length > 0) {
-      const animalTypes = getDescriptions(animals, 'animal');
-      sceneParts.push(`${animalTypes.join(', ')}`);
-    }
-    if (otherObjects.length > 0) {
-      const objectTypes = getDescriptions(otherObjects, 'object');
-      sceneParts.push(`${objectTypes.join(', ')}`);
-    }
-
-    const sceneDescription =
-      sceneParts.length > 0
-        ? `Scene contains ${sceneParts.join('; ')}. Total ${detections.length} objects detected.`
-        : `No significant objects detected in the scene.`;
-
-    const threatLevel = persons.length > 0 ? 'medium' : vehicles.length > 0 ? 'low' : 'low';
-    const threatConfidence = persons.length > 2 ? 75 : persons.length > 0 ? 50 : 10;
-
-    const factors: string[] = [];
-    if (persons.length > 0) factors.push(`${persons.length} person(s) present`);
-    if (vehicles.length > 0) factors.push('Vehicle activity detected');
-
-    const recommendedActions: string[] = [];
-    if (persons.length > 0) recommendedActions.push('Review person detection footage');
-    if (vehicles.length > 0) recommendedActions.push('Check vehicle activity');
-    if (persons.length > 2)
-      recommendedActions.push('Multiple persons detected — verify if expected');
-    if (animals.length > 0) recommendedActions.push('Animal activity in frame');
-
-    return {
-      sceneDescription,
-      summary: sceneDescription,
-      persons: personDescs,
-      vehicles: getDescriptions(vehicles, 'vehicle'),
-      activities: getDescriptions(vehicles, 'vehicle'),
-      overall_summary: sceneDescription,
-      threatAssessment: { level: threatLevel, factors, confidence: threatConfidence },
-      detectedEntities: {
-        people: personDescs,
-        vehicles: getDescriptions(vehicles, 'vehicle'),
-        animals: getDescriptions(animals, 'animal'),
-        objects: getDescriptions(otherObjects, 'object'),
-        actions: [],
-      },
-      recommendedActions,
-      additionalObservations: [
-        `Analysis via OpenCV object detection (${detections.length} objects)`,
-        persons.length > 0 ? `${persons.length} person(s) in frame` : 'No persons detected',
-      ],
-      processing_time_ms: Date.now() - startTime,
-      model: 'opencv-fallback',
-    };
-  }
-
   async analyzeEvent(req: Request, res: Response): Promise<void> {
     try {
       const { eventId, useStoredImage = true } = req.body;
@@ -455,32 +353,11 @@ export class NvidiaController extends BaseController {
           throw new Error(result.sceneDescription.replace('Analysis failed: ', ''));
         }
       } catch (nvidiaError: unknown) {
-        const axios = (await import('axios')).default;
-        const { getOpenCVServiceUrl } = await import('../config/index.js');
-        try {
-          const imageBuffer = fs.readFileSync(imagePath);
-          const opencvResponse = await axios.post(
-            `${getOpenCVServiceUrl()}/detect-objects`,
-            imageBuffer,
-            {
-              headers: {
-                'Content-Type': 'image/jpeg',
-                ...(process.env.OPENCV_API_TOKEN
-                  ? { 'X-API-Token': process.env.OPENCV_API_TOKEN }
-                  : {}),
-              },
-              timeout: 30000,
-            },
-          );
-          const detections: any[] = opencvResponse.data.detections || [];
-          result = this.buildOpenCVFallbackResult(detections, startTime);
-        } catch (opencvError: unknown) {
-          this.serverError(
-            res,
-            `Analysis failed: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}. OpenCV fallback also failed.`,
-          );
-          return;
-        }
+        this.serverError(
+          res,
+          `Analysis failed: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}`,
+        );
+        return;
       }
 
       if (isNvidiaResult && result) {
@@ -651,44 +528,27 @@ export class NvidiaController extends BaseController {
   }
 
   getModels(req: Request, res: Response): void {
-    const configuredModel =
-      process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-nomo-omni-30b-a3b-reasoning';
+    const configuredModel = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
     const apiKey = process.env.NVIDIA_API_KEY ? 'configured' : 'not set';
-    const availableModels = [
-      {
-        id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-        name: 'Nemotron 3 Nano Omni',
-        description: 'Multimodal model with vision and reasoning capabilities',
-        recommended: true,
-      },
-      {
-        id: 'nvidia/nemotron-4-mini-holodeck',
-        name: 'Nemotron 4 Mini Holodeck',
-        description: 'Latest multimodal model with enhanced vision understanding',
-      },
-      {
-        id: 'meta/llama-3.2-90b-vision-instruct',
-        name: 'Llama 3.2 90B Vision',
-        description: "Meta's large vision model for instruction following",
-      },
-      {
-        id: 'google/gemma-2-27b-it',
-        name: 'Gemma 2 27B',
-        description: "Google's instruction-tuned vision model",
-      },
-    ];
     res.json({
       success: true,
       configured: { model: configuredModel, apiKeyStatus: apiKey },
-      available: availableModels,
+      available: [
+        {
+          id: 'gemini/gemini-3.5-flash-lite',
+          name: 'Gemini 3.5 Flash Lite',
+          description: 'The only model used for AI event analysis',
+          recommended: true,
+        },
+      ],
     });
   }
 
   updateConfig(req: Request, res: Response): void {
     try {
       const { model } = req.body;
-      if (!model) {
-        this.badRequest(res, 'model is required');
+      if (model !== 'gemini/gemini-3.5-flash-lite') {
+        this.badRequest(res, 'Only gemini/gemini-3.5-flash-lite is supported');
         return;
       }
       process.env.NVIDIA_MODEL = model;

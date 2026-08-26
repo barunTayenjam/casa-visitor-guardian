@@ -237,7 +237,7 @@ export const detectionService = {
     }
   },
 
-  async analyzeEvent(eventId: string): Promise<{
+  async analyzeEvent(eventId: string, useStoredImage = false): Promise<{
     success: boolean;
     message?: string;
     analysis?: {
@@ -267,7 +267,7 @@ export const detectionService = {
     try {
       const response = await fetchWithRetry(`${API_URL}/nvidia/analyze-event`, {
         method: 'POST',
-        body: JSON.stringify({ eventId }),
+        body: JSON.stringify({ eventId, useStoredImage }),
       });
       const data = await response.json();
       if (!response.ok) {

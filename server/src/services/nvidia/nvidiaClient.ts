@@ -55,7 +55,7 @@ export async function callNvidiaApi(
   }
 
   const yoloInfo = context.yoloDetections?.length
-    ? `YOLO Detections: ${context.yoloDetections.map((d) => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
+    ? `YOLO Detections (local detector, pixel coordinates in the original camera frame): ${context.yoloDetections.map((d) => `${d.class} (${Math.round(d.confidence * 100)}%) @ [${d.bbox.x.toFixed(2)},${d.bbox.y.toFixed(2)},${d.bbox.width.toFixed(2)},${d.bbox.height.toFixed(2)}]`).join('; ')}`
     : null;
 
   const meta = context.sensorMetadata;

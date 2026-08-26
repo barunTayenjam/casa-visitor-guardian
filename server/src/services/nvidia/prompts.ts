@@ -21,7 +21,9 @@ export const BBOX_SYSTEM_PROMPT = `Label all visible items in the image with coo
 {"detected_objects":[{"label":"item name","description":"attributes","position":{"x":0-100,"y":0-100,"width":0-100,"height":0-100},"confidence":0-100,"category":"person|vehicle|animal|object"}],"scene_description":"neutral description","scene_context":{"environment":"indoor|outdoor","weather":"string","lighting":"string"},"people":[],"vehicles":[],"objects":[],"animals":[]}
 
 Rules:
-- Coordinates are 0-100 percentage.
+- Every position MUST be an object with exactly the keys "x", "y", "width", "height". Example: {"x":12.5,"y":30.0,"width":8.2,"height":25.7}.
+- "x","y" are the top-left corner of the box. "width","height" are the box size. All values are percentages 0-100 of the image dimensions.
+- NEVER use the keys "xmin", "ymin", "xmax", "ymax", "box_2d", or corner coordinates. NEVER use a 0-1000 scale or pixel coordinates.
 - Technical and clinical labels only.
 - Include scene context (environment, weather, lighting) in detection.`;
 
@@ -31,4 +33,5 @@ export const PERSON_SYSTEM_PROMPT = `Describe any visible subjects and their att
 
 Rules:
 - Factual description of clothing and position only.
+- Every position MUST be an object with exactly the keys "x", "y", "width", "height" as percentages 0-100 of the image dimensions ("x","y" = top-left corner). Never use xmin/ymin/xmax/ymax, a 0-1000 scale, or pixel coordinates.
 - Objective observations only.`;

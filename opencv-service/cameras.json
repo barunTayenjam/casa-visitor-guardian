@@ -32,7 +32,7 @@
     "live": {
       "width": 1280,
       "height": 720,
-      "fps": 1
+      "fps": 10
     },
     "record": {
       "enabled": true,
@@ -57,7 +57,7 @@
         "person": {
           "minArea": 3000,
           "maxArea": 100000,
-          "threshold": 0.65
+          "threshold": 0.55
         },
         "car": {
           "minArea": 5000,
@@ -231,7 +231,7 @@
     "live": {
       "width": 1280,
       "height": 720,
-      "fps": 1
+      "fps": 10
     },
     "record": {
       "enabled": true,
@@ -256,7 +256,7 @@
         "person": {
           "minArea": 3000,
           "maxArea": 100000,
-          "threshold": 0.65
+          "threshold": 0.55
         },
         "car": {
           "minArea": 5000,

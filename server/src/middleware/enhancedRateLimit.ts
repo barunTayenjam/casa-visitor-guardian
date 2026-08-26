@@ -36,6 +36,13 @@ export class EnhancedRateLimit {
   middleware() {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
+        // Health endpoints must never be throttled — the Docker healthcheck
+        // probes them on a fixed interval and a 429 marks the container
+        // unhealthy.
+        if (/^\/(api\/)?health/.test(req.path)) {
+          next();
+          return;
+        }
         const key = this.options.keyGenerator(req);
 
         // Check rate limit using cache service

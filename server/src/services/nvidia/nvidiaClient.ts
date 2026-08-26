@@ -46,6 +46,7 @@ export async function callNvidiaApi(
   context: AnalysisContext,
   model: string,
   systemPrompt: string,
+  signal?: AbortSignal,
 ): Promise<any> {
   const apiKey = process.env.NVIDIA_API_KEY;
   const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
@@ -161,6 +162,7 @@ export async function callNvidiaApi(
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify(requestBody),
+          signal,
         }),
       );
 
@@ -173,6 +175,7 @@ export async function callNvidiaApi(
 
       return await response.json();
     } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') throw err;
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < 3) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
@@ -206,7 +209,7 @@ export async function chatCompletion(
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error('NVIDIA_API_KEY environment variable is not set');
   const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
-  const model = process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+  const model = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
 
   const requestBody = {
     model,

@@ -130,4 +130,4 @@ export interface NvidiaApiError {
   code?: string;
 }
 
-export const DEFAULT_TIMEOUT = 90000;
+export const DEFAULT_TIMEOUT = 110000;

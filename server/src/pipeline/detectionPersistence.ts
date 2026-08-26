@@ -10,6 +10,8 @@ import { logger } from '../utils/logger.js';
 import { TrackingEvent } from '../services/pythonWsClient.js';
 import NotificationService from '../services/notificationService.js';
 
+const VEHICLE_CLASSES = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
+
 export interface SceneDetection {
   className: string;
   classId?: number;
@@ -42,14 +44,16 @@ export async function persistDetectionEvent(
 
   const isPerson = className === 'person';
   const isFace = !!identity && identity !== 'unknown';
-  const eventTypeStr = isPerson ? 'person' : isFace ? 'face' : 'motion';
+  const isVehicle = VEHICLE_CLASSES.includes(className);
+  const eventTypeStr = isPerson ? 'person' : isVehicle ? 'vehicle' : isFace ? 'face' : 'motion';
 
   let filePath = ev.filePath ?? '';
   try {
-    // Person-only images: meta persists for every detection, snapshots only
-    // for people. Prefer the full-res snapshot Python saved with the event;
-    // fall back to the last live frame (640x360 preview) for legacy/edge cases.
-    if (isPerson) {
+    // Person/vehicle images: meta persists for every detection, snapshots only
+    // for persisted classes. Prefer the full-res snapshot Python saved with the
+    // event; fall back to the last live frame (640x360 preview) for persons in
+    // legacy/edge cases.
+    if (isPerson || isVehicle) {
       if (!filePath) {
         const streamManager = serviceRegistry.getStreamManager();
         const frame = streamManager?.getLastFrame(cameraId);
@@ -77,16 +81,15 @@ export async function persistDetectionEvent(
     );
   }
 
-  const isVehicle = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'].includes(className);
   const severity: 'alert' | 'detection' | 'info' = isPerson
     ? 'alert'
     : isVehicle
       ? 'detection'
       : 'info';
 
-  // Full-scene snapshot: every track YOLO/tracker saw on this camera within the
-  // scene window — not just the object that triggered persistence.
-  const sceneDets =
+  // Scope scene detections to the primary event class so person events don't
+  // contain car/animal tracks and vehicle events don't contain person tracks.
+  const allSceneDets =
     scene && scene.length > 0
       ? scene
       : [
@@ -104,11 +107,38 @@ export async function persistDetectionEvent(
             lastSeen: Date.now(),
           },
         ];
+  // Helper: Intersection-over-union for two bbox rects
+  const iou = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) => {
+    const ax2 = a.x + a.width, ay2 = a.y + a.height;
+    const bx2 = b.x + b.width, by2 = b.y + b.height;
+    const interArea =
+      Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x)) *
+      Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
+    const aArea = a.width * a.height, bArea = b.width * b.height;
+    return interArea / (aArea + bArea - interArea);
+  };
 
-  const personDets = sceneDets.filter((d) => d.className === 'person');
-  const identifiedDets = sceneDets.filter((d) => !!d.identity && d.identity !== 'unknown');
+  // Filter out lost tracks and dedupe overlapping person bboxes (same person → 1)
+  const activePersonDets = allSceneDets.filter(
+    (d) => d.className === 'person' && (d.trackState ?? '') !== 'lost'
+  );
+  const seen: typeof activePersonDets = [];
+  const personDets = activePersonDets.filter((d) => {
+    const overlaps = seen.some((s) => iou(d.bbox, s.bbox) > 0.3);
+    if (!overlaps) { seen.push(d); return true; }
+    return false;
+  });
+
+  const sceneDets = isPerson
+    ? personDets
+    : isVehicle
+      ? allSceneDets.filter((d) => VEHICLE_CLASSES.includes(d.className))
+      : allSceneDets;
+
+  // Identified detections only from verified/active persons
+  const identifiedDets = personDets.filter((d) => !!d.identity && d.identity !== 'unknown');
   const byClass: Record<string, number> = {};
-  for (const d of sceneDets) byClass[d.className] = (byClass[d.className] ?? 0) + 1;
+  for (const d of personDets) byClass[d.className] = (byClass[d.className] ?? 0) + 1;
 
   const event = new Event();
   event.event_type = eventTypeStr;
@@ -263,6 +293,10 @@ export async function persistDetectionEvent(
     } else if (eventTypeStr === 'face') {
       NotificationService.notifyUnknownFace(event).catch((err: unknown) => {
         logger.error('Unknown face notification failed', 'PIPELINE', err);
+      });
+    } else if (eventTypeStr === 'vehicle') {
+      NotificationService.notifyObjectDetected(event, [className]).catch((err: unknown) => {
+        logger.error('Vehicle notification failed', 'PIPELINE', err);
       });
     } else {
       NotificationService.notifyMotionEvent(event).catch((err: unknown) => {

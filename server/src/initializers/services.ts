@@ -25,8 +25,9 @@ import { Timeline } from '../models/Timeline.js';
 import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
 import { DetectionConfig } from '../models/DetectionConfig.js';
 
-const PERSON_MIN_CONFIDENCE = parseFloat(process.env.PERSON_MIN_CONFIDENCE || '0.55');
-const PERSON_MIN_TRACK_HITS = parseInt(process.env.PERSON_MIN_TRACK_HITS || '3', 10);
+// Mirrors VEHICLE_CLASSES in opencv-service frame_pipeline.py — vehicle
+// tracks get their own event type + snapshot, gated by Python.
+const VEHICLE_CLASSES = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
 
 export async function initializeServices(io: SocketIOServer): Promise<void> {
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -194,53 +195,51 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
         !persistedTracks.has(trackKey) &&
         (eventType === 'track_started' || eventType === 'track_updated')
       ) {
-        const sceneKey = `${cameraId}:${className}`;
-        const prev = lastSavedPerCameraClass.get(sceneKey);
-        const now = Date.now();
+        // Python is the authoritative gate: a snapshot (and thus filePath)
+        // only exists after its class-specific verification / tracklet /
+        // confidence thresholds passed. Node persists once per track when
+        // the snapshot arrives — no duplicated threshold checks.
+        const isVehicleClass = VEHICLE_CLASSES.includes(className);
+        let shouldPersist: boolean;
 
-        if (prev && className !== 'person') {
-          const dx = Math.abs((bbox[0] ?? 0) - prev.bbox.x);
-          const dy = Math.abs((bbox[1] ?? 0) - prev.bbox.y);
-          const dw = Math.abs((bbox[2] ?? 0) - prev.bbox.w);
-          const dh = Math.abs((bbox[3] ?? 0) - prev.bbox.h);
-          const bboxShift = Math.sqrt(dx * dx + dy * dy + dw * dw + dh * dh);
-          const elapsed = now - prev.ts;
-
-          if (bboxShift < 80 && elapsed < 10 * 60 * 1000) {
-            persistedTracks.add(trackKey);
-            return;
-          }
-        }
-
-        if (className !== 'person') {
-          lastSavedPerCameraClass.set(sceneKey, {
-            bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
-            ts: now,
-          });
+        if (className === 'person') {
+          shouldPersist = !!ev.filePath;
         } else {
-          if ((score ?? 0) < PERSON_MIN_CONFIDENCE) {
-            persistedTracks.add(trackKey);
-            return;
+          const sceneKey = `${cameraId}:${className}`;
+          const prev = lastSavedPerCameraClass.get(sceneKey);
+          const now = Date.now();
+          let suppressed = false;
+
+          if (prev) {
+            const dx = Math.abs((bbox[0] ?? 0) - prev.bbox.x);
+            const dy = Math.abs((bbox[1] ?? 0) - prev.bbox.y);
+            const dw = Math.abs((bbox[2] ?? 0) - prev.bbox.w);
+            const dh = Math.abs((bbox[3] ?? 0) - prev.bbox.h);
+            const bboxShift = Math.sqrt(dx * dx + dy * dy + dw * dw + dh * dh);
+
+            if (bboxShift < 80 && now - prev.ts < 10 * 60 * 1000) {
+              persistedTracks.add(trackKey);
+              return;
+            }
           }
 
-          if (ev.humanVerification?.verified !== true) {
-            logger.warn(
-              `Blocked unverified person track ${trackId} on ${cameraId} at persistence gate`,
-              'INIT',
-            );
-            persistedTracks.add(trackKey);
-            return;
-          }
-
-          if ((ev.trackletLen ?? 0) < PERSON_MIN_TRACK_HITS) {
-            return;
+          // Vehicles wait for Python's snapshot gate too; animals/misc keep
+          // the legacy behavior (persist without image after dedup).
+          shouldPersist = isVehicleClass ? !!ev.filePath : true;
+          if (shouldPersist) {
+            lastSavedPerCameraClass.set(sceneKey, {
+              bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
+              ts: now,
+            });
           }
         }
 
-        persistedTracks.add(trackKey);
-        persistDetectionEvent(ev, snapshotScene(cameraId)).catch((err: unknown) => {
-          logger.error(`Failed to persist detection event for ${cameraId}`, 'INIT', err);
-        });
+        if (shouldPersist) {
+          persistedTracks.add(trackKey);
+          persistDetectionEvent(ev, snapshotScene(cameraId)).catch((err: unknown) => {
+            logger.error(`Failed to persist detection event for ${cameraId}`, 'INIT', err);
+          });
+        }
       }
 
       if (eventType === 'track_started' && broadcastWorthy) {

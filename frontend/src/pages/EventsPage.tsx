@@ -92,24 +92,29 @@ const EventsPage = () => {
   // Load existing analysis if not in state
   useEffect(() => {
     if (selectedEventId && !analysisByEvent[selectedEventId]) {
-      eventService.getEnhancedEventsList({}).then((res) => {
-        const eventWithAnalysis = res.events.find((e) => e.id === selectedEventId);
-        if (eventWithAnalysis?.analysis) {
-          const a = eventWithAnalysis.analysis;
-          setAnalysisByEvent((prev) => ({
-            ...prev,
-            [selectedEventId]: {
-              sceneDescription: a.sceneDescription || '',
-              summary: a.sceneDescription || '',
-              threatAssessment: a.threatAssessment,
-              detectedEntities: a.detectedEntities,
-              recommendedActions: a.recommendedActions,
-              modelUsed: a.modelUsed,
-              processingTime: a.processingTime,
-            },
-          }));
-        }
-      });
+      detectionService
+        .getEventAnalysis(selectedEventId)
+        .then((res) => {
+          if (res.analysis) {
+            const a = res.analysis;
+            setAnalysisByEvent((prev) => ({
+              ...prev,
+              [selectedEventId]: {
+                sceneDescription: a.sceneDescription || '',
+                summary: a.summary || a.sceneDescription || '',
+                threatAssessment: a.threatAssessment,
+                detectedEntities: a.detectedEntities,
+                recommendedActions: a.recommendedActions,
+                modelUsed: a.model,
+                processingTime: a.processing_time_ms || 0,
+                boxes: res.boxes?.length ? res.boxes : undefined,
+              },
+            }));
+          }
+        })
+        .catch(() => {
+          // stored analysis unavailable — panel simply stays empty until analyzed
+        });
     }
   }, [selectedEventId, analysisByEvent]);
 

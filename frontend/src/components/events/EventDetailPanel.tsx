@@ -289,6 +289,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   src={event.imageUrl}
                   alt={`Event from ${event.cameraName}`}
                   className="w-full h-full"
+                  objectFit="contain"
                   onError={() => setImageError(true)}
                   onLoad={handleImageLoad}
                 />

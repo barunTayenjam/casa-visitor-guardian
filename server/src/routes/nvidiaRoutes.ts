@@ -22,6 +22,9 @@ router.post('/analyze', authenticate(), validateBody(analysisSchema), (req, res)
 router.post('/analyze-event', authenticate(), validateBody(analysisSchema), (req, res) =>
   nvidiaController.analyzeEvent(req, res),
 );
+router.get('/event-analysis/:eventId', authenticate(), (req, res) =>
+  nvidiaController.getEventAnalysis(req, res),
+);
 router.get('/health', (req, res) => nvidiaController.health(req, res));
 router.get('/status', (req, res) => nvidiaController.health(req, res));
 router.get('/results', authenticate(), (req, res) => nvidiaController.getResults(req, res));

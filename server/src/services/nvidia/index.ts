@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import { logger } from '../../utils/logger.js';
 import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT } from './prompts.js';
 import { callNvidiaApi } from './nvidiaClient.js';
-import { parseAIResponse, drawBoundingBoxes } from './nvidiaProcessor.js';
+import { parseAIResponse, drawBoundingBoxes, normalizeModelBoxes } from './nvidiaProcessor.js';
 import { DEFAULT_TIMEOUT } from './types.js';
 import type {
   AnalysisContext,
@@ -26,7 +26,6 @@ export type {
 async function prepareBase64Image(imageInput: string | Buffer): Promise<string> {
   if (Buffer.isBuffer(imageInput)) {
     const resized = await sharp(imageInput)
-      .resize(800, 800, { fit: 'inside' })
       .jpeg({ quality: 85 })
       .toBuffer();
     return resized.toString('base64');
@@ -34,20 +33,19 @@ async function prepareBase64Image(imageInput: string | Buffer): Promise<string> 
     const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
     const resized = await sharp(buffer)
-      .resize(800, 800, { fit: 'inside' })
+      
       .jpeg({ quality: 85 })
       .toBuffer();
     return resized.toString('base64');
   } else if (imageInput.length > 1000) {
     const buffer = Buffer.from(imageInput, 'base64');
     const resized = await sharp(buffer)
-      .resize(800, 800, { fit: 'inside' })
+      
       .jpeg({ quality: 85 })
       .toBuffer();
     return resized.toString('base64');
   } else {
     const resized = await sharp(imageInput)
-      .resize(800, 800, { fit: 'inside' })
       .jpeg({ quality: 85 })
       .toBuffer();
     return resized.toString('base64');
@@ -197,7 +195,7 @@ export async function analyzeWithBoundingBoxes(
     if (Buffer.isBuffer(imageInput)) {
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
       await sharp(imageInput)
-        .resize(800, 800, { fit: 'inside' })
+        
         .jpeg({ quality: 85 })
         .toFile(tempPath);
       imagePath = tempPath;
@@ -206,7 +204,7 @@ export async function analyzeWithBoundingBoxes(
       const base64Data = imageInput.replace(/^data:image\/\w+;base64,/, '');
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
       await sharp(Buffer.from(base64Data, 'base64'))
-        .resize(800, 800, { fit: 'inside' })
+        
         .jpeg({ quality: 85 })
         .toFile(tempPath);
       imagePath = tempPath;
@@ -214,14 +212,14 @@ export async function analyzeWithBoundingBoxes(
     } else if (imageInput.length > 1000) {
       const tempPath = path.join('/tmp', `nvidia_bbox_${Date.now()}.jpg`);
       await sharp(Buffer.from(imageInput, 'base64'))
-        .resize(800, 800, { fit: 'inside' })
+        
         .jpeg({ quality: 85 })
         .toFile(tempPath);
       imagePath = tempPath;
       base64Image = imageInput;
     } else {
       const resized = await sharp(imageInput)
-        .resize(800, 800, { fit: 'inside' })
+        
         .jpeg({ quality: 85 })
         .toBuffer();
       imagePath = imageInput;
@@ -312,30 +310,25 @@ export async function analyzeWithBoundingBoxes(
       const parsed = JSON.parse(jsonStr.trim());
 
       if (parsed.detected_objects && Array.isArray(parsed.detected_objects)) {
-        detectedBoxes = parsed.detected_objects.map((obj: any) => {
-          const rawBox = {
-            x: obj.position?.x || 0,
-            y: obj.position?.y || 0,
-            width: obj.position?.width || 0,
-            height: obj.position?.height || 0,
-            label: obj.label || obj.description || 'unknown',
-            confidence: obj.confidence || 50,
-          };
-          const maxCoord = Math.max(
-            rawBox.x,
-            rawBox.y,
-            rawBox.x + rawBox.width,
-            rawBox.y + rawBox.height,
-          );
-          if (maxCoord > 100) {
-            const scale = 8;
-            rawBox.x /= scale;
-            rawBox.y /= scale;
-            rawBox.width /= scale;
-            rawBox.height /= scale;
-          }
-          return rawBox;
-        });
+        const imgMeta = await sharp(imagePath).metadata().catch(() => null);
+        const imgWidth = imgMeta?.width || 0;
+        const imgHeight = imgMeta?.height || 0;
+        const normalized = normalizeModelBoxes(
+          parsed.detected_objects.map((obj: any) => obj?.position),
+          imgWidth,
+          imgHeight,
+        );
+        detectedBoxes = parsed.detected_objects
+          .map((obj: any, i: number) => {
+            const box = normalized[i];
+            if (!box) return null;
+            return {
+              ...box,
+              label: obj.label || obj.description || 'unknown',
+              confidence: typeof obj.confidence === 'number' ? obj.confidence : 50,
+            };
+          })
+          .filter((b: BoundingBox | null): b is BoundingBox => b !== null);
       }
 
       rawAnalysis.people = parsed.people || [];
@@ -494,19 +487,28 @@ export async function analyzePersons(
       sceneContext = parsed.scene_context;
 
       if (parsed.people && Array.isArray(parsed.people)) {
-        people = parsed.people.map((p: any) => ({
-          position: {
-            x: p.position?.x || 0,
-            y: p.position?.y || 0,
-            width: p.position?.width || 0,
-            height: p.position?.height || 0,
-            label: 'person',
-            confidence: 80,
-          },
-          description: p.description || '',
-          clothing: p.clothing || '',
-          actions: p.actions || [],
-        }));
+        const imgMeta = await sharp(Buffer.from(base64Image, 'base64'))
+          .metadata()
+          .catch(() => null);
+        const imgWidth = imgMeta?.width || 0;
+        const imgHeight = imgMeta?.height || 0;
+        const normalized = normalizeModelBoxes(
+          parsed.people.map((p: any) => p?.position),
+          imgWidth,
+          imgHeight,
+        );
+        people = parsed.people
+          .map((p: any, i: number) => {
+            const box = normalized[i];
+            if (!box) return null;
+            return {
+              position: { ...box, label: 'person', confidence: 80 },
+              description: p.description || '',
+              clothing: p.clothing || '',
+              actions: p.actions || [],
+            };
+          })
+          .filter((p: PersonDetectionResult['people'][number] | null): p is PersonDetectionResult['people'][number] => p !== null);
       }
     } catch (parseError) {
       logger.error('Failed to parse person response', 'NVIDIA', parseError);

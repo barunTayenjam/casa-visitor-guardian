@@ -12,6 +12,8 @@ const analysisSchema = z.object({
   image: z.string().optional(),
   imagePath: z.string().optional(),
   eventId: z.string().optional(),
+  useStoredImage: z.boolean().optional(),
+  includeAnnotatedImage: z.boolean().optional(),
 });
 
 router.post('/analyze', authenticate(), validateBody(analysisSchema), (req, res) =>

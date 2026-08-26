@@ -255,10 +255,13 @@ export class NvidiaController extends BaseController {
 
       // Check cache: return persisted analysis if available
       try {
-        const cachedResult = await AppDataSource.query(
-          `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`,
-          [eventId],
-        );
+        const cachedResult =
+          useStoredImage === false
+            ? []
+            : await AppDataSource.query(
+                `SELECT * FROM ai_analysis_results WHERE event_id = $1 LIMIT 1`,
+                [eventId],
+              );
         if (cachedResult && cachedResult.length > 0) {
           const c = cachedResult[0];
           const safeJson = (val: any) => {
@@ -536,6 +539,44 @@ export class NvidiaController extends BaseController {
         );
       } catch (saveError) {
         logger.error('[NVIDIA Controller] Failed to persist analysis', 'NVIDIA', saveError);
+      }
+
+      // AI analysis is authoritative: overwrite the local pipeline metadata on the event
+      try {
+        const threatLevel = result.threatAssessment?.level || 'low';
+        const severity =
+          threatLevel === 'high' || threatLevel === 'critical'
+            ? 'alert'
+            : threatLevel === 'medium'
+              ? 'alert'
+              : 'detection';
+        const entities = result.detectedEntities || {};
+        await eventRepository.update(
+          { id: event.id },
+          {
+            scene_context: (result.sceneContext as Record<string, unknown>) || null,
+            threat_assessment: {
+              level: threatLevel,
+              confidence: result.threatAssessment?.confidence ?? 0,
+              factors: result.threatAssessment?.factors || [],
+              source: 'nvidia',
+              model: result.model || result.modelUsed || 'unknown',
+            } as Record<string, unknown>,
+            detection_summary: {
+              description: result.sceneDescription || '',
+              people: entities.people || result.persons || [],
+              vehicles: entities.vehicles || result.vehicles || [],
+              animals: entities.animals || [],
+              objects: entities.objects || [],
+              source: 'nvidia',
+              model: result.model || result.modelUsed || 'unknown',
+              analyzedAt: new Date().toISOString(),
+            } as Record<string, unknown>,
+            severity,
+          } as any,
+        );
+      } catch (metaError) {
+        logger.error('[NVIDIA Controller] Failed to overwrite event metadata', 'NVIDIA', metaError);
       }
 
       res.json({

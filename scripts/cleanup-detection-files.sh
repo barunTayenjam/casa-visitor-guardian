@@ -13,7 +13,7 @@ AND file_type IN ('event_motion', 'event_face');
         # Convert path from /data to /app/data
         new_path=$(echo "$path" | sed 's|/data/detections|/app/data/detections|')
         # Check if file exists at new path
-        if docker exec sentryvision-backend test -f "$new_path" 2>/dev/null; then
+        if docker exec sentryvision-app test -f "$new_path" 2>/dev/null; then
             echo "EXISTS (will update): $id -> $new_path"
         else
             echo "MISSING (will delete): $id -> $path"

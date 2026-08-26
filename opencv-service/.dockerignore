@@ -10,3 +10,6 @@ data/
 tests/
 Dockerfile
 .dockerignore
+.insightface/
+known_faces/
+cameras.json

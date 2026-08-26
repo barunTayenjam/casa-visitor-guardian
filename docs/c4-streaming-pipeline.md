@@ -38,6 +38,8 @@ C4Component
 
             Component(in_yolo, "InProcessYOLO", "Object Detector\nYOLOv8n ONNX (OpenCV DNN)\n640×640 blob input\nClass-specific thresholds\nNMS 0.30, min area 1600 px²")
 
+            Component(human_verif, "HumanVerifier\nperson_verifier.py", "Tiered Verification\n1. YOLO ≥ 0.90\n2. Face Analyzer\n3. MediaPipe Pose (3+ kp)\n4. Score floor (0.65/0.55)\nDiscards false persons")
+
             Component(byte_tracker, "ByteTracker\nbyte_tracker.py", "Multi-Object Tracker\nKalman filter per track\nTwo-round matching (high/low conf)\nTrack lifecycle events:\nstarted/updated/ended")
 
             Component(identity, "IdentityEnrichment", "Face Recognizer\nFace recognition on new tracks\n30s identity cache\nEmbeds face labels into events")
@@ -58,11 +60,13 @@ C4Component
 
     Boundary(express_backend, "Express Backend :9753", "Node.js / TypeScript") {
 
-        Boundary(streaming_core, "Streaming Core", "Real-time frame relay") {
+        Boundary(streaming_core, "Streaming Core", "Real-time frame relay & persistence") {
 
             Component(stream_mgr, "StreamManager\nrtspManager.ts", "Core Orchestrator\nSocket.io frame relay via PythonWsClient\nStores lastFrame per camera\nAdaptive FPS throttling\nViewer tracking (socket ID sets)\n5-min inactivity timeout")
 
             Component(py_ws, "PythonWsClient\npythonWsClient.ts", "WebSocket Client\nws://localhost:9090\nSubscribe/unsubscribe cameras\nBinary JPEG + JSON events\nRe-emits as Node EventEmitter\nAuto-reconnect 1s→30s")
+
+            Component(persist, "detectionPersistence.ts", "Event Persistence\nDrops 'lost' tracks\nIoU > 0.3 person bbox dedup\nSaves Event + EventDetection\nHumanVerification audit rows")
 
             Component(sio_server, "Socket.io Server\n(index.ts)", "Real-time Relay\nrequestStream / stopStream\nBridges trackingEvent → rooms\nEmits: detection, motionDetected\npersonDetected, faceDetected")
 
@@ -105,7 +109,8 @@ C4Component
     Rel(frame_pipeline, motion_gate, "Every frame\nBGR numpy array")
     Rel(motion_gate, in_yolo, "Frame with motion\n(motion pixels ≥ 500)", "Conditional")
     Rel(in_yolo, byte_tracker, "YOLO detections\n[class, conf, bbox]", "Detections array")
-    Rel(byte_tracker, identity, "Tracked objects\nwith track IDs", "Track updates")
+    Rel(byte_tracker, human_verif, "Person tracks\nROI crop + YOLO score", "Per track")
+    Rel(human_verif, identity, "Verified person\ntracks only", "Track updates")
     Rel(frame_pipeline, live_q, "JPEG-encoded frame\n(cv2.imencode)", "Enqueue")
     Rel(identity, event_q, "Enriched events\nJSON + optional snapshot", "Enqueue")
     Rel(live_q, ws_pub, "Dequeue JPEG frame", "asyncio")

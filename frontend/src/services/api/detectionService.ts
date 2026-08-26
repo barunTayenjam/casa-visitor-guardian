@@ -333,6 +333,52 @@ export const detectionService = {
     }
   },
 
+  async getEventAnalysis(eventId: string): Promise<{
+    success: boolean;
+    analysis: {
+      sceneDescription: string;
+      summary?: string;
+      threatAssessment?: { level: string; factors: string[]; confidence: number };
+      detectedEntities?: {
+        people: string[];
+        vehicles: string[];
+        animals: string[];
+        objects: string[];
+        actions?: string[];
+      };
+      recommendedActions?: string[];
+      processing_time_ms?: number;
+      model?: string;
+    } | null;
+    boxes: Array<{
+      label: string;
+      confidence: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>;
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/nvidia/event-analysis/${eventId}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new ApiError(
+          data.error || 'Failed to get event analysis',
+          (response as Response).status,
+          'GET_EVENT_ANALYSIS_ERROR',
+          data,
+        );
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`Failed to get event analysis for ${eventId}`, 500, 'GET_EVENT_ANALYSIS_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
   // ==================== FACE RECOGNITION ====================
 
   async getKnownFaces(): Promise<

@@ -1,14 +1,44 @@
 import cv2
 import numpy as np
+import os
 from typing import List, Dict, Any, Tuple, Optional
 
 
 class PersonAnalyzer:
-    """Analyzes detected persons for attributes (clothing, position, activity hints).
+    """Analyses detected persons for attributes (clothing, position, activity hints).
 
     Mimics the NVIDIA person detection output structure using only OpenCV
     image processing — no additional ML models required.
     """
+
+    _face_cascade: Optional[cv2.CascadeClassifier] = None
+    _profile_cascade: Optional[cv2.CascadeClassifier] = None
+    _cascades_loaded = False
+
+    @classmethod
+    def _load_cascades(cls) -> None:
+        if cls._cascades_loaded:
+            return
+        cls._cascades_loaded = True
+        candidates = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
+            getattr(cv2, "data", None).haarcascades if hasattr(cv2, "data") else None,
+        ]
+        for base in candidates:
+            if not base:
+                continue
+            frontal = os.path.join(base, "haarcascade_frontalface_default.xml")
+            profile = os.path.join(base, "haarcascade_profileface.xml")
+            if cls._face_cascade is None and os.path.exists(frontal):
+                cascade = cv2.CascadeClassifier(frontal)
+                if not cascade.empty():
+                    cls._face_cascade = cascade
+            if cls._profile_cascade is None and os.path.exists(profile):
+                cascade = cv2.CascadeClassifier(profile)
+                if not cascade.empty():
+                    cls._profile_cascade = cascade
+        if cls._face_cascade is None and cls._profile_cascade is None:
+            print("[PersonAnalyzer] haarcascade files unavailable — facing estimation disabled")
 
     def analyze_persons(self, frame: np.ndarray, detections: List[Dict]) -> Dict[str, Any]:
         h, w = frame.shape[:2]
@@ -166,16 +196,19 @@ class PersonAnalyzer:
     def _estimate_facing(self, roi: np.ndarray) -> str:
         if roi.shape[0] < 20 or roi.shape[1] < 20:
             return "unknown"
+        self._load_cascades()
+        if self._face_cascade is None and self._profile_cascade is None:
+            return "unknown"
         try:
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))
-            if len(faces) > 0:
-                return "front"
-            profile = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")
-            profiles = profile.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
-            if len(profiles) > 0:
-                return "side"
+            if self._face_cascade is not None:
+                faces = self._face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))
+                if len(faces) > 0:
+                    return "front"
+            if self._profile_cascade is not None:
+                profiles = self._profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+                if len(profiles) > 0:
+                    return "side"
             return "back_or_side"
         except Exception:
             return "unknown"

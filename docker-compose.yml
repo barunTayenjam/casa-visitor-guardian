@@ -48,7 +48,7 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    container_name: sentryvision-backend
+    container_name: sentryvision-app
     ports:
       - "0.0.0.0:9753:9753"
     environment:
@@ -84,6 +84,10 @@ services:
       - SEED_USER_PASSWORD=${SEED_USER_PASSWORD}
     volumes:
       - ./server/cameras.json:/app/cameras.json
+      # Dev hot-mount: builds locally (npm run build), then
+      # `docker restart sentryvision-app` picks up new dist — no rebuild
+      - ./server/dist:/app/dist
+      - ./frontend/dist:/app/public
       - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots
@@ -137,6 +141,8 @@ services:
       - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
       - PERSON_MIN_TRACK_HITS=${PERSON_MIN_TRACK_HITS:-3}
       - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
+      - HUMAN_VERIFIER_SCORE=${HUMAN_VERIFIER_SCORE:-0.55}
+      - HUMAN_VERIFIER_NIGHT_SCORE=${HUMAN_VERIFIER_NIGHT_SCORE:-0.55}
     devices:
       - /dev/dri:/dev/dri
     volumes:
@@ -144,6 +150,12 @@ services:
       - ./opencv-service/models:/app/models
       - ./opencv-service/data:/app/data
       - ./opencv-service/known_faces:/app/known_faces
+      - ./opencv-service/.insightface:/root/.insightface
+      # Dev hot-mounts: edit these files on the host, then just
+      # `docker restart sentryvision-opencv` — no image rebuild needed
+      - ./opencv-service/rtsp_ingestion/frame_pipeline.py:/app/rtsp_ingestion/frame_pipeline.py
+      - ./opencv-service/person_verifier.py:/app/person_verifier.py
+      - ./opencv-service/person_analyzer.py:/app/person_analyzer.py
       - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots
@@ -194,8 +206,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 128M
+          cpus: ${GO2RTC_CPU_LIMIT:-2.0}
+          memory: ${GO2RTC_MEM_LIMIT:-512M}
 
 networks:
   sentryvision_network:

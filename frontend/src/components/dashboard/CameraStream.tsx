@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 interface CameraStreamProps {
   camera: Camera;
   autoStart?: boolean;
-  variant?: 'main' | 'sub';
+  variant?: 'main' | 'low';
 }
 
 type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error' | 'reconnecting';
@@ -55,12 +55,12 @@ const PERSON_CHIP_MIN_HITS = 2;
 export const CameraStream: React.FC<CameraStreamProps> = ({
   camera,
   autoStart = true,
-  variant = 'sub',
+  variant = 'low',
 }) => {
   const { startCameraStream, stopCameraStream } = useCameras();
   const { connected: socketConnected } = useSocketContext();
 
-  const srcName = variant === 'main' ? camera.id : `${camera.id}_sub`;
+  const srcName = variant === 'main' ? camera.id : `${camera.id}_low`;
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +73,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   const mseWsRef = useRef<WebSocket | null>(null);
   const mseMediaSourceRef = useRef<MediaSource | null>(null);
   const mseSettledRef = useRef(false);
+  const mseLiveSyncRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
@@ -429,10 +430,27 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
 
+          // Wait for ICE gathering to complete before sending the offer so
+          // all local candidates are included in the SDP. Without this,
+          // tablets on LAN send an incomplete SDP and ICE fails immediately.
+          await new Promise<void>((res) => {
+            if (pc.iceGatheringState === 'complete') { res(); return; }
+            const onGather = () => {
+              if (pc.iceGatheringState === 'complete') {
+                pc.removeEventListener('icegatheringstatechange', onGather);
+                res();
+              }
+            };
+            pc.addEventListener('icegatheringstatechange', onGather);
+            setTimeout(res, 3000);
+          });
+
+          if (pcRef.current !== pc) return;
+
           const response = await fetch(`${GO2RTC_BASE}/api/webrtc?src=${srcName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: offer.type, sdp: offer.sdp }),
+            body: JSON.stringify({ type: pc.localDescription!.type, sdp: pc.localDescription!.sdp }),
           });
 
           if (!response.ok) {
@@ -478,6 +496,10 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
 
   const cleanupMSE = useCallback(() => {
     mseSettledRef.current = false;
+    if (mseLiveSyncRef.current) {
+      clearInterval(mseLiveSyncRef.current);
+      mseLiveSyncRef.current = null;
+    }
     if (mseWsRef.current) {
       mseWsRef.current.close();
       mseWsRef.current = null;
@@ -490,6 +512,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         /* ended */
       }
       mseMediaSourceRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.playbackRate !== 1) {
+      videoRef.current.playbackRate = 1;
     }
   }, []);
 
@@ -558,6 +583,30 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
                     isUpdating = false;
                   });
                   if (queue.length > 0) settleMse();
+                  if (mseLiveSyncRef.current) clearInterval(mseLiveSyncRef.current);
+                  mseLiveSyncRef.current = setInterval(() => {
+                    const video = videoRef.current;
+                    if (!video || !sourceBuffer || video.seeking) return;
+                    try {
+                      const buffered = video.buffered;
+                      if (buffered.length === 0) return;
+                      const liveEdge = buffered.end(buffered.length - 1);
+                      const behind = liveEdge - video.currentTime;
+                      if (behind > 6) {
+                        video.currentTime = liveEdge - 0.3;
+                      } else if (behind > 2.5) {
+                        if (video.playbackRate < 1.2) video.playbackRate = 1.15;
+                      } else if (video.playbackRate !== 1) {
+                        video.playbackRate = 1;
+                      }
+                      const bufferStart = buffered.start(0);
+                      if (liveEdge - bufferStart > 15 && !sourceBuffer.updating) {
+                        sourceBuffer.remove(bufferStart, liveEdge - 12);
+                      }
+                    } catch {
+                      /* buffer manipulation races */
+                    }
+                  }, 1500);
                 } catch (err) {
                   if (!mseSettledRef.current) {
                     mseSettledRef.current = true;
@@ -579,6 +628,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         }
 
         if (event.data instanceof ArrayBuffer) {
+          if (queue.length > 120) queue.splice(0, queue.length - 60);
           queue.push(event.data);
           if (sourceBuffer) settleMse();
           drainQueue();

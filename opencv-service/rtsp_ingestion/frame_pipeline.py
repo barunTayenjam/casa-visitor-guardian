@@ -43,6 +43,9 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     print("[FramePipeline] psutil not available, frame skipping disabled")
 
+# Vehicle classes that receive dedicated event type with snapshots
+VEHICLE_CLASSES = {"car", "truck", "bus", "motorcycle", "bicycle"}
+
 from .config import (
     DEFAULT_WIDTH,
     DEFAULT_HEIGHT,
@@ -506,7 +509,7 @@ class FramePipeline:
         self,
         camera_config: dict,
         publisher: WebSocketPublisher,
-        frame_skip: int = 2,
+        frame_skip: int = 1,
     ):
         self._config = camera_config
         self._publisher = publisher
@@ -522,14 +525,24 @@ class FramePipeline:
         self._tracker = ByteTracker(track_thresh=0.25, match_thresh=0.8, track_buffer=30, frame_rate=DETECTION_FPS)
         self._identity_cache = IdentityCache(ttl=30.0)
         self._snapshotted_tracks: set = set()
+        # Snapshot path per track: reattached to every subsequent WS event so
+        # Node's filePath-based persistence gate survives a dropped message.
+        self._snapshot_paths: dict = {}
         # Verification verdict cache: (frame_seen, verdict) per track.
         # MediaPipe pose + face CNN are the expensive tiers of HumanVerifier;
         # re-running them on the same track every frame is wasted work, so a
         # pass is reused for 10 frames and a fail re-checked after 4 (the
         # bbox grows as a person walks closer, so fails must be retried).
         self._verify_cache: dict = {}
+        self._person_attrs_cache: dict = {}
+        self._person_attrs_ttl = float(os.getenv("PERSON_ATTRS_TTL", "5.0"))
+        self._yolo_min_interval = float(os.getenv("YOLO_MIN_INTERVAL_MS", "1000")) / 1000.0
+        self._last_yolo_time = 0.0
+        self._yolo_max_input_width = int(os.getenv("YOLO_MAX_INPUT_WIDTH", "1280"))
         self._person_min_hits = int(os.getenv("PERSON_MIN_TRACK_HITS", "3"))
         self._person_min_conf = float(os.getenv("PERSON_MIN_CONFIDENCE", "0.55"))
+        self._vehicle_min_hits = int(os.getenv("VEHICLE_MIN_TRACK_HITS", "3"))
+        self._vehicle_min_conf = float(os.getenv("VEHICLE_MIN_CONFIDENCE", "0.45"))
         self._face_recognition_fn = None
         self._scene_analyzer = SceneAnalyzer()
         self._scene_analysis_interval = 60
@@ -549,23 +562,23 @@ class FramePipeline:
         self._detect_width = detect_cfg.get("width", DETECT_WIDTH)
         self._detect_height = detect_cfg.get("height", DETECT_HEIGHT)
 
-        # Single reader per camera — go2rtc re-streams the camera's sole RTSP
-        # connection to any number of consumers internally, so we only need
-        # one FFmpeg process. The live callback splits frames to both queues.
-        # Native main-stream resolution (up to 2K) is used for YOLO detection,
-        # event snapshots, and face/person analysis; live preview is
-        # downscaled separately (640x360).
-        go2rtc_url = f"{GO2RTC_RTSP_BASE}/{self._camera_id}_sub"
-
+        # Single reader on the camera's MAIN stream at native resolution
+        # (up to 2K). The TP-Link cameras allow only ONE RTSP connection, which
+        # go2rtc holds and re-streams internally — so we must use exactly one
+        # go2rtc stream per camera. The live preview is downscaled to
+        # LIVE_WIDTHxLIVE_HEIGHT inside _on_live_frame, so preview bandwidth is
+        # unchanged even though the reader captures full-res for detection and
+        # evidence snapshots. A fixed output size is required because the
+        # reader reads raw fixed-size frames off a pipe; if the source
+        # resolution changed mid-stream the byte stream would desync.
         self._live_reader = FFmpegReader(
-            rtsp_url=go2rtc_url,
+            rtsp_url=f"{GO2RTC_RTSP_BASE}/{self._camera_id}",
             camera_id=self._camera_id,
-            width=self._live_width,
-            height=self._live_height,
+            width=detect_cfg.get("width", DEFAULT_WIDTH),
+            height=detect_cfg.get("height", DEFAULT_HEIGHT),
             fps=live_cfg.get("fps", DEFAULT_FPS),
             scale=False,
         )
-        self._detect_reader = None
 
         self._detection_thread: Optional[threading.Thread] = None
         self._running = False
@@ -620,7 +633,7 @@ class FramePipeline:
         self._detection_thread.start()
         self._live_reader.log_fn = self._queue_pipeline_log
         self._live_reader.start(self._on_live_frame)
-        print(f"[FramePipeline:{self._camera_id}] Started (single reader, live+detect)")
+        print(f"[FramePipeline:{self._camera_id}] Started (main native + live preview {self._live_width}x{self._live_height})")
         self._queue_pipeline_log(
             "info", "FramePipeline",
             f"Pipeline started (live {self._live_width}x{self._live_height}, detect {self._detect_width}x{self._detect_height})",
@@ -715,6 +728,11 @@ class FramePipeline:
         if not motion_result["motion_detected"]:
             return
 
+        now_ts = time.time()
+        if now_ts - self._last_yolo_time < self._yolo_min_interval:
+            return
+        self._last_yolo_time = now_ts
+
         print(f"[FramePipeline:{self._camera_id}] MOTION DETECTED — running YOLO")
         detections = self._apply_camera_filters(self._run_detection(frame))
         if not detections:
@@ -767,7 +785,21 @@ class FramePipeline:
     def _run_detection(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         if self._yolo_detector is None:
             return []
-        return self._yolo_detector.detect(frame)
+        h, w = frame.shape[:2]
+        max_w = self._yolo_max_input_width
+        if max_w and w > max_w:
+            scale = max_w / w
+            inference_frame = cv2.resize(frame, (max_w, max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+        else:
+            scale = 1.0
+            inference_frame = frame
+        detections = self._yolo_detector.detect(inference_frame)
+        if scale != 1.0:
+            inv = 1.0 / scale
+            for det in detections:
+                det["bbox"] = [int(det["bbox"][0] * inv), int(det["bbox"][1] * inv),
+                               int(det["bbox"][2] * inv), int(det["bbox"][3] * inv)]
+        return detections
 
     def get_yolo_metrics(self) -> dict:
         if self._yolo_detector is None:
@@ -817,12 +849,13 @@ class FramePipeline:
 
     def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
         results = []
-        person_attrs_cache = {}
         for obj in tracked:
             if obj.get("event") == "track_ended":
                 self._identity_cache.invalidate(obj["track_id"])
                 self._snapshotted_tracks.discard(obj["track_id"])
+                self._snapshot_paths.pop(obj["track_id"], None)
                 self._verify_cache.pop(obj["track_id"], None)
+                self._person_attrs_cache.pop(obj["track_id"], None)
                 results.append(obj)
                 continue
             tid = obj["track_id"]
@@ -840,7 +873,18 @@ class FramePipeline:
             # full-res snapshot is written only after verification passes,
             # so unverified persons leave no event row and no image.
             if obj.get("class") == "person":
-                person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
+                # ByteTracker can emit negative/zero width or height (smoothing
+                # overshoot near frame edges). Normalize to a valid rect so the
+                # ROI crop is non-empty and verification can actually run.
+                rx, ry = x, y
+                rw, rh = w_b, h_b
+                if rw < 0:
+                    rx, rw = x + w_b, -w_b
+                if rh < 0:
+                    ry, rh = y + h_b, -h_b
+                rx, ry = max(0, rx), max(0, ry)
+                rw, rh = max(1, min(rw, frame.shape[1] - rx)), max(1, min(rh, frame.shape[0] - ry))
+                person_roi = frame[ry:ry + rh, rx:rx + rw]
                 if person_roi.size <= 0:
                     self._queue_pipeline_log(
                         "warn",
@@ -872,9 +916,13 @@ class FramePipeline:
                         and obj.get("score", 0) >= self._person_min_conf
                         and tid not in self._snapshotted_tracks
                     ):
-                        obj["file_path"] = self._save_snapshot(tid, frame)
-                        if obj["file_path"]:
+                        snap = self._save_snapshot(tid, frame)
+                        if snap:
                             self._snapshotted_tracks.add(tid)
+                            self._snapshot_paths[tid] = snap
+                    # Reattach so Node's filePath gate survives dropped messages
+                    if tid in self._snapshot_paths:
+                        obj["file_path"] = self._snapshot_paths[tid]
                 else:
                     print(f"[FramePipeline] Discarding false positive person: {tid} (tier={verdict['tier']}, score={verdict['yolo_score']})")
                     self._queue_pipeline_log(
@@ -886,6 +934,24 @@ class FramePipeline:
                     )
                     continue
             # ---------------------------
+
+            # --- VEHICLE SNAPSHOT ---
+            # Vehicles get their own event type with full-res snapshot; same
+            # once-per-track gate as persons but keyed to vehicle thresholds.
+            if obj.get("class") in VEHICLE_CLASSES:
+                if (
+                    obj.get("tracklet_len", 0) >= self._vehicle_min_hits
+                    and obj.get("score", 0) >= self._vehicle_min_conf
+                    and tid not in self._snapshotted_tracks
+                ):
+                    snap = self._save_snapshot(tid, frame)
+                    if snap:
+                        self._snapshotted_tracks.add(tid)
+                        self._snapshot_paths[tid] = snap
+                # Reattach cached snapshot path
+                if tid in self._snapshot_paths:
+                    obj["file_path"] = self._snapshot_paths[tid]
+            # ------------------------
 
             if obj.get("event") == "track_started" and self._face_recognition_fn and w_b > 20 and h_b > 20:
                 cached = self._identity_cache.get(tid)
@@ -910,18 +976,19 @@ class FramePipeline:
                         pass
 
             if obj.get("class") == "person" and w_b > 20 and h_b > 20:
-                cache_key = tid if tid else str(id(obj))
-                if cache_key not in person_attrs_cache:
+                cached_attrs = self._person_attrs_cache.get(tid)
+                if cached_attrs is None or time.time() - cached_attrs[0] > self._person_attrs_ttl:
                     try:
                         person_roi = frame[max(0, y):min(frame.shape[0], y + h_b), max(0, x):min(frame.shape[1], x + w_b)]
                         if person_roi.size > 0:
                             analysis = self._person_analyzer.analyze_persons(frame, [obj])
                             if analysis["people"]:
-                                person_attrs_cache[cache_key] = analysis["people"][0]
+                                cached_attrs = (time.time(), analysis["people"][0])
+                                self._person_attrs_cache[tid] = cached_attrs
                     except Exception:
                         pass
-                if cache_key in person_attrs_cache:
-                    attrs = person_attrs_cache[cache_key]
+                if cached_attrs is not None:
+                    attrs = cached_attrs[1]
                     obj["person_attributes"] = attrs
                     obj["clothing"] = attrs.get("clothing", "unknown")
                     obj["clothing_colors"] = attrs.get("clothing_colors", [])

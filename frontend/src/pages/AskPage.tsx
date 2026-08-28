@@ -8,6 +8,7 @@ import {
   ChatResponse,
   ChatTable,
 } from '@/services/api/chatService';
+import { cn } from '@/lib/utils';
 
 const SUGGESTIONS = [
   'How many dogs visited today?',
@@ -25,14 +26,14 @@ function renderInline(text: string): ReactNode[] {
   return parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**')) {
       return (
-        <strong key={i} className="font-semibold text-zinc-100">
+        <strong key={i} className="font-semibold text-foreground">
           {p.slice(2, -2)}
         </strong>
       );
     }
     if (p.startsWith('`') && p.endsWith('`')) {
       return (
-        <code key={i} className="rounded bg-zinc-800/80 px-1 py-0.5 font-mono text-[0.85em] text-sky-300">
+        <code key={i} className="rounded bg-white/[0.06] px-1 py-0.5 font-mono text-[0.85em] text-sky-300">
           {p.slice(1, -1)}
         </code>
       );
@@ -60,21 +61,21 @@ function Markdown({ content }: { content: string }) {
     if (line.startsWith('## ')) {
       flush();
       blocks.push(
-        <h2 key={key++} className="mt-3 mb-1 text-sm font-semibold tracking-wide text-zinc-100">
+        <h2 key={key++} className="mt-3 mb-1 text-sm font-semibold tracking-wide text-foreground">
           {line.slice(3)}
         </h2>,
       );
     } else if (line.startsWith('# ')) {
       flush();
       blocks.push(
-        <h1 key={key++} className="mb-2 text-base font-bold text-zinc-50">
+        <h1 key={key++} className="mb-2 text-base font-bold text-foreground">
           {line.slice(2)}
         </h1>,
       );
     } else if (line.startsWith('- ')) {
       (list = list ?? []).push(
-        <li key={key++} className="flex gap-2 text-sm text-zinc-300">
-          <span className="mt-[7px] h-1 w-1 flex-shrink-0 rounded-full bg-zinc-500" />
+        <li key={key++} className="flex gap-2 text-sm text-foreground/80">
+          <span className="mt-[7px] h-1 w-1 flex-shrink-0 rounded-full bg-muted-foreground" />
           <span>{renderInline(line.slice(2))}</span>
         </li>,
       );
@@ -83,7 +84,7 @@ function Markdown({ content }: { content: string }) {
     } else {
       flush();
       blocks.push(
-        <p key={key++} className="my-1 text-sm leading-relaxed text-zinc-300">
+        <p key={key++} className="my-1 text-sm leading-relaxed text-foreground/80">
           {renderInline(line)}
         </p>,
       );
@@ -97,7 +98,7 @@ function TableView({ table }: { table: ChatTable }) {
   return (
     <div className="mt-2 overflow-x-auto">
       {table.caption && (
-        <div className="mb-1 text-[11px] uppercase tracking-wider text-zinc-500">{table.caption}</div>
+        <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{table.caption}</div>
       )}
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -105,7 +106,7 @@ function TableView({ table }: { table: ChatTable }) {
             {table.headers.map((h, i) => (
               <th
                 key={i}
-                className="border-b border-zinc-800 bg-zinc-900/40 px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-500"
+                className="border-b border-white/[0.10] bg-card px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
               >
                 {h}
               </th>
@@ -114,9 +115,9 @@ function TableView({ table }: { table: ChatTable }) {
         </thead>
         <tbody>
           {table.rows.map((row, ri) => (
-            <tr key={ri} className="border-b border-zinc-800/50 last:border-0">
+            <tr key={ri} className="border-b border-white/[0.06] last:border-0">
               {row.map((cell, ci) => (
-                <td key={ci} className="px-2.5 py-1.5 text-zinc-300">
+                <td key={ci} className="px-2.5 py-1.5 text-foreground/80">
                   {fmt(cell)}
                 </td>
               ))}
@@ -286,21 +287,21 @@ export default function AskPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-28">
+    <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-28 bg-background">
       <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-          <MessageSquare className="h-4 w-4" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-[0.5rem] bg-primary/10 border border-primary/20">
+          <MessageSquare className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <h1 className="text-base font-semibold text-zinc-50">Ask</h1>
-          <p className="text-xs text-zinc-500">Chat with your recorded detection data</p>
+          <h1 className="text-base font-semibold text-foreground">Ask</h1>
+          <p className="text-xs text-muted-foreground">Chat with your recorded detection data</p>
         </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pr-1">
         {messages.length === 0 && (
           <div className="mt-10 space-y-3">
-            <div className="flex items-start gap-2.5 text-zinc-500">
+            <div className="flex items-start gap-2.5 text-muted-foreground">
               <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <p className="text-sm leading-relaxed">
                 Ask about vehicles coming and going, humans seen at certain times, camera activity,
@@ -313,7 +314,7 @@ export default function AskPage() {
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="rounded-full border border-zinc-800 bg-zinc-900/40 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:border-zinc-700 hover:text-zinc-200"
+                  className="rounded-full border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/[0.16] hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -325,7 +326,7 @@ export default function AskPage() {
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
             {m.pending ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-500">
+              <div className="flex items-center gap-2 rounded-2xl border border-white/[0.10] bg-card px-4 py-3 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Thinking…
               </div>
@@ -334,11 +335,11 @@ export default function AskPage() {
                 {m.error}
               </div>
             ) : m.role === 'user' ? (
-              <div className="max-w-[85%] rounded-2xl bg-primary/15 px-4 py-2.5 text-sm text-zinc-100">
+              <div className="max-w-[85%] rounded-2xl bg-primary/15 border border-primary/20 px-4 py-2.5 text-sm text-foreground">
                 {m.content}
               </div>
             ) : (
-              <div className="w-full max-w-[95%] rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 backdrop-blur-sm">
+              <div className="w-full max-w-[95%] rounded-2xl border border-white/[0.10] bg-card px-4 py-3">
                 <Markdown content={m.content} />
                 {m.response?.images && m.response.images.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -349,7 +350,7 @@ export default function AskPage() {
                         target="_blank"
                         rel="noreferrer"
                         title={img.caption}
-                        className="group block overflow-hidden rounded-lg border border-zinc-800 transition-colors hover:border-zinc-600"
+                        className="group block overflow-hidden rounded-lg border border-white/[0.10] transition-colors hover:border-white/[0.16]"
                       >
                         <img
                           src={img.url}
@@ -357,7 +358,7 @@ export default function AskPage() {
                           loading="lazy"
                           className="h-24 w-auto max-w-[220px] object-cover"
                         />
-                        <span className="block bg-zinc-900/80 px-2 py-1 text-[10px] text-zinc-400 group-hover:text-zinc-200">
+                        <span className="block bg-card px-2 py-1 text-[10px] text-muted-foreground group-hover:text-foreground">
                           {img.caption}
                         </span>
                       </a>
@@ -366,8 +367,8 @@ export default function AskPage() {
                 )}
                 {m.response?.tables.map((t, ti) => <TableView key={ti} table={t} />)}
                 {m.response && (
-                  <div className="mt-3 space-y-1.5 border-t border-zinc-800/70 pt-2.5">
-                    <div className="text-[11px] leading-relaxed text-zinc-500">
+                  <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-2.5">
+                    <div className="text-[11px] leading-relaxed text-muted-foreground">
                       {m.response.evidence.sessions !== undefined &&
                         `~${m.response.evidence.sessions} visits · `}
                       {m.response.evidence.detections} detections · {m.response.evidence.events}{' '}
@@ -376,7 +377,7 @@ export default function AskPage() {
                         ` · cameras: ${m.response.evidence.cameras.join(', ')}`}
                     </div>
                     {m.response.caveat && (
-                      <div className="text-[11px] leading-relaxed text-zinc-600">{m.response.caveat}</div>
+                      <div className="text-[11px] leading-relaxed text-muted-foreground/60">{m.response.caveat}</div>
                     )}
                   </div>
                 )}
@@ -390,7 +391,7 @@ export default function AskPage() {
         {lastAssistant?.response && lastAssistant.response.tool === 'period_report' && (
           <button
             onClick={download}
-            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 text-xs text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
             aria-label="Download report"
           >
             <Download className="h-4 w-4" />
@@ -401,7 +402,7 @@ export default function AskPage() {
           <>
             <button
               onClick={downloadTranscript}
-              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 text-xs text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
               aria-label="Download chat transcript"
             >
               <Download className="h-4 w-4" />
@@ -409,11 +410,12 @@ export default function AskPage() {
             </button>
             <button
               onClick={clearAll}
-              className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs transition-colors ${
+              className={cn(
+                'flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border px-3 text-xs transition-colors',
                 confirmingClear
                   ? 'border-red-500/50 bg-red-500/15 text-red-300'
-                  : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:text-red-300'
-              }`}
+                  : 'border-white/[0.10] bg-white/[0.04] text-muted-foreground hover:text-red-300',
+              )}
               aria-label="Clear chat history"
               title={confirmingClear ? 'Click again to delete all history' : 'Clear chat history'}
             >
@@ -427,18 +429,18 @@ export default function AskPage() {
             e.preventDefault();
             send(input);
           }}
-          className="flex flex-1 items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 focus-within:border-zinc-600"
+          className="flex flex-1 items-center gap-2 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 focus-within:border-white/[0.20] transition-colors"
         >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="e.g. when did the scooter leave today?"
-            className="h-9 w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+            className="h-9 w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.5rem] bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
             aria-label="Send"
           >
             <ArrowUp className="h-4 w-4" />

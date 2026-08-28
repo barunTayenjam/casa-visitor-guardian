@@ -154,6 +154,7 @@ services:
       # Dev hot-mounts: edit these files on the host, then just
       # `docker restart sentryvision-opencv` — no image rebuild needed
       - ./opencv-service/rtsp_ingestion/frame_pipeline.py:/app/rtsp_ingestion/frame_pipeline.py
+      - ./opencv-service/rtsp_ingestion/websocket_publisher.py:/app/rtsp_ingestion/websocket_publisher.py
       - ./opencv-service/person_verifier.py:/app/person_verifier.py
       - ./opencv-service/person_analyzer.py:/app/person_analyzer.py
       - ./data/detections:/app/data/detections

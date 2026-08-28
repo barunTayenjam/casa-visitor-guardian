@@ -185,6 +185,7 @@ class InProcessYOLO:
         self._default_threshold = 0.50
         self._min_box_area = 1500
         self._min_box_side = 35
+        self._hog_supplement_enabled = os.getenv("HOG_PERSON_SUPPLEMENT", "false").strip().lower() in ("1", "true", "yes")
         self._initialized = False
         self._class_names = self._load_class_names()
         self._backend_label = 'CPU'
@@ -367,8 +368,14 @@ class InProcessYOLO:
                     "class_id": class_ids[i],
                 })
 
+        # HOG people-detector supplement is DISABLED by default: on dim
+        # (CLAHE-enhanced) frames it hallucinates static phantom "persons"
+        # (fixed bboxes on bushes/shadows), and its clamped 0.99 score
+        # auto-passes HumanVerifier's yolo_high tier — flooding the events
+        # list with verified-looking false positives. Re-enable explicitly
+        # via HOG_PERSON_SUPPLEMENT=true if night recall ever needs it.
         has_person = any(r["class"] == "person" for r in results)
-        if orig_mean < 120 and not has_person:
+        if self._hog_supplement_enabled and orig_mean < 120 and not has_person:
             hog_persons = self._hog_person_supplement(frame)
             for hp in hog_persons:
                 bx, by, bw, bh = hp["bbox"]
@@ -404,7 +411,7 @@ class InProcessYOLO:
                     padding=(8, 8), scale=scale,
                 )
                 for (x, y, w, h), weight in zip(rects, weights):
-                    score = min(0.99, max(0.15, weight))
+                    score = min(0.99, max(0.15, float(weight)))
                     if score >= 0.60:
                         results.append({
                             "bbox": [int(x), int(y), int(w), int(h)],

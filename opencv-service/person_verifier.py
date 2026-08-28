@@ -96,9 +96,11 @@ class HumanVerifier:
 
         def done(tier, verified, keypoints=0, face=False):
             result["tier"] = tier
-            result["verified"] = verified
-            result["keypoints"] = keypoints
-            result["face_detected"] = face
+            # Cast to native types: numpy comparisons yield np.bool_/np.int64
+            # which json.dumps cannot serialize, killing the WS publish loop.
+            result["verified"] = bool(verified)
+            result["keypoints"] = int(keypoints)
+            result["face_detected"] = bool(face)
             result["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
             return result
 

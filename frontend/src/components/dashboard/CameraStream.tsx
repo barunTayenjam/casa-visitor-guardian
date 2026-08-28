@@ -781,7 +781,8 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         return;
       }
 
-      const webRtcTimeoutMs = isWanRef.current === false ? 10000 : 5000;
+      const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
+      const webRtcTimeoutMs = isWanRef.current === false ? 10000 : (isTablet ? 12000 : 5000);
       try {
         const timeoutPromise = new Promise<void>((_, reject) =>
           setTimeout(() => reject(new Error('WebRTC timeout')), webRtcTimeoutMs),
@@ -793,8 +794,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
         console.log(`[CameraStream:${camera.name}] WebRTC failed, trying MSE...`);
         cleanupPeerConnection();
         try {
+          const isTabletMSE = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
           const mseTimeout = new Promise<void>((_, reject) =>
-            setTimeout(() => reject(new Error('MSE timeout')), 15000),
+            setTimeout(() => reject(new Error('MSE timeout')), isTabletMSE ? 25000 : 15000),
           );
           await Promise.race([startMSE(), mseTimeout]);
           isWanRef.current = false;

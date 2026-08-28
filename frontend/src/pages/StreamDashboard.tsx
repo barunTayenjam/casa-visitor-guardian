@@ -40,7 +40,7 @@ const StreamDashboard = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Minimal top bar - only show when not focused */}
         {!focusedCameraId && (
-          <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-[#0a0a0b]/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className={cn(
                 'flex items-center gap-1.5 px-2 py-0.5 rounded',
@@ -114,11 +114,11 @@ const StreamDashboard = () => {
             animate={{ width: 360, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="h-full border-l border-white/[0.08] bg-[#0a0a0b] overflow-hidden flex-shrink-0"
+            className="h-full border-l border-white/[0.10] bg-background overflow-hidden flex-shrink-0"
           >
             <div className="w-[360px] h-full flex flex-col overflow-hidden">
               {/* Threat Matrix */}
-              <div className="p-4 border-b border-white/[0.08]">
+              <div className="p-4 border-b border-white/[0.10]">
                 <ThreatMatrix />
               </div>
 
@@ -128,7 +128,7 @@ const StreamDashboard = () => {
               </div>
 
               {/* Active Visitors */}
-              <div className="border-t border-white/[0.08]">
+              <div className="border-t border-white/[0.10]">
                 <ActiveVisitors />
               </div>
             </div>

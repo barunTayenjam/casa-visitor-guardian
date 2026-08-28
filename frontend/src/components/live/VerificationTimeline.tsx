@@ -72,7 +72,7 @@ export const VerificationTimeline = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-white/[0.08]">
+      <div className="px-4 py-3 border-b border-white/[0.10]">
         <div className="flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
             Verification Timeline
@@ -113,7 +113,7 @@ export const VerificationTimeline = () => {
                     {/* Status indicator */}
                     <div className={cn(
                       'mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0',
-                      event.verified ? 'bg-green-400' : 'bg-zinc-600',
+                      event.verified ? 'bg-green-400' : 'bg-white/[0.06]',
                     )} />
 
                     {/* Time */}
@@ -131,7 +131,7 @@ export const VerificationTimeline = () => {
                           'text-[9px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded',
                           event.verified
                             ? 'bg-green-500/10 text-green-400'
-                            : 'bg-zinc-500/10 text-zinc-400',
+                            : 'bg-white/[0.06] text-muted-foreground',
                         )}>
                           {getTierLabel(event.tier)}
                         </span>

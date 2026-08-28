@@ -199,7 +199,7 @@ const TimelapsePage: React.FC = () => {
                 value={date}
                 max={todayStr()}
                 onChange={(e) => e.target.value <= todayStr() && setDate(e.target.value)}
-                className="bg-background border border-border rounded-md px-3 py-1.5 text-sm text-foreground"
+                className="bg-card border border-white/[0.10] rounded-[0.5rem] px-3 py-1.5 text-sm text-foreground"
               />
               <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
                 <ChevronLeft className="w-4 h-4 mr-1" />
@@ -219,143 +219,141 @@ const TimelapsePage: React.FC = () => {
         />
 
         {isPast && (
-          <div className="bezel">
-            <div className="bezel-inner">
-              <button
-                type="button"
-                onClick={() => setPanelOpen((v) => !v)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02]"
-              >
-                <div className="flex items-center gap-3">
-                  <Wand2 className="w-4 h-4 text-primary" />
-                  <div>
-                    <div className="text-sm font-medium">Backfill for {date}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Stitches captured frames (or detection snapshots as fallback) into a 2-minute
-                      MP4 per camera.
-                    </div>
+          <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+            <button
+              type="button"
+              onClick={() => setPanelOpen((v) => !v)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03]"
+            >
+              <div className="flex items-center gap-3">
+                <Wand2 className="w-4 h-4 text-primary" />
+                <div>
+                  <div className="text-sm font-medium">Backfill for {date}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Stitches captured frames (or detection snapshots as fallback) into a 2-minute
+                    MP4 per camera.
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {generatingCount > 0 && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      {generatingCount} running
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {panelOpen ? 'Hide' : 'Show'}
-                  </span>
-                </div>
-              </button>
+              </div>
+              <div className="flex items-center gap-3">
+                {generatingCount > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {generatingCount} running
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {panelOpen ? 'Hide' : 'Show'}
+                </span>
+              </div>
+            </button>
 
-              {panelOpen && (
-                <div className="border-t border-border/50 p-4 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {cameras.map((cam) => {
-                      const st = camStates[cam.id] ?? {
-                        status: 'idle' as CamStatus,
-                        exists: false,
-                      };
-                      const checked = selected.has(cam.id);
-                      const disabled = st.status === 'generating' || st.status === 'queued';
-                      return (
-                        <label
-                          key={cam.id}
-                          className={cn(
-                            'flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors',
-                            checked
-                              ? 'border-primary/60 bg-primary/5'
-                              : 'border-border hover:bg-white/[0.02]',
-                            disabled && 'opacity-60 cursor-not-allowed',
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={disabled}
-                            onChange={() => toggleSelected(cam.id)}
-                            className="mt-0.5 accent-primary"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium truncate">
-                                {getCameraName(cam.id)}
-                              </span>
-                              <StatusBadge state={st} />
-                            </div>
-                            {st.message && (
-                              <div
-                                className={cn(
-                                  'text-xs mt-1 break-words',
-                                  st.status === 'error'
-                                    ? 'text-destructive'
-                                    : 'text-muted-foreground',
-                                )}
-                              >
-                                {st.message}
-                              </div>
-                            )}
+            {panelOpen && (
+              <div className="border-t border-white/[0.10] p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {cameras.map((cam) => {
+                    const st = camStates[cam.id] ?? {
+                      status: 'idle' as CamStatus,
+                      exists: false,
+                    };
+                    const checked = selected.has(cam.id);
+                    const disabled = st.status === 'generating' || st.status === 'queued';
+                    return (
+                      <label
+                        key={cam.id}
+                        className={cn(
+                          'flex items-start gap-3 p-3 rounded-[0.5rem] border cursor-pointer transition-colors',
+                          checked
+                            ? 'border-primary/60 bg-primary/5'
+                            : 'border-white/[0.10] hover:bg-white/[0.03]',
+                          disabled && 'opacity-60 cursor-not-allowed',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => toggleSelected(cam.id)}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium truncate">
+                              {getCameraName(cam.id)}
+                            </span>
+                            <StatusBadge state={st} />
                           </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const next = new Set<string>();
-                          for (const cam of cameras) {
-                            if (!camStates[cam.id]?.exists) next.add(cam.id);
-                          }
-                          setSelected(next);
-                        }}
-                      >
-                        Select missing
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelected(new Set(cameras.map((c) => c.id)))}
-                      >
-                        Select all
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                        Clear
-                      </Button>
-                      <span>{selected.size} selected</span>
-                    </div>
-                    <Button
-                      onClick={handleGenerateSelected}
-                      disabled={selected.size === 0 || busy}
-                      size="sm"
-                    >
-                      {busy ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Generating…
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-3 h-3 mr-1" />
-                          Generate {selected.size > 0 ? `(${selected.size})` : ''}
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                          {st.message && (
+                            <div
+                              className={cn(
+                                'text-xs mt-1 break-words',
+                                st.status === 'error'
+                                  ? 'text-destructive'
+                                  : 'text-muted-foreground',
+                              )}
+                            >
+                              {st.message}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+
+                <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const next = new Set<string>();
+                        for (const cam of cameras) {
+                          if (!camStates[cam.id]?.exists) next.add(cam.id);
+                        }
+                        setSelected(next);
+                      }}
+                    >
+                      Select missing
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelected(new Set(cameras.map((c) => c.id)))}
+                    >
+                      Select all
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                      Clear
+                    </Button>
+                    <span>{selected.size} selected</span>
+                  </div>
+                  <Button
+                    onClick={handleGenerateSelected}
+                    disabled={selected.size === 0 || busy}
+                    size="sm"
+                  >
+                    {busy ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-3 h-3 mr-1" />
+                        Generate {selected.size > 0 ? `(${selected.size})` : ''}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {list.length === 0 ? (
-          <div className="bezel">
-            <div className="bezel-inner p-10 text-center">
+          <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+            <div className="p-10 text-center">
               <FilmIcon className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <h3 className="text-base font-medium mb-1">
                 {isPast ? 'No timelapse for this date yet' : 'Live capture in progress'}
@@ -388,8 +386,8 @@ const TimelapsePage: React.FC = () => {
                 );
               })}
             </div>
-            <div className="bezel">
-              <div className="bezel-inner overflow-hidden">
+            <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+              <div className="overflow-hidden">
                 <div className="relative aspect-video bg-black">
                   {(() => {
                     const src = list.find((t) => t.cameraId === active)?.path;

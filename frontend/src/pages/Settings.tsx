@@ -360,7 +360,7 @@ const SettingsPage = () => {
   if (loading) {
     return (
       <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-        <div className="px-5 pt-6 pb-2 animate-fade-in">
+        <div className="px-5 pt-6 pb-2">
           <div className="flex items-center gap-4">
             <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4 mr-1" />
@@ -380,7 +380,7 @@ const SettingsPage = () => {
 
   return (
     <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-      <div className="px-5 pt-6 pb-2 animate-fade-in">
+      <div className="px-5 pt-6 pb-2">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>

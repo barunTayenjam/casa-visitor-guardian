@@ -102,10 +102,11 @@ export default function LogsPage() {
   }, [autoRefresh, loadLogs]);
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col">
+    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
       <div className="px-5 pt-6 pb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[9px] uppercase tracking-[0.2em] font-medium text-red-400 mb-3">
+            <ScrollText className="h-3 w-3" />
             Diagnostics
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">System Logs</h1>
@@ -154,59 +155,57 @@ export default function LogsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-28">
-        <div className="bezel-lg">
-          <div className="bezel-lg-inner">
-            {loading && logs.length === 0 ? (
-              <div className="p-4 space-y-3">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-4 animate-pulse">
-                    <div className="h-3 w-36 bg-white/[0.08] rounded-full shrink-0" />
-                    <div className="h-5 w-14 bg-white/[0.08] rounded-full shrink-0" />
-                    <div className="h-3 flex-1 bg-white/[0.06] rounded-full" />
-                  </div>
-                ))}
-              </div>
-            ) : logs.length === 0 ? (
-              <EmptyState
-                icon={ScrollText}
-                title="No log entries"
-                description="Nothing matching these filters. Warnings and errors appear here as they happen."
-                className="py-20"
-              />
-            ) : (
-              <div className="divide-y divide-white/[0.06]">
-                {logs.map((log, index) => (
-                  <div
-                    key={log.id}
-                    className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4 px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
-                    style={{
-                      animation: `fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both`,
-                      animationDelay: `${Math.min(index * 30, 360)}ms`,
-                    }}
+        <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+          {loading && logs.length === 0 ? (
+            <div className="p-4 space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 animate-pulse">
+                  <div className="h-3 w-36 bg-white/[0.06] rounded-full shrink-0" />
+                  <div className="h-5 w-14 bg-white/[0.06] rounded-full shrink-0" />
+                  <div className="h-3 flex-1 bg-white/[0.04] rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : logs.length === 0 ? (
+            <EmptyState
+              icon={ScrollText}
+              title="No log entries"
+              description="Nothing matching these filters. Warnings and errors appear here as they happen."
+              className="py-20"
+            />
+          ) : (
+            <div className="divide-y divide-white/[0.06]">
+              {logs.map((log, index) => (
+                <div
+                  key={log.id}
+                  className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4 px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
+                  style={{
+                    animation: `fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both`,
+                    animationDelay: `${Math.min(index * 30, 360)}ms`,
+                  }}
+                >
+                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums whitespace-nowrap sm:pt-0.5 shrink-0">
+                    {formatTime(log.timestamp)}
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex w-fit items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wider shrink-0',
+                      levelStyles[log.level] ?? levelStyles.info,
+                    )}
                   >
-                    <span className="font-mono text-[11px] text-muted-foreground tabular-nums whitespace-nowrap sm:pt-0.5 shrink-0">
-                      {formatTime(log.timestamp)}
-                    </span>
-                    <span
-                      className={cn(
-                        'inline-flex w-fit items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wider shrink-0',
-                        levelStyles[log.level] ?? levelStyles.info,
-                      )}
-                    >
-                      {log.level}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap sm:pt-0.5 shrink-0 hidden md:inline">
-                      {log.service}
-                      {log.module ? ` · ${log.module}` : ''}
-                    </span>
-                    <p className="text-sm text-foreground/90 break-words min-w-0">
-                      {log.message}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    {log.level}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap sm:pt-0.5 shrink-0 hidden md:inline">
+                    {log.service}
+                    {log.module ? ` · ${log.module}` : ''}
+                  </span>
+                  <p className="text-sm text-foreground/90 break-words min-w-0">
+                    {log.message}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

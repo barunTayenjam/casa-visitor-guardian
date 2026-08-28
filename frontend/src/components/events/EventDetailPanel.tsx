@@ -225,7 +225,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
     <div className="fixed inset-y-0 right-0 z-30 w-full md:w-[600px] lg:w-[700px] flex flex-col text-white">
       {/* Outer shell */}
       <div className="h-full p-[1px] rounded-l-[4px] bg-white/[0.06]">
-        <div className="h-full rounded-l-[3px] bg-black/90 backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.12]">
+        <div className="h-full rounded-l-[3px] bg-black/90 backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.10]">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 hairline-bottom">
             <div className="flex items-center gap-3">
@@ -298,7 +298,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   <p className="text-white/60 text-sm">Image not available</p>
                 </div>
               )}
-              {event.detections && event.detections.length > 0 && (
+              {event.detections && event.detections.length > 0 && !hasNvidiaBoxes && (
                 <div className="absolute inset-0 pointer-events-none">
                   {event.detections.map((detection: DetectionEntry, index) => {
                     const box = normalizeBoundingBox(detection);

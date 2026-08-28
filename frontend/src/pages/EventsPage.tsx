@@ -63,8 +63,8 @@ const TIER_COLORS: Record<HumanVerificationMeta['tier'], string> = {
   yolo_high: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   face: 'text-green-400 bg-green-500/10 border-green-500/20',
   pose: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  score_floor: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
-  disabled: 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20',
+  score_floor: 'text-muted-foreground bg-white/[0.06] border-white/[0.10]',
+  disabled: 'text-muted-foreground bg-white/[0.06] border-white/[0.10]',
 };
 
 function getVerification(event: MotionEvent): HumanVerificationMeta | null {
@@ -323,7 +323,7 @@ const EventsPage = () => {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 border-b border-white/[0.08]">
+      <div className="px-5 pt-5 pb-3 border-b border-white/[0.10]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -336,10 +336,10 @@ const EventsPage = () => {
             <h1 className="text-lg font-semibold tracking-tight">Events</h1>
           </div>
           <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
-            <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.12] text-xs">
+            <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#111113] border-white/[0.12] rounded-lg">
+            <SelectContent className="bg-card border-white/[0.10] rounded-lg">
               <SelectItem value="newest" className="rounded-md text-xs">
                 Newest
               </SelectItem>
@@ -365,7 +365,7 @@ const EventsPage = () => {
               {[...Array(8)].map((_, i) => (
                 <div
                   key={i}
-                  className="animate-pulse rounded-lg overflow-hidden bg-[#111113] border border-white/[0.08]"
+                  className="animate-pulse rounded-lg overflow-hidden bg-card border border-white/[0.10]"
                 >
                   <div className="aspect-video bg-white/[0.04]" />
                   <div className="p-4 space-y-2">
@@ -395,8 +395,8 @@ const EventsPage = () => {
                     className={cn(
                       'rounded-lg cursor-pointer transition-all duration-200',
                       selectedEventId === event.id
-                        ? 'ring-2 ring-primary/50 bg-[#111113]'
-                        : 'bg-[#111113] border border-white/[0.08] hover:border-white/[0.16]',
+                        ? 'ring-2 ring-primary/50 bg-card'
+                        : 'bg-card border border-white/[0.10] hover:border-white/[0.16]',
                     )}
                     onClick={() => handleEventSelect(event.id)}
                   >
@@ -437,7 +437,7 @@ const EventsPage = () => {
                       <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-[10px] tabular-nums font-mono">
                         <span className={cn(
                           event.confidence >= 0.8 ? 'text-green-400' :
-                          event.confidence >= 0.5 ? 'text-amber-400' : 'text-zinc-400',
+                          event.confidence >= 0.5 ? 'text-amber-400' : 'text-muted-foreground',
                         )}>
                           {(event.confidence * 100).toFixed(0)}%
                         </span>
@@ -525,10 +525,10 @@ const EventsPage = () => {
               analysis={analysisByEvent[selectedEvent.id] ?? null}
               boxes={analysisByEvent[selectedEvent.id]?.boxes}
             />
-            <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.08] overflow-y-auto bg-[#0a0a0b]">
+            <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.10] overflow-y-auto bg-background">
               {/* Verification Panel */}
               {getVerification(selectedEvent) && (
-                <div className="m-4 p-4 rounded-lg bg-[#111113] border border-white/[0.08]">
+                <div className="m-4 p-4 rounded-lg bg-card border border-white/[0.10]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
                       Human Verification

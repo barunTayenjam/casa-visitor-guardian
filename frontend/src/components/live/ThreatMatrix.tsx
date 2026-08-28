@@ -46,7 +46,7 @@ export const ThreatMatrix = () => {
     { label: 'PERSON', count: counts.persons, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
     { label: 'VEHICLE', count: counts.vehicles, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
     { label: 'ANIMAL', count: counts.animals, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
-    { label: 'MOTION', count: counts.motion, color: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20' },
+    { label: 'MOTION', count: counts.motion, color: 'text-muted-foreground', bg: 'bg-white/[0.06]', border: 'border-white/[0.10]' },
   ];
 
   return (

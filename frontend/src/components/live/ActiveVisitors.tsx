@@ -115,7 +115,7 @@ export const ActiveVisitors = () => {
                 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium',
                 visitor.isKnown
                   ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                  : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
+                  : 'bg-white/[0.06] text-muted-foreground border border-white/[0.10]',
               )}>
                 {visitor.name.charAt(0).toUpperCase()}
               </div>

@@ -25,7 +25,7 @@ const threatStyles: Record<string, string> = {
   high: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
   medium: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
   low: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-  none: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/25',
+  none: 'bg-white/[0.08] text-muted-foreground border-white/[0.10]',
 };
 
 const classStyles: Record<string, string> = {
@@ -63,8 +63,8 @@ const Chip = ({
     className={cn(
       'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
       active
-        ? style || 'bg-zinc-100/10 text-zinc-100 border-zinc-400/40'
-        : 'bg-zinc-500/5 text-zinc-400 border-transparent hover:bg-zinc-500/10',
+        ? style || 'bg-white/[0.06] text-foreground border-white/[0.16]'
+        : 'bg-white/[0.04] text-muted-foreground border-transparent hover:bg-white/[0.06]',
     )}
   >
     {label}
@@ -73,9 +73,9 @@ const Chip = ({
 );
 
 const AttrRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-  <div className="flex items-baseline justify-between gap-4 border-b border-zinc-800/60 py-1.5 last:border-0">
-    <span className="text-xs uppercase tracking-wide text-zinc-500">{label}</span>
-    <span className="text-sm text-zinc-200 text-right">{value}</span>
+  <div className="flex items-baseline justify-between gap-4 border-b border-white/[0.06] py-1.5 last:border-0">
+    <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+    <span className="text-sm text-foreground text-right">{value}</span>
   </div>
 );
 
@@ -83,11 +83,11 @@ const ExpandedDetail = ({ row }: { row: DetectionRow }) => {
   const attrs = row.personAttributes;
   const img = detectionImageUrl(row.filePath);
   return (
-    <td colSpan={9} className="bg-zinc-900/60 px-6 py-4">
+    <td colSpan={9} className="bg-card px-6 py-4">
       <div className="grid gap-6 md:grid-cols-3">
         {attrs ? (
           <div>
-            <h4 className="mb-2 text-sm font-semibold text-zinc-200">Person attributes</h4>
+            <h4 className="mb-2 text-sm font-semibold text-foreground">Person attributes</h4>
             <AttrRow label="Clothing" value={attrs.clothing ?? '—'} />
             <AttrRow
               label="Colors"
@@ -95,7 +95,7 @@ const ExpandedDetail = ({ row }: { row: DetectionRow }) => {
                 attrs.clothing_colors?.length ? (
                   <span className="inline-flex gap-1.5">
                     {attrs.clothing_colors.map((c) => (
-                      <span key={c} className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-xs">
+                      <span key={c} className="rounded bg-white/[0.06] px-1.5 py-0.5 text-xs">
                         {c}
                       </span>
                     ))}
@@ -113,11 +113,11 @@ const ExpandedDetail = ({ row }: { row: DetectionRow }) => {
             <AttrRow label="Age est." value={attrs.estimatedAge ?? '—'} />
           </div>
         ) : (
-          <div className="text-sm text-zinc-500">No person attributes (non-person class).</div>
+          <div className="text-sm text-muted-foreground">No person attributes (non-person class).</div>
         )}
 
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-zinc-200">Track &amp; motion</h4>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">Track &amp; motion</h4>
           <AttrRow label="Track ID" value={row.trackId ?? '—'} />
           <AttrRow label="Track state" value={row.trackState ?? '—'} />
           <AttrRow label="Tracklet length" value={row.trackletLen ?? '—'} />
@@ -139,7 +139,7 @@ const ExpandedDetail = ({ row }: { row: DetectionRow }) => {
         </div>
 
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-zinc-200">Context</h4>
+          <h4 className="mb-2 text-sm font-semibold text-foreground">Context</h4>
           <AttrRow label="Event type" value={row.eventType ?? '—'} />
           <AttrRow label="Severity" value={row.severity ?? '—'} />
           <AttrRow label="Threat" value={row.threatLevel ?? 'none'} />
@@ -152,7 +152,7 @@ const ExpandedDetail = ({ row }: { row: DetectionRow }) => {
               <img
                 src={img}
                 alt={`detection ${row.class}`}
-                className="max-h-44 rounded-md border border-zinc-800 object-contain"
+                className="max-h-44 rounded-md border border-white/[0.10] object-contain"
               />
             </a>
           )}
@@ -210,13 +210,15 @@ export default function DetectionsPage() {
   const pages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4 p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4 p-6 bg-background min-h-[100dvh]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Crosshair className="h-6 w-6 text-sky-400" />
+          <div className="w-10 h-10 rounded-[0.5rem] bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Crosshair className="h-5 w-5 text-primary" />
+          </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-100">Detections</h1>
-            <p className="text-sm text-zinc-500">
+            <h1 className="text-xl font-semibold text-foreground">Detections</h1>
+            <p className="text-sm text-muted-foreground">
               Every tracked object — structured metadata from the OpenCV pipeline
             </p>
           </div>
@@ -242,7 +244,7 @@ export default function DetectionsPage() {
               }}
             />
           ))}
-          <span className="mx-1 h-4 w-px bg-zinc-800" />
+          <span className="mx-1 h-4 w-px bg-white/[0.10]" />
           {cameras.map((cam) => (
             <Chip
               key={cam}
@@ -254,7 +256,7 @@ export default function DetectionsPage() {
               }}
             />
           ))}
-          <span className="mx-1 h-4 w-px bg-zinc-800" />
+          <span className="mx-1 h-4 w-px bg-white/[0.10]" />
           {(['critical', 'high', 'medium', 'low'] as const).map((t) => {
             const count = stats.byThreat.find((x) => x.key === t)?.count ?? 0;
             return (
@@ -271,7 +273,7 @@ export default function DetectionsPage() {
               />
             );
           })}
-          <span className="mx-1 h-4 w-px bg-zinc-800" />
+          <span className="mx-1 h-4 w-px bg-white/[0.10]" />
           {(['1h', '24h', '7d', 'all'] as const).map((r) => (
             <Chip
               key={r}
@@ -287,15 +289,15 @@ export default function DetectionsPage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="rounded-[0.5rem] border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-zinc-800">
+      <div className="overflow-hidden rounded-[0.5rem] border border-white/[0.10]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/80 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <tr className="border-b border-white/[0.10] bg-card text-left text-xs uppercase tracking-wide text-muted-foreground">
               <th className="w-8" />
               <th className="px-3 py-2.5">Time</th>
               <th className="px-3 py-2.5">Camera</th>
@@ -310,13 +312,13 @@ export default function DetectionsPage() {
           <tbody>
             {loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-10 text-center text-zinc-500">
+                <td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">
                   Loading detections…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-10 text-center text-zinc-500">
+                <td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">
                   <EmptyState
                     icon={Crosshair}
                     title="No detections"
@@ -329,34 +331,34 @@ export default function DetectionsPage() {
                 <Fragment key={row.id}>
                   <tr
                     onClick={() => setExpanded(expanded === row.id ? null : row.id)}
-                    className="cursor-pointer border-b border-zinc-800/60 hover:bg-zinc-900/60"
+                    className="cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.03]"
                   >
-                    <td className="px-3 py-2.5 text-zinc-500">
+                    <td className="px-3 py-2.5 text-muted-foreground">
                       {expanded === row.id ? (
                         <ChevronDown className="h-4 w-4" />
                       ) : (
                         <ChevronRight className="h-4 w-4" />
                       )}
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-zinc-300">
+                    <td className="px-3 py-2.5 whitespace-nowrap text-foreground">
                       {formatTime(row.timestamp)}
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-400">{row.cameraId}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{row.cameraId}</td>
                     <td className="px-3 py-2.5">
                       <span
                         className={cn(
                           'rounded-full border px-2 py-0.5 text-xs font-medium',
                           classStyles[row.class] ??
-                            'bg-zinc-500/10 text-zinc-300 border-zinc-700',
+                            'bg-white/[0.06] text-foreground/80 border-white/[0.10]',
                         )}
                       >
                         {row.class}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-300">
+                    <td className="px-3 py-2.5 text-foreground">
                       {row.confidence != null ? `${(row.confidence * 100).toFixed(0)}%` : '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-400">
+                    <td className="px-3 py-2.5 text-muted-foreground">
                       {row.trackId != null ? `#${row.trackId}` : '—'}
                       {row.humanVerified && (
                         <span className="ml-1.5 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
@@ -364,10 +366,10 @@ export default function DetectionsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-400">
+                    <td className="px-3 py-2.5 text-muted-foreground">
                       {row.personAttributes?.clothing ?? '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-zinc-400">
+                    <td className="px-3 py-2.5 text-muted-foreground">
                       {row.personAttributes?.distance ?? '—'}
                     </td>
                     <td className="px-3 py-2.5">
@@ -381,12 +383,12 @@ export default function DetectionsPage() {
                           {row.threatLevel}
                         </span>
                       ) : (
-                        <span className="text-zinc-600">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                   </tr>
                   {expanded === row.id && (
-                    <tr className="border-b border-zinc-800/60">
+                    <tr className="border-b border-white/[0.06]">
                       <ExpandedDetail row={row} />
                     </tr>
                   )}
@@ -397,7 +399,7 @@ export default function DetectionsPage() {
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-zinc-500">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
           {total.toLocaleString()} detections · page {page} / {pages}
         </span>

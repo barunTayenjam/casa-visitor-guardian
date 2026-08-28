@@ -47,7 +47,7 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           )}
           <div className="flex items-center gap-2 min-w-0">
             {Icon && (
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-[0.75rem] bg-white/[0.06]">
+              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-[0.5rem] bg-white/[0.04] border border-white/[0.10]">
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </div>
             )}
@@ -60,7 +60,9 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
               >
                 {title}
               </h1>
-              {subtitle && <p className="text-sm text-muted-foreground truncate">{subtitle}</p>}
+              {subtitle && (
+                <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+              )}
             </div>
           </div>
         </div>

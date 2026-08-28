@@ -37,7 +37,7 @@ export const MacDock: React.FC = () => {
     <TooltipProvider delayDuration={0}>
       <div className="fixed bottom-0 left-0 right-0 z-[40]">
         {/* SOC-style bottom bar */}
-        <div className="bg-[#0a0a0b]/95 backdrop-blur-xl border-t border-white/[0.08]">
+        <div className="bg-background/95 backdrop-blur-xl border-t border-white/[0.10]">
           <div className="max-w-screen-2xl mx-auto px-4">
             <div className="flex items-center justify-between h-12">
               {/* Left: System status */}
@@ -83,7 +83,7 @@ export const MacDock: React.FC = () => {
                       </TooltipTrigger>
                       <TooltipContent
                         side="top"
-                        className="mb-2 rounded-md bg-[#111113] border border-white/[0.12] text-xs px-3 py-1.5"
+                        className="mb-2 rounded-md bg-card border border-white/[0.10] text-xs px-3 py-1.5"
                       >
                         {item.label}
                       </TooltipContent>
@@ -108,14 +108,14 @@ export const MacDock: React.FC = () => {
                     </TooltipTrigger>
                     <TooltipContent
                       side="top"
-                      className="mb-2 rounded-md bg-[#111113] border border-white/[0.12] text-xs px-3 py-1.5"
+                      className="mb-2 rounded-md bg-card border border-white/[0.10] text-xs px-3 py-1.5"
                     >
                       Logout
                     </TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent
                     align="end"
-                    className="w-48 mt-2 rounded-lg bg-[#111113] border border-white/[0.12] p-1"
+                    className="w-48 mt-2 rounded-lg bg-card border border-white/[0.10] p-1"
                   >
                     <DropdownMenuItem
                       onClick={handleLogout}

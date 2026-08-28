@@ -1230,7 +1230,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
           )}
 
           <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10 pointer-events-auto">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/[0.10] pointer-events-auto">
               <div
                 className={cn(
                   'w-2 h-2 rounded-full',
@@ -1271,7 +1271,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
             </div>
             {!isWanStream && connectionState === 'connected' && isStreaming && (
               <button
-                className="pointer-events-auto min-h-[36px] min-w-[36px] h-9 w-9 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                className="pointer-events-auto min-h-[36px] min-w-[36px] h-9 w-9 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/[0.10] text-white/80 hover:text-white hover:bg-white/10 transition-all"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsMuted((prev) => !prev);

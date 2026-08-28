@@ -154,7 +154,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
           </div>
         </div>
 
-        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.06] border border-white/[0.12]">
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.06] border border-white/[0.10]">
           {(['hour', 'day', 'week'] as const).map((z) => (
             <button
               key={z}

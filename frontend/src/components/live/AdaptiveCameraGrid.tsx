@@ -366,7 +366,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
               <div className="flex items-center gap-2 pointer-events-auto">
                 {!slideshowActive ? (
                   <button
-                    className="min-h-[44px] min-w-[44px] h-11 px-3 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] text-xs font-medium"
+                    className="min-h-[44px] min-w-[44px] h-11 px-3 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.10] text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] text-xs font-medium"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleStartSlideshow();
@@ -400,7 +400,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                             'px-2.5 py-1.5 rounded-full text-xs font-medium backdrop-blur-md border transition-all',
                             slideshowInterval === sec
                               ? 'bg-white/20 border-white/20 text-white'
-                              : 'bg-black/40 border-white/10 text-white/60 hover:text-white hover:bg-black/60',
+                              : 'bg-black/40 border-white/[0.10] text-white/60 hover:text-white hover:bg-black/60',
                           )}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -418,7 +418,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                 )}
               </div>
               <button
-                className="pointer-events-auto min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                className="pointer-events-auto min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/[0.10] text-white hover:bg-white/10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCameraClick(focusedCameraId!);
@@ -433,7 +433,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
             {activeCameras.length > 1 && (
               <>
                 <button
-                  className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/[0.10] text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigateCamera('prev');
@@ -445,7 +445,7 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
                   <ChevronLeft className="h-7 w-7" />
                 </button>
                 <button
-                  className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex min-h-[48px] min-w-[48px] h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/[0.10] text-white/70 hover:text-white hover:bg-black/60 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigateCamera('next');

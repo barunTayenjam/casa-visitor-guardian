@@ -9,18 +9,9 @@ import { RelatedEvents } from '@/components/events/RelatedEvents';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
-import { Calendar } from 'lucide-react';
-
-type AnalysisEntry = {
-  sceneDescription?: string;
-  summary?: string;
-  threatAssessment?: { level: string; factors: string[]; confidence: number };
-  detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
-  recommendedActions?: string[];
-  processingTime?: number;
-  modelUsed?: string;
-  boxes?: Array<{ label: string; confidence: number; x: number; y: number; width: number; height: number }>;
-};
+import { Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import {
   Pagination,
   PaginationContent,
@@ -66,6 +57,14 @@ const TIER_LABELS: Record<HumanVerificationMeta['tier'], string> = {
   pose: 'Pose skeleton',
   score_floor: 'Score floor',
   disabled: 'Verifier off',
+};
+
+const TIER_COLORS: Record<HumanVerificationMeta['tier'], string> = {
+  yolo_high: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+  face: 'text-green-400 bg-green-500/10 border-green-500/20',
+  pose: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  score_floor: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
+  disabled: 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20',
 };
 
 function getVerification(event: MotionEvent): HumanVerificationMeta | null {
@@ -148,8 +147,7 @@ const EventsPage = () => {
           cameraId: event.cameraId,
           cameraName: event.cameraName || `Camera ${event.cameraId}`,
           timestamp: new Date(event.timestamp),
-          // Replace imageUrl: event.imageUrl || null, with:
-imageUrl: event.imageUrl || null,
+          imageUrl: event.imageUrl || null,
           confidence: event.confidence,
           labels: event.labels || [event.event_type || 'motion'],
           location: event.cameraName || '',
@@ -323,34 +321,43 @@ imageUrl: event.imageUrl || null,
   const cameraList = cameras.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col">
-      <div className="px-5 pt-6 pb-2 flex items-center justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-3">
-            Security Log
+    <div className="w-full h-full flex flex-col">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3 border-b border-white/[0.08]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-blue-400">
+                Security Log
+              </span>
+            </div>
+            <div className="h-4 w-px bg-white/[0.12]" />
+            <h1 className="text-lg font-semibold tracking-tight">Events</h1>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
+          <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
+            <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.12] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#111113] border-white/[0.12] rounded-lg">
+              <SelectItem value="newest" className="rounded-md text-xs">
+                Newest
+              </SelectItem>
+              <SelectItem value="oldest" className="rounded-md text-xs">
+                Oldest
+              </SelectItem>
+              <SelectItem value="confidence" className="rounded-md text-xs">
+                Confidence
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
-          <SelectTrigger className="w-[130px] h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
-            <SelectItem value="newest" className="rounded-[0.75rem] text-xs">
-              Newest
-            </SelectItem>
-            <SelectItem value="oldest" className="rounded-[0.75rem] text-xs">
-              Oldest
-            </SelectItem>
-            <SelectItem value="confidence" className="rounded-[0.75rem] text-xs">
-              Confidence
-            </SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
+      {/* Filters */}
       <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
 
+      {/* Content */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         <div className="flex-1 overflow-y-auto px-5 pb-28">
           {loading ? (
@@ -358,12 +365,12 @@ imageUrl: event.imageUrl || null,
               {[...Array(8)].map((_, i) => (
                 <div
                   key={i}
-                  className="animate-pulse rounded-[1.25rem] overflow-hidden bg-white/[0.06] border border-white/[0.12]"
+                  className="animate-pulse rounded-lg overflow-hidden bg-[#111113] border border-white/[0.08]"
                 >
-                  <div className="aspect-video bg-white/[0.08]" />
+                  <div className="aspect-video bg-white/[0.04]" />
                   <div className="p-4 space-y-2">
-                    <div className="h-3 bg-white/[0.08] rounded-full w-3/4" />
-                    <div className="h-2 bg-white/[0.06] rounded-full w-1/2" />
+                    <div className="h-3 bg-white/[0.06] rounded w-3/4" />
+                    <div className="h-2 bg-white/[0.04] rounded w-1/2" />
                   </div>
                 </div>
               ))}
@@ -380,16 +387,20 @@ imageUrl: event.imageUrl || null,
               {events.map((event) => {
                 const verification = getVerification(event);
                 return (
-                <div
-                  key={event.id}
-                  className={`p-[1px] rounded-[4px] cursor-pointer transition-all ${
-                    selectedEventId === event.id
-                      ? 'bg-primary/20 shadow-[0_0_24px_rgba(59,130,246,0.15)]'
-                      : 'bg-white/[0.08] hover:bg-white/[0.12]'
-                  }`}
-                  onClick={() => handleEventSelect(event.id)}
-                >
-                  <div className="rounded-[3px] bg-card overflow-hidden">
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={cn(
+                      'rounded-lg cursor-pointer transition-all duration-200',
+                      selectedEventId === event.id
+                        ? 'ring-2 ring-primary/50 bg-[#111113]'
+                        : 'bg-[#111113] border border-white/[0.08] hover:border-white/[0.16]',
+                    )}
+                    onClick={() => handleEventSelect(event.id)}
+                  >
+                    {/* Image */}
                     <div className="relative aspect-video bg-black">
                       {event.imageUrl ? (
                         <img
@@ -399,35 +410,59 @@ imageUrl: event.imageUrl || null,
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-white/60">
+                        <div className="w-full h-full flex items-center justify-center text-xs text-white/40">
                           No image
                         </div>
                       )}
+
+                      {/* Verification badge */}
                       {verification && (
-                        <div className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 border border-green-500/30 backdrop-blur-md text-[10px] font-medium text-green-400">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                        <div className={cn(
+                          'absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border',
+                          TIER_COLORS[verification.tier],
+                        )}>
+                          <CheckCircle2 className="w-2.5 h-2.5" />
                           {TIER_LABELS[verification.tier]}
-                          {verification.tier === 'pose' ? ` · ${verification.keypoints} kp` : ''}
                         </div>
                       )}
+
+                      {/* Person count */}
                       {(event.personCount ?? 0) > 0 && (
-                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px]">
+                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-white text-[10px] font-medium">
                           {event.personCount} {event.personCount === 1 ? 'person' : 'persons'}
                         </div>
                       )}
+
+                      {/* Confidence */}
+                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-[10px] tabular-nums font-mono">
+                        <span className={cn(
+                          event.confidence >= 0.8 ? 'text-green-400' :
+                          event.confidence >= 0.5 ? 'text-amber-400' : 'text-zinc-400',
+                        )}>
+                          {(event.confidence * 100).toFixed(0)}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {event.cameraName}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+
+                    {/* Info */}
+                    <div className="p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-foreground/90 truncate">
+                          {event.cameraName}
+                        </p>
+                        {verification && (
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            {verification.tier === 'yolo_high' && <AlertTriangle className="w-3 h-3 text-blue-400" />}
+                            {verification.tier === 'face' && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+                            {verification.tier === 'pose' && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1 tabular-nums font-mono">
                         {event.timestamp.toLocaleString()}
                       </p>
                     </div>
-                  </div>
-                </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -474,6 +509,7 @@ imageUrl: event.imageUrl || null,
           )}
         </div>
 
+        {/* Event Detail Panel */}
         {selectedEvent && (
           <>
             <EventDetailPanel
@@ -489,17 +525,16 @@ imageUrl: event.imageUrl || null,
               analysis={analysisByEvent[selectedEvent.id] ?? null}
               boxes={analysisByEvent[selectedEvent.id]?.boxes}
             />
-            <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.12] overflow-y-auto bg-black/20">
+            <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.08] overflow-y-auto bg-[#0a0a0b]">
+              {/* Verification Panel */}
               {getVerification(selectedEvent) && (
-                <div className="m-4 p-4 rounded-[0.75rem] bg-white/[0.04] border border-white/[0.08] space-y-2.5">
-                  <div className="flex items-center justify-between">
+                <div className="m-4 p-4 rounded-lg bg-[#111113] border border-white/[0.08]">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
                       Human Verification
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 border border-green-500/30 text-[10px] font-semibold text-green-400">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-green-400 bg-green-500/10 border border-green-500/20">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
                       Verified
                     </span>
                   </div>
@@ -512,9 +547,9 @@ imageUrl: event.imageUrl || null,
                       ['Check latency', `${v.elapsedMs} ms`],
                     ];
                     return rows.map(([label, value]) => (
-                      <div key={label} className="flex items-center justify-between text-xs">
+                      <div key={label} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.06] last:border-0">
                         <span className="text-muted-foreground">{label}</span>
-                        <span className="text-foreground/90 font-medium tabular-nums">{value}</span>
+                        <span className="text-foreground/90 font-medium tabular-nums font-mono">{value}</span>
                       </div>
                     ));
                   })()}
@@ -531,6 +566,17 @@ imageUrl: event.imageUrl || null,
       </div>
     </div>
   );
+};
+
+type AnalysisEntry = {
+  sceneDescription?: string;
+  summary?: string;
+  threatAssessment?: { level: string; factors: string[]; confidence: number };
+  detectedEntities?: { people: string[]; vehicles: string[]; animals: string[]; objects: string[] };
+  recommendedActions?: string[];
+  processingTime?: number;
+  modelUsed?: string;
+  boxes?: Array<{ label: string; confidence: number; x: number; y: number; width: number; height: number }>;
 };
 
 export default EventsPage;

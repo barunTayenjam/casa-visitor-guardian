@@ -193,12 +193,17 @@ class WebSocketPublisher:
                     event_count += 1
                     if event_count <= 3 or event_count % 50 == 0:
                         print(f"[WebSocketPublisher] Broadcasting event #{event_count} for {camera_id}: type={ev.get('event', '?')} class={ev.get('class', '?')}")
-                    await self._broadcast(camera_id, {
-                        "type": "event",
-                        "cameraId": camera_id,
-                        "timestamp": time.time(),
-                        **ev,
-                    })
+                    # A single unserializable event must never kill this task —
+                    # that silently stops ALL event delivery for the camera.
+                    try:
+                        await self._broadcast(camera_id, {
+                            "type": "event",
+                            "cameraId": camera_id,
+                            "timestamp": time.time(),
+                            **ev,
+                        })
+                    except Exception as e:
+                        print(f"[WebSocketPublisher] Skipped unserializable event #{event_count} for {camera_id} ({e!r}): { {k: type(v).__name__ for k, v in ev.items() if not isinstance(v, (str, int, float, bool, type(None), list, dict))} }")
 
             # Then send latest frame
             try:

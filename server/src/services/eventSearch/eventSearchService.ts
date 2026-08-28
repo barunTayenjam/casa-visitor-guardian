@@ -128,6 +128,7 @@ export class EventSearchService {
     const conditions: string[] = [
       "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
       "e.file_path IS NOT NULL AND e.file_path != ''",
+      "COALESCE(e.persons_detected, 0) > 0",
     ];
     const queryParams: unknown[] = [];
     let paramIndex = 1;

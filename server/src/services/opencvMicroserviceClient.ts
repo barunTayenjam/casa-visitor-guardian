@@ -210,24 +210,31 @@ export class OpenCVMicroserviceClient {
   }
 
   async pushDetectionConfig(cameraId: string, config: Record<string, unknown>): Promise<boolean> {
-    try {
-      const response = await this.breaker.execute(() =>
-        this.client.post(
-          '/api/config',
-          {
-            camera_id: cameraId,
-            settings: config,
-          },
-          {
-            timeout: 5000,
-          },
-        ),
-      );
-      return response.status === 200;
-    } catch (error) {
-      logger.error(`Failed to push detection config to Python service: ${error}`, 'OpenCVClient');
-      return false;
+    let attempt = 0;
+    const maxAttempts = 3;
+    while (attempt < maxAttempts) {
+      try {
+        const response = await this.breaker.execute(() =>
+          this.client.post(
+            '/api/config',
+            {
+              camera_id: cameraId,
+              settings: config,
+            },
+            { timeout: 5000 },
+          ),
+        );
+        return response.status === 200;
+      } catch (error) {
+        attempt++;
+        if (attempt >= maxAttempts) {
+          logger.error(`Failed to push detection config to Python service: ${error}`, 'OpenCVClient');
+          return false;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
     }
+    return false;
   }
 
   /**

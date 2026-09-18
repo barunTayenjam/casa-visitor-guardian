@@ -41,16 +41,26 @@ export const AppDataSource = new DataSource({
   },
 });
 
-export async function initializeDatabase() {
-  try {
-    if (AppDataSource.isInitialized) {
-      logger.info('Database already initialized, skipping...', 'Database');
+export async function initializeDatabase(maxAttempts = 5): Promise<void> {
+  let delayMs = 2000;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (AppDataSource.isInitialized) {
+        logger.info('Database already initialized, skipping...', 'Database');
+        return;
+      }
+      await AppDataSource.initialize();
+      logger.info('Database connection has been established successfully.', 'Database');
       return;
+    } catch (error) {
+      logger.error(
+        `Database init attempt ${attempt}/${maxAttempts} failed`,
+        'Database',
+        error,
+      );
+      if (attempt === maxAttempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(delayMs * 2, 30000);
     }
-    await AppDataSource.initialize();
-    logger.info('Database connection has been established successfully.', 'Database');
-  } catch (error) {
-    logger.error('Error during database initialization', 'Database', error);
-    throw error;
   }
 }

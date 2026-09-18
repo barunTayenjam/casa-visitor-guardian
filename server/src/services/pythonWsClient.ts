@@ -70,7 +70,6 @@ export class PythonWsClient extends EventEmitter {
   private pendingMetadata: FrameMetadata | null = null;
   private retryCount = 0;
   private readonly maxRetries = 50;
-  private isDead = false;
 
   constructor(url?: string) {
     super();
@@ -82,13 +81,6 @@ export class PythonWsClient extends EventEmitter {
   }
 
   connect(): void {
-    if (this.isDead) {
-      logger.warn(
-        '[PythonWsClient] Client is dead (max retries exceeded), skipping connect',
-        'PythonWsClient',
-      );
-      return;
-    }
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       logger.info('[PythonWsClient] Already connected or connecting, skipping', 'PythonWsClient');
       return;
@@ -191,13 +183,10 @@ export class PythonWsClient extends EventEmitter {
       this._connected = false;
       this.retryCount++;
       if (this.retryCount > this.maxRetries) {
-        this.isDead = true;
-        logger.error(
-          `[PythonWsClient] Max reconnect retries (${this.maxRetries}) exceeded. Marking client as dead.`,
+        logger.warn(
+          `[PythonWsClient] Reconnect retry ${this.retryCount} (exceeds ${this.maxRetries}, but continuing with backoff)`,
           'PythonWsClient',
         );
-        this.emit('websocket:dead', { retries: this.retryCount });
-        return;
       }
       this.reconnectTimer = setTimeout(() => {
         this.connect();
@@ -286,6 +275,5 @@ export class PythonWsClient extends EventEmitter {
     }
     this._connected = false;
     this.retryCount = 0;
-    this.isDead = false;
   }
 }

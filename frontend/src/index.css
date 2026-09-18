@@ -21,7 +21,7 @@
     --secondary-foreground: 0 0% 96%;
 
     --muted: 240 4% 8%;           /* #18181b */
-    --muted-foreground: 0 0% 55%; /* #8c8c8c */
+    --muted-foreground: 0 0% 64%; /* #a3a3a3 - readable on dark */
 
     --accent: 240 4% 10%;         /* #1a1a1e */
     --accent-foreground: 0 0% 96%;
@@ -102,15 +102,22 @@
       'ss02' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+    letter-spacing: 0;
   }
 
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+  /* Size-specific tracking: tighten headings, neutral body, slight positive on tiny text */
+  h1, .text-3xl, .text-4xl { letter-spacing: -0.02em; line-height: 1.05; }
+  h2, .text-2xl, .text-xl { letter-spacing: -0.015em; line-height: 1.1; }
+  h3, .text-lg { letter-spacing: -0.01em; line-height: 1.2; }
+  .text-sm { letter-spacing: 0; line-height: 1.5; }
+  .text-xs, .text-\[10px\], .text-\[11px\], .text-\[9px\] { letter-spacing: 0.01em; line-height: 1.6; }
 
+  /* Apple-style focus ring: subtle, non-intrusive, follows roundedness */
   *:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+    border-radius: inherit;
   }
 
   *:focus:not(:focus-visible) {
@@ -257,12 +264,35 @@
   .animate-stagger-5 { animation-delay: 320ms; }
   .animate-stagger-6 { animation-delay: 400ms; }
 
-  /* SOC grid pattern */
-  .soc-grid {
-    background-image: 
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+  /* Press feedback: Apple-style touch response */
+  button:not(:disabled):active,
+  a:not([aria-disabled="true"]):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  .clickable:active {
+    transform: scale(0.97);
+    transition: transform 80ms ease-out;
+  }
+
+  /* Apple materials: translucent hierarchy */
+  .material-dock {
+    background: rgba(10, 10, 11, 0.85);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+  }
+
+  .material-panel {
+    background: rgba(17, 17, 19, 0.80);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .material-card {
+    background: rgba(17, 17, 19, 0.90);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
   }
 
   svg.lucide {

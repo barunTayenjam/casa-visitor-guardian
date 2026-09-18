@@ -5,7 +5,6 @@ import { ThreatMatrix } from '@/components/live/ThreatMatrix';
 import { VerificationTimeline } from '@/components/live/VerificationTimeline';
 import { ActiveVisitors } from '@/components/live/ActiveVisitors';
 import { MonitorPlay, PanelRightOpen, PanelRightClose } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,55 +37,53 @@ const StreamDashboard = () => {
     <div className="flex h-full">
       {/* Main stream area - always full width */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Minimal top bar - only show when not focused */}
+        {/* Glassmorphic top bar - only show when not focused */}
         {!focusedCameraId && (
-          <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-background/80 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-[#0a0a0b]/80 backdrop-blur-2xl">
+            <div className="flex items-center gap-4">
               <div className={cn(
-                'flex items-center gap-1.5 px-2 py-0.5 rounded',
-                connected ? 'bg-green-500/10' : 'bg-red-500/10',
+                'flex items-center gap-2 px-3 py-1.5 rounded-full',
+                connected ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400',
               )}>
                 <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  connected ? 'bg-green-400' : 'bg-red-400',
+                  'w-2 h-2 rounded-full',
+                  connected ? 'bg-green-400 animate-pulse' : 'bg-red-400',
                 )} />
                 <span className={cn(
-                  'text-[9px] uppercase tracking-wider font-medium',
+                  'text-xs uppercase tracking-wider font-medium',
                   connected ? 'text-green-400' : 'text-red-400',
                 )}>
                   {connected ? 'LIVE' : 'OFFLINE'}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               {cameras.length > 1 && (
-                <Button
+                <button
                   onClick={handleStartSlideshow}
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 rounded-md bg-white/[0.04] border-white/[0.10] text-[11px] hover:bg-white/[0.08]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/[0.10] text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.10] transition-all active:scale-[0.97]"
                 >
-                  <MonitorPlay className="h-3 w-3" />
+                  <MonitorPlay className="h-4 w-4" />
                   <span className="hidden sm:inline">Slideshow</span>
-                </Button>
+                </button>
               )}
               <button
                 onClick={() => setShowDataPanel(!showDataPanel)}
                 className={cn(
-                  'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                  'flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-[0.97]',
                   showDataPanel
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-white/[0.04] text-muted-foreground border border-white/[0.10] hover:bg-white/[0.08]',
+                    ? 'bg-primary/15 text-primary border border-primary/25'
+                    : 'bg-white/[0.06] text-muted-foreground border border-white/[0.10] hover:text-foreground hover:bg-white/[0.10]',
                 )}
               >
                 {showDataPanel ? (
-                  <PanelRightClose className="h-3 w-3" />
+                  <PanelRightClose className="h-4 w-4" />
                 ) : (
-                  <PanelRightOpen className="h-3 w-3" />
+                  <PanelRightOpen className="h-4 w-4" />
                 )}
                 <span className="hidden sm:inline">Data</span>
               </button>
@@ -113,8 +110,8 @@ const StreamDashboard = () => {
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 360, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="h-full border-l border-white/[0.10] bg-background overflow-hidden flex-shrink-0"
+            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+            className="h-full border-l border-white/[0.10] bg-[#0a0a0b]/95 backdrop-blur-xl overflow-hidden flex-shrink-0"
           >
             <div className="w-[360px] h-full flex flex-col overflow-hidden">
               {/* Threat Matrix */}

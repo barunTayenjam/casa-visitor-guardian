@@ -10,6 +10,19 @@ const nvidiaBreaker = new CircuitBreaker('NvidiaService', {
   successThreshold: 2,
 });
 
+/**
+ * Resolve the NVIDIA-compatible API base URL. Fails fast instead of silently
+ * falling back to the hosted endpoint — requests carry NVIDIA_API_KEY and must
+ * never leak to the cloud when the local endpoint is intended.
+ */
+export function getNvidiaBaseUrl(): string {
+  const baseUrl = process.env.NVIDIA_API_BASE_URL;
+  if (!baseUrl) {
+    throw new Error('NVIDIA_API_BASE_URL environment variable is not set');
+  }
+  return baseUrl;
+}
+
 export function normalizeEntityArray(input: unknown, type: string): string[] {
   if (!input) return [];
   if (Array.isArray(input)) {
@@ -49,7 +62,7 @@ export async function callNvidiaApi(
   signal?: AbortSignal,
 ): Promise<any> {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+  const baseUrl = getNvidiaBaseUrl();
 
   if (!apiKey) {
     throw new Error('NVIDIA_API_KEY environment variable is not set');
@@ -208,7 +221,7 @@ export async function chatCompletion(
 ): Promise<string> {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error('NVIDIA_API_KEY environment variable is not set');
-  const baseUrl = process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+  const baseUrl = getNvidiaBaseUrl();
   const model = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
 
   const requestBody = {

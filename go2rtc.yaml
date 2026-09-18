@@ -1,5 +1,5 @@
 ffmpeg:
-  h264_low: "-codec:v libx264 -filter:v scale=1280:720 -preset:v superfast -tune:v zerolatency -g:v 25 -b:v 2M -pix_fmt:v yuv420p"
+  h264_low: "-codec:v libx264 -filter:v scale=640:360 -preset:v ultrafast -tune:v zerolatency -g:v 25 -b:v 1M -pix_fmt:v yuv420p"
 
 streams:
   cam1:

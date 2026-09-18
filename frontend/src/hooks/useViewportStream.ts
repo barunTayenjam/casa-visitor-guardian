@@ -30,7 +30,10 @@ export class StreamSlotManager {
     while (this.pendingQueue.length > 0 && this.activeStreams.size < this.maxSlots) {
       const next = this.pendingQueue.shift();
       if (next) {
-        if (next.cameraId === cameraId) continue;
+        if (next.cameraId === cameraId) {
+          next.resolve();
+          continue;
+        }
         this.activeStreams.add(next.cameraId);
         next.resolve();
       }
@@ -92,7 +95,7 @@ export function useViewportStream(
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [elementRef, debounceMs, rootMargin, threshold]);
+  }, [debounceMs, rootMargin, threshold]);
 
   return { isVisible };
 }

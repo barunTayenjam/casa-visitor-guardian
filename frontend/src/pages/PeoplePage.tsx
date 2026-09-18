@@ -55,6 +55,8 @@ const PeoplePage: React.FC = () => {
             variant: 'destructive',
           });
         }
+      } catch {
+        toast({ title: 'Error', description: 'Failed to assign name', variant: 'destructive' });
       } finally {
         setIsNaming(false);
       }
@@ -66,12 +68,12 @@ const PeoplePage: React.FC = () => {
     <div className="w-full min-h-[100dvh] flex flex-col bg-background">
       {/* SOC Header */}
       <div className="px-5 pt-6 pb-2">
-        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-[9px] uppercase tracking-[0.2em] font-medium text-primary mb-3">
+        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-xs uppercase tracking-[0.2em] font-medium text-primary mb-3">
           <Users className="h-3 w-3" />
           Face Recognition
         </div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">People</h1>
-        <p className="text-xs text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Faces grouped from verified human events. Name them to identify in your timeline.
         </p>
       </div>
@@ -115,7 +117,7 @@ const PeoplePage: React.FC = () => {
                   <p className="text-white text-sm font-medium truncate">
                     {cluster.name || 'Unidentified'}
                   </p>
-                  <p className="text-white/60 text-[10px]">
+                  <p className="text-white/60 text-xs">
                     {cluster.face_count} face{cluster.face_count > 1 ? 's' : ''}
                   </p>
                 </div>

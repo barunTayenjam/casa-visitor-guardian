@@ -171,20 +171,18 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Eyebrow */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-[9px] uppercase tracking-[0.2em] font-medium text-primary mb-5">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs uppercase tracking-[0.15em] font-medium text-primary mb-5">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
             Security Operations Center
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">SentryVision</h1>
+          <h1 className="text-4xl font-semibold tracking-tight mb-2">SentryVision</h1>
           <p className="text-sm text-muted-foreground">Self-hosted AI security monitoring</p>
         </div>
 
-        {/* SOC Card */}
-        <div
-          className="rounded-[0.75rem] bg-card border border-white/[0.10]"
-        >
+        {/* SOC Card with proper materials */}
+        <div className="rounded-2xl bg-[#111113]/95 backdrop-blur-xl border border-white/[0.10] shadow-2xl shadow-black/30">
           <div className="p-6">
               {user?.role === 'admin' ? (
               <Tabs defaultValue="login" className="w-full">
@@ -208,7 +206,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="mfa-code"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Verification Code
                         </Label>
@@ -258,7 +256,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="username"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Username
                         </Label>
@@ -279,7 +277,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Password
                         </Label>
@@ -361,7 +359,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="reg-username"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Username
                         </Label>
@@ -382,7 +380,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="email"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Email
                         </Label>
@@ -403,7 +401,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="role"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Role
                         </Label>
@@ -434,7 +432,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="reg-password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Password
                         </Label>
@@ -470,7 +468,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="confirm-password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Confirm Password
                         </Label>
@@ -553,7 +551,7 @@ export default function Login() {
                     <div className="space-y-2">
                       <Label
                         htmlFor="mfa-code"
-                        className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                        className="text-sm text-foreground/70 font-medium"
                       >
                         Verification Code
                       </Label>
@@ -603,7 +601,7 @@ export default function Login() {
                     <div className="space-y-2">
                       <Label
                         htmlFor="username"
-                        className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                        className="text-sm text-foreground/70 font-medium"
                       >
                         Username
                       </Label>
@@ -624,7 +622,7 @@ export default function Login() {
                     <div className="space-y-2">
                       <Label
                         htmlFor="password"
-                        className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                        className="text-sm text-foreground/70 font-medium"
                       >
                         Password
                       </Label>
@@ -696,7 +694,7 @@ export default function Login() {
             </div>
 
             <div className="px-6 pb-5 text-center">
-              <p className="text-[10px] text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/60">
                 By continuing, you agree to our Terms of Service and Privacy Policy
               </p>
             </div>

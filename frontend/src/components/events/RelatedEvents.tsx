@@ -103,7 +103,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <p className="text-[10px] text-white/60">No image</p>
+                    <p className="text-xs text-white/60">No image</p>
                   </div>
                 )}
                 <div className="absolute top-1.5 left-1.5">
@@ -128,7 +128,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({
               </div>
               <div className="p-2">
                 <p className="text-xs font-medium text-foreground truncate">{event.cameraName}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {format(event.timestamp, 'HH:mm')}
                 </p>
               </div>

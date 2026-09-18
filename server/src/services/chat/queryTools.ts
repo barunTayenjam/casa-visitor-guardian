@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppDataSource } from '../../database.js';
 import { rangeTokenSchema } from './dateResolver.js';
+import { VEHICLE_CLASSES } from '../../shared/constants.js';
 
 // Class vocabulary is stock COCO. User-facing vehicle names alias onto it.
 export const ALIAS_MAP: Record<string, string[]> = {
@@ -16,7 +17,7 @@ export const ALIAS_MAP: Record<string, string[]> = {
   bicycle: ['bicycle'],
   cycle: ['bicycle'],
 };
-export const VEHICLE_GROUP = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
+export const VEHICLE_GROUP = VEHICLE_CLASSES;
 export const CONFIDENCE_FLOOR = 0.4;
 export const IST = 'Asia/Kolkata';
 

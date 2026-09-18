@@ -40,7 +40,7 @@ export const StreamInfo: React.FC<StreamInfoProps> = ({
     {connectionState === 'connected' && isStreaming && (
       <span
         className={cn(
-          'text-[10px] font-semibold uppercase tracking-wider',
+          'text-xs font-semibold uppercase tracking-wider',
           isWanStream ? 'text-amber-500' : 'text-red-500',
         )}
       >

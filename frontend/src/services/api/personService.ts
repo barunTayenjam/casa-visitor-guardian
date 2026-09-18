@@ -21,7 +21,7 @@ class PersonService {
   async getFaceClusters(): Promise<FaceClustersResponse> {
     try {
       return await apiGet<FaceClustersResponse>('/face-clusters');
-    } catch (error) {
+    } catch {
       return { success: false, clusters: [], error: 'Failed to fetch face clusters' };
     }
   }
@@ -29,7 +29,7 @@ class PersonService {
   async assignClusterName(clusterId: string, name: string): Promise<FaceClustersResponse> {
     try {
       return await apiPost<FaceClustersResponse>(`/face-clusters/${clusterId}/name`, { name });
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Failed to assign name' };
     }
   }

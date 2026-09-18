@@ -74,10 +74,10 @@ export const VerificationTimeline = () => {
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-white/[0.10]">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
+          <span className="text-xs uppercase tracking-[0.15em] font-medium text-muted-foreground">
             Verification Timeline
           </span>
-          <span className="text-[10px] text-muted-foreground tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {events.length} events
           </span>
         </div>
@@ -117,7 +117,7 @@ export const VerificationTimeline = () => {
                     )} />
 
                     {/* Time */}
-                    <div className="text-[11px] text-muted-foreground tabular-nums w-16 flex-shrink-0">
+                    <div className="text-xs text-muted-foreground tabular-nums w-16 flex-shrink-0">
                       {formatTime(event.timestamp)}
                     </div>
 
@@ -128,7 +128,7 @@ export const VerificationTimeline = () => {
                           {event.cameraName}
                         </span>
                         <span className={cn(
-                          'text-[9px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded',
+                          'text-xs uppercase tracking-wider font-medium px-1.5 py-0.5 rounded',
                           event.verified
                             ? 'bg-green-500/10 text-green-400'
                             : 'bg-white/[0.06] text-muted-foreground',
@@ -137,10 +137,10 @@ export const VerificationTimeline = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {event.eventType}
                         </span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                        <span className="text-xs text-muted-foreground tabular-nums">
                           {(event.confidence * 100).toFixed(0)}%
                         </span>
                       </div>

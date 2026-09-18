@@ -38,7 +38,7 @@ services:
       resources:
         limits:
           cpus: ${POSTGRES_CPU_LIMIT:-0.5}
-          memory: ${POSTGRES_MEM_LIMIT:-192M}
+          memory: ${POSTGRES_MEM_LIMIT:-512M}
         reservations:
           cpus: ${POSTGRES_CPU_RESERVE:-0.1}
           memory: ${POSTGRES_MEM_RESERVE:-64M}

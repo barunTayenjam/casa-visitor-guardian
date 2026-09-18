@@ -59,6 +59,13 @@ npm run migrate          # Run pending migrations
 
 # Docker
 docker-compose up -d / down / ps / logs -f
+
+# Apply code changes WITHOUT image rebuilds
+# Python (opencv):   hot-mounted — edit .py files on host, then:
+docker restart sentryvision-opencv
+
+# Node (backend):    server/dist is hot-mounted — compile TS, then:
+cd server && npm run build && docker restart sentryvision-app
 ```
 
 **Always run `npm run lint && npm run typecheck` after frontend changes.**
@@ -215,11 +222,13 @@ The detection pipeline runs entirely in Python. Node.js receives structured even
 3. On motion → Python `InProcessYOLO` runs object detection (YOLOv8n → YOLOv5n → yolov4-tiny fallback chain, OpenCV DNN)
 4. Python `ByteTracker` performs multi-object tracking (Kalman filter, track lifecycle: started/updated/ended)
 5. Python `IdentityEnrichment` runs face recognition on new tracks (InsightFace ArcFace, 30s identity cache)
-6. Python `WebSocketPublisher` sends JPEG frames + JSON tracking events to Node.js via WebSocket (`ws://localhost:9090`)
-7. Node.js `PythonWsClient` receives and re-emits as Node EventEmitter
-8. `rtspManager.wirePythonWsFrames()` relays frames to Socket.io rooms with adaptive FPS by viewer count
-9. Node.js persists tracking events as `events` in PostgreSQL with image captures
-10. `consolidatedDetectionService.ts` provides type definitions and settings stubs (actual detection runs in Python)
+6. Python `HumanVerifier` verifies each person track (tiered: YOLO ≥ 0.90 → face → MediaPipe pose → score floor 0.55 day / 0.55 night); unverified tracks are discarded before event emission
+7. Python `IdentityEnrichment` runs face recognition on new tracks (InsightFace ArcFace, 30s identity cache)
+8. Python `WebSocketPublisher` sends JPEG frames + JSON tracking events to Node.js via WebSocket (`ws://localhost:9090`)
+9. Node.js `PythonWsClient` receives and re-emits as Node EventEmitter
+10. `rtspManager.wirePythonWsFrames()` relays frames to Socket.io rooms with adaptive FPS by viewer count
+11. Node.js `detectionPersistence.ts` persists tracking events as `events` in PostgreSQL with image captures. Person counting drops `lost` track states and dedupes overlapping person bboxes (IoU > 0.3), so `persons_detected` = distinct humans, not raw track IDs
+12. `consolidatedDetectionService.ts` provides type definitions and settings stubs (actual detection runs in Python)
 
 For a visual overview, see `docs/c4-streaming-pipeline.md`.
 

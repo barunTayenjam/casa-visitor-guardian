@@ -27,7 +27,7 @@ try {
                 
                 try {
                     // Check if file exists
-                    execSync(`docker exec sentryvision-backend test -f "${path}"`, { stdio: 'pipe' });
+                    execSync(`docker exec sentryvision-app test -f "${path}"`, { stdio: 'pipe' });
                 } catch {
                     // File doesn't exist - delete the record
                     console.log(`Deleting orphaned: ${id} -> ${path}`);

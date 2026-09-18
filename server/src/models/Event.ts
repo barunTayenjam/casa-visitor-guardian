@@ -27,9 +27,10 @@ export class Event {
   @Column({
     type: 'varchar',
     length: 255,
+    nullable: true,
     comment: 'Path to the saved event file (image or video)',
   })
-  file_path!: string;
+  file_path!: string | null;
 
   @Column({
     type: 'varchar',
@@ -108,6 +109,34 @@ export class Event {
     comment: 'JSONB array of face detection results',
   })
   face_detections!: NormalizedFaceDetection[];
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment: 'Scene context analysis (environment, lighting, time of day)',
+  })
+  scene_context!: Record<string, unknown> | null;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment: 'Threat assessment result (level, confidence, factors)',
+  })
+  threat_assessment!: Record<string, unknown> | null;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment: 'Aggregate detection summary (class counts, totals)',
+  })
+  detection_summary!: Record<string, unknown> | null;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment: 'MOG2 motion gate stats (motion_pixels, motion_percentage, confidence)',
+  })
+  motion_stats!: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at!: Date;

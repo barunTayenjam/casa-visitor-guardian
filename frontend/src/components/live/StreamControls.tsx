@@ -15,7 +15,7 @@ export const StreamControls: React.FC<StreamControlsProps> = ({
   return (
     <div className="pointer-events-auto flex items-center gap-2">
       <button
-        className="h-11 w-11 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+        className="h-11 w-11 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/[0.10] text-white/80 hover:text-white hover:bg-white/10 transition-all"
         onClick={(e) => {
           e.stopPropagation();
           onMuteToggle();
@@ -26,7 +26,7 @@ export const StreamControls: React.FC<StreamControlsProps> = ({
         {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
       <button
-        className="h-11 w-11 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition-all"
+        className="h-11 w-11 flex items-center justify-center rounded-full backdrop-blur-sm bg-black/60 border border-white/[0.10] text-white/80 hover:text-white hover:bg-white/10 transition-all"
         onClick={(e) => {
           e.stopPropagation();
           onFullscreen();

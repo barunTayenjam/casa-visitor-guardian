@@ -95,7 +95,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                 className="flex-1 text-center"
                 style={{ minWidth: `${100 / timeLabels.length}%` }}
               >
-                <span className="text-[10px] text-muted-foreground">{label}</span>
+                <span className="text-xs text-muted-foreground">{label}</span>
               </div>
             ))}
           </div>
@@ -154,12 +154,12 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
           </div>
         </div>
 
-        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.06] border border-white/[0.12]">
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 p-0.5 rounded-[0.75rem] bg-white/[0.06] border border-white/[0.10]">
           {(['hour', 'day', 'week'] as const).map((z) => (
             <button
               key={z}
               className={cn(
-                'px-2.5 py-1 text-[10px] rounded-[0.5rem] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                'px-2.5 py-1 text-xs rounded-[0.5rem] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
                 zoom === z
                   ? 'bg-white/[0.08] text-foreground'
                   : 'text-muted-foreground hover:text-foreground',

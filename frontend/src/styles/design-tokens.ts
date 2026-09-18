@@ -1,34 +1,35 @@
 export const colors = {
   background: {
-    primary: '#050505',
-    secondary: '#0a0a0a',
-    tertiary: '#121212',
+    primary: '#0a0a0b',
+    secondary: '#111113',
+    tertiary: '#18181b',
   },
   text: {
     primary: '#f5f5f5',
-    secondary: '#b0b0b0',
-    muted: '#8a8a8a',
+    secondary: '#d4d4d8',
+    muted: '#8c8c8c',
   },
   border: {
-    subtle: 'rgba(255, 255, 255, 0.10)',
-    default: 'rgba(255, 255, 255, 0.14)',
-    hover: 'rgba(255, 255, 255, 0.20)',
+    subtle: 'rgba(255, 255, 255, 0.06)',
+    default: 'rgba(255, 255, 255, 0.10)',
+    hover: 'rgba(255, 255, 255, 0.16)',
+    focus: 'rgba(255, 255, 255, 0.20)',
   },
   glass: {
-    light: 'rgba(255, 255, 255, 0.06)',
-    medium: 'rgba(255, 255, 255, 0.10)',
-    heavy: 'rgba(255, 255, 255, 0.14)',
+    light: 'rgba(255, 255, 255, 0.04)',
+    medium: 'rgba(255, 255, 255, 0.06)',
+    heavy: 'rgba(255, 255, 255, 0.10)',
   },
   status: {
     success: '#22c55e',
-    warning: '#f59e0b',
+    warning: '#eab308',
     error: '#ef4444',
     info: '#3b82f6',
   },
   detection: {
-    motion: '#f59e0b',
-    person: '#10b981', // Changed from #22c55e to Emerald-500
-    vehicle: '#3b82f6',
+    motion: '#71717a',
+    person: '#3b82f6',
+    vehicle: '#f59e0b',
     face: '#8b5cf6',
     package: '#06b6d4',
   },
@@ -44,8 +45,8 @@ export const lightTokens = {
 
 export const typography = {
   fontFamily: {
-    sans: '"Inter", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    mono: '"JetBrains Mono", "Fira Code", monospace',
+    sans: '"Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    mono: '"Geist Mono", "JetBrains Mono", "Fira Code", monospace',
   },
   fontSize: {
     xs: '0.75rem',
@@ -67,7 +68,7 @@ export const radius = {
   pill: '9999px',
   squircle: '1.25rem',
   squircleLg: '1.75rem',
-  squircleSm: '0.75rem',
+  squircleSm: '0.5rem',
 };
 
 export const bezier = {
@@ -78,10 +79,10 @@ export const bezier = {
 
 export const shadows = {
   sm: '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-  md: '0 6px 20px rgba(0, 0, 0, 0.45)', // Enhanced depth
-  lg: '0 12px 40px rgba(0, 0, 0, 0.6)', // Enhanced depth
-  xl: '0 24px 80px rgba(0, 0, 0, 0.75)', // Enhanced depth
-  glow: '0 0 50px rgba(59, 130, 246, 0.25)', // Bolder glow
+  md: '0 6px 20px rgba(0, 0, 0, 0.45)',
+  lg: '0 12px 40px rgba(0, 0, 0, 0.6)',
+  xl: '0 24px 80px rgba(0, 0, 0, 0.75)',
+  glow: '0 0 50px rgba(59, 130, 246, 0.25)',
   diffuse: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)',
 };
 

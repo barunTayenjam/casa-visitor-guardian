@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentryVision — Visual Direction</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --surface-2: #18181b;
+      --border: #27272a;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+    }
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+    
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    
+    .header p {
+      color: var(--text-muted);
+      font-size: 1.125rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .kicker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    
+    .assigned-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .assigned-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #8b5cf6);
+    }
+    
+    .card-title {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+    
+    .card-thesis {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      line-height: 1.7;
+    }
+    
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    
+    .palette-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    
+    .swatch {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .materials {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    
+    .material-tag {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .viewport-preview {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 32px;
+    }
+    
+    .viewport-mock {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      line-height: 1.8;
+      color: var(--text-muted);
+    }
+    
+    .viewport-mock .highlight {
+      color: var(--text);
+      font-weight: 500;
+    }
+    
+    .viewport-mock .accent {
+      color: var(--accent);
+    }
+    
+    .risk {
+      background: rgba(234, 179, 8, 0.08);
+      border: 1px solid rgba(234, 179, 8, 0.2);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 0.875rem;
+      color: #eab308;
+    }
+    
+    .risk strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+    
+    .alternate-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-top: 48px;
+    }
+    
+    .alternate-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    
+    .alternate-card:hover {
+      opacity: 1;
+    }
+    
+    .alternate-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    
+    .alternate-card p {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      margin-bottom: 20px;
+    }
+    
+    .verdict {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+    
+    .verdict.competitive {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--accent);
+    }
+    
+    .verdict.declined {
+      background: rgba(161, 161, 170, 0.1);
+      color: var(--text-muted);
+    }
+    
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 48px 0;
+    }
+    
+    .roll-section {
+      text-align: center;
+      margin-top: 48px;
+    }
+    
+    .roll-section p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    .roll-note {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-top: 24px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="kicker">Visual Direction — Operate Mode</div>
+      <h1>SentryVision</h1>
+      <p>Self-hosted AI home security for tech-savvy hobbyists. Choose a visual direction for the frontend redesign.</p>
+    </div>
+    
+    <!-- ASSIGNED DIRECTION (Index 6) -->
+    <div class="assigned-card">
+      <div class="kicker">Assigned Direction — Index 6</div>
+      <h2 class="card-title">Security Operations Center</h2>
+      <p class="card-thesis">
+        A dense, data-rich interface modeled on SOC analyst workstations: dark backgrounds with high-contrast information zones, real-time threat matrices, and spatial camera grids. The mechanism—human verification eliminating false positives—proves itself through a verification timeline that shows exactly why each event was classified, turning security data into trust.
+      </p>
+      
+      <div class="section-label">Palette</div>
+      <div class="palette-row">
+        <div class="swatch" style="background: #0a0a0b;"></div>
+        <div class="swatch" style="background: #111113;"></div>
+        <div class="swatch" style="background: #18181b;"></div>
+        <div class="swatch" style="background: #27272a;"></div>
+        <div class="swatch" style="background: #3b82f6;"></div>
+        <div class="swatch" style="background: #22c55e;"></div>
+        <div class="swatch" style="background: #ef4444;"></div>
+        <div class="swatch" style="background: #eab308;"></div>
+      </div>
+      
+      <div class="section-label">Materials</div>
+      <div class="materials">
+        <span class="material-tag">Monospace data</span>
+        <span class="material-tag">Glow borders</span>
+        <span class="material-tag">Threat color coding</span>
+        <span class="material-tag">Dense grid layouts</span>
+        <span class="material-tag">Real-time indicators</span>
+        <span class="material-tag">Spatial camera mapping</span>
+      </div>
+      
+      <div class="section-label">First Viewport</div>
+      <div class="viewport-preview">
+        <div class="viewport-mock">
+          <span class="highlight">┌─ SENTRYVISION ──────────────────────────────────────┐</span><br>
+          │ <span class="accent">● LIVE</span>  Cam1: Front Door    Cam2: Driveway    Cam3: Backyard │<br>
+          │                                                    │<br>
+          │ <span class="highlight">THREAT MATRIX</span>                                     │<br>
+          │ ┌─────────┬──────────┬──────────┬─────────────┐   │<br>
+          │ │ PERSON  │ VEHICLE  │ ANIMAL   │ MOTION      │   │<br>
+          │ │ <span class="accent">2</span>       │ <span class="accent">0</span>        │ <span class="accent">1</span>        │ <span class="accent">14</span>         │   │<br>
+          │ └─────────┴──────────┴──────────┴─────────────┘   │<br>
+          │                                                    │<br>
+          │ <span class="highlight">VERIFICATION TIMELINE</span>                              │<br>
+          │ <span class="accent">✓</span> 14:32:01  Person detected   YOLO 0.94  → <span class="accent">VERIFIED</span> │<br>
+          │ <span class="accent">✓</span> 14:31:45  Person detected   Face match → <span class="accent">VERIFIED</span> │<br>
+          │ <span style="color: #a1a1aa;">✗</span> 14:31:22  Motion detected   Low conf   → <span style="color: #a1a1aa;">DISCARDED</span> │<br>
+          │                                                    │<br>
+          │ <span class="highlight">VISITORS TODAY</span>                                     │<br>
+          │ <span class="accent">▶</span> Barun  14:32  Front Door  <span class="accent">● ACTIVE</span>                │<br>
+          │ <span style="color: #a1a1aa;">▶</span> Guest  13:15  Driveway    <span style="color: #a1a1aa;">● LEFT</span>                  │<br>
+          <span class="highlight">└────────────────────────────────────────────────────┘</span>
+        </div>
+      </div>
+      
+      <div class="section-label">Honest Risk</div>
+      <div class="risk">
+        <strong>Risk: Information density overwhelm</strong>
+        SOC-style interfaces demand expertise; new users may feel lost without a guided onboarding flow. The verification timeline is the bridge—showing "why" builds trust even when the density is high.
+      </div>
+    </div>
+    
+    <!-- ALTERNATE DIRECTIONS -->
+    <div class="divider"></div>
+    
+    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 8px;">Alternate Directions</h2>
+    <p style="color: var(--text-muted); margin-bottom: 32px;">Competitive and declined candidates from the grounded list.</p>
+    
+    <div class="alternate-cards">
+      <!-- Index 0: Home Assistant Dashboard -->
+      <div class="alternate-card">
+        <div class="verdict competitive">Competitive — Strong community resonance</div>
+        <h3>Home Assistant Dashboard</h3>
+        <p>Speaks the native visual language of the self-hosted community. Tile-based layout, entity states, and familiar card patterns. Users already know how to navigate this world.</p>
+        <div class="materials">
+          <span class="material-tag">Entity tiles</span>
+          <span class="material-tag">State colors</span>
+          <span class="material-tag">Card grid</span>
+        </div>
+      </div>
+      
+      <!-- Index 1: Grafana Monitoring -->
+      <div class="alternate-card">
+        <div class="verdict competitive">Competitive — Real-time data credibility</div>
+        <h3>Grafana Monitoring</h3>
+        <p>Time-series dashboards with sparklines, heatmaps, and alert thresholds. Communicates "this system is always watching" through continuous data visualization.</p>
+        <div class="materials">
+          <span class="material-tag">Sparklines</span>
+          <span class="material-tag">Heatmaps</span>
+          <span class="material-tag">Alert panels</span>
+        </div>
+      </div>
+      
+      <!-- Index 2: Terminal Aesthetic -->
+      <div class="alternate-card">
+        <div class="verdict declined">Declined — Too niche for primary audience</div>
+        <h3>Terminal / Hacker</h3>
+        <p>Monospace everything, green-on-black, command-line aesthetic. Appeals to the developer identity but sacrifices readability for dense security data.</p>
+        <div class="materials">
+          <span class="material-tag">Monospace</span>
+          <span class="material-tag">Green phosphor</span>
+          <span class="material-tag">ASCII art</span>
+        </div>
+      </div>
+      
+      <!-- Index 3: Industrial Control -->
+      <div class="alternate-card">
+        <div class="verdict declined">Declined — Physical metaphor doesn't map to software</div>
+        <h3>Industrial Control Panel</h3>
+        <p>Physical security panels, keypad interfaces, tactile button aesthetics. The skeuomorphic metaphor conflicts with modern web conventions.</p>
+        <div class="materials">
+          <span class="material-tag">Physical buttons</span>
+          <span class="material-tag">LED indicators</span>
+          <span class="material-tag">Bezel frames</span>
+        </div>
+      </div>
+      
+      <!-- Index 4: Broadcast Control -->
+      <div class="alternate-card">
+        <div class="verdict declined">Declined — Camera grid only, lacks data depth</div>
+        <h3>Broadcast Control Room</h3>
+        <p>Multi-view monitors, switcher panels, program/preview buses. Strong for camera grids but weak on event data, timelines, and verification flows.</p>
+        <div class="materials">
+          <span class="material-tag">Multi-view</span>
+          <span class="material-tag">Switcher</span>
+          <span class="material-tag">Program bus</span>
+        </div>
+      </div>
+      
+      <!-- Index 5: Military Tactical -->
+      <div class="alternate-card">
+        <div class="verdict declined">Declined — Aggressive tone mismatches homeowner context</div>
+        <h3>Military Tactical Display</h3>
+        <p>HUD overlays, threat rings, satellite imagery. Communicates power but feels hostile for a home security context; the product protects, it doesn't wage war.</p>
+        <div class="materials">
+          <span class="material-tag">HUD overlay</span>
+          <span class="material-tag">Threat rings</span>
+          <span class="material-tag">Satellite view</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RE-ROLL SECTION -->
+    <div class="roll-section">
+      <div class="divider"></div>
+      <p>Not satisfied with this hand?</p>
+      <button style="
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      " onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        Re-roll Directions
+      </button>
+      
+      <div class="roll-note">
+        <strong>Note:</strong> This roll ran in degraded mode (no external catalog challengers). The directions above are grounded in your product truth: self-hosted home security for tech-savvy hobbyists with a human verification pipeline. Each direction was evaluated against audience identification and product clarity.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

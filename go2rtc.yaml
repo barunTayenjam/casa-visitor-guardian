@@ -1,8 +1,21 @@
+ffmpeg:
+  h264_low: "-codec:v libx264 -filter:v scale=640:360 -preset:v ultrafast -tune:v zerolatency -g:v 25 -b:v 1M -pix_fmt:v yuv420p"
+
 streams:
   cam1:
     - ${CAM1_RTSP_URL}
+  cam1_low:
+    - ffmpeg:rtsp://127.0.0.1:8554/cam1#video=h264_low
   cam2:
     - ${CAM2_RTSP_URL}
+  cam2_low:
+    - ffmpeg:rtsp://127.0.0.1:8554/cam2#video=h264_low
+  # Back-compat aliases: older cached frontends request *_sub.
+  # Relay of the low transcode — still zero extra camera connections.
+  cam1_sub:
+    - rtsp://127.0.0.1:8554/cam1_low
+  cam2_sub:
+    - rtsp://127.0.0.1:8554/cam2_low
 
 api:
   listen: ":1984"

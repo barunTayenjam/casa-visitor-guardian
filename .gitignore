@@ -82,6 +82,7 @@ server/temp/
 # ML Model weights (too large for GitHub, download separately)
 *.weights
 *.onnx
+opencv-service/models/haarcascade_*.xml
 
 # Python
 __pycache__/
@@ -110,3 +111,6 @@ public/reports/
 
 # Vite cache
 frontend/.vite/
+
+# InsightFace model cache (bind-mounted into opencv container)
+opencv-service/.insightface/

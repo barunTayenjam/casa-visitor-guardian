@@ -47,8 +47,8 @@ export class CameraPersistence {
 
 export const optimalFpsForViewers = (viewerCount: number): number => {
   if (viewerCount === 0) return 1;
-  if (viewerCount <= 3) return 4;
-  if (viewerCount <= 10) return 3;
-  if (viewerCount <= 20) return 2;
-  return 1;
+  if (viewerCount <= 3) return 10;
+  if (viewerCount <= 6) return 6;
+  if (viewerCount <= 12) return 4;
+  return 2;
 };

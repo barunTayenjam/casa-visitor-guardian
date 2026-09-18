@@ -128,6 +128,7 @@ export class EventSearchService {
     const conditions: string[] = [
       "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
       "e.file_path IS NOT NULL AND e.file_path != ''",
+      "COALESCE(e.persons_detected, 0) > 0",
     ];
     const queryParams: unknown[] = [];
     let paramIndex = 1;
@@ -154,7 +155,7 @@ export class EventSearchService {
       else if (event_type === 'person') conditions.push(`COALESCE(e.persons_detected, 0) > 0`);
       else if (event_type === 'vehicle')
         conditions.push(
-          `e.object_detections IS NOT NULL AND e.object_detections::jsonb @> ANY(ARRAY['[{"class":"car"}]','[{"class":"truck"}]','[{"class":"motorcycle"}]','[{"class":"bicycle"}]','[{"class":"bus"}]','[{"class":"van"}]','[{"class":"suv"}]']::jsonb[])`,
+          `(e.event_type = 'vehicle' OR (e.object_detections IS NOT NULL AND e.object_detections::jsonb @> ANY(ARRAY['[{"class":"car"}]','[{"class":"truck"}]','[{"class":"motorcycle"}]','[{"class":"bicycle"}]','[{"class":"bus"}]','[{"class":"van"}]','[{"class":"suv"}]']::jsonb[])))`,
         );
       else if (event_type === 'motion')
         conditions.push(`e.event_type IN ('motion', 'event_motion')`);
@@ -721,7 +722,7 @@ export class EventSearchService {
     const event = await this.eventRepository.findOne({ where: { id } });
     if (!event) return null;
 
-    const filename = event.file_path.split('/').pop();
+    const filename = event.file_path?.split('/').pop() ?? null;
     let persons_detected = event.persons_detected || 0;
     let faces_detected = event.faces_detected || 0;
     let known_faces_count = event.known_faces_count || 0;

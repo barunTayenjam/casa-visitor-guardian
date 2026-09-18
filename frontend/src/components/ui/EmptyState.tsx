@@ -22,7 +22,7 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         )}
         {...props}
       >
-        <div className="w-14 h-14 rounded-full bg-white/[0.06] flex items-center justify-center border border-white/[0.12]">
+        <div className="w-14 h-14 rounded-full bg-white/[0.04] flex items-center justify-center border border-white/[0.10]">
           <Icon className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="space-y-1.5">

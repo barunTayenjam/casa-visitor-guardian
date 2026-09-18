@@ -1,5 +1,6 @@
 import { logger } from './logger.js';
 import cron from 'node-cron';
+import { serviceLogService } from '../services/serviceLogService.js';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -133,6 +134,12 @@ export function startCronJobs(io: SocketIOServer) {
   cron.schedule('0 3 * * *', () => {
     // Cleanup job log disabled - console.log('Running cleanup job');
     cleanupOldFiles();
+    void serviceLogService
+      .purgeOlderThanDays(parseInt(process.env.SERVICE_LOG_RETENTION_DAYS || '14', 10))
+      .then((deleted) => {
+        if (deleted > 0) logger.info(`Purged ${deleted} old service_logs rows`, 'CLEANUP');
+      })
+      .catch(() => {});
   });
 
   // Stitch yesterday's raw timelapse frames into MP4s at 00:01 daily

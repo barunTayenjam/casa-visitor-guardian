@@ -59,6 +59,7 @@ class FFmpegReader:
         self._process: Optional[subprocess.Popen] = None
         self._thread: Optional[threading.Thread] = None
         self._callback = None
+        self.log_fn = None
         self._reconnect_delay = 1.0
         self._max_reconnect_delay = 30.0
 
@@ -70,8 +71,8 @@ class FFmpegReader:
 
         self._frame_size = self.width * self.height * 3
 
-    MAX_OUTPUT_WIDTH = 1280
-    MAX_OUTPUT_HEIGHT = 720
+    MAX_OUTPUT_WIDTH = 2560
+    MAX_OUTPUT_HEIGHT = 1440
 
     def _probe_resolution(self, fallback_w: int, fallback_h: int) -> tuple[int, int]:
         try:
@@ -172,7 +173,13 @@ class FFmpegReader:
             raw_bytes = self._process.stdout.read(self._frame_size)
             if not raw_bytes or len(raw_bytes) < self._frame_size:
                 if self.running:
-                    print(f"[FFmpegReader:{self.camera_id}] Short read / EOF — restarting")
+                    msg = "Short read / EOF — restarting"
+                    print(f"[FFmpegReader:{self.camera_id}] {msg}")
+                    if self.log_fn:
+                        try:
+                            self.log_fn("warn", "FFmpegReader", msg)
+                        except Exception:
+                            pass
                 break
 
             frame = np.frombuffer(raw_bytes, dtype=np.uint8).reshape(

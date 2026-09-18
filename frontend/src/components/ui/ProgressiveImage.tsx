@@ -8,6 +8,7 @@ interface ProgressiveImageProps {
   placeholderClassName?: string;
   onLoad?: (e?: React.SyntheticEvent<HTMLImageElement>) => void;
   onError?: () => void;
+  objectFit?: 'cover' | 'contain';
 }
 
 export function ProgressiveImage({
@@ -17,6 +18,7 @@ export function ProgressiveImage({
   placeholderClassName,
   onLoad,
   onError,
+  objectFit = 'cover',
 }: ProgressiveImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
@@ -58,7 +60,8 @@ export function ProgressiveImage({
           src={src}
           alt={alt}
           className={cn(
-            'w-full h-full object-cover transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'w-full h-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            objectFit === 'contain' ? 'object-contain' : 'object-cover',
             loaded ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-lg scale-105',
           )}
           onLoad={handleLoad}

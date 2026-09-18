@@ -1,0 +1,338 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "SentryVision Architecture",
+    "locale": "en",
+    "output": "architecture-diagram.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/barunTayenjam/casa-visitor-guardian",
+      "revision": "266cc9e75dcb535660f8d83c0fbc9c428faa7184"
+    },
+    "views": [
+      {
+        "id": "live-path",
+        "label": "Live video path",
+        "focus": [
+          "cameras",
+          "go2rtc",
+          "opencv",
+          "backend",
+          "browser"
+        ],
+        "note": "Follow live video from the camera lens to the browser."
+      },
+      {
+        "id": "event-path",
+        "label": "Event pipeline",
+        "focus": [
+          "opencv",
+          "imagestore",
+          "backend",
+          "postgres"
+        ],
+        "note": "From on-device detection to persisted, notified events."
+      },
+      {
+        "id": "ai-path",
+        "label": "On-demand AI analysis",
+        "focus": [
+          "backend",
+          "nvidia",
+          "postgres",
+          "imagestore"
+        ],
+        "note": "REST-triggered deep analysis of captured evidence."
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 5,
+    "cellW": 160,
+    "cellH": 132,
+    "gapX": 24,
+    "gapY": 52
+  },
+  "components": [
+    {
+      "id": "cameras",
+      "type": "external",
+      "label": "RTSP Cameras",
+      "sublabel": "cam1 + cam2",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "id": "go2rtc",
+      "type": "backend",
+      "label": "go2rtc",
+      "sublabel": ":1984 · RTSP · WebRTC",
+      "tag": "docker",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        {
+          "path": "go2rtc.yaml",
+          "label": "stream config"
+        }
+      ]
+    },
+    {
+      "id": "opencv",
+      "type": "backend",
+      "label": "Vision Service",
+      "sublabel": "Python · WS :9090 · YOLO",
+      "tag": "opencv",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        {
+          "path": "opencv-service/rtsp_ingestion/frame_pipeline.py",
+          "label": "ingest + detect"
+        }
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "Backend API",
+      "sublabel": "Express :9753 · socket.io",
+      "tag": "backend",
+      "row": 1,
+      "col": 3,
+      "sources": [
+        {
+          "path": "server/src/index.ts",
+          "label": "API + go2rtc proxy"
+        }
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Web App",
+      "sublabel": "React 18 + Vite",
+      "row": 1,
+      "col": 4,
+      "sources": [
+        {
+          "path": "frontend/src/hooks/useCameraStream.ts",
+          "label": "webrtc / mse / hls"
+        }
+      ]
+    },
+    {
+      "id": "nvidia",
+      "type": "cloud",
+      "label": "AI Endpoint",
+      "sublabel": "vision analysis API",
+      "tag": "NVIDIA_BASE_URL",
+      "row": 0,
+      "col": 4,
+      "sources": [
+        {
+          "path": "server/src/services/nvidia/nvidiaClient.ts",
+          "label": "chat/completions"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "15 · TypeORM + raw SQL",
+      "tag": "docker",
+      "row": 0,
+      "col": 3,
+      "sources": [
+        {
+          "path": "server/src/database.ts",
+          "label": "DataSource"
+        }
+      ]
+    },
+    {
+      "id": "imagestore",
+      "type": "database",
+      "label": "Detection Images",
+      "sublabel": "shared volume ./data",
+      "tag": "filesystem",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "label": "shared volumes"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Docker network · sentryvision_network",
+      "wraps": [
+        "go2rtc",
+        "opencv",
+        "backend",
+        "postgres",
+        "imagestore"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "from": "cameras",
+      "to": "go2rtc",
+      "label": "RTSP main + sub",
+      "variant": "emphasis",
+      "labelAt": [
+        192,
+        334
+      ]
+    },
+    {
+      "from": "go2rtc",
+      "to": "opencv",
+      "label": "RTSP cam{n}_low",
+      "width": 1.5,
+      "labelAt": [
+        376,
+        334
+      ]
+    },
+    {
+      "from": "opencv",
+      "to": "backend",
+      "label": "JPEG frames + events",
+      "variant": "emphasis",
+      "labelAt": [
+        560,
+        334
+      ]
+    },
+    {
+      "from": "backend",
+      "to": "browser",
+      "label": "REST /api + socket.io",
+      "variant": "emphasis",
+      "labelAt": [
+        744,
+        334
+      ]
+    },
+    {
+      "from": "opencv",
+      "to": "imagestore",
+      "label": "evidence JPEGs",
+      "variant": "dashed",
+      "labelAt": [
+        380,
+        202
+      ],
+      "via": [
+        [
+          468,
+          190
+        ],
+        [
+          284,
+          190
+        ]
+      ],
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "backend",
+      "to": "postgres",
+      "label": "TypeORM + raw SQL",
+      "labelAt": [
+        638,
+        170
+      ]
+    },
+    {
+      "from": "backend",
+      "to": "nvidia",
+      "label": "vision analysis (on-demand)",
+      "variant": "dashed",
+      "labelAt": [
+        760,
+        205
+      ]
+    },
+    {
+      "from": "go2rtc",
+      "to": "backend",
+      "label": "proxy /go2rtc",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          284,
+          372
+        ],
+        [
+          652,
+          372
+        ]
+      ],
+      "labelAt": [
+        430,
+        372
+      ]
+    },
+    {
+      "from": "backend",
+      "to": "opencv",
+      "label": "REST :8084 control",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "labelAt": [
+        712,
+        358
+      ]
+    },
+    {
+      "from": "backend",
+      "to": "imagestore",
+      "label": "bbox overlay + snapshots",
+      "variant": "dashed",
+      "labelAt": [
+        400,
+        148
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Video Path",
+      "items": [
+        "Python reads rtsp://go2rtc:8554/cam{n}_low over ffmpeg/TCP — never the camera directly",
+        "MOG2 motion gate → in-process YOLO ONNX → ByteTracker → face/pose identity"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "AI Analysis (on-demand)",
+      "items": [
+        "POST /api/nvidia/analyze* → base64 evidence to OpenAI-compatible /chat/completions (circuit breaker + retries)",
+        "Results upserted into ai_analysis_results and events metadata"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Delivery",
+      "items": [
+        "socket.io rooms camera-{id}-live / -detect relay frames; events trigger web-push (VAPID)",
+        "Browser plays WebRTC → MSE → HLS via the /go2rtc proxy, MJPEG fallback"
+      ]
+    }
+  ]
+}

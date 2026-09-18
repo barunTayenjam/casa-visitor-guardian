@@ -62,9 +62,10 @@ jest.mock('@/contexts/CameraContext', () => ({
   }),
 }));
 
-jest.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: jest.fn() }),
-}));
+jest.mock('@/hooks/use-toast', () => {
+  const mockToast = jest.fn();
+  return { useToast: () => ({ toast: mockToast }) };
+});
 
 import { eventService } from '@/services/api/eventService';
 
@@ -134,7 +135,7 @@ describe('EventsPage', () => {
       pagination: { totalPages: 1, totalEvents: 0 },
     });
     renderPage();
-    const empty = await screen.findByTestId('empty-state-wrapper');
+    const empty = await screen.findByTestId('empty-state');
     expect(empty).toBeInTheDocument();
   });
 });

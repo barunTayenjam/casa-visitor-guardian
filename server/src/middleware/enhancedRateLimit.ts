@@ -30,12 +30,19 @@ export class EnhancedRateLimit {
     const ip = forwarded
       ? forwarded.split(',')[0].trim()
       : req.ip || req.connection.remoteAddress || 'unknown';
-    return `rate_limit:${ip}:${req.path}`;
+    return `rate_limit:${ip}:${req.method}:${req.path}`;
   }
 
   middleware() {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
+        // Health endpoints must never be throttled — the Docker healthcheck
+        // probes them on a fixed interval and a 429 marks the container
+        // unhealthy.
+        if (/^\/(api\/)?health/.test(req.path)) {
+          next();
+          return;
+        }
         const key = this.options.keyGenerator(req);
 
         // Check rate limit using cache service
@@ -55,18 +62,17 @@ export class EnhancedRateLimit {
         if (!result.allowed) {
           // Rate limit exceeded
           res.status(429).json({
+            success: false,
             error: this.options.message,
             retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
           });
           return;
         }
 
-        // Track request for analytics
-        await cacheService.incrementCounter('requests_total');
-        await cacheService.incrementCounter(`requests_${req.method}_${req.path}`);
-
-        // Store request in cache for analytics (recent requests)
-        await cacheService.set(
+        // Fire-and-forget analytics writes — don't block the request
+        cacheService.incrementCounter('requests_total').catch(() => {});
+        cacheService.incrementCounter(`requests_${req.method}_${req.path}`).catch(() => {});
+        cacheService.set(
           `recent_request:${Date.now()}:${Math.random()}`,
           {
             ip: req.ip,
@@ -75,8 +81,8 @@ export class EnhancedRateLimit {
             userAgent: req.get('User-Agent'),
             timestamp: new Date().toISOString(),
           },
-          300, // 5 minutes
-        );
+          300,
+        ).catch(() => {});
 
         next();
       } catch (error) {

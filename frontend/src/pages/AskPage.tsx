@@ -98,7 +98,7 @@ function TableView({ table }: { table: ChatTable }) {
   return (
     <div className="mt-2 overflow-x-auto">
       {table.caption && (
-        <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{table.caption}</div>
+        <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{table.caption}</div>
       )}
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -106,7 +106,7 @@ function TableView({ table }: { table: ChatTable }) {
             {table.headers.map((h, i) => (
               <th
                 key={i}
-                className="border-b border-white/[0.10] bg-card px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                className="border-b border-white/[0.10] bg-card px-2.5 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
               >
                 {h}
               </th>
@@ -358,7 +358,7 @@ export default function AskPage() {
                           loading="lazy"
                           className="h-24 w-auto max-w-[220px] object-cover"
                         />
-                        <span className="block bg-card px-2 py-1 text-[10px] text-muted-foreground group-hover:text-foreground">
+                        <span className="block bg-card px-2 py-1 text-xs text-muted-foreground group-hover:text-foreground">
                           {img.caption}
                         </span>
                       </a>
@@ -368,7 +368,7 @@ export default function AskPage() {
                 {m.response?.tables.map((t, ti) => <TableView key={ti} table={t} />)}
                 {m.response && (
                   <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-2.5">
-                    <div className="text-[11px] leading-relaxed text-muted-foreground">
+                    <div className="text-xs leading-relaxed text-muted-foreground">
                       {m.response.evidence.sessions !== undefined &&
                         `~${m.response.evidence.sessions} visits · `}
                       {m.response.evidence.detections} detections · {m.response.evidence.events}{' '}
@@ -377,7 +377,7 @@ export default function AskPage() {
                         ` · cameras: ${m.response.evidence.cameras.join(', ')}`}
                     </div>
                     {m.response.caveat && (
-                      <div className="text-[11px] leading-relaxed text-muted-foreground/60">{m.response.caveat}</div>
+                      <div className="text-xs leading-relaxed text-muted-foreground/60">{m.response.caveat}</div>
                     )}
                   </div>
                 )}

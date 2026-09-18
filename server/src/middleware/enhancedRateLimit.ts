@@ -30,7 +30,7 @@ export class EnhancedRateLimit {
     const ip = forwarded
       ? forwarded.split(',')[0].trim()
       : req.ip || req.connection.remoteAddress || 'unknown';
-    return `rate_limit:${ip}:${req.path}`;
+    return `rate_limit:${ip}:${req.method}:${req.path}`;
   }
 
   middleware() {
@@ -62,18 +62,17 @@ export class EnhancedRateLimit {
         if (!result.allowed) {
           // Rate limit exceeded
           res.status(429).json({
+            success: false,
             error: this.options.message,
             retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
           });
           return;
         }
 
-        // Track request for analytics
-        await cacheService.incrementCounter('requests_total');
-        await cacheService.incrementCounter(`requests_${req.method}_${req.path}`);
-
-        // Store request in cache for analytics (recent requests)
-        await cacheService.set(
+        // Fire-and-forget analytics writes — don't block the request
+        cacheService.incrementCounter('requests_total').catch(() => {});
+        cacheService.incrementCounter(`requests_${req.method}_${req.path}`).catch(() => {});
+        cacheService.set(
           `recent_request:${Date.now()}:${Math.random()}`,
           {
             ip: req.ip,
@@ -82,8 +81,8 @@ export class EnhancedRateLimit {
             userAgent: req.get('User-Agent'),
             timestamp: new Date().toISOString(),
           },
-          300, // 5 minutes
-        );
+          300,
+        ).catch(() => {});
 
         next();
       } catch (error) {

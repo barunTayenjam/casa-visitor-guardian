@@ -290,7 +290,7 @@ class CacheService {
 
   async getCounter(key: string): Promise<number> {
     const value = await this.get(key);
-    return typeof value === 'number' ? value : 0;
+    return Number(value ?? 0);
   }
 }
 

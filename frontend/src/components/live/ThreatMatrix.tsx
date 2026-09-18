@@ -52,10 +52,10 @@ export const ThreatMatrix = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
+        <span className="text-xs uppercase tracking-[0.15em] font-medium text-muted-foreground">
           Threat Matrix
         </span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           Last 24h
         </span>
       </div>
@@ -72,7 +72,7 @@ export const ThreatMatrix = () => {
             <div className={cn('text-2xl font-semibold tabular-nums', threat.color)}>
               {loading ? '--' : threat.count}
             </div>
-            <div className="text-[9px] uppercase tracking-[0.1em] text-muted-foreground mt-1">
+            <div className="text-xs uppercase tracking-[0.1em] text-muted-foreground mt-1">
               {threat.label}
             </div>
           </div>

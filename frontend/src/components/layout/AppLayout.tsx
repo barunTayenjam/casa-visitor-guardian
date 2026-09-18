@@ -37,11 +37,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <div className="flex h-dvh flex-col bg-background">
       {/* Main content area - no padding, stream takes full space */}
-      <main className="relative flex-1 pb-12 min-h-0 overflow-hidden">
+      <main className="relative flex-1 pb-14 min-h-0 overflow-hidden">
         {children}
       </main>
-      
-      {/* SOC-style bottom navigation */}
+
+      {/* Apple-style translucent dock */}
       <MacDock />
     </div>
   );

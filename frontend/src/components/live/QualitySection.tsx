@@ -45,8 +45,8 @@ interface MetricItemProps {
 const MetricItem: React.FC<MetricItemProps> = ({ icon: Icon, label, value, status }) => (
   <div className="flex items-center gap-1.5" role="group" aria-label={`${label}: ${value}`}>
     <Icon className={cn('h-3 w-3', statusColors[status])} />
-    <span className="text-[10px] text-muted-foreground">{label}</span>
-    <span className={cn('text-[10px] font-mono font-medium', statusColors[status])}>{value}</span>
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <span className={cn('text-xs font-mono font-medium', statusColors[status])}>{value}</span>
   </div>
 );
 

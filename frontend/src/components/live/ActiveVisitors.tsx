@@ -79,10 +79,10 @@ export const ActiveVisitors = () => {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
+        <span className="text-xs uppercase tracking-[0.15em] font-medium text-muted-foreground">
           Active Visitors
         </span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {visitors.length} known
         </span>
       </div>
@@ -125,7 +125,7 @@ export const ActiveVisitors = () => {
                 <div className="text-xs text-foreground/90 font-medium truncate">
                   {visitor.name}
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{visitor.cameraName}</span>
                   <span>·</span>
                   <span>{formatTimeAgo(visitor.lastSeen)}</span>
@@ -133,7 +133,7 @@ export const ActiveVisitors = () => {
               </div>
 
               {/* Visit count */}
-              <div className="text-[10px] text-muted-foreground tabular-nums">
+              <div className="text-xs text-muted-foreground tabular-nums">
                 {visitor.visitCount}x
               </div>
             </div>

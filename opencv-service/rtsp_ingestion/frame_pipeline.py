@@ -115,8 +115,8 @@ class AdaptiveFrameProcessor:
     """Dynamically skip detection frames under high CPU load."""
 
     def __init__(self):
-        self.cpu_threshold_high = 80
-        self.cpu_threshold_low = 60
+        self.cpu_threshold_high = 60
+        self.cpu_threshold_low = 45
         self.skip_interval = 3
         self.frame_count = 0
         self.is_skipping = False
@@ -569,21 +569,22 @@ class FramePipeline:
         self._detect_width = detect_cfg.get("width", DETECT_WIDTH)
         self._detect_height = detect_cfg.get("height", DETECT_HEIGHT)
 
-        # Single reader on the camera's MAIN stream at native resolution
-        # (up to 2K). The TP-Link cameras allow only ONE RTSP connection, which
-        # go2rtc holds and re-streams internally — so we must use exactly one
-        # go2rtc stream per camera. The live preview is downscaled to
-        # LIVE_WIDTHxLIVE_HEIGHT inside _on_live_frame, so preview bandwidth is
-        # unchanged even though the reader captures full-res for detection and
-        # evidence snapshots. A fixed output size is required because the
-        # reader reads raw fixed-size frames off a pipe; if the source
-        # resolution changed mid-stream the byte stream would desync.
+        # Single reader on the go2rtc-internal low stream (720p H.264).
+        # The TP-Link cameras allow only ONE RTSP connection, which go2rtc
+        # holds and re-streams internally — so we must stay inside go2rtc.
+        # Detection runs on 640x360 and the live preview is downscaled to
+        # LIVE_WIDTHxLIVE_HEIGHT inside _on_live_frame, so reading the
+        # low stream (instead of native 2K) is lossless for both paths
+        # while cutting decode/pipe cost ~10x. A fixed output size is
+        # required because the reader reads raw fixed-size frames off a
+        # pipe; if the source resolution changed mid-stream the byte
+        # stream would desync.
         self._live_reader = FFmpegReader(
-            rtsp_url=f"{GO2RTC_RTSP_BASE}/{self._camera_id}",
+            rtsp_url=f"{GO2RTC_RTSP_BASE}/{self._camera_id}_low",
             camera_id=self._camera_id,
             width=detect_cfg.get("width", DEFAULT_WIDTH),
             height=detect_cfg.get("height", DEFAULT_HEIGHT),
-            fps=live_cfg.get("fps", DEFAULT_FPS),
+            fps=detect_cfg.get("fps", DEFAULT_FPS),
             scale=False,
         )
 

@@ -9,8 +9,7 @@ import { getEventPath } from '../config/paths.js';
 import { logger } from '../utils/logger.js';
 import { TrackingEvent } from '../services/pythonWsClient.js';
 import NotificationService from '../services/notificationService.js';
-
-const VEHICLE_CLASSES = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
+import { VEHICLE_CLASSES } from '../shared/constants.js';
 
 export interface SceneDetection {
   className: string;

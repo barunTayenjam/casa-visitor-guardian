@@ -34,13 +34,15 @@ const ViewportCameraCard: React.FC<{
       }
       return;
     }
-    (async () => {
-      await slotManager.acquire(camera.id);
-      if (!cancelled) {
-        acquiredRef.current = true;
-        setSlotAcquired(true);
-      }
-    })();
+      (async () => {
+        await slotManager.acquire(camera.id);
+        if (cancelled) {
+          slotManager.release(camera.id);
+        } else {
+          acquiredRef.current = true;
+          setSlotAcquired(true);
+        }
+      })();
     return () => {
       cancelled = true;
       if (acquiredRef.current) {
@@ -86,7 +88,6 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
   slideshowActive = false,
   onSlideshowChange,
 }) => {
-  const [layout, _setLayout] = useState<GridLayout>('adaptive');
   const [slideshowInterval, setSlideshowInterval] = useState(5);
   const slotManagerRef = useRef(new StreamSlotManager(SLOT_MANAGER_MAX));
   const focusedContainerRef = useRef<HTMLDivElement>(null);
@@ -141,9 +142,6 @@ export const AdaptiveCameraGrid: React.FC<AdaptiveCameraGridProps> = ({
 
   const getGridConfig = () => {
     if (focusedCameraId) return { columns: 1, rows: 1 };
-    if (layout === '1x1') return { columns: 1, rows: Math.max(1, cameraCount) };
-    if (layout === '2x2') return { columns: 2, rows: Math.ceil(cameraCount / 2) };
-    if (layout === '3x3') return { columns: 3, rows: Math.ceil(cameraCount / 3) };
     if (cameraCount === 1) return { columns: 1, rows: 1 };
     if (cameraCount === 2) return { columns: 2, rows: 1 };
     if (cameraCount <= 4) return { columns: 2, rows: 2 };

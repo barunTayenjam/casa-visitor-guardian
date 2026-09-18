@@ -329,7 +329,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               </div>
               <div className="grid grid-cols-7 gap-0.5 p-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                  <div key={i} className="text-center text-[10px] text-muted-foreground py-1">
+                  <div key={i} className="text-center text-xs text-muted-foreground py-1">
                     {day}
                   </div>
                 ))}
@@ -357,7 +357,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
                   );
                 })}
               </div>
-              <div className="p-2 hairline-top flex items-center justify-between text-[10px] text-muted-foreground">
+              <div className="p-2 hairline-top flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary/20" />
                   <span>Events</span>

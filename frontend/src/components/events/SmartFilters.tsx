@@ -218,11 +218,11 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               updateFilter('quickRange', value as FilterState['quickRange'])
             }
           >
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
               <Calendar className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Time" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
               {quickRangeOptions.map((option) => (
                 <SelectItem
                   key={option.value}
@@ -239,11 +239,11 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
             value={filters.cameraId}
             onValueChange={(value) => updateFilter('cameraId', value)}
           >
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
               <Camera className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Cameras" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
               <SelectItem value="all" className="rounded-[0.75rem] text-xs">
                 All Cameras
               </SelectItem>
@@ -261,10 +261,10 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               updateFilter('detectionType', value as FilterState['detectionType'])
             }
           >
-            <SelectTrigger className="w-full md:w-32 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.14] text-xs">
+            <SelectTrigger className="w-full md:w-32 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
               <SelectValue placeholder="Event Type" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
+            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
               <SelectItem value="all" className="rounded-[0.75rem] text-xs">
                 All Events
               </SelectItem>
@@ -307,7 +307,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.14]"
+              className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.16]"
               align="end"
             >
               <div className="p-3 hairline-bottom flex items-center justify-between">
@@ -329,7 +329,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               </div>
               <div className="grid grid-cols-7 gap-0.5 p-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                  <div key={i} className="text-center text-[10px] text-muted-foreground py-1">
+                  <div key={i} className="text-center text-xs text-muted-foreground py-1">
                     {day}
                   </div>
                 ))}
@@ -357,7 +357,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
                   );
                 })}
               </div>
-              <div className="p-2 hairline-top flex items-center justify-between text-[10px] text-muted-foreground">
+              <div className="p-2 hairline-top flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary/20" />
                   <span>Events</span>

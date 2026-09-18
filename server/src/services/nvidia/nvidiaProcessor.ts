@@ -154,6 +154,124 @@ export function parseAIResponse(
   }
 }
 
+export interface PercentBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface RawBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function parseRawBox(position: unknown): RawBox | null {
+  const num = (v: unknown): number => {
+    const n = typeof v === 'string' ? Number.parseFloat(v) : typeof v === 'number' ? v : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : NaN;
+  };
+
+  let x = NaN;
+  let y = NaN;
+  let w = NaN;
+  let h = NaN;
+
+  if (Array.isArray(position) && position.length >= 4) {
+    const y0 = num(position[0]);
+    const x0 = num(position[1]);
+    const y1 = num(position[2]);
+    const x1 = num(position[3]);
+    if ([x0, y0, x1, y1].every((v) => Number.isFinite(v))) {
+      x = x0;
+      y = y0;
+      w = x1 - x0;
+      h = y1 - y0;
+    }
+  } else if (typeof position === 'object' && position !== null) {
+    const pos = position as Record<string, unknown>;
+    const x0 = num(pos.x);
+    const y0 = num(pos.y);
+    const xw = num(pos.width);
+    const yh = num(pos.height);
+    if ([x0, y0, xw, yh].every((v) => Number.isFinite(v))) {
+      x = x0;
+      y = y0;
+      w = xw;
+      h = yh;
+    } else {
+      const xmin = num(pos.xmin);
+      const ymin = num(pos.ymin);
+      const xmax = num(pos.xmax);
+      const ymax = num(pos.ymax);
+      if ([xmin, ymin, xmax, ymax].every((v) => Number.isFinite(v))) {
+        x = xmin;
+        y = ymin;
+        w = xmax - xmin;
+        h = ymax - ymin;
+      }
+    }
+  }
+
+  if (![x, y, w, h].every((v) => Number.isFinite(v)) || w <= 0 || h <= 0) return null;
+  return { x, y, w, h };
+}
+
+export function normalizeModelBoxes(
+  positions: unknown[],
+  imgWidth?: number,
+  imgHeight?: number,
+): (PercentBox | null)[] {
+  const raws = positions.map(parseRawBox);
+  const valid = raws.filter((r): r is RawBox => r !== null);
+  if (valid.length === 0) return raws.map(() => null);
+
+  const maxCoord = Math.max(...valid.map((r) => Math.max(r.x, r.y, r.x + r.w, r.y + r.h)));
+  const asPixels = maxCoord > 1000 && imgWidth && imgHeight;
+
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+
+  return raws.map((r) => {
+    if (!r) return null;
+    let x = r.x;
+    let y = r.y;
+    let w = r.w;
+    let h = r.h;
+    if (asPixels) {
+      x = (x / imgWidth!) * 100;
+      w = (w / imgWidth!) * 100;
+      y = (y / imgHeight!) * 100;
+      h = (h / imgHeight!) * 100;
+    } else if (maxCoord > 100) {
+      x /= 10;
+      y /= 10;
+      w /= 10;
+      h /= 10;
+    }
+    x = clamp(x, 0, 100);
+    y = clamp(y, 0, 100);
+    w = clamp(w, 0, 100 - x);
+    h = clamp(h, 0, 100 - y);
+    if (w <= 0 || h <= 0) return null;
+    return {
+      x: Math.round(x * 10) / 10,
+      y: Math.round(y * 10) / 10,
+      width: Math.round(w * 10) / 10,
+      height: Math.round(h * 10) / 10,
+    };
+  });
+}
+
+export function normalizeBoxToPercent(
+  position: unknown,
+  imgWidth?: number,
+  imgHeight?: number,
+): PercentBox | null {
+  return normalizeModelBoxes([position], imgWidth, imgHeight)[0] ?? null;
+}
+
 export { buildResult };
 
 export async function drawBoundingBoxes(imagePath: string, boxes: BoundingBox[]): Promise<string> {

@@ -145,7 +145,10 @@ export async function fetchWithRetry(
     }
 
     if (retries > 0 && error instanceof Error && !error.message.includes('aborted')) {
-      console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
+      }
 
       if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
         await new Promise((resolve) => setTimeout(resolve, 5000));

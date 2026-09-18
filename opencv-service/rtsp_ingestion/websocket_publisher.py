@@ -43,6 +43,8 @@ class WebSocketPublisher:
         self._running = False
         self._on_live_start = None
         self._on_live_stop = None
+        self._clients: set = set()
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def set_live_callbacks(self, on_start, on_stop) -> None:
         self._on_live_start = on_start
@@ -61,11 +63,41 @@ class WebSocketPublisher:
 
     async def start(self) -> None:
         self._running = True
+        self._loop = asyncio.get_event_loop()
         self._server = await websockets.serve(
             self._handle_connection, self.host, self.port,
             ping_interval=30, ping_timeout=10,
         )
         print(f"[WebSocketPublisher] Listening on ws://{self.host}:{self.port}")
+
+    def queue_log(self, level: str, module: str, message: str, camera_id: str = None, **meta) -> None:
+        """Thread-safe: broadcast a log_event to all connected clients (e.g. Node backend)."""
+        try:
+            if self._loop is None or not self._clients:
+                return
+            payload = {
+                "type": "log_event",
+                "level": level,
+                "module": module,
+                "message": message,
+                "cameraId": camera_id,
+                "timestamp": time.time(),
+            }
+            if meta:
+                payload["metadata"] = meta
+            data = json.dumps(payload)
+            asyncio.run_coroutine_threadsafe(self._send_to_all(data), self._loop)
+        except Exception:
+            pass
+
+    async def _send_to_all(self, data: str) -> None:
+        dead: set = set()
+        for ws in list(self._clients):
+            try:
+                await ws.send(data)
+            except Exception:
+                dead.add(ws)
+        self._clients -= dead
 
     async def stop(self) -> None:
         self._running = False
@@ -79,6 +111,7 @@ class WebSocketPublisher:
 
     async def _handle_connection(self, ws: WebSocketServerProtocol) -> None:
         print(f"[WebSocketPublisher] Client connected: {ws.remote_address}")
+        self._clients.add(ws)
         client_subs: set[str] = set()
         try:
             async for raw_message in ws:
@@ -103,6 +136,7 @@ class WebSocketPublisher:
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
+            self._clients.discard(ws)
             for camera_id in client_subs:
                 self._subscriptions.get(camera_id, set()).discard(ws)
             print(f"[WebSocketPublisher] Client disconnected: {ws.remote_address}")
@@ -159,12 +193,17 @@ class WebSocketPublisher:
                     event_count += 1
                     if event_count <= 3 or event_count % 50 == 0:
                         print(f"[WebSocketPublisher] Broadcasting event #{event_count} for {camera_id}: type={ev.get('event', '?')} class={ev.get('class', '?')}")
-                    await self._broadcast(camera_id, {
-                        "type": "event",
-                        "cameraId": camera_id,
-                        "timestamp": time.time(),
-                        **ev,
-                    })
+                    # A single unserializable event must never kill this task —
+                    # that silently stops ALL event delivery for the camera.
+                    try:
+                        await self._broadcast(camera_id, {
+                            "type": "event",
+                            "cameraId": camera_id,
+                            "timestamp": time.time(),
+                            **ev,
+                        })
+                    except Exception as e:
+                        print(f"[WebSocketPublisher] Skipped unserializable event #{event_count} for {camera_id} ({e!r}): { {k: type(v).__name__ for k, v in ev.items() if not isinstance(v, (str, int, float, bool, type(None), list, dict))} }")
 
             # Then send latest frame
             try:

@@ -15,9 +15,13 @@ import { retentionPolicyService } from '../services/retentionPolicyService.js';
 import { automatedCleanupService } from '../services/automatedCleanupService.js';
 import NotificationService from '../services/notificationService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
+import { serviceLogService } from '../services/serviceLogService.js';
 import { inMemoryState } from '../services/inMemoryStateService.js';
 import { PythonWsClient, TrackingEvent } from '../services/pythonWsClient.js';
 import { persistDetectionEvent } from '../pipeline/detectionPersistence.js';
+import { SceneTracker } from '../pipeline/sceneTracker.js';
+import { BroadcastGate } from '../pipeline/broadcastGate.js';
+import { TrackDeduplicator } from '../pipeline/trackDeduplicator.js';
 import { ReviewSegment } from '../models/ReviewSegment.js';
 import { UserReviewStatus } from '../models/UserReviewStatus.js';
 import { Timeline } from '../models/Timeline.js';
@@ -50,11 +54,30 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     pythonWsClient.connect();
     serviceRegistry.setPythonWsClient(pythonWsClient);
 
-    const persistedTracks = new Set<string>();
-    const lastSavedPerCameraClass = new Map<
-      string,
-      { bbox: { x: number; y: number; w: number; h: number }; ts: number }
-    >();
+    const sceneTracker = new SceneTracker();
+    const broadcastGate = new BroadcastGate();
+    const trackDeduplicator = new TrackDeduplicator();
+
+    pythonWsClient.on(
+      'logEvent',
+      (ev: {
+        level: string;
+        module?: string;
+        message?: string;
+        cameraId?: string;
+        metadata?: Record<string, unknown>;
+      }) => {
+        const level = ev.level === 'error' ? 'error' : ev.level === 'info' ? 'info' : 'warn';
+        serviceLogService.recordLog({
+          service: 'opencv',
+          level,
+          module: ev.module,
+          cameraId: ev.cameraId ?? undefined,
+          message: ev.message ?? '',
+          metadata: ev.metadata,
+        });
+      },
+    );
 
     pythonWsClient.on('trackingEvent', (ev: TrackingEvent) => {
       const {
@@ -69,18 +92,15 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
       } = ev;
       if (!cameraId) return;
 
-      const BROADCAST_MIN_SCORE = 0.5;
-      const broadcastWorthy = (score ?? 0) >= BROADCAST_MIN_SCORE;
+      if (eventType === 'track_ended') {
+        sceneTracker.clearTrack(cameraId, trackId);
+        return;
+      }
 
-      if ((eventType === 'track_started' || eventType === 'track_updated') && broadcastWorthy) {
-        const detection = {
-          class: className,
-          confidence: Math.round(score * 100),
-          bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
-          trackId,
-          identity,
-          identityConfidence,
-        };
+      sceneTracker.track(ev);
+
+      if (broadcastGate.shouldBroadcast(ev)) {
+        const detection = broadcastGate.createDetection(ev);
 
         if (className === 'person') {
           io.emit('personDetected', {
@@ -113,60 +133,24 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
         });
       }
 
-      const trackKey = `${cameraId}:${trackId}`;
-      if (
-        !persistedTracks.has(trackKey) &&
-        (eventType === 'track_started' || eventType === 'track_updated')
-      ) {
-        const sceneKey = `${cameraId}:${className}`;
-        const prev = lastSavedPerCameraClass.get(sceneKey);
-        const now = Date.now();
-
-        if (prev && className !== 'person') {
-          const dx = Math.abs((bbox[0] ?? 0) - prev.bbox.x);
-          const dy = Math.abs((bbox[1] ?? 0) - prev.bbox.y);
-          const dw = Math.abs((bbox[2] ?? 0) - prev.bbox.w);
-          const dh = Math.abs((bbox[3] ?? 0) - prev.bbox.h);
-          const bboxShift = Math.sqrt(dx * dx + dy * dy + dw * dw + dh * dh);
-          const elapsed = now - prev.ts;
-
-          if (bboxShift < 80 && elapsed < 10 * 60 * 1000) {
-            persistedTracks.add(trackKey);
-            return;
-          }
-        }
-
-        if (className !== 'person') {
-          lastSavedPerCameraClass.set(sceneKey, {
-            bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, w: bbox[2] ?? 0, h: bbox[3] ?? 0 },
-            ts: now,
-          });
-          return;
-        }
-
-        const minPersonConfidence = parseFloat(process.env.PERSON_MIN_CONFIDENCE || '0.45');
-        if ((score ?? 0) < minPersonConfidence) {
-          persistedTracks.add(trackKey);
-          return;
-        }
-
-        persistedTracks.add(trackKey);
-        persistDetectionEvent(ev).catch((err: unknown) => {
+      if (trackDeduplicator.shouldPersist(ev)) {
+        trackDeduplicator.markPersisted(ev);
+        persistDetectionEvent(ev, sceneTracker.snapshot(cameraId)).catch((err: unknown) => {
           logger.error(`Failed to persist detection event for ${cameraId}`, 'INIT', err);
         });
       }
 
-      if (eventType === 'track_started' && broadcastWorthy) {
+      if (eventType === 'track_started' && broadcastGate.isBroadcastWorthy(score)) {
         io.emit('motionDetected', {
           id: `track_${trackId}_${Date.now()}`,
           cameraId,
           timestamp: new Date(ev.timestamp).toISOString(),
-          confidence: Math.round(score * 100),
+          confidence: Math.round((score ?? 0) * 100),
           labels: [className],
           detections: [
             {
               class: className,
-              confidence: Math.round(score * 100),
+              confidence: Math.round((score ?? 0) * 100),
               bbox: { x: bbox[0] ?? 0, y: bbox[1] ?? 0, width: bbox[2] ?? 0, height: bbox[3] ?? 0 },
               trackId,
             },

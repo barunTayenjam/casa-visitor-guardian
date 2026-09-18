@@ -167,36 +167,32 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm">
         {/* Eyebrow */}
-        <div className="text-center mb-10 animate-fade-in-up">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground mb-5">
-            Security Platform
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs uppercase tracking-[0.15em] font-medium text-primary mb-5">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Security Operations Center
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">SentryVision</h1>
-          <p className="text-sm text-muted-foreground">Secure your home with advanced monitoring</p>
+          <h1 className="text-4xl font-semibold tracking-tight mb-2">SentryVision</h1>
+          <p className="text-sm text-muted-foreground">Self-hosted AI security monitoring</p>
         </div>
 
-        {/* Double-Bezel Card */}
-        <div
-          className="p-[1px] rounded-[4px] bg-white/[0.06] animate-fade-in-up"
-          style={{ animationDelay: '150ms' }}
-        >
-          <div className="rounded-[calc(1.75rem-1px)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
-            <div className="p-6">
+        {/* SOC Card with proper materials */}
+        <div className="rounded-2xl bg-[#111113]/95 backdrop-blur-xl border border-white/[0.10] shadow-2xl shadow-black/30">
+          <div className="p-6">
+              {user?.role === 'admin' ? (
               <Tabs defaultValue="login" className="w-full">
-                <TabsList
-                  className={`grid w-full ${user?.role === 'admin' ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}
-                >
+                <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="login" className="text-xs">
                     Sign In
                   </TabsTrigger>
-                  {user?.role === 'admin' && (
-                    <TabsTrigger value="register" className="text-xs">
-                      Sign Up
-                    </TabsTrigger>
-                  )}
+                  <TabsTrigger value="register" className="text-xs">
+                    Sign Up
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="login">
@@ -210,7 +206,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="mfa-code"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Verification Code
                         </Label>
@@ -221,7 +217,7 @@ export default function Login() {
                           onChange={(e) =>
                             setMfaChallengeCode(e.target.value.replace(/\D/g, '').slice(0, 6))
                           }
-                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 text-center text-lg tracking-widest"
+                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 text-center text-lg tracking-widest"
                           placeholder="000000"
                           disabled={mfaSubmitting}
                           maxLength={6}
@@ -260,7 +256,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="username"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Username
                         </Label>
@@ -269,7 +265,7 @@ export default function Login() {
                           type="text"
                           value={loginData.username}
                           onChange={(e) => handleLoginChange('username', e.target.value)}
-                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
                           placeholder="Enter your username"
                           disabled={isLoading}
                         />
@@ -281,7 +277,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Password
                         </Label>
@@ -291,7 +287,7 @@ export default function Login() {
                             type={showLoginPassword ? 'text' : 'password'}
                             value={loginData.password}
                             onChange={(e) => handleLoginChange('password', e.target.value)}
-                            className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
                             placeholder="Enter your password"
                             disabled={isLoading}
                           />
@@ -315,7 +311,7 @@ export default function Login() {
                       </div>
 
                       {error && (
-                        <Alert className="bg-destructive/10 border-destructive/20 text-destructive rounded-[0.75rem]">
+                        <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
                           <AlertDescription className="text-xs">{error}</AlertDescription>
                         </Alert>
                       )}
@@ -329,7 +325,7 @@ export default function Login() {
                         ) : (
                           <div className="flex items-center gap-2">
                             Sign In
-                            <span className="w-6 h-6 rounded-full bg-black/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                            <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
                               <svg
                                 className="w-3.5 h-3.5"
                                 fill="none"
@@ -363,7 +359,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="reg-username"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Username
                         </Label>
@@ -372,7 +368,7 @@ export default function Login() {
                           type="text"
                           value={registerData.username}
                           onChange={(e) => handleRegisterChange('username', e.target.value)}
-                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
                           placeholder="Choose a username"
                           disabled={isLoading}
                         />
@@ -384,7 +380,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="email"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Email
                         </Label>
@@ -393,7 +389,7 @@ export default function Login() {
                           type="email"
                           value={registerData.email}
                           onChange={(e) => handleRegisterChange('email', e.target.value)}
-                          className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11"
+                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
                           placeholder="Enter your email"
                           disabled={isLoading}
                         />
@@ -405,7 +401,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="role"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Role
                         </Label>
@@ -416,10 +412,10 @@ export default function Login() {
                           }
                           disabled={isLoading}
                         >
-                          <SelectTrigger className="bg-white/[0.06] border-white/[0.14] text-foreground rounded-[0.75rem] h-11">
+                          <SelectTrigger className="bg-white/[0.06] border-white/[0.16] text-foreground rounded-[0.75rem] h-11">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.14] rounded-[1.25rem]">
+                          <SelectContent className="bg-card border-white/[0.10] rounded-[0.5rem]">
                             <SelectItem value="viewer" className="rounded-[0.75rem]">
                               Viewer - View only access
                             </SelectItem>
@@ -436,7 +432,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="reg-password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Password
                         </Label>
@@ -446,7 +442,7 @@ export default function Login() {
                             type={showRegisterPassword ? 'text' : 'password'}
                             value={registerData.password}
                             onChange={(e) => handleRegisterChange('password', e.target.value)}
-                            className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
                             placeholder="Create a password"
                             disabled={isLoading}
                           />
@@ -472,7 +468,7 @@ export default function Login() {
                       <div className="space-y-2">
                         <Label
                           htmlFor="confirm-password"
-                          className="text-xs text-foreground/70 uppercase tracking-[0.08em] font-medium"
+                          className="text-sm text-foreground/70 font-medium"
                         >
                           Confirm Password
                         </Label>
@@ -484,7 +480,7 @@ export default function Login() {
                             onChange={(e) =>
                               handleRegisterChange('confirmPassword', e.target.value)
                             }
-                            className="bg-white/[0.06] border-white/[0.14] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.15] rounded-[0.75rem] h-11 pr-11"
+                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
                             placeholder="Confirm your password"
                             disabled={isLoading}
                           />
@@ -510,35 +506,33 @@ export default function Login() {
                       </div>
 
                       {error && (
-                        <Alert className="bg-destructive/10 border-destructive/20 text-destructive rounded-[0.75rem]">
+                        <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
                           <AlertDescription className="text-xs">{error}</AlertDescription>
                         </Alert>
                       )}
 
-                      <Button type="submit" className="w-full h-11 group" disabled={isLoading}>
+                      <Button type="submit" variant="destructive" className="w-full h-11 group" disabled={isLoading}>
                         {isLoading ? (
                           <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />
                             Creating account...
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                              />
+                            </svg>
                             Create Account
-                            <span className="w-6 h-6 rounded-full bg-black/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                                />
-                              </svg>
-                            </span>
                           </div>
                         )}
                       </Button>
@@ -546,15 +540,165 @@ export default function Login() {
                   )}
                 </TabsContent>
               </Tabs>
+              ) : (
+                mfaStep ? (
+                  <form onSubmit={handleMfaChallenge} className="space-y-4">
+                    <div className="text-center mb-4">
+                      <p className="text-sm text-muted-foreground">
+                        Enter the verification code from your authenticator app
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="mfa-code"
+                        className="text-sm text-foreground/70 font-medium"
+                      >
+                        Verification Code
+                      </Label>
+                      <Input
+                        id="mfa-code"
+                        type="text"
+                        value={mfaChallengeCode}
+                        onChange={(e) =>
+                          setMfaChallengeCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
+                        className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 text-center text-lg tracking-widest"
+                        placeholder="000000"
+                        disabled={mfaSubmitting}
+                        maxLength={6}
+                        autoFocus
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full h-11"
+                      disabled={mfaChallengeCode.length < 6 || mfaSubmitting}
+                    >
+                      {mfaSubmitting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                          Verifying...
+                        </div>
+                      ) : (
+                        'Verify & Sign In'
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-xs text-muted-foreground"
+                      onClick={() => {
+                        setMfaStep(false);
+                        setMfaPendingToken('');
+                        setMfaChallengeCode('');
+                      }}
+                    >
+                      Back to login
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="username"
+                        className="text-sm text-foreground/70 font-medium"
+                      >
+                        Username
+                      </Label>
+                      <Input
+                        id="username"
+                        type="text"
+                        value={loginData.username}
+                        onChange={(e) => handleLoginChange('username', e.target.value)}
+                        className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
+                        placeholder="Enter your username"
+                        disabled={isLoading}
+                      />
+                      {validationErrors.username && (
+                        <p className="text-xs text-destructive">{validationErrors.username}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="password"
+                        className="text-sm text-foreground/70 font-medium"
+                      >
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showLoginPassword ? 'text' : 'password'}
+                          value={loginData.password}
+                          onChange={(e) => handleLoginChange('password', e.target.value)}
+                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
+                          placeholder="Enter your password"
+                          disabled={isLoading}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          disabled={isLoading}
+                          aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showLoginPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      {validationErrors.password && (
+                        <p className="text-xs text-destructive">{validationErrors.password}</p>
+                      )}
+                    </div>
+
+                    {error && (
+                      <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
+                        <AlertDescription className="text-xs">{error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <Button type="submit" className="w-full h-11 group" disabled={isLoading}>
+                      {isLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                          Signing in...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          Sign In
+                          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17 8l4 4m0 0l-4 4m4-4H3"
+                              />
+                            </svg>
+                          </span>
+                        </div>
+                      )}
+                    </Button>
+                  </form>
+                )
+              )}
             </div>
 
             <div className="px-6 pb-5 text-center">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground/60">
                 By continuing, you agree to our Terms of Service and Privacy Policy
               </p>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

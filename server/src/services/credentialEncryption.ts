@@ -59,7 +59,7 @@ export function encryptCredential(plaintext: string): EncryptedCredential {
     };
   } catch (error) {
     logger.error('Failed to encrypt credential', 'CredentialEncryption', error);
-    throw new Error('Credential encryption failed');
+    throw new Error('Credential encryption failed', { cause: error });
   }
 }
 
@@ -78,7 +78,7 @@ export function decryptCredential(encrypted: EncryptedCredential): string {
     return decrypted;
   } catch (error) {
     logger.error('Failed to decrypt credential', 'CredentialEncryption', error);
-    throw new Error('Credential decryption failed');
+    throw new Error('Credential decryption failed', { cause: error });
   }
 }
 

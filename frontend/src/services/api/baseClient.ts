@@ -146,7 +146,7 @@ export async function fetchWithRetry(
 
     if (retries > 0 && error instanceof Error && !error.message.includes('aborted')) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
       }
 

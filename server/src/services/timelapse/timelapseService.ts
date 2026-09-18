@@ -192,7 +192,7 @@ export class TimelapseService {
     deleteRaws = true,
   ): Promise<{ count: number; path: string; deleted: number }> {
     const dir = this.getRawDir(cameraId, date);
-    let files: string[] = [];
+    let files: string[];
     try {
       files = (await fs.readdir(dir)).filter((f) => f.endsWith('.jpg')).sort();
     } catch {
@@ -428,7 +428,7 @@ export class TimelapseService {
     cutoff: number,
     onDelete: (n: number) => void,
   ): Promise<void> {
-    let entries: string[] = [];
+    let entries: string[];
     try {
       entries = await fs.readdir(dir);
     } catch {
@@ -453,7 +453,7 @@ export class TimelapseService {
   }
 
   private async cleanupRawTree(rawRoot: string, cutoff: number): Promise<void> {
-    let dateDirs: string[] = [];
+    let dateDirs: string[];
     try {
       dateDirs = await fs.readdir(rawRoot);
     } catch {

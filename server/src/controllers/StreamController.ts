@@ -128,7 +128,9 @@ export class StreamController extends BaseController {
         try {
           res.write(`--${boundary}--\r\n`);
           res.end();
-        } catch {}
+        } catch {
+          /* client already disconnected */
+        }
       });
       req.on('aborted', () => {
         isActive = false;
@@ -190,7 +192,9 @@ export class StreamController extends BaseController {
         try {
           res.write(`--${boundary}--\r\n`);
           res.end();
-        } catch {}
+        } catch {
+          /* client already disconnected */
+        }
       });
       req.on('aborted', () => {
         isActive = false;
@@ -252,7 +256,9 @@ export class StreamController extends BaseController {
         try {
           res.write(`--${boundary}--\r\n`);
           res.end();
-        } catch {}
+        } catch {
+          /* client already disconnected */
+        }
       });
       req.on('aborted', () => {
         isActive = false;

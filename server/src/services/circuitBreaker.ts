@@ -15,15 +15,17 @@ export class CircuitBreaker {
   private lastFailureTime: number = 0;
   private options: CircuitBreakerOptions;
   private serviceName: string;
+  private cooldownMs: number;
 
   constructor(serviceName: string, options: CircuitBreakerOptions) {
     this.serviceName = serviceName;
     this.options = options;
+    this.cooldownMs = options.cooldownMs;
   }
 
   async execute<T>(action: () => Promise<T>): Promise<T> {
     if (this.state === 'OPEN') {
-      if (Date.now() - this.lastFailureTime > this.options.cooldownMs) {
+      if (Date.now() - this.lastFailureTime > this.cooldownMs) {
         this.state = 'HALF_OPEN';
         this.failures = 0;
         this.successes = 0;
@@ -53,6 +55,7 @@ export class CircuitBreaker {
         this.state = 'CLOSED';
         this.failures = 0;
         this.successes = 0;
+        this.cooldownMs = this.options.cooldownMs;
         logger.info(
           `Circuit breaker for ${this.serviceName} changed state to CLOSED`,
           'CircuitBreaker',
@@ -74,8 +77,9 @@ export class CircuitBreaker {
       );
     } else if (this.state === 'HALF_OPEN') {
       this.state = 'OPEN';
+      this.cooldownMs = Math.min(this.cooldownMs * 2, this.options.cooldownMs * 8);
       logger.warn(
-        `Circuit breaker for ${this.serviceName} changed state to OPEN`,
+        `Circuit breaker for ${this.serviceName} changed state to OPEN (cooldown ${this.cooldownMs}ms)`,
         'CircuitBreaker',
       );
     }

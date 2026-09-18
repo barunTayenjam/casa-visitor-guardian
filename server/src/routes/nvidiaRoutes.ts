@@ -29,7 +29,9 @@ router.get('/health', (req, res) => nvidiaController.health(req, res));
 router.get('/status', (req, res) => nvidiaController.health(req, res));
 router.get('/results', authenticate(), (req, res) => nvidiaController.getResults(req, res));
 router.get('/models', authenticate(), (req, res) => nvidiaController.getModels(req, res));
-router.put('/config', authenticate(), (req, res) => nvidiaController.updateConfig(req, res));
+router.put('/config', authenticate({ roles: ['admin'] }), (req, res) =>
+  nvidiaController.updateConfig(req, res),
+);
 router.post('/analyze-with-bboxes', authenticate(), validateBody(analysisSchema), (req, res) =>
   nvidiaController.analyzeWithBboxes(req, res),
 );

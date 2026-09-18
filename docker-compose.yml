@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: sentryvision-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/migrations:/docker-entrypoint-initdb.d
@@ -125,8 +125,8 @@ services:
       dockerfile: Dockerfile
     container_name: sentryvision-opencv
     ports:
-      - "0.0.0.0:8084:8084"
-      - "0.0.0.0:9090:9090"
+      - "127.0.0.1:8084:8084"
+      - "127.0.0.1:9090:9090"
     environment:
       - PORT=8084
       - FLASK_ENV=production
@@ -143,6 +143,8 @@ services:
       - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
       - HUMAN_VERIFIER_SCORE=${HUMAN_VERIFIER_SCORE:-0.55}
       - HUMAN_VERIFIER_NIGHT_SCORE=${HUMAN_VERIFIER_NIGHT_SCORE:-0.55}
+      - OMP_NUM_THREADS=2
+      - OPENCV_NUM_THREADS=2
     devices:
       - /dev/dri:/dev/dri
     volumes:
@@ -185,7 +187,7 @@ services:
     image: alexxit/go2rtc:1.9.14
     container_name: sentryvision-go2rtc
     ports:
-      - "0.0.0.0:1984:1984"
+      - "127.0.0.1:1984:1984"
       - "0.0.0.0:8555:8555/tcp"
       - "0.0.0.0:8555:8555/udp"
     volumes:

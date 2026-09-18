@@ -1,15 +1,14 @@
 import { Express, Request, Response } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'node:path';
-import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { createApiRateLimit } from '../middleware/enhancedRateLimit.js';
 import { requireUser, requireAdmin, optionalAuth } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
-import { AppDataSource } from '../database.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { streamController } from '../controllers/StreamController.js';
 import { systemController } from '../controllers/SystemController.js';
+import { detectionImageController } from '../controllers/DetectionImageController.js';
 
 import authRoutes from './auth.js';
 import cameraRoutes from './cameras.js';
@@ -46,49 +45,6 @@ function validateCameraIdParam(cameraId: string, res: Response): boolean {
     return false;
   }
   return true;
-}
-
-const parseTimestampFromFilename = (filename: string): number => {
-  const parts = filename.split('_');
-  if (parts.length >= 3) {
-    const timestampPart = parts[2]?.split('.')[0];
-    if (timestampPart) {
-      const cleanTimestampPart = timestampPart.replace(/Z$/, '');
-      const numericTimestamp = parseInt(cleanTimestampPart, 10);
-      if (
-        !isNaN(numericTimestamp) &&
-        /^\d+$/.test(cleanTimestampPart) &&
-        cleanTimestampPart.length > 4
-      ) {
-        const parsedDate = new Date(numericTimestamp);
-        if (!isNaN(parsedDate.getTime())) return parsedDate.getTime();
-      } else if (timestampPart.includes('T')) {
-        const [datePart, timePartWithZ] = timestampPart.split('T');
-        if (datePart && timePartWithZ) {
-          const timeParts = timePartWithZ.split('-');
-          let ms = 0,
-            formattedTime = '';
-          if (timeParts.length === 4) {
-            ms = parseInt(timeParts[3].replace('Z', ''), 10);
-            formattedTime = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}.${ms}Z`;
-          } else if (timeParts.length === 3) {
-            formattedTime = timeParts[2].includes('Z')
-              ? `${timeParts[0]}:${timeParts[1]}:${timeParts[2].replace('Z', '')}Z`
-              : `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}Z`;
-          }
-          if (formattedTime) {
-            const parsedDate = new Date(`${datePart}T${formattedTime}`);
-            if (!isNaN(parsedDate.getTime())) return parsedDate.getTime();
-          }
-        }
-      }
-    }
-  }
-  return 0;
-};
-
-function getStreamManager() {
-  return serviceRegistry.getStreamManager();
 }
 
 logger.info('Configuring main API routes', 'ROUTES');
@@ -131,113 +87,14 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   );
 
   // Detection image with overlays
-  app.get('/detections/image/:imageId', optionalAuth, async (req: Request, res: Response) => {
-    try {
-      const { imageId } = req.params;
-      const { overlays } = req.query;
-      const dataSource = serviceRegistry.getAppDataSource();
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        imageId,
-      );
-      if (!isUuid && !imageId.includes('.')) {
-        return res.status(400).json({ success: false, error: 'Invalid image ID format' });
-      }
-
-      const detectionFields =
-        overlays === 'true'
-          ? `COALESCE(e.object_detections, '[]') as object_detections, COALESCE(e.face_detections, '[]') as face_detections,`
-          : '';
-
-      const results = await dataSource.query(
-        `SELECT COALESCE(df.file_uuid::text, e.id::text) as file_uuid, COALESCE(df.storage_path, e.file_path) as file_path, COALESCE(df.storage_path, e.file_path) as imagePath, COALESCE(df.metadata, e.metadata) as metadata, COALESCE(df.camera_id, e.camera_id) as camera_id, ${detectionFields} COALESCE(df.original_filename, e.file_path) as original_filename FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename WHERE df.file_uuid = $1 OR e.file_path = $1 OR df.original_filename = $1 ORDER BY COALESCE(df.created_at, e.created_at) DESC LIMIT 1`,
-        [imageId],
-      );
-
-      if (results.length === 0) {
-        res.status(404).json({ success: false, error: 'Detection image not found' });
-        return;
-      }
-
-      const detection = results[0];
-      let imagePath = detection.storage_path;
-      if (!path.isAbsolute(imagePath))
-        imagePath = path.join(process.cwd(), 'data', 'detections', imagePath);
-      if (!fs.existsSync(imagePath)) {
-        res.status(404).json({ success: false, error: 'Image file not found on disk' });
-        return;
-      }
-
-      if (overlays === 'true') {
-        const sharp = (await import('sharp')).default;
-        const objectDetections: Array<Record<string, unknown>> =
-          typeof detection.object_detections === 'string'
-            ? JSON.parse(detection.object_detections)
-            : detection.object_detections || [];
-        const faceDetections: Array<Record<string, unknown>> =
-          typeof detection.face_detections === 'string'
-            ? JSON.parse(detection.face_detections)
-            : detection.face_detections || [];
-        const allDetections = [...objectDetections, ...faceDetections];
-
-        if (allDetections.length > 0) {
-          const svgOverlays = allDetections
-            .map((d, i) => {
-              const box = (d.box || d.bounding_box || d.box) as Record<string, number> | undefined;
-              if (!box) return '';
-              const x = box.x ?? box.xmin ?? 0;
-              const y = box.y ?? box.ymin ?? 0;
-              const w = box.w ?? box.width ?? (box.xmax ? box.xmax - x : 0);
-              const h = box.h ?? box.height ?? (box.ymax ? box.ymax - y : 0);
-              const label = (d.label || d.class || 'unknown') as string;
-              const conf = d.confidence ? `${Math.round((d.confidence as number) * 100)}%` : '';
-              const color = i % 2 === 0 ? '#00ff00' : '#ff4444';
-              return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${color}" stroke-width="3"/><text x="${x}" y="${y - 5}" fill="${color}" font-size="16" font-family="monospace">${label} ${conf}</text>`;
-            })
-            .filter(Boolean)
-            .join('\n');
-
-          const overlaidImage = await sharp(imagePath)
-            .composite([
-              {
-                input: Buffer.from(
-                  `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">${svgOverlays}</svg>`,
-                ),
-                top: 0,
-                left: 0,
-              },
-            ])
-            .jpeg({ quality: 90 })
-            .toBuffer();
-          res.set('Content-Type', 'image/jpeg');
-          return res.send(overlaidImage);
-        }
-      }
-
-      res.json({
-        success: true,
-        imageUrl: `/events/${detection.original_filename}`,
-        imagePath: detection.storage_path,
-        metadata: detection.metadata ? JSON.parse(detection.metadata) : null,
-        overlaysEnabled: overlays === 'true',
-      });
-    } catch (error) {
-      logger.error('Error getting detection image', 'API', error);
-      res.status(500).json({ success: false, error: 'Failed to get detection image' });
-    }
-  });
+  app.get('/detections/image/:imageId', optionalAuth, (req: Request, res: Response) =>
+    detectionImageController.getImageWithOverlay(req, res),
+  );
 
   // Snapshots list
-  app.get('/api/snapshots/list', optionalAuth, async (req: Request, res: Response) => {
-    try {
-      const results = await AppDataSource.query(
-        `SELECT COALESCE(df.storage_path, e.file_path) as file_path, COALESCE(df.capture_timestamp, e.timestamp) as timestamp FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename WHERE COALESCE(df.file_type, e.event_type) = 'snapshot' ORDER BY COALESCE(df.capture_timestamp, e.timestamp) DESC LIMIT 1000`,
-      );
-      res.json({ success: true, files: results.map((row: any) => row.file_path) });
-    } catch (error) {
-      logger.error('Error listing snapshots', 'API', error);
-      res.status(500).json({ success: false, error: 'Failed to list snapshots' });
-    }
-  });
+  app.get('/api/snapshots/list', optionalAuth, (req: Request, res: Response) =>
+    detectionImageController.listSnapshots(req, res),
+  );
 
   // Domain routers
   app.use('/api/auth', authRoutes);

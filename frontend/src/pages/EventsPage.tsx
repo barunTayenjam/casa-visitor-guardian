@@ -90,31 +90,35 @@ const EventsPage = () => {
 
   // Load existing analysis if not in state
   useEffect(() => {
-    if (selectedEventId && !analysisByEvent[selectedEventId]) {
-      detectionService
-        .getEventAnalysis(selectedEventId)
-        .then((res) => {
-          if (res.analysis) {
-            const a = res.analysis;
-            setAnalysisByEvent((prev) => ({
-              ...prev,
-              [selectedEventId]: {
-                sceneDescription: a.sceneDescription || '',
-                summary: a.summary || a.sceneDescription || '',
-                threatAssessment: a.threatAssessment,
-                detectedEntities: a.detectedEntities,
-                recommendedActions: a.recommendedActions,
-                modelUsed: a.model,
-                processingTime: a.processing_time_ms || 0,
-                boxes: res.boxes?.length ? res.boxes : undefined,
-              },
-            }));
-          }
-        })
-        .catch(() => {
-          // stored analysis unavailable — panel simply stays empty until analyzed
-        });
-    }
+    if (!selectedEventId || analysisByEvent[selectedEventId]) return;
+
+    let cancelled = false;
+    detectionService
+      .getEventAnalysis(selectedEventId)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.analysis) {
+          const a = res.analysis;
+          setAnalysisByEvent((prev) => ({
+            ...prev,
+            [selectedEventId]: {
+              sceneDescription: a.sceneDescription || '',
+              summary: a.summary || a.sceneDescription || '',
+              threatAssessment: a.threatAssessment,
+              detectedEntities: a.detectedEntities,
+              recommendedActions: a.recommendedActions,
+              modelUsed: a.model,
+              processingTime: a.processing_time_ms || 0,
+              boxes: res.boxes?.length ? res.boxes : undefined,
+            },
+          }));
+        }
+      })
+      .catch(() => {
+        // stored analysis unavailable — panel simply stays empty until analyzed
+      });
+
+    return () => { cancelled = true; };
   }, [selectedEventId, analysisByEvent]);
 
 
@@ -328,7 +332,7 @@ const EventsPage = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-blue-400">
+              <span className="text-xs uppercase tracking-[0.2em] font-medium text-blue-400">
                 Security Log
               </span>
             </div>
@@ -418,7 +422,7 @@ const EventsPage = () => {
                       {/* Verification badge */}
                       {verification && (
                         <div className={cn(
-                          'absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border',
+                          'absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border',
                           TIER_COLORS[verification.tier],
                         )}>
                           <CheckCircle2 className="w-2.5 h-2.5" />
@@ -428,13 +432,13 @@ const EventsPage = () => {
 
                       {/* Person count */}
                       {(event.personCount ?? 0) > 0 && (
-                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-white text-[10px] font-medium">
+                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-white text-xs font-medium">
                           {event.personCount} {event.personCount === 1 ? 'person' : 'persons'}
                         </div>
                       )}
 
                       {/* Confidence */}
-                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-[10px] tabular-nums font-mono">
+                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-xs tabular-nums font-mono">
                         <span className={cn(
                           event.confidence >= 0.8 ? 'text-green-400' :
                           event.confidence >= 0.5 ? 'text-amber-400' : 'text-muted-foreground',
@@ -451,14 +455,14 @@ const EventsPage = () => {
                           {event.cameraName}
                         </p>
                         {verification && (
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             {verification.tier === 'yolo_high' && <AlertTriangle className="w-3 h-3 text-blue-400" />}
                             {verification.tier === 'face' && <CheckCircle2 className="w-3 h-3 text-green-400" />}
                             {verification.tier === 'pose' && <AlertTriangle className="w-3 h-3 text-amber-400" />}
                           </div>
                         )}
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1 tabular-nums font-mono">
+                      <p className="text-xs text-muted-foreground mt-1 tabular-nums font-mono">
                         {event.timestamp.toLocaleString()}
                       </p>
                     </div>
@@ -530,10 +534,10 @@ const EventsPage = () => {
               {getVerification(selectedEvent) && (
                 <div className="m-4 p-4 rounded-lg bg-card border border-white/[0.10]">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       Human Verification
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-green-400 bg-green-500/10 border border-green-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-green-400 bg-green-500/10 border border-green-500/20">
                       <CheckCircle2 className="w-2.5 h-2.5" />
                       Verified
                     </span>

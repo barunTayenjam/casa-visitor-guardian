@@ -120,7 +120,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
         aria-label="No recent detections"
       >
         <AlertCircle className="h-4 w-4 mb-1" />
-        <span className="text-[10px]">No recent detections</span>
+        <span className="text-xs">No recent detections</span>
       </div>
     );
   }
@@ -154,7 +154,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
             <div className="px-1.5 py-1">
               <div className="flex items-center gap-1">
                 <ObjectIcon className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                <span className="text-[9px] font-medium truncate">{det.objectType}</span>
+                <span className="text-xs font-medium truncate">{det.objectType}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-0.5 text-muted-foreground">

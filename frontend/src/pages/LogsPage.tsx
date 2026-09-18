@@ -105,7 +105,7 @@ export default function LogsPage() {
     <div className="w-full min-h-[100dvh] flex flex-col bg-background">
       <div className="px-5 pt-6 pb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[9px] uppercase tracking-[0.2em] font-medium text-red-400 mb-3">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-xs uppercase tracking-[0.2em] font-medium text-red-400 mb-3">
             <ScrollText className="h-3 w-3" />
             Diagnostics
           </div>
@@ -184,18 +184,18 @@ export default function LogsPage() {
                     animationDelay: `${Math.min(index * 30, 360)}ms`,
                   }}
                 >
-                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums whitespace-nowrap sm:pt-0.5 shrink-0">
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums whitespace-nowrap sm:pt-0.5 shrink-0">
                     {formatTime(log.timestamp)}
                   </span>
                   <span
                     className={cn(
-                      'inline-flex w-fit items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wider shrink-0',
+                      'inline-flex w-fit items-center px-2 py-0.5 rounded-full border text-xs font-semibold uppercase tracking-wider shrink-0',
                       levelStyles[log.level] ?? levelStyles.info,
                     )}
                   >
                     {log.level}
                   </span>
-                  <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap sm:pt-0.5 shrink-0 hidden md:inline">
+                  <span className="text-xs text-muted-foreground/80 whitespace-nowrap sm:pt-0.5 shrink-0 hidden md:inline">
                     {log.service}
                     {log.module ? ` · ${log.module}` : ''}
                   </span>

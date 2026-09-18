@@ -75,7 +75,9 @@ router.post('/change-password', authenticate(), validateBody(changePasswordSchem
   authController.changePassword(req, res),
 );
 
-router.post('/refresh', authenticate(), (req, res) => authController.refreshToken(req, res));
+router.post('/refresh', createAuthRateLimit(), authenticate(), (req, res) =>
+  authController.refreshToken(req, res),
+);
 
 router.post('/mfa/challenge', createMfaRateLimit(), (req, res) =>
   authController.mfaChallenge(req, res),
@@ -85,8 +87,12 @@ router.post('/logout', authenticate(), (req, res) => authController.logout(req, 
 
 router.get('/mfa/setup', authenticate(), (req, res) => authController.setupMfa(req, res));
 
-router.post('/mfa/verify', authenticate(), (req, res) => authController.verifyMfa(req, res));
+router.post('/mfa/verify', createMfaRateLimit(), authenticate(), (req, res) =>
+  authController.verifyMfa(req, res),
+);
 
-router.post('/mfa/disable', authenticate(), (req, res) => authController.disableMfa(req, res));
+router.post('/mfa/disable', createMfaRateLimit(), authenticate(), (req, res) =>
+  authController.disableMfa(req, res),
+);
 
 export default router;

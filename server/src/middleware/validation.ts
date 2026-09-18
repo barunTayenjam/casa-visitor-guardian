@@ -198,15 +198,20 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction): 
     return str
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-      .replace(/<\/?(?:script|iframe|object|embed|form|link|meta|style|title)\b[^>]*>/gi, '')
-      .replace(/<[a-z][a-z0-9-]*(?:\s+[a-z0-9-]+=(?:"[^"]*"|'[^']*'|[^\s>]*))*\s*\/?>/gi, (tag) =>
+      .replace(/<\/?(?:script|iframe|object|embed|form|link|meta|style|title|svg)\b[^>]*>/gi, '')
+      .replace(/<[a-z][a-z0-9-]*(?:\s+[a-z0-9-]+=(?:"[^"]*"|'[^']'|[^\s>]*))*\s*\/?>/gi, (tag) =>
         tag
           .replace(/\bon[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-          .replace(/javascript:/gi, ''),
+          .replace(/javascript:/gi, '')
+          .replace(/data:/gi, ''),
       )
       .replace(/javascript:/gi, '')
       .replace(/\bon[a-z]+\s*=/gi, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#x27;/gi, "'")
+      .replace(/&amp;/gi, '&');
   };
 
   const sanitizeValue = (value: unknown): unknown => {
@@ -225,6 +230,15 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction): 
   // Sanitize query parameters (query values can be strings or arrays)
   for (const key in req.query) {
     req.query[key] = sanitizeValue(req.query[key]) as never;
+  }
+
+  // Sanitize route parameters
+  if (req.params && typeof req.params === 'object') {
+    for (const key in req.params) {
+      if (typeof req.params[key] === 'string') {
+        req.params[key] = sanitizeString(req.params[key]).trim();
+      }
+    }
   }
 
   // Sanitize body parameters (recursively, including nested objects/arrays)

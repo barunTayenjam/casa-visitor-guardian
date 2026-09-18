@@ -76,6 +76,10 @@ class DetectionCache:
             finally:
                 self._return_connection(conn)
         except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             print(f"DetectionCache: Cleanup error: {e}")
 
     def get(self, file_hash: str) -> Optional[Dict]:
@@ -100,6 +104,11 @@ class DetectionCache:
             finally:
                 self._return_connection(conn)
         except Exception as e:
+            # Roll back any open transaction before releasing the connection
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             print(f"DetectionCache: Failed to get cache entry: {e}")
             return None
 
@@ -123,6 +132,10 @@ class DetectionCache:
             finally:
                 self._return_connection(conn)
         except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             print(f"DetectionCache: Failed to save cache entry: {e}")
 
     def cleanup(self):

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-// @ts-ignore
+// @ts-expect-error — jest module mock breaks import typing
 import { ReviewService } from './reviewService.js';
 
 describe('ReviewService', () => {

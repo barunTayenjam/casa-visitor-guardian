@@ -12,7 +12,9 @@ function buildResult(parsed: any, processingTime: number, model: string): Nvidia
       if (inner && typeof inner === 'object') {
         p = inner;
       }
-    } catch {}
+    } catch {
+      /* invalid JSON, use original */
+    }
   }
 
   return {
@@ -68,7 +70,7 @@ export function parseAIResponse(
   };
 
   try {
-    let jsonStr = responseContent.trim();
+    const jsonStr = responseContent.trim();
 
     if (jsonStr.startsWith('{')) {
       const jsonEnd = jsonStr.lastIndexOf('}');
@@ -95,7 +97,7 @@ export function parseAIResponse(
       const jsonEnd = jsonStr.lastIndexOf('}');
       if (jsonEnd > jsonStart) {
         const extracted = jsonStr.substring(jsonStart, jsonEnd + 1);
-        let parsed = tryParse(extracted);
+        const parsed = tryParse(extracted);
         if (parsed) return buildResult(parsed, processingTime, model);
       }
     }

@@ -422,8 +422,8 @@ async function main() {
 
     const results = await processBatchImages(events, options);
 
-    let successful = results.filter((r) => r.persons.length > 0 || r.faces.length > 0).length;
-    let failed = results.filter((r) => r.persons.length === 0 && r.faces.length === 0).length;
+    const successful = results.filter((r) => r.persons.length > 0 || r.faces.length > 0).length;
+    const failed = results.filter((r) => r.persons.length === 0 && r.faces.length === 0).length;
 
     if (parentPort) {
       parentPort.postMessage({

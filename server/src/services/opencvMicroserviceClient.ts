@@ -165,7 +165,9 @@ export class OpenCVMicroserviceClient {
       );
 
       if (axios.isAxiosError(error)) {
-        throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
+        throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`, {
+          cause: error,
+        });
       }
 
       throw error;
@@ -202,7 +204,7 @@ export class OpenCVMicroserviceClient {
       );
 
       if (axios.isAxiosError(error)) {
-        throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`);
+        throw new Error(`OpenCV service error: ${error.response?.data?.error || error.message}`, { cause: error });
       }
 
       throw error;

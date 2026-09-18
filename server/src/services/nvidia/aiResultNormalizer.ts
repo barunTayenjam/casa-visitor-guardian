@@ -73,7 +73,9 @@ export class AIResultNormalizer {
         try {
           const match = trimmed.match(/"scene_description"\s*:\s*"((?:[^"\\]|\\.)*)"/);
           if (match) return match[1];
-        } catch {}
+        } catch {
+          /* fall through to raw text */
+        }
       }
     }
 

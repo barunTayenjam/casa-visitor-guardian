@@ -249,7 +249,6 @@ export class BatchProcessingDatabasePostgres {
       if (options.offset) {
         query += ` OFFSET $${paramIndex}`;
         params.push(options.offset);
-        paramIndex++;
       }
     }
 
@@ -261,7 +260,6 @@ export class BatchProcessingDatabasePostgres {
 
     const query = 'DELETE FROM batch_jobs WHERE id = $1';
     const result = await this.dataSource.query(query, [jobId]);
-
     return (result.rowCount || 0) > 0;
   }
 
@@ -405,7 +403,6 @@ export class BatchProcessingDatabasePostgres {
       if (criteria.offset) {
         query += ` OFFSET $${paramIndex}`;
         params.push(criteria.offset);
-        paramIndex++;
       }
     }
 

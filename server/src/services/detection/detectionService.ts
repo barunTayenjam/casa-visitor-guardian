@@ -102,7 +102,7 @@ export class DetectionService {
     }>,
   ): Promise<void> {
     const repo = await this.getRepo();
-    let existing = camera
+    const existing = camera
       ? await repo.findOne({ where: { camera } })
       : await repo.findOne({ where: { camera: IsNull() } });
 

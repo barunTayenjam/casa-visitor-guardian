@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 
 export class SystemController extends BaseController {
   async health(req: Request, res: Response): Promise<void> {
-    let db = 'unknown';
+    let db: string;
     try {
       const { AppDataSource } = await import('../database.js');
       await AppDataSource.query('SELECT 1');
@@ -26,7 +26,7 @@ export class SystemController extends BaseController {
       db = 'error';
     }
 
-    let pipeline = 'unknown';
+    let pipeline: string;
     try {
       const pythonWs = serviceRegistry.getPythonWsClient();
       pipeline = pythonWs.connected ? 'connected' : 'disconnected';

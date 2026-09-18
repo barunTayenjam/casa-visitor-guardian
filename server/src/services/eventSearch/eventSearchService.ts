@@ -269,7 +269,9 @@ export class EventSearchService {
                           .trim()
                           .match(/"scene_description"\s*:\s*"((?:[^\n"\\]|\\.)*)"/);
                         if (match) return match[1];
-                      } catch {}
+                      } catch {
+                        /* regex failure, fall through */
+                      }
                       return rawDesc;
                     }
                   })()
@@ -615,7 +617,7 @@ export class EventSearchService {
   }> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
-    let conditions = [
+    const conditions = [
       'e.timestamp >= $1',
       'e.timestamp <= $2',
       "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
@@ -674,7 +676,7 @@ export class EventSearchService {
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
-    let conditions = [
+    const conditions = [
       'e.timestamp >= $1',
       'e.timestamp <= $2',
       "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",

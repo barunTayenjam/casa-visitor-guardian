@@ -1,5 +1,5 @@
 import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT } from './prompts.js';
-import { parseAIResponse } from './nvidiaProcessor.js';
+import { parseAIResponse, normalizeModelBoxes } from './nvidiaProcessor.js';
 import { getNvidiaBaseUrl } from './nvidiaClient.js';
 import { DEFAULT_TIMEOUT } from './types.js';
 import { analysisPipeline, imageLoader } from './analysisPipeline.js';
@@ -108,7 +108,7 @@ export async function analyzePersons(
       parseResponse: (content, processingTime, model) => {
         let people: PersonDetectionResult['people'] = [];
         let count = 0;
-        let sceneDescription = '';
+        let sceneDescription: string;
         let sceneContext: PersonDetectionResult['sceneContext'] = undefined;
 
         try {
@@ -124,17 +124,10 @@ export async function analyzePersons(
           sceneContext = parsed.scene_context;
 
           if (parsed.people && Array.isArray(parsed.people)) {
-            const sharp = require('sharp');
-            const imgMeta = sharp(Buffer.from(content, 'base64'))
-              .metadata()
-              .catch(() => null);
-            const imgWidth = imgMeta?.width || 0;
-            const imgHeight = imgMeta?.height || 0;
-            const { normalizeModelBoxes } = require('./nvidiaProcessor.js');
             const normalized = normalizeModelBoxes(
               parsed.people.map((p: any) => p?.position),
-              imgWidth,
-              imgHeight,
+              0,
+              0,
             );
             people = parsed.people
               .map((p: any, i: number) => {

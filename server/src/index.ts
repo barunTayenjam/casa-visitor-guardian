@@ -121,22 +121,30 @@ server.on('upgrade', (req, socket, head) => {
     proxySocket.on('error', () => {
       try {
         socket.destroy();
-      } catch {}
+      } catch {
+        /* socket already destroyed */
+      }
     });
     socket.on('error', () => {
       try {
         proxySocket.destroy();
-      } catch {}
+      } catch {
+        /* socket already destroyed */
+      }
     });
     socket.on('close', () => {
       try {
         proxySocket.destroy();
-      } catch {}
+      } catch {
+        /* socket already destroyed */
+      }
     });
     proxySocket.on('close', () => {
       try {
         socket.destroy();
-      } catch {}
+      } catch {
+        /* socket already destroyed */
+      }
     });
 
     let responseLine = 'HTTP/1.1 101 Switching Protocols\r\n';
@@ -156,7 +164,9 @@ server.on('upgrade', (req, socket, head) => {
   proxyReq.on('error', () => {
     try {
       socket.destroy();
-    } catch {}
+    } catch {
+      /* socket already destroyed */
+    }
   });
   proxyReq.end();
 });

@@ -69,7 +69,9 @@ export class ImageLoader {
     if (tempPath.startsWith('/tmp/nvidia_bbox')) {
       try {
         fs.unlinkSync(tempPath);
-      } catch {}
+      } catch {
+        /* temp file already removed */
+      }
     }
   }
 }
@@ -130,7 +132,7 @@ export class AnalysisPipeline {
         clearTimeout(timeoutId);
 
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error(`NVIDIA API request timed out after ${timeout}ms`);
+          throw new Error(`NVIDIA API request timed out after ${timeout}ms`, { cause: fetchError });
         }
         throw fetchError;
       }
@@ -176,7 +178,7 @@ export class AnalysisPipeline {
       const processingTime = Date.now() - startTime;
 
       let detectedBoxes: any[] = [];
-      let rawAnalysis = {
+      const rawAnalysis = {
         people: [] as string[],
         vehicles: [] as string[],
         objects: [] as string[],

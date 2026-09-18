@@ -120,7 +120,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
         aria-label="No recent detections"
       >
         <AlertCircle className="h-4 w-4 mb-1" />
-        <span className="text-[10px]">No recent detections</span>
+        <span className="text-xs">No recent detections</span>
       </div>
     );
   }
@@ -133,7 +133,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
           <button
             key={det.id}
             role="listitem"
-            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.12] bg-white/[0.06] overflow-hidden hover:bg-white/[0.08] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] text-left focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.10] bg-white/[0.06] overflow-hidden hover:bg-white/[0.08] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] text-left focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label={`${det.objectType} detected ${formatRelativeTime(det.timestamp)}`}
             onClick={() => {
               window.location.href = `/events/${det.id}`;
@@ -154,7 +154,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
             <div className="px-1.5 py-1">
               <div className="flex items-center gap-1">
                 <ObjectIcon className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                <span className="text-[9px] font-medium truncate">{det.objectType}</span>
+                <span className="text-xs font-medium truncate">{det.objectType}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-0.5 text-muted-foreground">

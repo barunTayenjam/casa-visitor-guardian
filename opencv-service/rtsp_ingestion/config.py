@@ -43,10 +43,13 @@ FFMPEG_DEFAULT_ARGS = [
     '-max_delay', '0',
 ]
 
-LIVE_WIDTH = 1280
-LIVE_HEIGHT = 720
+LIVE_WIDTH = 640
+LIVE_HEIGHT = 360
 DETECT_WIDTH = 480
 DETECT_HEIGHT = 480
+
+# Event snapshot JPEG quality (2K evidence files — higher than live preview)
+EVENT_JPEG_QUALITY = 85
 
 # go2rtc RTSP proxy base URL
 # Python reads from go2rtc instead of directly from cameras to respect

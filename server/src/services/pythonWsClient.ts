@@ -14,6 +14,18 @@ interface FrameMessage {
   timestamp: number;
 }
 
+export interface HumanVerification {
+  verified: boolean;
+  tier: 'yolo_high' | 'face' | 'pose' | 'score_floor' | 'disabled';
+  keypoints: number;
+  face_detected: boolean;
+  yolo_score: number;
+  roi_w: number;
+  roi_h: number;
+  elapsed_ms: number;
+  track_id?: number;
+}
+
 export interface TrackingEvent {
   trackId: number;
   cameraId: string;
@@ -27,6 +39,14 @@ export interface TrackingEvent {
   trackletLen?: number;
   identity?: string | null;
   identityConfidence?: number;
+  humanVerification?: HumanVerification;
+  filePath?: string | null;
+  sceneContext?: Record<string, unknown> | null;
+  detectionSummary?: Record<string, unknown> | null;
+  threatAssessment?: Record<string, unknown> | null;
+  personAttributes?: Record<string, unknown> | null;
+  faceEmbedding?: number[] | null;
+  motionStats?: Record<string, unknown> | null;
 }
 
 interface SubscriptionMessage {
@@ -133,7 +153,24 @@ export class PythonWsClient extends EventEmitter {
               trackletLen: parsed.trackletLen ?? parsed.tracklet_len,
               identity: parsed.identity ?? null,
               identityConfidence: parsed.identityConfidence ?? parsed.identity_confidence ?? 0,
+              humanVerification: parsed.human_verification ?? parsed.humanVerification,
+              filePath: parsed.file_path ?? null,
+              sceneContext: parsed.scene_context ?? null,
+              detectionSummary: parsed.detection_summary ?? null,
+              threatAssessment: parsed.threat_assessment ?? null,
+              personAttributes: parsed.person_attributes ?? null,
+              faceEmbedding: parsed.face_embedding ?? null,
+              motionStats: parsed.motion_stats ?? null,
             } as TrackingEvent);
+          } else if (parsed.type === 'log_event') {
+            this.emit('logEvent', {
+              level: parsed.level,
+              module: parsed.module,
+              message: parsed.message,
+              cameraId: parsed.cameraId,
+              metadata: parsed.metadata,
+              timestamp: parsed.timestamp,
+            });
           }
         } catch {
           // ignore malformed messages

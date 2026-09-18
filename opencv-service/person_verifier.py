@@ -10,9 +10,13 @@ Config:
     HUMAN_VERIFIER_KEEP_BACK_FACING (default 1)  keep persons with no face
     HUMAN_VERIFIER_MIN_KEYPOINTS (default 3)  min pose keypoints to count as human
     HUMAN_VERIFIER_SCORE      (default 0.75) YOLO score floor when no face/pose evidence
+    HUMAN_VERIFIER_NIGHT_SCORE (default 0.55) score floor during night hours
+    HUMAN_VERIFIER_NIGHT_START (default 22)   night start hour, local time
+    HUMAN_VERIFIER_NIGHT_END   (default 6)    night end hour, local time
 """
 
 import os
+import time
 import threading
 import cv2
 import numpy as np
@@ -26,7 +30,18 @@ class HumanVerifier:
         self.enabled = int(os.environ.get("HUMAN_VERIFIER_ENABLED", "1"))
         self.keep_back_facing = int(os.environ.get("HUMAN_VERIFIER_KEEP_BACK_FACING", "1"))
         self.min_keypoints = int(os.environ.get("HUMAN_VERIFIER_MIN_KEYPOINTS", "3"))
-        self.score_floor = float(os.environ.get("HUMAN_VERIFIER_SCORE", "0.75"))
+        self.score_floor = float(os.environ.get("HUMAN_VERIFIER_SCORE", "0.55"))
+        self.night_score_floor = float(os.environ.get("HUMAN_VERIFIER_NIGHT_SCORE", "0.55"))
+        self.night_start = int(os.environ.get("HUMAN_VERIFIER_NIGHT_START", "22"))
+        self.night_end = int(os.environ.get("HUMAN_VERIFIER_NIGHT_END", "6"))
+
+    def _effective_score_floor(self) -> float:
+        """Night hours favor recall: IR footage scores lower and face/pose
+        models see less, so the fallback floor is relaxed there."""
+        hour = time.localtime().tm_hour
+        if hour >= self.night_start or hour < self.night_end:
+            return self.night_score_floor
+        return self.score_floor
 
     @property
     def pts(self):
@@ -57,25 +72,52 @@ class HumanVerifier:
             return self._face_analyzer
 
     def verify(self, roi: np.ndarray, yolo_score: float) -> bool:
-        """Return True if ROI contains a human. Tiered check (avoid false negatives).
-        1) YOLO score >= 0.9 → trust it completely.
-        2) Face verification via uniface.
-        3) Pose keypoints via MediaPipe (accept min_keypoints minimum).
-        4) Fallback to YOLO score threshold.
+        """Boolean wrapper around verify_detailed for backward compatibility."""
+        return self.verify_detailed(roi, yolo_score)["verified"]
+
+    def verify_detailed(self, roi: np.ndarray, yolo_score: float) -> dict:
+        """Tiered human-presence check. Returns verification metadata:
+        {verified, tier, keypoints, face_detected, yolo_score, roi_w, roi_h, elapsed_ms}
+        tier: yolo_high | face | pose | score_floor | disabled
         """
+        import time
+
+        t0 = time.perf_counter()
+        result = {
+            "verified": True,
+            "tier": "disabled",
+            "keypoints": 0,
+            "face_detected": False,
+            "yolo_score": round(float(yolo_score), 4),
+            "roi_w": int(roi.shape[1]) if roi is not None else 0,
+            "roi_h": int(roi.shape[0]) if roi is not None else 0,
+            "elapsed_ms": 0,
+        }
+
+        def done(tier, verified, keypoints=0, face=False):
+            result["tier"] = tier
+            # Cast to native types: numpy comparisons yield np.bool_/np.int64
+            # which json.dumps cannot serialize, killing the WS publish loop.
+            result["verified"] = bool(verified)
+            result["keypoints"] = int(keypoints)
+            result["face_detected"] = bool(face)
+            result["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
+            return result
+
         if not self.enabled:
-            return True
+            return done("disabled", True)
 
         # Tier 1: High YOLO confidence → trust it completely.
         if yolo_score >= 0.9:
-            return True
+            return done("yolo_high", True)
 
-        # Small ROIs (640x360 detection frames) starve face/pose models — upscale.
-        if roi.shape[0] > 0 and roi.shape[0] < 96:
-            scale = 128.0 / roi.shape[0]
+        # Distant-person ROIs starve face/pose models — upscale small crops
+        # to a workable height before running them.
+        if roi.shape[0] > 0 and roi.shape[0] < 192:
+            scale = 256.0 / roi.shape[0]
             roi = cv2.resize(
                 roi,
-                (max(1, int(roi.shape[1] * scale)), 128),
+                (max(1, int(roi.shape[1] * scale)), 256),
                 interpolation=cv2.INTER_LINEAR,
             )
 
@@ -84,7 +126,7 @@ class HumanVerifier:
         if fa is not False:
             try:
                 if fa.analyze(roi):
-                    return True
+                    return done("face", True, face=True)
             except Exception:
                 pass
 
@@ -96,7 +138,11 @@ class HumanVerifier:
             if results and results.pose_landmarks:
                 n = sum(1 for lm in results.pose_landmarks.landmark if lm.visibility > 0.2)
                 if n >= self.min_keypoints or (not self.keep_back_facing and n >= 1):
-                    return True
+                    return done("pose", True, keypoints=n)
 
         # Tier 4: Fallback to YOLO confidence threshold.
-        return yolo_score >= self.score_floor
+        # YOLO already applied NMS + class filtering, so a person score ≥ floor
+        # is a real person in practice. Floor kept low (0.55) because distant/
+        # back-facing persons land here after pose (kp=0) and face both fail —
+        # those models "couldn't evaluate", not "found no human".
+        return done("score_floor", yolo_score >= self._effective_score_floor())

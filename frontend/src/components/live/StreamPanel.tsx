@@ -129,7 +129,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({
                   )}
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-medium">Motion Detected</span>
-                    <span className="text-[10px] ml-2 opacity-80">
+                    <span className="text-xs ml-2 opacity-80">
                       {motionConfidence}% confidence
                       {objectCount > 0 && ` · ${objectCount} object${objectCount > 1 ? 's' : ''}`}
                       {activeIdentity && ` · ${activeIdentity}`}
@@ -147,7 +147,7 @@ export const StreamPanel: React.FC<StreamPanelProps> = ({
                 </div>
               )}
               <div>
-                <h4 className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                <h4 className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Recent Detections
                 </h4>
                 <RecentDetectionsSection cameraId={camera.id} />

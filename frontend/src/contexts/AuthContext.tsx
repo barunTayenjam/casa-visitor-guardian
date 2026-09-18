@@ -289,13 +289,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!state.isAuthenticated || !state.token) return;
 
+    let mounted = true;
     refreshTimerRef.current = setInterval(() => {
-      if (!state.token) return;
+      if (!mounted || !state.token) return;
 
       if (isTokenExpiringSoon(state.token)) {
         logger.info('Token expiring soon, proactively refreshing', 'AUTH');
         tryRefreshToken(state.token)
           .then((newToken) => {
+            if (!mounted) return;
             if (newToken) {
               validateToken(newToken).catch(() => {});
             }
@@ -305,6 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, TOKEN_CHECK_INTERVAL_MS);
 
     return () => {
+      mounted = false;
       if (refreshTimerRef.current) {
         clearInterval(refreshTimerRef.current);
         refreshTimerRef.current = null;

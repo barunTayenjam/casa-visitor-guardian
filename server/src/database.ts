@@ -31,10 +31,10 @@ export const AppDataSource = new DataSource({
   synchronize: false, // Never use TRUE in production!
   logging: config.nodeEnv === 'development',
   migrations: ['dist/migrations/*.js'],
-  poolSize: parseInt(process.env.DB_POOL_MAX || '5'),
+  poolSize: parseInt(process.env.DB_POOL_MAX || '20'),
   extra: {
     min: parseInt(process.env.DB_POOL_MIN || '2'),
-    max: parseInt(process.env.DB_POOL_MAX || '5'),
+    max: parseInt(process.env.DB_POOL_MAX || '20'),
     idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE || '10000'),
     acquireTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
     connectionTimeoutMillis: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),

@@ -7,6 +7,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'url';
 import { BaseController } from './BaseController.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
+import { serviceLogService } from '../services/serviceLogService.js';
 import { inMemoryState, MotionEvent } from '../services/inMemoryStateService.js';
 import { AutomatedCleanupService } from '../services/automatedCleanupService.js';
 import type { Camera } from '../streams/rtspManager.js';
@@ -333,52 +334,16 @@ export class SystemController extends BaseController {
 
   async getLogs(req: Request, res: Response): Promise<void> {
     try {
-      const { level, limit } = req.query;
-      const logs: Array<{ timestamp: string; level: string; message: string; context?: string }> =
-        [];
-
-      const logsDir = path.join(__dirname, '../../logs');
-      const errorLogFile = path.join(logsDir, 'error.log');
-      const combinedLogFile = path.join(logsDir, 'combined.log');
-
-      const parseLogFile = async (
-        filePath: string,
-        targetLevel?: string,
-      ): Promise<
-        Array<{ timestamp: string; level: string; message: string; context?: string }>
-      > => {
-        const entries: Array<{
-          timestamp: string;
-          level: string;
-          message: string;
-          context?: string;
-        }> = [];
-        try {
-          await fsp.access(filePath);
-        } catch {
-          return entries;
-        }
-        const content = await fsp.readFile(filePath, 'utf-8');
-        const lines = content.split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const match = line.match(/^\[([\d-T:.Z]+)\]\s+\[([A-Z]+)\](?:\s+\[([^\]]+)\])?\s+(.+)$/);
-          if (match) {
-            const [, timestamp, logLevel, context, message] = match;
-            if (!targetLevel || logLevel === targetLevel) {
-              entries.push({ timestamp, level: logLevel, message, context });
-            }
-          }
-        }
-        return entries;
-      };
-      const combinedEntries = await parseLogFile(combinedLogFile, level as string);
-      logs.push(...combinedEntries);
-      const errorEntries = await parseLogFile(errorLogFile, 'ERROR');
-      logs.push(...errorEntries);
-
-      const maxLogs = parseInt(limit as string) || 100;
-      this.ok(res, { logs: logs.slice(-maxLogs).reverse() });
+      const { service, level, cameraId, since, limit } = req.query;
+      const sinceDate = since ? new Date(since as string) : undefined;
+      const logs = await serviceLogService.queryLogs({
+        service: service as string | undefined,
+        level: level as string | undefined,
+        cameraId: cameraId as string | undefined,
+        since: sinceDate && !Number.isNaN(sinceDate.getTime()) ? sinceDate : undefined,
+        limit: parseInt(limit as string) || 100,
+      });
+      this.ok(res, { logs });
     } catch (error) {
       this.serverError(res, error, 'getLogs');
     }
@@ -386,10 +351,14 @@ export class SystemController extends BaseController {
 
   async clearLogs(req: Request, res: Response): Promise<void> {
     try {
+      const days = parseInt(req.query.days as string) || 0;
+      const deleted = days
+        ? await serviceLogService.purgeOlderThanDays(days)
+        : await serviceLogService.purgeOlderThanDays(0);
+
       const logsDir = path.join(__dirname, '../../logs');
       const errorLogFile = path.join(logsDir, 'error.log');
       const combinedLogFile = path.join(logsDir, 'combined.log');
-
       const cleared: string[] = [];
       if (fs.existsSync(errorLogFile)) {
         fs.writeFileSync(errorLogFile, '');
@@ -400,7 +369,7 @@ export class SystemController extends BaseController {
         cleared.push('combined.log');
       }
 
-      this.ok(res, { message: 'Logs cleared', cleared });
+      this.ok(res, { message: 'Logs cleared', deleted, cleared });
     } catch (error) {
       this.serverError(res, error, 'clearLogs');
     }

@@ -27,7 +27,7 @@ const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         <div className="rounded-[calc(1.25rem-1px)] bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] p-4">
           <div className="flex items-start justify-between">
             <div className="space-y-1.5">
-              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 {label}
               </p>
               <p className="text-2xl font-semibold tracking-tight">{value}</p>

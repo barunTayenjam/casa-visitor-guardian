@@ -15,7 +15,7 @@ export const StreamInfo: React.FC<StreamInfoProps> = ({
   isStreaming,
   isWanStream,
 }) => (
-  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/10 pointer-events-auto">
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm bg-black/60 border border-white/[0.10] pointer-events-auto">
     <div
       className={cn(
         'w-2 h-2 rounded-full',
@@ -40,7 +40,7 @@ export const StreamInfo: React.FC<StreamInfoProps> = ({
     {connectionState === 'connected' && isStreaming && (
       <span
         className={cn(
-          'text-[10px] font-semibold uppercase tracking-wider',
+          'text-xs font-semibold uppercase tracking-wider',
           isWanStream ? 'text-amber-500' : 'text-red-500',
         )}
       >

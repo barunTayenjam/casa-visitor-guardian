@@ -100,6 +100,11 @@ export class CameraController extends BaseController {
       const streamManager = serviceRegistry.getStreamManager();
       const { name, rtspUrl, username, password, frameRate, resolution, nightMode } = req.body;
 
+      if (!rtspUrl || !/^rtsps?:\/\/.+/i.test(rtspUrl)) {
+        this.badRequest(res, 'Invalid RTSP URL format');
+        return;
+      }
+
       const cameraId = `cam${Date.now()}`;
 
       streamManager.addCamera({
@@ -138,6 +143,10 @@ export class CameraController extends BaseController {
       if (name !== undefined) updates.name = name;
       if (nightMode !== undefined) updates.nightMode = nightMode;
       if (rtspUrl !== undefined) {
+        if (!/^rtsps?:\/\/.+/i.test(rtspUrl)) {
+          this.badRequest(res, 'Invalid RTSP URL format');
+          return;
+        }
         updates.streams = [{ path: rtspUrl, roles: ['detect', 'record', 'live'] }];
       }
       if (frameRate !== undefined) {

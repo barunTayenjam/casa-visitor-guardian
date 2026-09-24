@@ -3,6 +3,7 @@ import { ScrollText, RefreshCw, Pause, Play } from 'lucide-react';
 import { apiClient } from '@/services/api/baseClient';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/button';
+import { PageContainer } from '@/components/layout/PageContainer';
 import { cn } from '@/lib/utils';
 
 interface LogEntry {
@@ -102,14 +103,10 @@ export default function LogsPage() {
   }, [autoRefresh, loadLogs]);
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-      <div className="px-5 pt-6 pb-3 flex flex-wrap items-center justify-between gap-3">
+    <PageContainer>
+      <div className="pb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-xs uppercase tracking-[0.2em] font-medium text-red-400 mb-3">
-            <ScrollText className="h-3 w-3" />
-            Diagnostics
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">System Logs</h1>
+          <h1 className="text-xl font-semibold tracking-tight">System Logs</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Warnings and errors from backend and OpenCV, retained 14 days
           </p>
@@ -132,7 +129,7 @@ export default function LogsPage() {
         </div>
       </div>
 
-      <div className="px-5 pb-3 flex flex-wrap items-center gap-2">
+      <div className="pb-3 flex flex-wrap items-center gap-2">
         <FilterChip active={level === 'all'} onClick={() => setLevel('all')}>
           All levels
         </FilterChip>
@@ -154,7 +151,7 @@ export default function LogsPage() {
         </FilterChip>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-28">
+      <div>
         <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
           {loading && logs.length === 0 ? (
             <div className="p-4 space-y-3">
@@ -208,6 +205,6 @@ export default function LogsPage() {
           )}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

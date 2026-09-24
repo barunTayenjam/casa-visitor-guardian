@@ -359,15 +359,15 @@ const SettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-        <div className="px-5 pt-6 pb-2">
+      <div className="h-full overflow-y-auto bg-background">
+        <div className="mx-auto max-w-7xl px-6 pt-6 pb-10">
           <div className="flex items-center gap-4">
             <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
             </div>
           </div>
         </div>
@@ -379,8 +379,8 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-      <div className="px-5 pt-6 pb-2">
+    <div className="h-full overflow-y-auto bg-background">
+      <div className="mx-auto max-w-7xl px-6 pt-6 pb-10">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button size="sm" variant="ghost" onClick={() => navigate(-1)}>
@@ -408,8 +408,8 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 md:p-6 max-w-4xl">
+      <div className="pb-10">
+        <div className="space-y-6">
           <div className="space-y-6">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-foreground">General Settings</h2>
@@ -1119,9 +1119,9 @@ const SettingsPage = () => {
                 </div>
               </form>
             </SettingCard>
-          </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

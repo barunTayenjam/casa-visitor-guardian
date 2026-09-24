@@ -374,7 +374,9 @@ export const cameraService = {
 
   async getMotionSettings(cameraId: string): Promise<MotionSettings> {
     try {
-      const response = await fetchWithRetry(`${API_URL}/motion/${cameraId}/settings`);
+      const response = await fetchWithRetry(
+        `${API_URL}/detection/motion/settings?cameraId=${cameraId}`,
+      );
       const data = await response.json();
       if (!data.success || !data.settings) {
         throw new ApiError(
@@ -399,9 +401,9 @@ export const cameraService = {
 
   async updateMotionSettings(cameraId: string, settings: Partial<MotionSettings>): Promise<void> {
     try {
-      const response = await fetchWithRetry(`${API_URL}/motion/${cameraId}/settings`, {
+      const response = await fetchWithRetry(`${API_URL}/detection/motion/settings`, {
         method: 'PUT',
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ cameraId, ...settings }),
       });
       const data = await response.json();
       if (!data.success) {

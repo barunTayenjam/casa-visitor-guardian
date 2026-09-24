@@ -1,4 +1,29 @@
-# SentryVision v1.6.0 — Resource Optimizations
+# SentryVision Release Notes
+
+## SentryVision v1.7.0 — Analytics, Chat & Codebase Hardening
+
+**Release date**: September 2026
+
+This release introduces daily analytics insights, an AI chat interface querying detection data, system log viewer, timelapse backfill capabilities, and comprehensive codebase hardening with full documentation.
+
+### New Features
+
+- **Daily Insights Dashboard (`/app/insights`)**: 25+ analytics dimensions, hourly stacked type distribution, threat breakdown, activity heatmap, peak burst tracking, and quiet gap detection.
+- **Ask Page (`/app/ask`)**: AI chat interface powered by NVIDIA NIM / Ollama with tool calling over recorded detection data, Markdown answers, and report export.
+- **System Logs Viewer (`/app/logs`)**: Dedicated viewer with level filtering (warn, error, info), service filtering (backend, opencv), and live auto-refresh.
+- **Timelapse Backfill (`/app/timelapse`)**: On-demand timelapse generation and regeneration for past dates directly from the web UI.
+
+### Architecture & Hardening
+
+- **API Source of Truth**: Full inventory of ~108 endpoints mapped across all 20 route modules (`API-SOURCE-OF-TRUTH.md`).
+- **Endpoint URL Alignment**: Fixed detection config and motion settings parameter mismatches between frontend services and backend routes.
+- **Dead Code Cleanup**: Removed 10 orphaned API methods in `detectionService.ts` and `systemService.ts` that had no backend counterpart.
+- **Documentation Overhaul**: Consolidated all project documentation into the root directory; removed 33 obsolete/stale docs.
+- **ADRs Published**: Formalized architectural direction for Zustand state management (ADR-001), service decomposition (ADR-002), and backend MVC consistency (ADR-003).
+
+---
+
+## SentryVision v1.6.0 — Resource Optimizations
 
 **Release date**: June 2026
 

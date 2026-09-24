@@ -45,7 +45,7 @@ const SettingsPage = lazyWithRecovery(() => import('./pages/Settings'));
 const TimelapsePage = lazyWithRecovery(() => import('./pages/TimelapsePage'));
 const PeoplePage = lazyWithRecovery(() => import('./pages/PeoplePage'));
 const LogsPage = lazyWithRecovery(() => import('./pages/LogsPage'));
-const DetectionsPage = lazyWithRecovery(() => import('./pages/DetectionsPage'));
+const InsightsPage = lazyWithRecovery(() => import('./pages/InsightsPage'));
 const AskPage = lazyWithRecovery(() => import('./pages/AskPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -262,12 +262,12 @@ const App = () => {
                             }
                           />
                           <Route
-                            path="/app/detections"
+                            path="/app/insights"
                             element={
                               <ProtectedRoute>
                                 <AppLayout>
                                   <ErrorBoundary fallback={ErrorFallback}>
-                                    <DetectionsPage />
+                                    <InsightsPage />
                                   </ErrorBoundary>
                                 </AppLayout>
                               </ProtectedRoute>

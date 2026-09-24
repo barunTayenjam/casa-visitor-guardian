@@ -287,7 +287,7 @@ export default function AskPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-28 bg-background">
+    <div className="mx-auto flex h-full max-w-7xl flex-col px-6 pt-6 pb-4 bg-background">
       <div className="mb-4 flex items-center gap-2.5">
         <div className="flex h-9 w-9 items-center justify-center rounded-[0.5rem] bg-primary/10 border border-primary/20">
           <MessageSquare className="h-4 w-4 text-primary" />

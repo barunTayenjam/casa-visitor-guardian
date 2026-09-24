@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Settings, LogOut, Film, Users, Crosshair, MessageSquare, Radio } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Bell, Settings, LogOut, Film, Users, MessageSquare, Radio, BarChart3 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,7 @@ const navItems = [
   { href: '/app/events', label: 'Timeline', icon: Bell },
   { href: '/app/timelapse', label: 'Timelapse', icon: Film },
   { href: '/app/people', label: 'People', icon: Users },
-  { href: '/app/detections', label: 'Detections', icon: Crosshair },
+  { href: '/app/insights', label: 'Insights', icon: BarChart3 },
   { href: '/app/ask', label: 'Ask', icon: MessageSquare },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
@@ -60,10 +59,6 @@ export const MacDock: React.FC = () => {
 
   // Keyboard shortcuts for power users
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      navigate('/app/detections');
-    }
     if (e.key === 's' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       e.preventDefault();
       navigate('/app/settings');
@@ -80,7 +75,6 @@ export const MacDock: React.FC = () => {
   }, [handleKeyDown]);
 
   return (
-    <TooltipProvider delayDuration={0}>
       <div className="fixed bottom-0 left-0 right-0 z-[40]">
         {/* Apple-style dock: translucent material with crisp top edge */}
         <div className="material-dock">
@@ -106,61 +100,42 @@ export const MacDock: React.FC = () => {
                 </button>
               </div>
 
-              {/* Center: Navigation - text labels always visible on desktop */}
-              <nav className="flex items-center gap-0.5">
+              {/* Center: Navigation - text labels visible */}
+              <nav className="flex items-center gap-1">
                 {navItems.map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
-                    <Tooltip key={item.href}>
-                      <TooltipTrigger asChild>
-                        <Link
-                          to={item.href}
-                          className={cn(
-                            'relative flex items-center gap-2.5 px-3 py-1.5 rounded-full transition-all duration-150 active:scale-[0.97] whitespace-nowrap',
-                            isActive
-                              ? 'bg-white/[0.12] text-foreground'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]',
-                          )}
-                        >
-                          <item.icon className="w-3.5 h-3.5" />
-                          <span className={cn('text-xs font-medium', 'sm:inline')}>{item.label}</span>
-                          {isActive && (
-                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-primary rounded-full" />
-                          )}
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        className="mb-2 rounded-md bg-card border border-white/[0.10] text-xs px-3 py-1.5 shadow-lg"
-                      >
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className={cn(
+                        'relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-150 active:scale-[0.97] whitespace-nowrap',
+                        isActive
+                          ? 'bg-white/[0.12] text-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]',
+                      )}
+                    >
+                      <item.icon className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                      {isActive && (
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-6 h-[2px] bg-primary rounded-full" />
+                      )}
+                    </Link>
                   );
                 })}
 
                 <div className="w-px h-5 bg-white/[0.15] mx-1" />
 
                 <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150 active:scale-[0.97]"
-                          aria-label="Logout"
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span className="text-xs font-medium">Logout</span>
-                        </button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="mb-2 rounded-md bg-card border border-white/[0.10] text-xs px-3 py-1.5"
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-150 active:scale-[0.97]"
+                      aria-label="Logout"
                     >
-                      Logout
-                    </TooltipContent>
-                  </Tooltip>
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium">Logout</span>
+                    </button>
+                  </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
                     className="w-48 mt-2 rounded-lg bg-card border border-white/[0.10] p-1 shadow-lg"
@@ -184,6 +159,5 @@ export const MacDock: React.FC = () => {
           </div>
         </div>
       </div>
-    </TooltipProvider>
   );
 };

@@ -11,7 +11,6 @@ import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
 import { Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import {
   Pagination,
   PaginationContent,
@@ -325,20 +324,11 @@ const EventsPage = () => {
   const cameraList = cameras.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 border-b border-white/[0.10]">
+      <div className="w-full px-6 pt-6 pb-3 border-b border-white/[0.10]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-xs uppercase tracking-[0.2em] font-medium text-blue-400">
-                Security Log
-              </span>
-            </div>
-            <div className="h-4 w-px bg-white/[0.12]" />
-            <h1 className="text-lg font-semibold tracking-tight">Events</h1>
-          </div>
+          <h1 className="text-lg font-semibold tracking-tight">Events</h1>
           <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
             <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
               <SelectValue />
@@ -363,7 +353,8 @@ const EventsPage = () => {
 
       {/* Content */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-5 pb-28">
+        <div className="flex-1 overflow-y-auto px-6 pt-5 pb-10">
+          <div className="mx-auto max-w-7xl">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (
@@ -391,16 +382,22 @@ const EventsPage = () => {
               {events.map((event) => {
                 const verification = getVerification(event);
                 return (
-                  <motion.div
+                  <div
                     key={event.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selectedEventId === event.id}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleEventSelect(event.id);
+                      }
+                    }}
                     className={cn(
                       'rounded-lg cursor-pointer transition-all duration-200',
                       selectedEventId === event.id
-                        ? 'ring-2 ring-primary/50 bg-card'
-                        : 'bg-card border border-white/[0.10] hover:border-white/[0.16]',
+                        ? 'border-2 border-primary/60 bg-card'
+                        : 'border border-white/[0.10] hover:border-white/[0.16]',
                     )}
                     onClick={() => handleEventSelect(event.id)}
                   >
@@ -438,7 +435,7 @@ const EventsPage = () => {
                       )}
 
                       {/* Confidence */}
-                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-xs tabular-nums font-mono">
+                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-xs font-mono tabular-nums">
                         <span className={cn(
                           event.confidence >= 0.8 ? 'text-green-400' :
                           event.confidence >= 0.5 ? 'text-amber-400' : 'text-muted-foreground',
@@ -462,11 +459,11 @@ const EventsPage = () => {
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 tabular-nums font-mono">
+                      <p className="text-xs text-muted-foreground mt-1 font-mono tabular-nums">
                         {event.timestamp.toLocaleString()}
                       </p>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -511,6 +508,7 @@ const EventsPage = () => {
               </Pagination>
             </div>
           )}
+          </div>
         </div>
 
         {/* Event Detail Panel */}
@@ -553,7 +551,7 @@ const EventsPage = () => {
                     return rows.map(([label, value]) => (
                       <div key={label} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.06] last:border-0">
                         <span className="text-muted-foreground">{label}</span>
-                        <span className="text-foreground/90 font-medium tabular-nums font-mono">{value}</span>
+                        <span className="text-foreground/90 font-medium font-mono tabular-nums">{value}</span>
                       </div>
                     ));
                   })()}

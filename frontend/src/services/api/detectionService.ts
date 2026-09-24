@@ -1,17 +1,6 @@
 // Detection-related API methods extracted from ApiService.ts
 import { apiClient, fetchWithRetry, ApiError, API_URL } from './baseClient';
 
-// ==================== TYPES ====================
-
-interface KnownPerson {
-  id: string;
-  name: string;
-  imageCount: number;
-  embeddingCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // ==================== DETECTION SERVICE ====================
 
 export const detectionService = {
@@ -171,45 +160,6 @@ export const detectionService = {
         'UPDATE_FACE_RECOGNITION_SETTINGS_ERROR',
         { originalError: error instanceof Error ? error.message : String(error) },
       );
-    }
-  },
-
-  async getKnownPersons(): Promise<KnownPerson[]> {
-    try {
-      const response = await apiClient.get<{ success: boolean; persons: KnownPerson[] }>(
-        '/detection/persons',
-      );
-      if (response.success) return response.persons;
-      throw new ApiError('Failed to get known persons', 400, 'GET_KNOWN_PERSONS_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get known persons', 500, 'GET_KNOWN_PERSONS_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async addKnownPerson(personData: {
-    name: string;
-    images: string[];
-  }): Promise<{ success: boolean; personId: string; message: string }> {
-    try {
-      const response = await apiClient.post<{
-        success: boolean;
-        personId: string;
-        message: string;
-      }>('/detection/persons', personData);
-      if (response.success) return response;
-      throw new ApiError(
-        response.message || 'Failed to add known person',
-        400,
-        'ADD_KNOWN_PERSON_ERROR',
-      );
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to add known person', 500, 'ADD_KNOWN_PERSON_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
     }
   },
 
@@ -374,88 +324,6 @@ export const detectionService = {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError(`Failed to get event analysis for ${eventId}`, 500, 'GET_EVENT_ANALYSIS_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  // ==================== FACE RECOGNITION ====================
-
-  async getKnownFaces(): Promise<
-    Array<{ id: string; name: string; imageCount: number; lastTrained: string; personId?: string }>
-  > {
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        faces: Array<{
-          id: string;
-          name: string;
-          imageCount: number;
-          lastTrained: string;
-          personId?: string;
-        }>;
-      }>('/detection/faces');
-      if (response.success) return response.faces;
-      throw new ApiError('Failed to get known faces', 400, 'GET_KNOWN_FACES_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get known faces', 500, 'GET_KNOWN_FACES_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async deleteKnownFace(personId: string): Promise<{ message: string }> {
-    try {
-      const response = await apiClient.delete<{ success: boolean; message: string }>(
-        `/detection/faces/${personId}`,
-      );
-      if (response.success) return { message: response.message };
-      throw new ApiError('Failed to delete known face', 400, 'DELETE_KNOWN_FACE_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        `Failed to delete known face ${personId}`,
-        500,
-        'DELETE_KNOWN_FACE_ERROR',
-        { originalError: error instanceof Error ? error.message : String(error) },
-      );
-    }
-  },
-
-  async retrainFaceModel(): Promise<{ message: string; trainingTime: number }> {
-    try {
-      const response = await apiClient.post<{
-        success: boolean;
-        message: string;
-        trainingTime: number;
-      }>('/detection/faces/retrain');
-      if (response.success)
-        return { message: response.message, trainingTime: response.trainingTime };
-      throw new ApiError('Failed to retrain face model', 400, 'RETRAIN_FACE_MODEL_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to retrain face model', 500, 'RETRAIN_FACE_MODEL_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async registerFace(
-    name: string,
-    imageData: string,
-  ): Promise<{ personId: string; message: string }> {
-    try {
-      const response = await apiClient.post<{
-        success: boolean;
-        personId: string;
-        message: string;
-      }>('/detection/faces/register', { name, imageData });
-      if (response.success) return { personId: response.personId, message: response.message };
-      throw new ApiError(response.message || 'Failed to register face', 400, 'REGISTER_FACE_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to register face', 500, 'REGISTER_FACE_ERROR', {
         originalError: error instanceof Error ? error.message : String(error),
       });
     }

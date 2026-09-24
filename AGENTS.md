@@ -6,7 +6,27 @@ Essential information for AI agents working on the SentryVision codebase.
 
 Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, Python OpenCV service.
 
-**Version**: 1.6.0 | **Timezone**: IST (UTC+5:30) | **Status**: Production
+**Version**: 1.7.0 | **Timezone**: IST (UTC+5:30) | **Status**: Production
+
+For documentation index see `DOCS.md`. For complete endpoint mapping see `API-SOURCE-OF-TRUTH.md`.
+
+## Documentation
+
+All docs live in the project root. Key files:
+
+| Doc | Purpose |
+|-----|---------|
+| `README.md` | Quick start, architecture, commands |
+| `PRODUCT.md` | Product vision and capabilities |
+| `API-SOURCE-OF-TRUTH.md` | Complete API endpoint inventory |
+| `BACKEND.md` | Express API, routes, services, middleware |
+| `FRONTEND.md` | React app, pages, services, routing |
+| `DATABASE.md` | Schema, migrations, queries |
+| `ENVIRONMENT.md` | All environment variables |
+| `OPENCV-SERVICE.md` | Python detection pipeline |
+| `SECURITY.md` | Auth, rate limiting, headers |
+| `CONTRIBUTING.md` | Dev workflow, conventions |
+| `DOCS.md` | Full documentation index |
 
 ## Architecture
 
@@ -76,17 +96,20 @@ cd server && npm run build && docker restart sentryvision-app
 frontend/src/
 ├── App.tsx                   # Router + layout (pages mount under /app/*)
 ├── pages/                    # Route-level views
-│   ├── EventsPage.tsx        # Main events view with filters
+│   ├── StreamDashboard.tsx   # Live camera view (/app/streams) — default
+│   ├── EventsPage.tsx        # Main events view with filters (/app/events)
 │   ├── PeoplePage.tsx        # People / face clusters (/app/people)
+│   ├── InsightsPage.tsx      # Daily analytics dashboard (/app/insights) [NEW]
 │   ├── TimelapsePage.tsx     # Timelapse view (/app/timelapse)
-│   ├── StreamDashboard.tsx   # Live camera view
-│   ├── Settings.tsx          # System settings
-│   ├── Login.tsx
-│   └── NotFound.tsx
+│   ├── AskPage.tsx           # AI chat interface (/app/ask) [NEW]
+│   ├── LogsPage.tsx          # System logs + alerts (/app/logs)
+│   ├── Settings.tsx          # System settings (/app/settings)
+│   ├── Login.tsx             # Auth + MFA (/login)
+│   └── NotFound.tsx          # 404
 ├── components/
 │   ├── live/                 # AdaptiveCameraGrid, StreamPanel, RecentDetectionsSection
-│   ├── events/               # EventDetailPanel, SmartFilters, EventTimeline, RelatedEvents
-│   ├── layout/               # AppLayout, MacDock (bottom nav)
+│   ├── events/               # EventDetailPanel, SmartFilters, RelatedEvents
+│   ├── layout/               # AppLayout, MacDock (bottom nav), PageContainer [NEW]
 │   ├── settings/             # MotionDetectionSettings, OptimizationSettings
 │   ├── analytics/            # Charts
 │   ├── detection/            # Detection UI
@@ -96,16 +119,18 @@ frontend/src/
 │   └── ProtectedRoute.tsx
 ├── services/
 │   ├── api/                  # REST clients
-│   │   ├── baseClient.ts     # Shared fetch wrapper with auth
-│   │   ├── cameraService.ts  # Camera CRUD + snapshots
-│   │   ├── eventService.ts   # Event listing/detail
-│   │   ├── detectionService.ts
+│   │   ├── baseClient.ts     # Shared fetch wrapper with auth, retry, refresh
+│   │   ├── cameraService.ts  # Camera CRUD + snapshots + zones + filters
+│   │   ├── eventService.ts   # Event listing, calendar stats, archive
+│   │   ├── detectionService.ts # Detection triggers, settings, AI analysis
 │   │   ├── personService.ts  # People / face clusters
-│   │   ├── authService.ts
-│   │   ├── systemService.ts
-│   │   ├── settingsService.ts
-│   │   └── notificationService.ts
-│   └── SocketService.ts      # Socket.io client
+│   │   ├── chatService.ts    # AI chat with tool calling [NEW]
+│   │   ├── insightsService.ts # Daily analytics (25+ dimensions) [NEW]
+│   │   ├── authService.ts    # Login, register, MFA
+│   │   ├── systemService.ts  # Health, stats, highlights, timelapse
+│   │   ├── settingsService.ts # Settings, detection config, alerts
+│   │   └── notificationService.ts # Push notifications, preferences
+│   └── SocketService.ts      # Socket.io singleton client
 ├── contexts/
 │   ├── AuthContext.tsx        # Auth state, login/logout, MFA
 │   ├── CameraContext.tsx      # Camera state, stream management

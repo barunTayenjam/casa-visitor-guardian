@@ -7,9 +7,6 @@ import EventsPage from '@/pages/EventsPage';
 jest.mock('@/components/events/SmartFilters', () => ({
   SmartFilters: () => <div data-testid="smart-filters" />,
 }));
-jest.mock('@/components/events/EventTimeline', () => ({
-  EventTimeline: () => <div data-testid="event-timeline" />,
-}));
 jest.mock('@/components/events/EventDetailPanel', () => ({
   EventDetailPanel: () => <div data-testid="event-detail-panel" />,
 }));

@@ -37,7 +37,10 @@ Success means: the user trusts SentryVision as their primary security system, ch
 - Human verification pipeline (YOLO high confidence → face → MediaPipe pose → score floor)
 - Face recognition and visitor timeline (InsightFace ArcFace)
 - Event timeline with smart filters and AI scene analysis (NVIDIA integration)
-- Timelapse generation from detection snapshots
+- Daily analytics dashboard with 25+ dimensions (InsightsPage)
+- AI chat interface for querying detection data (AskPage)
+- System logs viewer with real-time filtering (LogsPage)
+- Timelapse generation and backfill from detection snapshots
 - Multi-user auth with MFA (TOTP)
 - Real-time WebSocket updates
 
@@ -60,10 +63,14 @@ Success means: the user trusts SentryVision as their primary security system, ch
 
 ## Evidence on Hand
 
-- Running v1.6.0 production system with 60K+ detection events
+- Running v1.7.0 production system with 60K+ detection events
 - 26 database migrations, full detection pipeline operational
 - Live camera streaming working across desktop and mobile browsers
 - Face recognition and visitor tracking functional
+- Daily analytics dashboard with 25+ dimensions (InsightsPage)
+- AI chat interface querying detection data (AskPage)
+- System logs viewer with real-time filtering (LogsPage)
+- Timelapse generation and backfill from detection snapshots
 
 ## Product Principles
 

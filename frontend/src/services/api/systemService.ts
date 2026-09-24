@@ -1,30 +1,6 @@
 // System-related API methods extracted from ApiService.ts
 import { apiClient, fetchWithRetry, ApiError, API_URL } from './baseClient';
 
-// ==================== TYPES ====================
-
-interface DetectionStats {
-  totalDetections: number;
-  personDetections: number;
-  faceDetections: number;
-  objectDetections: number;
-  averageConfidence: number;
-}
-
-interface TimeSeriesData {
-  timestamp: string;
-  count: number;
-}
-
-interface CameraPerformance {
-  cameraId: string;
-  cameraName: string;
-  uptime: number;
-  fps: number;
-  droppedFrames: number;
-  errorRate: number;
-}
-
 // ==================== SYSTEM SERVICE ====================
 
 export const systemService = {
@@ -163,89 +139,6 @@ export const systemService = {
       console.error('Error fetching storage stats:', error);
       if (error instanceof ApiError) throw error;
       throw new ApiError('Failed to fetch storage stats', 500, 'GET_STORAGE_STATS_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async getOpenCVStatus(): Promise<{
-    status: string;
-    version: string;
-    modelsLoaded: boolean;
-    gpuAvailable: boolean;
-  }> {
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        status: string;
-        version: string;
-        modelsLoaded: boolean;
-        gpuAvailable: boolean;
-      }>('/opencv/status');
-      if (response.success) {
-        return {
-          status: response.status,
-          version: response.version,
-          modelsLoaded: response.modelsLoaded,
-          gpuAvailable: response.gpuAvailable,
-        };
-      }
-      throw new ApiError('Failed to get OpenCV status', 400, 'GET_OPENCV_STATUS_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get OpenCV status', 500, 'GET_OPENCV_STATUS_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async getDetectionStats(): Promise<DetectionStats> {
-    try {
-      const response = await apiClient.get<{ success: boolean; stats: DetectionStats }>(
-        '/system/detection/stats',
-      );
-      if (response.success) return response.stats;
-      throw new ApiError('Failed to get detection stats', 400, 'GET_DETECTION_STATS_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get detection stats', 500, 'GET_DETECTION_STATS_ERROR', {
-        originalError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  },
-
-  async getDetectionTimeSeries(timeRange: string): Promise<TimeSeriesData[]> {
-    try {
-      const response = await apiClient.get<{ success: boolean; data: TimeSeriesData[] }>(
-        `/system/detection/timeseries/${timeRange}`,
-      );
-      if (response.success) return response.data;
-      throw new ApiError(
-        'Failed to get detection time series',
-        400,
-        'GET_DETECTION_TIMESERIES_ERROR',
-      );
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        'Failed to get detection time series',
-        500,
-        'GET_DETECTION_TIMESERIES_ERROR',
-        { originalError: error instanceof Error ? error.message : String(error) },
-      );
-    }
-  },
-
-  async getCameraPerformance(): Promise<CameraPerformance[]> {
-    try {
-      const response = await apiClient.get<{ success: boolean; performance: CameraPerformance[] }>(
-        '/system/cameras/performance',
-      );
-      if (response.success) return response.performance;
-      throw new ApiError('Failed to get camera performance', 400, 'GET_CAMERA_PERFORMANCE_ERROR');
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError('Failed to get camera performance', 500, 'GET_CAMERA_PERFORMANCE_ERROR', {
         originalError: error instanceof Error ? error.message : String(error),
       });
     }

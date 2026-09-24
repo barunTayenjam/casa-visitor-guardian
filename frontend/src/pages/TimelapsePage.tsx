@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { PageLoading } from '@/components/ui/PageLoading';
+import { PageContainer } from '@/components/layout/PageContainer';
 import { useToast } from '@/hooks/use-toast';
 import { systemService } from '@/services/api/systemService';
 import { cn } from '@/lib/utils';
@@ -177,15 +178,14 @@ const TimelapsePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-background">
+      <div className="h-full overflow-y-auto bg-background">
         <PageLoading message="Loading Timelapses..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <PageContainer className="space-y-4">
         <PageHeader
           title="Daily Timelapse"
           subtitle={date}
@@ -439,8 +439,7 @@ const TimelapsePage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </PageContainer>
   );
 };
 

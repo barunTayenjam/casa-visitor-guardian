@@ -4,6 +4,7 @@ import { personService, FaceCluster } from '@/services/api/personService';
 import { Users, Tag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const PeoplePage: React.FC = () => {
   const { toast } = useToast();
@@ -65,21 +66,17 @@ const PeoplePage: React.FC = () => {
   );
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
-      {/* SOC Header */}
-      <div className="px-5 pt-6 pb-2">
-        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-xs uppercase tracking-[0.2em] font-medium text-primary mb-3">
-          <Users className="h-3 w-3" />
-          Face Recognition
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">People</h1>
-        <p className="text-sm text-muted-foreground mb-4">
+    <PageContainer>
+      {/* Header */}
+      <div className="pb-4">
+        <h1 className="text-xl font-semibold tracking-tight mb-1">People</h1>
+        <p className="text-sm text-muted-foreground">
           Faces grouped from verified human events. Name them to identify in your timeline.
         </p>
       </div>
 
       {loading ? (
-        <div className="px-5 pb-28 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="rounded-[0.5rem] border border-white/[0.10] bg-card animate-pulse">
               <div className="aspect-square bg-white/[0.04] rounded-t-[0.5rem]" />
@@ -103,7 +100,7 @@ const PeoplePage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="px-5 pb-28 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {clusters.map((cluster) => (
             <div key={cluster.cluster_id} className="group rounded-[0.5rem] border border-white/[0.10] bg-card overflow-hidden hover:border-primary/30 transition-colors">
               <div className="relative aspect-square overflow-hidden bg-black/50 flex items-center justify-center">
@@ -172,7 +169,7 @@ const PeoplePage: React.FC = () => {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

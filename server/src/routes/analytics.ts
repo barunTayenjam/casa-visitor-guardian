@@ -10,5 +10,6 @@ router.get('/monthly', optionalAuth, (req, res) => analyticsController.getMonthl
 router.get('/storage', optionalAuth, async (req, res) =>
   analyticsController.getStorageStats(req, res),
 );
+router.get('/daily/:date', optionalAuth, (req, res) => analyticsController.getDailyInsights(req, res));
 
 export default router;

@@ -133,7 +133,7 @@ export const RecentDetectionsSection: React.FC<RecentDetectionsSectionProps> = (
           <button
             key={det.id}
             role="listitem"
-            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.10] bg-white/[0.06] overflow-hidden hover:bg-white/[0.08] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] text-left focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 min-w-0 rounded-[0.75rem] border border-white/[0.10] bg-white/[0.06] overflow-hidden hover:bg-white/[0.08] transition-all duration-300 ease-spring text-left focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label={`${det.objectType} detected ${formatRelativeTime(det.timestamp)}`}
             onClick={() => {
               window.location.href = `/events/${det.id}`;

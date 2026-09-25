@@ -1,31 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Settings, LogOut, Film, Users, MessageSquare, Radio, BarChart3 } from 'lucide-react';
+import { Bell, Settings, LogOut, Users, MessageSquare, Radio, BarChart3 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSocketContext } from '@/contexts/SocketContext';
+import { useAuthStore } from '@/stores/auth';
+import { useSocketStore } from '@/stores/socket';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/app/streams', label: 'Live', icon: Radio },
-  { href: '/app/events', label: 'Timeline', icon: Bell },
-  { href: '/app/timelapse', label: 'Timelapse', icon: Film },
-  { href: '/app/people', label: 'People', icon: Users },
-  { href: '/app/insights', label: 'Insights', icon: BarChart3 },
-  { href: '/app/ask', label: 'Ask', icon: MessageSquare },
-  { href: '/app/settings', label: 'Settings', icon: Settings },
+  { href: '/', label: 'Live', icon: Radio },
+  { href: '/events', label: 'Timeline', icon: Bell },
+  { href: '/security', label: 'Security', icon: Users },
+  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/ask', label: 'Ask', icon: MessageSquare },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export const MacDock: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const { connected } = useSocketContext();
+  const logout = useAuthStore((state) => state.logout);
+  const connected = useSocketStore((state) => state.connected);
 
   const [currentTime, setCurrentTime] = useState(() =>
     new Date().toLocaleTimeString('en-US', { hour12: false }),
@@ -61,11 +60,11 @@ export const MacDock: React.FC = () => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 's' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       e.preventDefault();
-      navigate('/app/settings');
+      navigate('/settings');
     }
     if (e.key === 'e' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      navigate('/app/events');
+      navigate('/events');
     }
   }, [navigate]);
 

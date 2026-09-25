@@ -10,6 +10,7 @@ import {
 import { authService } from '@/services/api/authService';
 import { ApiError, setAuthToken } from '@/services/api/baseClient';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/auth';
 
 // Types
 export interface User {
@@ -456,13 +457,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const store = useAuthStore();
+
+  if (context !== undefined) return context;
+
+  return {
+    user: store.user,
+    token: store.token,
+    isAuthenticated: store.isAuthenticated,
+    isLoading: store.isLoading,
+    error: store.error,
+    login: store.login,
+    register: store.register,
+    logout: async () => {
+      await store.logout();
+    },
+    clearError: store.clearError,
+    refreshToken: async () => {
+      await store.refreshToken();
+    },
+    changePassword: store.changePassword,
+    completeLogin: store.completeLogin,
+  };
 }
 
 export default AuthContext;

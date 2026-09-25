@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useCameras } from '@/contexts/CameraContext';
-import { useSocketContext } from '@/contexts/SocketContext';
+import { useCameraStore } from '@/stores/camera';
+import { useSocketStore } from '@/stores/socket';
 import socketService from '@/services/SocketService';
 import { Camera } from '@/types/security';
 import { logger } from '@/lib/logger';
@@ -34,8 +34,9 @@ interface UseCameraStreamOptions {
 }
 
 export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOptions) => {
-  const { startCameraStream, stopCameraStream } = useCameras();
-  const { connected: socketConnected } = useSocketContext();
+  const startCameraStream = useCameraStore((state) => state.startCameraStream);
+  const stopCameraStream = useCameraStore((state) => state.stopCameraStream);
+  const socketConnected = useSocketStore((state) => state.connected);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -835,7 +836,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
     cleanupMSE();
     cleanupHLS();
     stopFrameRender();
-    stopCameraStream(camera.id).catch(() => {});
+    stopCameraStream(camera.id);
   }, [
     camera.id,
     camera.name,
@@ -913,7 +914,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
       cleanupMSE();
       cleanupHLS();
       streamActionRef.current = null;
-      stopCameraStream(camera.id).catch(() => {});
+      stopCameraStream(camera.id);
     };
   }, [camera.id, stopCameraStream, cleanupPeerConnection, cleanupMSE, cleanupHLS]);
 

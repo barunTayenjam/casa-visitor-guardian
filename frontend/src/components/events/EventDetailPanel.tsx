@@ -428,7 +428,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         onAnalyze(event.id);
                       }}
                       disabled={analyzing}
-                      className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] disabled:opacity-50"
+                      className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-all duration-500 ease-spring disabled:opacity-50"
                     >
                       <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
                         {analyzing ? (
@@ -663,7 +663,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                               <div className="flex-1 h-[2px] rounded-full bg-white/[0.06] overflow-hidden">
                                 <div
                                   className={cn(
-                                    'h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                                    'h-full rounded-full transition-all duration-1000 ease-spring',
                                     analysis.threatAssessment.level === 'high'
                                       ? 'bg-red-500'
                                       : analysis.threatAssessment.level === 'medium'

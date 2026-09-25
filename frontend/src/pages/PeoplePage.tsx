@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { personService, FaceCluster } from '@/services/api/personService';
+import { useAssignClusterName, useFaceClusters } from '@/hooks/useFaceClusters';
 import { Users, Tag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,69 +8,48 @@ import { PageContainer } from '@/components/layout/PageContainer';
 
 const PeoplePage: React.FC = () => {
   const { toast } = useToast();
-  const [clusters, setClusters] = useState<FaceCluster[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: response, isLoading: loading } = useFaceClusters();
+  const assignName = useAssignClusterName();
   const [namingClusterId, setNamingClusterId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
-  const [isNaming, setIsNaming] = useState(false);
-
-  const fetchClusters = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await personService.getFaceClusters();
-      if (response.success && response.clusters) {
-        setClusters(response.clusters);
-      } else {
-        toast({
-          title: 'Error',
-          description: response.error || 'Failed to fetch face clusters',
-          variant: 'destructive',
-        });
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to fetch face clusters', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const clusters = response?.clusters ?? [];
+  const isNaming = assignName.isPending;
 
   useEffect(() => {
-    fetchClusters();
-  }, [fetchClusters]);
+    if (response && !response.success) {
+      toast({
+        title: 'Error',
+        description: response.error || 'Failed to fetch face clusters',
+        variant: 'destructive',
+      });
+    }
+  }, [response, toast]);
 
   const handleSaveName = useCallback(
     async (clusterId: string) => {
       if (!newName.trim()) return;
-      setIsNaming(true);
-      try {
-        const response = await personService.assignClusterName(clusterId, newName.trim());
-        if (response.success) {
-          toast({ title: 'Success', description: `Named "${newName.trim()}"` });
-          setNamingClusterId(null);
-          setNewName('');
-          fetchClusters();
-        } else {
-          toast({
-            title: 'Error',
-            description: response.error || 'Failed to assign name',
-            variant: 'destructive',
-          });
-        }
-      } catch {
-        toast({ title: 'Error', description: 'Failed to assign name', variant: 'destructive' });
-      } finally {
-        setIsNaming(false);
+      const result = await assignName.mutateAsync({ clusterId, name: newName.trim() });
+      if (result.success) {
+        toast({ title: 'Success', description: `Named "${newName.trim()}"` });
+        setNamingClusterId(null);
+        setNewName('');
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to assign name',
+          variant: 'destructive',
+        });
       }
     },
-    [newName, toast, fetchClusters],
+    [assignName, newName, toast],
   );
 
   return (
     <PageContainer>
       {/* Header */}
       <div className="pb-4">
-        <h1 className="text-xl font-semibold tracking-tight mb-1">People</h1>
-        <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-[-0.03em] text-[#ECECEC]">People</h1>
+          <p className="mt-1 text-sm text-[#A1A1A8]">
           Faces grouped from verified human events. Name them to identify in your timeline.
         </p>
       </div>
@@ -107,7 +86,7 @@ const PeoplePage: React.FC = () => {
                 <img
                   src={cluster.representative_image}
                   alt={cluster.name || cluster.cluster_id}
-                  className="max-w-full max-h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105"
+                  className="max-w-full max-h-full object-contain transition-transform duration-500 ease-spring group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 <div className="absolute bottom-2 left-3 right-3">

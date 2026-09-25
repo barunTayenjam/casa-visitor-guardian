@@ -18,10 +18,10 @@ export const PageContainer: React.FC<PageContainerProps> = ({
   width = 'full',
   className,
 }) => (
-  <div className="h-full overflow-y-auto bg-background">
+  <div className="h-full overflow-y-auto bg-[#050505]">
     <div
       className={cn(
-        'mx-auto px-6 pt-6 pb-10',
+        'mx-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10',
         width === 'narrow' ? 'max-w-3xl' : 'max-w-7xl',
         className,
       )}

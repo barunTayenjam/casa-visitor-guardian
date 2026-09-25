@@ -11,6 +11,7 @@ import {
   ChatTable,
 } from '@/services/api/chatService';
 import { cn } from '@/lib/utils';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const SUGGESTIONS = [
   'How many dogs visited today?',
@@ -289,7 +290,7 @@ export default function AskPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col bg-[#050505] px-4 pt-5 pb-4 sm:px-6 sm:pt-6">
+    <PageContainer width="narrow">
       <div className="mb-4 flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
         <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-[#5E6AD2]/20 bg-[#5E6AD2]/10">
           <MessageSquare className="h-4 w-4 text-primary" />
@@ -449,6 +450,6 @@ export default function AskPage() {
           </button>
         </form>
       </div>
-    </div>
+    </PageContainer>
   );
 }

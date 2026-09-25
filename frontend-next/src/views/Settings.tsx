@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   ChevronLeft,
   Save,
@@ -18,6 +21,7 @@ import {
   Mail,
   FileText,
 } from 'lucide-react';
+import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +69,19 @@ interface NotificationPrefs {
   emailAddress: string;
 }
 
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'Use at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Confirm your password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+type PasswordValues = z.infer<typeof passwordSchema>;
+
 const SettingsPage = () => {
   const router = useRouter();
   const { toast } = useToast();
@@ -97,10 +114,10 @@ const SettingsPage = () => {
     emailAddress: '',
   });
 
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+  const passwordForm = useForm<PasswordValues>({
+    resolver: zodResolver(passwordSchema),
+    mode: 'onBlur',
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -249,32 +266,15 @@ const SettingsPage = () => {
     window.location.reload();
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({
-        variant: 'destructive',
-        title: 'Passwords do not match',
-        description: 'New password and confirm password must be the same.',
-      });
-      return;
-    }
-    if (passwordData.newPassword.length < 8) {
-      toast({
-        variant: 'destructive',
-        title: 'Password too short',
-        description: 'Password must be at least 8 characters long.',
-      });
-      return;
-    }
+  const onPasswordSubmit = async (values: PasswordValues) => {
     setIsChangingPassword(true);
     try {
-      await changePassword(passwordData.currentPassword, passwordData.newPassword);
+      await changePassword(values.currentPassword, values.newPassword);
       toast({
         title: 'Password changed',
         description: 'Your password has been updated successfully.',
       });
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      passwordForm.reset();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -284,10 +284,6 @@ const SettingsPage = () => {
     } finally {
       setIsChangingPassword(false);
     }
-  };
-
-  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
-    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleThemeChange = (value: Theme) => {
@@ -359,58 +355,52 @@ const SettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="h-full overflow-y-auto bg-background">
-        <div className="mx-auto max-w-7xl px-6 pt-6 pb-10">
-          <div className="flex items-center gap-4">
-            <Button size="sm" variant="ghost" onClick={() => router.back()}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-            </div>
+      <PageContainer>
+        <div className="flex items-center gap-4">
+          <Button size="sm" variant="ghost" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex min-h-[50vh] items-center justify-center">
           <p className="text-muted-foreground">Loading settings...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto max-w-7xl px-6 pt-6 pb-10">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button size="sm" variant="ghost" onClick={() => router.back()}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Configure your SentryVision system
-              </p>
-            </div>
+    <PageContainer>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button size="sm" variant="ghost" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Configuration</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure detection, notifications, storage, and system access
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {hasChanges && (
-              <Button size="sm" variant="ghost" onClick={handleReset}>
-                Reset
-              </Button>
-            )}
-            <Button size="sm" onClick={handleSave} disabled={!hasChanges || saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Changes'}
+        </div>
+        <div className="flex items-center gap-2">
+          {hasChanges && (
+            <Button size="sm" variant="ghost" onClick={handleReset}>
+              Reset
             </Button>
-          </div>
+          )}
+          <Button size="sm" onClick={handleSave} disabled={!hasChanges || saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
         </div>
       </div>
 
-      <div className="pb-10">
-        <div className="space-y-6">
-          <div className="space-y-6">
+      <div className="space-y-6">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-foreground">General Settings</h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -1003,114 +993,80 @@ const SettingsPage = () => {
             </div>
 
             <SettingCard>
-              <form onSubmit={handlePasswordChange} className="space-y-4">
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
                 <div>
                   <Label className="text-sm font-medium text-foreground">Current Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.current ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) =>
-                        setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
-                      }
                       className="pr-10"
-                      required
+                      {...passwordForm.register('currentPassword')}
                     />
                     <button
                       type="button"
-                      onClick={() => togglePasswordVisibility('current')}
+                      onClick={() => setShowPasswords((p) => ({ ...p, current: !p.current }))}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={
-                        showPasswords.current ? 'Hide current password' : 'Show current password'
-                      }
+                      aria-label={showPasswords.current ? 'Hide current password' : 'Show current password'}
                     >
-                      {showPasswords.current ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {passwordForm.formState.errors.currentPassword && (
+                    <p className="text-[11px] text-destructive mt-1">{passwordForm.formState.errors.currentPassword.message}</p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-foreground">New Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.new ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) =>
-                        setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
-                      }
                       className="pr-10"
-                      minLength={8}
-                      required
+                      {...passwordForm.register('newPassword')}
                     />
                     <button
                       type="button"
-                      onClick={() => togglePasswordVisibility('new')}
+                      onClick={() => setShowPasswords((p) => ({ ...p, new: !p.new }))}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       aria-label={showPasswords.new ? 'Hide new password' : 'Show new password'}
                     >
-                      {showPasswords.new ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {passwordForm.formState.errors.newPassword && (
+                    <p className="text-[11px] text-destructive mt-1">{passwordForm.formState.errors.newPassword.message}</p>
+                  )}
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-foreground">
-                    Confirm New Password
-                  </Label>
+                  <Label className="text-sm font-medium text-foreground">Confirm New Password</Label>
                   <div className="relative mt-2">
                     <Input
                       type={showPasswords.confirm ? 'text' : 'password'}
-                      value={passwordData.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
-                      }
                       className="pr-10"
-                      minLength={8}
-                      required
+                      {...passwordForm.register('confirmPassword')}
                     />
                     <button
                       type="button"
-                      onClick={() => togglePasswordVisibility('confirm')}
+                      onClick={() => setShowPasswords((p) => ({ ...p, confirm: !p.confirm }))}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={
-                        showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'
-                      }
+                      aria-label={showPasswords.confirm ? 'Hide confirm password' : 'Show confirm password'}
                     >
-                      {showPasswords.confirm ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {passwordForm.formState.errors.confirmPassword && (
+                    <p className="text-[11px] text-destructive mt-1">{passwordForm.formState.errors.confirmPassword.message}</p>
+                  )}
                 </div>
                 <div className="pt-2">
-                  <Button
-                    type="submit"
-                    disabled={
-                      isChangingPassword ||
-                      !passwordData.currentPassword ||
-                      !passwordData.newPassword ||
-                      !passwordData.confirmPassword
-                    }
-                    className="w-full sm:w-auto"
-                  >
+                  <Button type="submit" disabled={isChangingPassword || !passwordForm.formState.isValid} className="w-full sm:w-auto">
                     <Lock className="h-4 w-4 mr-2" />
                     {isChangingPassword ? 'Changing Password...' : 'Change Password'}
                   </Button>
                 </div>
               </form>
             </SettingCard>
-        </div>
       </div>
-    </div>
-    </div>
+    </PageContainer>
   );
 };
 

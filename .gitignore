@@ -112,5 +112,10 @@ public/reports/
 # Vite cache
 frontend/.vite/
 
+# Next.js build output
+frontend-next/.next/
+frontend-next/out/
+frontend-next/tsconfig.tsbuildinfo
+
 # InsightFace model cache (bind-mounted into opencv container)
 opencv-service/.insightface/

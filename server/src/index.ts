@@ -10,6 +10,8 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import { configureRoutes } from './routes/index.js';
 import { staticRoutes } from './routes/staticRoutes.js';
+import { getFrontendDistPath } from './config/frontendDist.js';
+import { collectInlineScriptHashes } from './config/cspHashes.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { initializeServices, gracefulShutdown } from './bootstrap.js';
 import { logger } from './utils/logger.js';
@@ -55,6 +57,7 @@ app.use(
 );
 
 app.use(express.json());
+const inlineScriptHashes = collectInlineScriptHashes(getFrontendDistPath());
 app.use(
   helmet({
     strictTransportSecurity:
@@ -67,7 +70,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", ...inlineScriptHashes],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'", 'ws:', 'wss:'],
@@ -184,11 +187,27 @@ logger.info('Routes configured successfully', 'SERVER');
 
 app.use(staticRoutes);
 
-// SPA fallback: after all API routes, serve index.html for client-side routing
-const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');
+const frontendDistPath = getFrontendDistPath();
 if (fs.existsSync(frontendDistPath)) {
-  app.get('/{*path}', (_req, res) => {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  const frontendRoot = path.resolve(frontendDistPath);
+  const getSafePath = (relativePath: string) => {
+    const candidate = path.resolve(frontendRoot, relativePath);
+    return candidate === frontendRoot || candidate.startsWith(`${frontendRoot}${path.sep}`) ? candidate : null;
+  };
+
+  app.get('/{*path}', (req, res) => {
+    const relativePath = req.path.replace(/^\/+|\/+$/g, '');
+    const routeIndexPath = getSafePath(path.join(relativePath, 'index.html'));
+    if (routeIndexPath && fs.existsSync(routeIndexPath)) {
+      return res.sendFile(routeIndexPath);
+    }
+
+    const notFoundPath = getSafePath('404.html');
+    if (notFoundPath && fs.existsSync(notFoundPath)) {
+      return res.status(404).sendFile(notFoundPath);
+    }
+
+    return res.status(404).sendFile(path.join(frontendRoot, 'index.html'));
   });
 }
 

@@ -5,6 +5,7 @@ import express from 'express';
 import { logger } from '../utils/logger.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { imageFileService } from '../services/imageFileService.js';
+import { getFrontendDistPath } from '../config/frontendDist.js';
 
 const imageHeaders = (res: Response, filepath: string) => {
   if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg') || filepath.endsWith('.png')) {
@@ -72,6 +73,7 @@ staticRoutes.use(
   '/events',
   express.static(path.join(process.cwd(), 'data/detections'), {
     maxAge: '1d',
+    redirect: false,
     setHeaders: imageHeaders,
   }),
 );
@@ -87,12 +89,45 @@ staticRoutes.use(
 staticRoutes.use('/timelapse', express.static(path.join(process.cwd(), 'public', 'timelapse')));
 staticRoutes.use('/public', express.static('public'));
 
-const frontendDistPath = process.env.FRONTEND_DIST_PATH || path.join(process.cwd(), 'public');
+const frontendDistPath = getFrontendDistPath();
 if (fs.existsSync(frontendDistPath)) {
+  const frontendRoot = path.resolve(frontendDistPath);
+
+  const safeResolve = (relativePath: string): string | null => {
+    const candidate = path.resolve(frontendRoot, relativePath);
+    return candidate === frontendRoot || candidate.startsWith(`${frontendRoot}${path.sep}`)
+      ? candidate
+      : null;
+  };
+
+  staticRoutes.use((req, res, next) => {
+    if (req.method !== 'GET' || !req.path.endsWith('.txt')) return next();
+
+    const relativePath = decodeURIComponent(req.path).replace(/^\/+/, '');
+    if (relativePath.includes('..')) return next();
+
+    const direct = safeResolve(relativePath);
+    if (direct && fs.existsSync(direct) && fs.statSync(direct).isFile()) {
+      res.setHeader('Content-Type', 'text/x-component; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(direct);
+    }
+
+    const asDirIndex = safeResolve(path.join(relativePath.replace(/\.txt$/, ''), 'index.txt'));
+    if (asDirIndex && fs.existsSync(asDirIndex) && fs.statSync(asDirIndex).isFile()) {
+      res.setHeader('Content-Type', 'text/x-component; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(asDirIndex);
+    }
+
+    return next();
+  });
+
   staticRoutes.use(
     express.static(frontendDistPath, {
       maxAge: '1y',
       immutable: true,
+      redirect: false,
       setHeaders: (res, path) => {
         if (path.endsWith('.html')) {
           res.setHeader('Cache-Control', 'no-cache');

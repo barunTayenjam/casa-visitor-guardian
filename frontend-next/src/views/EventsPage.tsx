@@ -188,15 +188,10 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
     async (eventId: string) => {
       setAnalyzingEventId(eventId);
       try {
-        const [result, boxesResult] = await Promise.allSettled([
-          detectionService.analyzeEvent(eventId),
-          detectionService.analyzeEventWithBboxes(eventId),
-        ]);
+        const result = await detectionService.analyzeEvent(eventId);
 
-        if (result.status === 'fulfilled' && result.value.success && result.value.analysis) {
-          const a = result.value.analysis;
-          const boxes =
-            boxesResult.status === 'fulfilled' ? boxesResult.value.boxes : undefined;
+        if (result.success && result.analysis) {
+          const a = result.analysis;
           setAnalysisByEvent((prev) => ({
             ...prev,
             [eventId]: {
@@ -213,7 +208,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
               recommendedActions: a.recommendedActions || [],
               processingTime: a.processing_time_ms || a.processingTime || 0,
               modelUsed: a.model || a.modelUsed || 'unknown',
-              boxes,
+              boxes: (a.boundingBoxes as never) || undefined,
             },
           }));
           toast({
@@ -223,10 +218,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
         } else {
           toast({
             title: 'Analysis Failed',
-            description:
-              result.status === 'fulfilled'
-                ? result.value.message || 'Unknown error'
-                : 'Analysis request failed',
+            description: result.message || 'Unknown error',
             variant: 'destructive',
           });
         }

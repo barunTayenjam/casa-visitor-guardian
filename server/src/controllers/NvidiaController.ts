@@ -165,6 +165,7 @@ export class NvidiaController extends BaseController {
               },
               recommendedActions: safeJson(cached.recommended_actions),
               additionalObservations: cached.additional_observations || [],
+              boundingBoxes: safeJson(cached.bounding_boxes),
               processing_time_ms: cached.processing_time_ms || 0,
               model: cached.model_used || 'cached',
               cached: true,

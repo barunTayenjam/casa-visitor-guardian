@@ -207,6 +207,14 @@ export const detectionService = {
       };
       recommendedActions?: string[];
       additionalObservations?: string[];
+      boundingBoxes?: Array<{
+        label: string;
+        confidence: number;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>;
       processing_time_ms?: number;
       processingTime?: number;
       model?: string;

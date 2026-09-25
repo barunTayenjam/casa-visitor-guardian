@@ -1,0 +1,319 @@
+// System-related API methods extracted from ApiService.ts
+import { apiClient, apiPost, fetchWithRetry, ApiError, API_URL } from './baseClient';
+
+// ==================== SYSTEM SERVICE ====================
+
+export const systemService = {
+  async getHealth(): Promise<{
+    status: string;
+    uptime: number;
+    issues: string[];
+    cameras: { total: number; online: number; offline: number };
+    memory: { used: number; total: number };
+    events: { recent: number; today: number };
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/system/health`);
+      const data = await response.json();
+      if (!data.success || !data.health) {
+        throw new ApiError(
+          data.error || 'Failed to fetch system health',
+          response.status,
+          'GET_HEALTH_ERROR',
+          data,
+        );
+      }
+      return data.health;
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to fetch system health', 500, 'GET_HEALTH_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getStats(): Promise<{
+    totalEvents: number;
+    totalCameras: number;
+    activeCameras: number;
+    knownVisitors: number;
+    storageUsed: number;
+    storageTotal: number;
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/stats`);
+      const data = await response.json();
+      if (!data.success || !data.stats) {
+        throw new ApiError(
+          data.error || 'Failed to fetch system stats',
+          response.status,
+          'GET_STATS_ERROR',
+          data,
+        );
+      }
+      return data.stats;
+    } catch (error) {
+      console.error('Error fetching system stats:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to fetch system stats', 500, 'GET_STATS_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getSystemOverview(): Promise<{
+    systemName: string;
+    version: string;
+    uptime: number;
+    cameras: number;
+    events: number;
+    health: string;
+  }> {
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        overview: {
+          systemName: string;
+          version: string;
+          uptime: number;
+          cameras: number;
+          events: number;
+          health: string;
+        };
+      }>('/system/overview');
+      if (response.success) return response.overview;
+      throw new ApiError('Failed to get system overview', 400, 'GET_SYSTEM_OVERVIEW_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to get system overview', 500, 'GET_SYSTEM_OVERVIEW_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getHourlyAnalytics(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{ hour: number; count: number }[]> {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      const queryString = params.toString();
+      const url = `${API_URL}/analytics/hourly${queryString ? `?${queryString}` : ''}`;
+      const response = await fetchWithRetry(url);
+      const data = await response.json();
+      if (!data.success || !data.hourlyData) {
+        throw new ApiError(
+          data.error || 'Failed to fetch hourly analytics',
+          response.status,
+          'GET_HOURLY_ANALYTICS_ERROR',
+          data,
+        );
+      }
+      return data.hourlyData;
+    } catch (error) {
+      console.error('Error fetching hourly analytics:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to fetch hourly analytics', 500, 'GET_HOURLY_ANALYTICS_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getStorageStats(): Promise<{ storageUsed: number; storageTotal: number }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/analytics/storage`);
+      const data = await response.json();
+      if (!data.success || data.storageUsed === undefined) {
+        throw new ApiError(
+          data.error || 'Failed to fetch storage stats',
+          response.status,
+          'GET_STORAGE_STATS_ERROR',
+          data,
+        );
+      }
+      return { storageUsed: data.storageUsed, storageTotal: data.storageTotal };
+    } catch (error) {
+      console.error('Error fetching storage stats:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to fetch storage stats', 500, 'GET_STORAGE_STATS_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getDayHighlights(
+    date: string,
+    options?: { limit?: number; sort?: 'recent' | 'persons' | 'faces' | 'unknown' | 'confidence' },
+  ): Promise<{
+    success: boolean;
+    date: string;
+    sort: string;
+    highlights: Array<{
+      id: string;
+      filename: string;
+      cameraId: string;
+      timestamp: string;
+      eventType: string;
+      confidence: number;
+      personsDetected: number;
+      facesDetected: number;
+      knownFacesCount: number;
+      unknownFacesCount: number;
+      objectDetections: Record<string, unknown>[];
+      faceDetections: Record<string, unknown>[];
+      imageUrl: string;
+      metadata: Record<string, unknown>;
+    }>;
+    summary: { total: number; totalPersons: number; totalFaces: number; knownFaces: number };
+  }> {
+    try {
+      const params: Record<string, string | number> = {};
+      if (options?.limit) params.limit = options.limit;
+      if (options?.sort) params.sort = options.sort;
+
+      const response = await apiClient.get<{
+        success: boolean;
+        date: string;
+        sort: string;
+        highlights: Array<{
+          id: string;
+          filename: string;
+          cameraId: string;
+          timestamp: string;
+          eventType: string;
+          confidence: number;
+          personsDetected: number;
+          facesDetected: number;
+          knownFacesCount: number;
+          unknownFacesCount: number;
+          objectDetections: Record<string, unknown>[];
+          faceDetections: Record<string, unknown>[];
+          imageUrl: string;
+          metadata: Record<string, unknown>;
+        }>;
+        summary: { total: number; totalPersons: number; totalFaces: number; knownFaces: number };
+      }>(`/highlights/${date}`, params);
+
+      if (response.success) return response;
+      throw new ApiError('Failed to get day highlights', 400, 'GET_DAY_HIGHLIGHTS_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to get day highlights', 500, 'GET_DAY_HIGHLIGHTS_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getDaySummary(date: string): Promise<{
+    success: boolean;
+    date: string;
+    summary: {
+      totalEvents: number;
+      totalPersons: number;
+      totalFaces: number;
+      knownFaces: number;
+      knownEvents: number;
+      unknownEvents: number;
+      nightEvents: number;
+    };
+    hourly: Array<{ hour: number; count: number }>;
+  }> {
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        date: string;
+        summary: {
+          totalEvents: number;
+          totalPersons: number;
+          totalFaces: number;
+          knownFaces: number;
+          knownEvents: number;
+          unknownEvents: number;
+          nightEvents: number;
+        };
+        hourly: Array<{ hour: number; count: number }>;
+      }>(`/highlights/${date}/summary`);
+
+      if (response.success) return response;
+      throw new ApiError('Failed to get day summary', 400, 'GET_DAY_SUMMARY_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to get day summary', 500, 'GET_DAY_SUMMARY_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async getTimelapses(
+    date: string,
+  ): Promise<{
+    success: boolean;
+    date: string;
+    timelapses: Array<{ cameraId: string; path: string }>;
+  }> {
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        date: string;
+        timelapses: Array<{ cameraId: string; path: string }>;
+      }>(`/timelapse/list/${date}`);
+      if (response.success) return response;
+      throw new ApiError('Failed to get timelapses', 400, 'GET_TIMELAPSE_LIST_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Failed to get timelapses', 500, 'GET_TIMELAPSE_LIST_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+
+  async generateTimelapse(
+    cameraId: string,
+    date: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    frames: number;
+    skipped: number;
+    path: string;
+    source: string;
+  }> {
+    try {
+      const data = await apiPost<{
+        success: boolean;
+        message: string;
+        frames: number;
+        skipped?: number;
+        path: string;
+        source?: string;
+        error?: string;
+      }>(`/timelapse/generate/${cameraId}/${date}`, undefined, 10 * 60 * 1000);
+      if (data.success) {
+        return {
+          success: true,
+          message: data.message,
+          frames: data.frames,
+          skipped: data.skipped ?? 0,
+          path: data.path,
+          source: data.source ?? 'unknown',
+        };
+      }
+      throw new ApiError(data.error || 'Failed to generate timelapse', 400, 'GENERATE_TIMELAPSE_ERROR');
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiError(
+          'Timelapse generation timed out (10min)',
+          0,
+          'GENERATE_TIMELAPSE_TIMEOUT',
+        );
+      }
+      throw new ApiError('Failed to generate timelapse', 500, 'GENERATE_TIMELAPSE_ERROR', {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+};

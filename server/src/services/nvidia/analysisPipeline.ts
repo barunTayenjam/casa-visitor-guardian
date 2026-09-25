@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import sharp from 'sharp';
 import { logger } from '../../utils/logger.js';
-import { callNvidiaApi } from './nvidiaClient.js';
+import { callNvidiaApi, getEffectiveModel } from './nvidiaClient.js';
 import { parseAIResponse, normalizeModelBoxes } from './nvidiaProcessor.js';
 import { DEFAULT_TIMEOUT } from './types.js';
 import type { AnalysisContext } from './types.js';
@@ -92,7 +92,7 @@ export class AnalysisPipeline {
     options: { model?: string; timeout?: number } = {},
   ): Promise<T> {
     const startTime = Date.now();
-    const model = options.model || process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
+    const model = getEffectiveModel(options.model);
     const timeout = options.timeout || DEFAULT_TIMEOUT;
 
     logger.info(`Starting ${config.name} with model: ${model}`, 'NVIDIA');
@@ -158,7 +158,7 @@ export class AnalysisPipeline {
     modelUsed: string;
   }> {
     const startTime = Date.now();
-    const model = options.model || process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
+    const model = getEffectiveModel(options.model);
     const timeout = options.timeout || DEFAULT_TIMEOUT;
 
     logger.info(`Starting bbox analysis with model: ${model}`, 'NVIDIA');

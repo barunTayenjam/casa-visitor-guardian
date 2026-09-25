@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, MonitorPlay, MonitorStop, Play, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MonitorPlay, MonitorStop, X } from 'lucide-react';
 import type { Camera } from '@/types/security';
 import { useCameraStream } from '@/hooks/useCameraStream';
 import { cn } from '@/lib/utils';
@@ -63,18 +63,6 @@ function LiveCameraTile({
           (!isStreaming || !isWanStream) && 'hidden',
         )}
       />
-      {!isStreaming && connectionState === 'idle' && (
-        <button
-          type="button"
-          onClick={handleStreamStart}
-          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0a0a0b] to-black"
-        >
-          <div className="text-center">
-            <Play className="mx-auto mb-2 h-8 w-8 text-white/50" />
-            <p className="text-xs text-muted-foreground">Click to Start Stream</p>
-          </div>
-        </button>
-      )}
       {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
         <div className="flex h-full min-h-[180px] items-center justify-center bg-gradient-to-br from-[#0a0a0b] to-black">
           <div className="text-center">

@@ -589,6 +589,7 @@ export class NvidiaController extends BaseController {
           },
           recommendedActions: ['Review if person detected'],
           additionalObservations: [],
+          boundingBoxes: (result.people || []).map((p) => p.position),
           processing_time_ms: totalTime,
           model: result.modelUsed || 'unknown',
         },

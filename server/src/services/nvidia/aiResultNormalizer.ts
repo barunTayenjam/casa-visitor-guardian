@@ -22,6 +22,7 @@ export interface NormalizedAnalysisResult {
   };
   recommendedActions: unknown[];
   additionalObservations: unknown[];
+  boundingBoxes: unknown[];
   processing_time_ms: number;
   model: string;
 }
@@ -47,6 +48,7 @@ export class AIResultNormalizer {
         objects: [],
         actions: [],
       },
+      boundingBoxes: (raw as any).boundingBoxes || [],
       recommendedActions: raw.recommendedActions || [],
       additionalObservations: raw.additionalObservations || [],
       processing_time_ms: (raw as any).processingTime || 0,

@@ -40,7 +40,7 @@ export class EventMetadataWriter {
           JSON.stringify(entities.vehicles || result.vehicles || []),
           JSON.stringify(entities.objects || []),
           JSON.stringify(entities.animals || []),
-          JSON.stringify([]),
+          JSON.stringify(result.boundingBoxes || []),
           JSON.stringify(result.recommendedActions || []),
           result.additionalObservations || null,
           result.model || 'unknown',

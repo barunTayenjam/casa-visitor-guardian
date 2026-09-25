@@ -120,6 +120,7 @@ export interface NvidianalysisResult {
   };
   recommendedActions: string[];
   additionalObservations: string[];
+  boundingBoxes?: BoundingBox[];
   processingTime: number;
   modelUsed: string;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useCameraStore } from '@/stores/camera';
 import {
   Film,
@@ -11,7 +11,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  Film as FilmIcon,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +24,17 @@ import { cn } from '@/lib/utils';
 
 type CamStatus = 'idle' | 'queued' | 'generating' | 'done' | 'error';
 
+interface CamMeta {
+  frames: number;
+  skipped: number;
+  source: 'raw' | 'detection' | 'unknown';
+}
+
 interface CamState {
   status: CamStatus;
   message?: string;
   exists: boolean;
+  meta?: CamMeta;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -41,7 +48,6 @@ const TimelapsePage: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [camStates, setCamStates] = useState<Record<string, CamState>>({});
   const [panelOpen, setPanelOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
 
   const isPast = date < todayStr();
@@ -81,13 +87,27 @@ const TimelapsePage: React.FC = () => {
   const getCameraName = (cameraId: string) =>
     cameras.find((c) => c.id === cameraId)?.name || `Camera ${cameraId}`;
 
-  const changeDate = (days: number) => {
-    const d = new Date(date + 'T00:00:00');
-    d.setDate(d.getDate() + days);
-    const next = d.toISOString().split('T')[0];
-    if (next > todayStr()) return;
-    setDate(next);
-  };
+  const changeDate = useCallback(
+    (days: number) => {
+      const d = new Date(date + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      const next = d.toISOString().split('T')[0];
+      if (next > todayStr()) return;
+      setDate(next);
+    },
+    [date],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return;
+      changeDate(e.key === 'ArrowLeft' ? -1 : 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [changeDate]);
 
   const toggleSelected = (camId: string) => {
     setSelected((prev) => {
@@ -105,6 +125,7 @@ const TimelapsePage: React.FC = () => {
     [camStates],
   );
   const busy = generatingCount > 0;
+  const activeMeta = active ? camStates[active]?.meta : undefined;
 
   const runGenerate = async (camId: string) => {
     setCamStates((p) => ({
@@ -113,9 +134,10 @@ const TimelapsePage: React.FC = () => {
     }));
     try {
       const res = await systemService.generateTimelapse(camId, date);
+      const meta: CamMeta = { frames: res.frames, skipped: res.skipped, source: res.source as CamMeta['source'] };
       setCamStates((p) => ({
         ...p,
-        [camId]: { status: 'done', exists: true, message: res.message },
+        [camId]: { status: 'done', exists: true, message: res.message, meta },
       }));
       return res;
     } catch (err) {
@@ -202,7 +224,7 @@ const TimelapsePage: React.FC = () => {
                 value={date}
                 max={todayStr()}
                 onChange={(e) => e.target.value <= todayStr() && setDate(e.target.value)}
-                className="bg-card border border-white/[0.10] rounded-[0.5rem] px-3 py-1.5 text-sm text-foreground"
+                className="bg-card border border-white/[0.10] rounded-lg px-3 py-1.5 text-sm text-foreground"
               />
               <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
                 <ChevronLeft className="w-4 h-4 mr-1" />
@@ -222,7 +244,7 @@ const TimelapsePage: React.FC = () => {
         />
 
         {isPast && (
-          <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+          <div className="rounded-lg border border-white/[0.10] bg-card">
             <button
               type="button"
               onClick={() => setPanelOpen((v) => !v)}
@@ -265,7 +287,7 @@ const TimelapsePage: React.FC = () => {
                       <label
                         key={cam.id}
                         className={cn(
-                          'flex items-start gap-3 p-3 rounded-[0.5rem] border cursor-pointer transition-colors',
+                          'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
                           checked
                             ? 'border-primary/60 bg-primary/5'
                             : 'border-white/[0.10] hover:bg-white/[0.03]',
@@ -296,6 +318,12 @@ const TimelapsePage: React.FC = () => {
                               )}
                             >
                               {st.message}
+                              {st.meta && st.status === 'done' && (
+                                <span className="block text-[11px] text-muted-foreground">
+                                  {st.meta.frames} frames · {st.meta.source}
+                                  {st.meta.skipped > 0 ? ` · ${st.meta.skipped} skipped` : ''}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -355,9 +383,9 @@ const TimelapsePage: React.FC = () => {
         )}
 
         {list.length === 0 ? (
-          <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+          <div className="rounded-lg border border-white/[0.10] bg-card">
             <div className="p-10 text-center">
-              <FilmIcon className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <Film className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <h3 className="text-base font-medium mb-1">
                 {isPast ? 'No timelapse for this date yet' : 'Live capture in progress'}
               </h3>
@@ -389,7 +417,7 @@ const TimelapsePage: React.FC = () => {
                 );
               })}
             </div>
-            <div className="rounded-[0.5rem] border border-white/[0.10] bg-card">
+            <div className="rounded-lg border border-white/[0.10] bg-card">
               <div className="overflow-hidden">
                 <div className="relative aspect-video bg-black">
                   {(() => {
@@ -403,11 +431,12 @@ const TimelapsePage: React.FC = () => {
                     }
                     return (
                       <video
-                        ref={videoRef}
                         key={src}
                         src={src}
                         controls
                         autoPlay
+                        muted
+                        playsInline
                         loop
                         className="w-full h-full object-contain"
                       />
@@ -421,22 +450,41 @@ const TimelapsePage: React.FC = () => {
                         2-minute timelapse for{' '}
                         <span className="text-foreground font-medium">{getCameraName(active)}</span>{' '}
                         on {date}.
+                        {activeMeta && (
+                          <span className="ml-1">
+                            {activeMeta.frames} frames · source: {activeMeta.source}
+                            {activeMeta.skipped > 0 ? ` · ${activeMeta.skipped} skipped` : ''}
+                          </span>
+                        )}
                       </>
                     ) : (
                       '2-minute timelapse of the full day at 24 fps.'
                     )}
                   </p>
-                  {active && isPast && (
-                    <Button
-                      onClick={() => handleGenerateSingle(active)}
-                      disabled={busy}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <Wand2 className="w-3 h-3 mr-1" />
-                      Regenerate
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {active && isPast && (
+                      <Button
+                        onClick={() => handleGenerateSingle(active)}
+                        disabled={busy}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <Wand2 className="w-3 h-3 mr-1" />
+                        Regenerate
+                      </Button>
+                    )}
+                    {active && (
+                      <Button asChild variant="ghost" size="sm">
+                        <a
+                          href={list.find((t) => t.cameraId === active)?.path}
+                          download={`${active}-${date}.mp4`}
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          Download
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

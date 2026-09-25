@@ -111,6 +111,9 @@ export async function callNvidiaApi(
           ? `human-check=${t.verificationTier ?? (t.humanVerified ? 'verified' : 'unverified')}`
           : null,
         t.personAttributes?.clothing ? `wearing ${t.personAttributes.clothing}` : null,
+        t.personAttributes?.positionPct
+          ? `at x=${t.personAttributes.positionPct.x.toFixed(1)}% y=${t.personAttributes.positionPct.y.toFixed(1)}% w=${t.personAttributes.positionPct.width.toFixed(1)}% h=${t.personAttributes.positionPct.height.toFixed(1)}%`
+          : null,
         t.personAttributes?.distance ?? null,
         t.personAttributes?.carryingItem && t.personAttributes.carryingItem !== 'none'
           ? `carrying ${t.personAttributes.carryingItem}`

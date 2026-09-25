@@ -8,6 +8,7 @@ import {
   analyzePersons,
 } from '../services/nvidia/index.js';
 import { imageResolver } from '../services/nvidia/imageResolver.js';
+import { getEffectiveModel, getModelFallbackChain } from '../services/nvidia/nvidiaClient.js';
 import { aiResultNormalizer } from '../services/nvidia/aiResultNormalizer.js';
 import { EventMetadataWriter } from '../services/nvidia/eventMetadataWriter.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
@@ -400,27 +401,25 @@ export class NvidiaController extends BaseController {
   }
 
   getModels(req: Request, res: Response): void {
-    const configuredModel = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
+    const configuredModel = getEffectiveModel();
     const apiKey = process.env.NVIDIA_API_KEY ? 'configured' : 'not set';
     res.json({
       success: true,
       configured: { model: configuredModel, apiKeyStatus: apiKey },
-      available: [
-        {
-          id: 'gemini/gemini-3.5-flash-lite',
-          name: 'Gemini 3.5 Flash Lite',
-          description: 'The only model used for AI event analysis',
-          recommended: true,
-        },
-      ],
+      available: getModelFallbackChain().map((id) => ({
+        id,
+        name: id,
+        description: 'Vision model for AI event analysis',
+        recommended: id === configuredModel,
+      })),
     });
   }
 
   updateConfig(req: Request, res: Response): void {
     try {
       const { model } = req.body;
-      if (model !== 'gemini/gemini-3.5-flash-lite') {
-        this.badRequest(res, 'Only gemini/gemini-3.5-flash-lite is supported');
+      if (!getModelFallbackChain().includes(model)) {
+        this.badRequest(res, `Model must be one of: ${getModelFallbackChain().join(', ')}`);
         return;
       }
       process.env.NVIDIA_MODEL = model;

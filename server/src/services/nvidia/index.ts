@@ -1,6 +1,6 @@
 import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT } from './prompts.js';
 import { parseAIResponse, normalizeModelBoxes } from './nvidiaProcessor.js';
-import { getNvidiaBaseUrl } from './nvidiaClient.js';
+import { getNvidiaBaseUrl, getEffectiveModel } from './nvidiaClient.js';
 import { DEFAULT_TIMEOUT } from './types.js';
 import { analysisPipeline, imageLoader } from './analysisPipeline.js';
 import type {
@@ -23,7 +23,7 @@ export async function checkApiHealth(): Promise<{
   error?: string;
 }> {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
+  const model = getEffectiveModel();
 
   if (!apiKey) {
     return {

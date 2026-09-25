@@ -10,6 +10,19 @@ const nvidiaBreaker = new CircuitBreaker('NvidiaService', {
   successThreshold: 2,
 });
 
+/** Ordered fallback chain — first available model wins. */
+const VISION_FALLBACK_MODELS = ['glm/glm-5.3-flash', 'glm/glm-4.6v', 'sonet-4'];
+
+export function getEffectiveModel(requested?: string): string {
+  const primary = requested || process.env.NVIDIA_MODEL || VISION_FALLBACK_MODELS[0];
+  return primary;
+}
+
+export function getModelFallbackChain(): string[] {
+  const primary = getEffectiveModel();
+  return [primary, ...VISION_FALLBACK_MODELS.filter((m) => m !== primary)];
+}
+
 /**
  * Resolve the NVIDIA-compatible API base URL. Fails fast instead of silently
  * falling back to the hosted endpoint — requests carry NVIDIA_API_KEY and must
@@ -164,40 +177,59 @@ export async function callNvidiaApi(
     top_p: 0.9,
   };
 
-  let lastError: Error | null = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const response = await nvidiaBreaker.execute(() =>
-        fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(requestBody),
-          signal,
-        }),
-      );
+  const fallbackModels = getModelFallbackChain();
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          `NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`,
+  for (const fallbackModel of fallbackModels) {
+    let lastError: Error | null = null;
+    requestBody.model = fallbackModel;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await nvidiaBreaker.execute(() =>
+          fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(requestBody),
+            signal,
+          }),
         );
-      }
 
-      return await response.json();
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') throw err;
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < 3) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (response.status === 404) {
+          logger.warn(
+            `Model ${fallbackModel} not found (404), trying next fallback`,
+            'NvidiaClient',
+          );
+          lastError = new Error(`Model ${fallbackModel} not found`);
+          break; // skip to next model in chain
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            `NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`,
+          );
+        }
+
+        return await response.json();
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt < 2) {
+          const delay = Math.min(1000 * attempt + Math.random() * 500, 3000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
+    }
+
+    if (lastError && !lastError.message.includes('not found')) {
+      throw lastError;
     }
   }
 
-  throw lastError || new Error('NVIDIA API call failed after 3 retries');
+  throw new Error('NVIDIA API call failed: all fallback models exhausted');
 }
 
 export function getNvidiaBreakerState(): string {
@@ -222,7 +254,7 @@ export async function chatCompletion(
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error('NVIDIA_API_KEY environment variable is not set');
   const baseUrl = getNvidiaBaseUrl();
-  const model = process.env.NVIDIA_MODEL || 'gemini/gemini-3.5-flash-lite';
+  const model = getEffectiveModel();
 
   const requestBody = {
     model,

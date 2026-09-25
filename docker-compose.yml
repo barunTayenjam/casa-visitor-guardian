@@ -79,6 +79,7 @@ services:
       - PIPELINE_MODE=${PIPELINE_MODE:-python-only}
       - PYTHON_WS_URL=ws://opencv:9090
       - REDIS_DISABLED=true
+      - FRONTEND_DIST_PATH=/app/frontend
       - CORS_ORIGIN=${CORS_ORIGIN:-https://argus.tayenjam.qzz.io}
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
       - SEED_USER_PASSWORD=${SEED_USER_PASSWORD}
@@ -87,7 +88,7 @@ services:
       # Dev hot-mount: builds locally (npm run build), then
       # `docker restart sentryvision-app` picks up new dist — no rebuild
       - ./server/dist:/app/dist
-      - ./frontend/dist:/app/public
+      - ./frontend-next/out:/app/frontend
       - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots

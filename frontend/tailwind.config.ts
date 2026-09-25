@@ -73,12 +73,15 @@ export default {
 				}
 			},
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)',
-				'2xl': '1.25rem',
-				'3xl': '1.75rem',
-				'4xl': '2rem',
+				sm: '4px',
+				DEFAULT: '4px',
+				md: '4px',
+				lg: '8px',
+				xl: '8px',
+				'2xl': '12px',
+				'3xl': '16px',
+				'4xl': '20px',
+				pill: '9999px',
 			},
 			transitionTimingFunction: {
 				spring: 'cubic-bezier(0.32, 0.72, 0, 1)',

@@ -1,9 +1,9 @@
 # ---- Frontend build stage ----
 FROM node:20-alpine AS frontend-builder
 WORKDIR /build
-COPY frontend/package*.json ./
-RUN npm install --force --no-audit --no-fund
-COPY frontend/ .
+COPY frontend-next/package*.json ./
+RUN npm install --no-audit --no-fund
+COPY frontend-next/ .
 RUN npm run build
 
 # ---- Backend build stage ----
@@ -30,7 +30,7 @@ WORKDIR /app
 
 COPY --from=backend-builder /build/dist ./dist
 COPY --from=backend-builder /build/node_modules ./node_modules
-COPY --from=frontend-builder /build/dist ./public
+COPY --from=frontend-builder /build/out ./public
 COPY server/package*.json ./
 COPY scripts/import-events.py ./import-events.py
 

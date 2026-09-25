@@ -364,7 +364,7 @@ export class TimelapseService {
       '-i',
       listPath,
       '-vf',
-      "scale='if(gt(iw,1280),1280,iw)':-2,fps=24,format=yuv420p",
+      "scale='trunc(iw/2)*2:trunc(ih/2)*2',fps=24,format=yuv420p",
       '-c:v',
       'libx264',
       '-crf',

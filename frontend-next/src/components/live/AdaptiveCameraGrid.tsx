@@ -2,42 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, MonitorPlay, MonitorStop, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MonitorPlay, MonitorStop, Play, X } from 'lucide-react';
 import type { Camera } from '@/types/security';
-import socketService from '@/services/SocketService';
-import { useCameraStore } from '@/stores/camera';
+import { useCameraStream } from '@/hooks/useCameraStream';
 import { cn } from '@/lib/utils';
-
-interface FramePayload {
-  cameraId: string;
-  data: unknown;
-  timestamp?: string;
-}
-
-function toFrameUrl(data: unknown): string | null {
-  if (typeof data === 'string') {
-    if (data.startsWith('data:')) return data;
-    if (data.startsWith('http')) return data;
-    try {
-      const binary = atob(data);
-      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-      return URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
-    } catch {
-      return null;
-    }
-  }
-  if (data instanceof Blob) return URL.createObjectURL(data);
-  if (data instanceof ArrayBuffer) return URL.createObjectURL(new Blob([data], { type: 'image/jpeg' }));
-  if (ArrayBuffer.isView(data)) {
-    const view = data as ArrayBufferView;
-    const bytes = new Uint8Array(view.buffer as ArrayBuffer, view.byteOffset, view.byteLength);
-    return URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
-  }
-  if (data && typeof data === 'object' && 'type' in data && data.type === 'Buffer' && 'data' in data && Array.isArray(data.data)) {
-    return URL.createObjectURL(new Blob([Uint8Array.from(data.data as number[])], { type: 'image/jpeg' }));
-  }
-  return null;
-}
 
 function LiveCameraTile({
   camera,
@@ -50,39 +18,19 @@ function LiveCameraTile({
   onClick: () => void;
   onClose?: () => void;
 }) {
-  const startCameraStream = useCameraStore((state) => state.startCameraStream);
-  const stopCameraStream = useCameraStore((state) => state.stopCameraStream);
-  const [frameUrl, setFrameUrl] = useState<string | null>(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
-  const frameUrlRef = useRef<string | null>(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    let cancelled = false;
-    void startCameraStream(camera.id).catch((error: unknown) => {
-      if (!cancelled) setStreamError(error instanceof Error ? error.message : 'Stream unavailable');
-    });
-    const unsubscribe = socketService.on('frame', (payload: FramePayload) => {
-      if (payload.cameraId !== camera.id) return;
-      const nextUrl = toFrameUrl(payload.data);
-      if (!nextUrl) return;
-      if (frameUrlRef.current) URL.revokeObjectURL(frameUrlRef.current);
-      frameUrlRef.current = nextUrl;
-      if (mountedRef.current) setFrameUrl(nextUrl);
-    });
-    const unsubscribeError = socketService.on('streamError', (payload: { cameraId?: string; error?: string }) => {
-      if (payload.cameraId === camera.id) setStreamError(payload.error || 'Stream unavailable');
-    });
-    return () => {
-      cancelled = true;
-      mountedRef.current = false;
-      unsubscribe();
-      unsubscribeError();
-      stopCameraStream(camera.id);
-      if (frameUrlRef.current) URL.revokeObjectURL(frameUrlRef.current);
-    };
-  }, [camera.id, startCameraStream, stopCameraStream]);
+  const {
+    videoRef,
+    canvasRef,
+    isStreaming,
+    isWanStream,
+    isMuted,
+    connectionState,
+    error: streamError,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleStreamStart,
+  } = useCameraStream({ camera });
 
   return (
     <motion.div
@@ -95,13 +43,51 @@ function LiveCameraTile({
       )}
     >
       <button type="button" onClick={onClick} className="absolute inset-0 z-10 cursor-pointer" aria-label={`Focus ${camera.name}`} />
-      {frameUrl ? (
-        <img src={frameUrl} alt={`${camera.name} live feed`} className="h-full w-full object-contain" />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isMuted}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        className={cn(
+          'h-full w-full object-contain z-0 select-none touch-pan-y bg-black',
+          (!isStreaming || isWanStream) && 'hidden',
+        )}
+      />
+      <canvas
+        ref={canvasRef}
+        className={cn(
+          'h-full w-full object-contain z-0 select-none bg-black',
+          (!isStreaming || !isWanStream) && 'hidden',
+        )}
+      />
+      {!isStreaming && connectionState === 'idle' && (
+        <button
+          type="button"
+          onClick={handleStreamStart}
+          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0a0a0b] to-black"
+        >
+          <div className="text-center">
+            <Play className="mx-auto mb-2 h-8 w-8 text-white/50" />
+            <p className="text-xs text-muted-foreground">Click to Start Stream</p>
+          </div>
+        </button>
+      )}
+      {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
         <div className="flex h-full min-h-[180px] items-center justify-center bg-gradient-to-br from-[#0a0a0b] to-black">
           <div className="text-center">
             <div className="mx-auto mb-2 h-8 w-8 animate-pulse rounded-full bg-white/[0.08]" />
-            <p className="text-xs text-muted-foreground">{streamError || 'Connecting to camera…'}</p>
+            <p className="text-xs text-muted-foreground">{connectionState === 'reconnecting' ? 'Reconnecting…' : 'Connecting to camera…'}</p>
+          </div>
+        </div>
+      )}
+      {connectionState === 'error' && (
+        <div className="flex h-full min-h-[180px] items-center justify-center bg-gradient-to-br from-[#0a0a0b] to-black">
+          <div className="text-center">
+            <p className="text-xs text-red-400">{streamError || 'Stream error'}</p>
+            <button type="button" onClick={handleStreamStart} className="mt-2 text-xs text-primary underline">Retry</button>
           </div>
         </div>
       )}

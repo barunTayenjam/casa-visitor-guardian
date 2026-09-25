@@ -206,7 +206,9 @@ export async function runStartupTimelapseCatchup(): Promise<void> {
     const timelapseService = serviceRegistry.getTimelapseService();
     timelapseService.startSampler();
 
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
     const results = await timelapseService.stitchDate(yesterday);
     const stitched = results.filter((r) => r.ok && r.count > 0).length;
     if (stitched > 0) {

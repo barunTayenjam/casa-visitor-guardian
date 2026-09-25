@@ -55,7 +55,10 @@ export class TimelapseService {
   }
 
   private getDateString(date = new Date()): string {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   private getFinalPath(cameraId: string, date: string): string {
@@ -296,8 +299,9 @@ export class TimelapseService {
   async stitchYesterday(): Promise<
     { cameraId: string; ok: boolean; count: number; error?: string }[]
   > {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    return this.stitchDate(yesterday);
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    return this.stitchDate(this.getDateString(y));
   }
 
   async stitchDate(

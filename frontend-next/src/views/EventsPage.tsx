@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useUrlSearchParams } from '@/hooks/useUrlSearchParams';
 import { useToast } from '@/hooks/use-toast';
 import { useCameraStore } from '@/stores/camera';
+import { useEventsList } from '@/hooks/useEvents';
 import { MotionEvent } from '@/types/security';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
@@ -83,9 +84,6 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
   const router = useRouter();
   const pathname = usePathname() ?? '/';
 
-  const [events, setEvents] = useState<MotionEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalPages, setTotalPages] = useState(1);
   const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
   const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, AnalysisEntry>>({});
 
@@ -93,6 +91,23 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
   const sortBy = (searchParams.get('sortBy') || 'newest') as SortOption;
   const selectedEventId = searchParams.get('eventId');
   const filters = useMemo(() => getFilterFromParams(searchParams), [searchParams]);
+
+  const { data, isLoading, isError, refetch } = useEventsList({
+    page: currentPage,
+    pageSize: 12,
+    camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
+    event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
+    min_confidence: filters.detectionType === 'person' ? PERSON_CONFIDENCE_FLOOR : undefined,
+    start_date: filters.dateRange.start?.toISOString(),
+    end_date: filters.dateRange.end?.toISOString(),
+    sortBy,
+  });
+  const events = data?.events ?? [];
+  const totalPages = data?.totalPages ?? 1;
+
+  useEffect(() => {
+    if (isError) toast({ title: 'Error', description: 'Failed to load events', variant: 'destructive' });
+  }, [isError, toast]);
 
   // Load existing analysis if not in state
   useEffect(() => {
@@ -136,67 +151,6 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
     },
     [pathname, router, searchParams],
   );
-
-  const loadEvents = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await eventService.getEnhancedEventsList({
-        page: currentPage,
-        pageSize: 12,
-        camera_id: filters.cameraId === 'all' ? undefined : filters.cameraId,
-        event_type: filters.detectionType === 'all' ? undefined : filters.detectionType,
-        min_confidence: filters.detectionType === 'person' ? PERSON_CONFIDENCE_FLOOR : undefined,
-        start_date: filters.dateRange.start?.toISOString(),
-        end_date: filters.dateRange.end?.toISOString(),
-        sortBy,
-      });
-
-      setEvents(
-        response.events.map((event): MotionEvent => ({
-          id: event.id,
-          cameraId: event.cameraId,
-          cameraName: event.cameraName || `Camera ${event.cameraId}`,
-          timestamp: new Date(event.timestamp),
-          imageUrl: event.imageUrl || null,
-          confidence: event.confidence,
-          labels: event.labels || [event.event_type || 'motion'],
-          location: event.cameraName || '',
-          duration: 0,
-          archived: false,
-          metadata: event.metadata,
-          detections: (event.object_detections || []).map((d) => ({
-            type: (d.class === 'person' || d.class === 'face' ? d.class : 'object') as 'person' | 'face' | 'object',
-            confidence: typeof d.confidence === 'number' && d.confidence > 1 ? d.confidence / 100 : d.confidence,
-            name: d.identity ?? undefined,
-            isKnown: !!d.identity && d.identity !== 'unknown',
-            boundingBox: {
-              x: d.bbox?.x ?? 0,
-              y: d.bbox?.y ?? 0,
-              width: d.bbox?.width ?? 0,
-              height: d.bbox?.height ?? 0,
-            },
-          })),
-          personCount: event.persons_detected,
-          faceCount: event.faces_detected,
-          knownFaces: event.known_faces_count,
-          unknownFaces: event.unknown_faces_count,
-          severity: event.severity,
-        })),
-      );
-
-      if (response.pagination) {
-        setTotalPages(response.pagination.totalPages);
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to load events', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, filters, sortBy, toast]);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
 
   const handleFiltersChange = useCallback(
     (f: FilterState) => {
@@ -312,12 +266,12 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
         await eventService.archiveEvent(eventId);
         toast({ title: 'Event Deleted', description: 'The event has been deleted.' });
         updateParams({ eventId: null });
-        loadEvents();
+        void refetch();
       } catch {
         toast({ title: 'Error', description: 'Failed to delete event', variant: 'destructive' });
       }
     },
-    [toast, updateParams, loadEvents],
+    [toast, updateParams, refetch],
   );
 
   const handleEventDownload = useCallback((event: MotionEvent) => {
@@ -333,7 +287,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
   return (
     <div className="w-full h-full flex flex-col bg-background">
       {!embedded && (
-        <div className="w-full px-6 pt-6 pb-3 border-b border-white/[0.10]">
+        <div className="w-full px-4 sm:px-6 pt-6 pb-3 border-b border-white/[0.10]">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold tracking-tight">Events</h1>
           <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
@@ -361,9 +315,9 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
 
       {/* Content */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-6 pt-5 pb-10">
+        <div className="flex-1 overflow-y-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10">
           <div className="mx-auto max-w-7xl">
-          {loading ? (
+          {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (
                 <div

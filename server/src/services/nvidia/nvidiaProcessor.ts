@@ -51,6 +51,14 @@ function buildResult(parsed: any, processingTime: number, model: string): Nvidia
     },
     recommendedActions: p.recommended_actions || p.recommendedActions || [],
     additionalObservations: p.additional_observations || p.additionalObservations || [],
+    boundingBoxes: (p.detected_objects || []).map((d: any) => ({
+      label: d.label || d.description || 'unknown',
+      confidence: d.confidence ?? 50,
+      x: d.position?.x ?? 0,
+      y: d.position?.y ?? 0,
+      width: d.position?.width ?? 0,
+      height: d.position?.height ?? 0,
+    })),
     processingTime,
     modelUsed: model,
   };

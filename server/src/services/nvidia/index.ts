@@ -1,4 +1,4 @@
-import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT } from './prompts.js';
+import { SYSTEM_PROMPT, BBOX_SYSTEM_PROMPT, PERSON_SYSTEM_PROMPT, UNIFIED_SYSTEM_PROMPT } from './prompts.js';
 import { parseAIResponse, normalizeModelBoxes } from './nvidiaProcessor.js';
 import { getNvidiaBaseUrl, getEffectiveModel } from './nvidiaClient.js';
 import { DEFAULT_TIMEOUT } from './types.js';
@@ -73,7 +73,7 @@ export async function analyzeImage(
     context,
     {
       name: 'analysis',
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: UNIFIED_SYSTEM_PROMPT,
       parseResponse: parseAIResponse,
     },
     options,

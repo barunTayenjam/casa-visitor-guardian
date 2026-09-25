@@ -37,7 +37,10 @@ interface CamState {
   meta?: CamMeta;
 }
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const formatLocalDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const todayStr = () => formatLocalDate(new Date());
 
 const TimelapsePage: React.FC = () => {
   const cameras = useCameraStore((state) => state.cameras);
@@ -91,7 +94,7 @@ const TimelapsePage: React.FC = () => {
     (days: number) => {
       const d = new Date(date + 'T00:00:00');
       d.setDate(d.getDate() + days);
-      const next = d.toISOString().split('T')[0];
+      const next = formatLocalDate(d);
       if (next > todayStr()) return;
       setDate(next);
     },

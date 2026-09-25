@@ -36,6 +36,16 @@ export function getNvidiaBaseUrl(): string {
   return baseUrl;
 }
 
+/**
+ * Parse JSON from an LLM response, stripping SSE `data: [DONE]` terminator
+ * that some proxies append even on non-streaming requests.
+ */
+async function parseLlmResponse(response: Response): Promise<any> {
+  const raw = await response.text();
+  const cleaned = raw.replace(/data:\s*\[DONE\]\s*$/, '').trim();
+  return JSON.parse(cleaned);
+}
+
 export function normalizeEntityArray(input: unknown, type: string): string[] {
   if (!input) return [];
   if (Array.isArray(input)) {
@@ -213,7 +223,7 @@ export async function callNvidiaApi(
           );
         }
 
-        return await response.json();
+        return await parseLlmResponse(response);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
         lastError = err instanceof Error ? err : new Error(String(err));
@@ -285,7 +295,7 @@ export async function chatCompletion(
     );
   }
 
-  const json = (await response.json()) as {
+  const json = (await parseLlmResponse(response)) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   const content = json.choices?.[0]?.message?.content;

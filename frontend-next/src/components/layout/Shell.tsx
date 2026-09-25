@@ -9,8 +9,6 @@ import {
   Bell,
   LogOut,
   MessageSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
   Radio,
   Settings,
   Shield,
@@ -24,7 +22,6 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { useCameraStore } from '@/stores/camera';
 import { useSocketStore } from '@/stores/socket';
-import { useUIStore } from '@/stores/ui';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -106,8 +103,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const logout = useAuthStore((state) => state.logout);
   const fetchCameras = useCameraStore((state) => state.fetchCameras);
   const reduceMotion = useReducedMotion();
-  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
-  const toggleSidebarCollapsed = useUIStore((state) => state.toggleSidebarCollapsed);
 
   useEffect(() => {
     void fetchCameras();
@@ -124,79 +119,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background text-foreground">
-      <div className="flex min-h-0 flex-1">
-        {/* Desktop sidebar (lg+) — 64px rail, expands on hover or toggle */}
-        <aside
-          className={cn(
-            'group hidden shrink-0 flex-col border-r border-white/[0.06] bg-[#0A0A0B] transition-[width] duration-200 ease-in-out lg:flex',
-            sidebarCollapsed ? 'w-16' : 'w-[220px]',
-            sidebarCollapsed && 'lg:hover:w-[220px]',
-          )}
-        >
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
-            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-              <span className="text-xs font-semibold tracking-tight">SentryVision</span>
-              <SystemStatus />
-            </div>
-            <button
-              type="button"
-              onClick={toggleSidebarCollapsed}
-              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
-              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
-              ) : (
-                <PanelLeftClose className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+      <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
 
-          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Sidebar navigation">
-            {navItems.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={sidebarCollapsed ? item.label : undefined}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-[#1A1A1D] text-[#aeb7f2]'
-                      : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground',
-                    sidebarCollapsed && 'justify-center px-0 lg:group-hover:justify-start lg:group-hover:px-3',
-                  )}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.5} />
-                  <span
-                    className={cn(
-                      'whitespace-nowrap transition-opacity duration-200',
-                      sidebarCollapsed && 'opacity-0 lg:group-hover:opacity-100',
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="shrink-0 border-t border-white/[0.06] px-3 py-3">
-            <UserMenu onLogout={handleLogout} />
-          </div>
-        </aside>
-
-        <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
-      </div>
-
-      {/* Mobile dock (below lg) */}
       <motion.nav
         initial={false}
         animate={{ y: 0 }}
         transition={dockAnimation}
-        className="flex h-14 shrink-0 items-center justify-between border-t border-white/[0.06] bg-card px-3 sm:px-6 lg:hidden"
+        className="flex h-14 shrink-0 items-center justify-between border-t border-white/[0.06] bg-card px-3 sm:px-6"
         aria-label="Primary navigation"
       >
         <div className="hidden shrink-0 items-center gap-2 md:flex">

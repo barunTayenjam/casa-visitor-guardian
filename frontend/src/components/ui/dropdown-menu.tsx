@@ -69,7 +69,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-[0.75rem] px-2 py-2 text-sm outline-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center rounded-[0.75rem] px-2 py-2 text-sm outline-none transition-colors duration-300 ease-spring focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       inset && 'pl-8',
       className,
     )}
@@ -85,7 +85,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-[0.75rem] py-1.5 pl-8 pr-2 text-sm outline-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center rounded-[0.75rem] py-1.5 pl-8 pr-2 text-sm outline-none transition-colors duration-300 ease-spring focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     checked={checked}
@@ -108,7 +108,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-[0.75rem] py-1.5 pl-8 pr-2 text-sm outline-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center rounded-[0.75rem] py-1.5 pl-8 pr-2 text-sm outline-none transition-colors duration-300 ease-spring focus:bg-white/[0.06] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}

@@ -31,7 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/auth';
 import { type Theme, getStoredTheme, storeTheme, applyTheme } from '@/lib/theme';
 import { OptimizationSettings } from '@/components/settings/OptimizationSettings';
 import {
@@ -68,7 +68,7 @@ interface NotificationPrefs {
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { changePassword } = useAuth();
+  const changePassword = useAuthStore((state) => state.changePassword);
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -847,7 +847,7 @@ const SettingsPage = () => {
                     <p className="text-xs text-muted-foreground">Access stored operational logs</p>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => navigate('/app/logs')}>
+                <Button size="sm" variant="outline" onClick={() => navigate('/settings?view=logs')}>
                   Open Viewer
                 </Button>
               </div>

@@ -49,7 +49,7 @@ const FilterChip = ({
   <button
     onClick={onClick}
     className={cn(
-      'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]',
+      'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors active:scale-[0.97]',
       active
         ? 'bg-primary/20 border-primary/40 text-primary'
         : 'bg-white/[0.04] border-white/[0.10] text-muted-foreground hover:text-foreground hover:bg-white/[0.08]',

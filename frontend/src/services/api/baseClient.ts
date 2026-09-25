@@ -34,6 +34,9 @@ export class TimeoutError extends ApiError {
 // Use relative URLs — Vite proxies /api to backend in dev, nginx proxies in prod
 export const API_URL = '/api';
 export const BACKEND_URL = '';
+const isDevelopment =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 // ==================== TOKEN MANAGEMENT ====================
 
@@ -145,7 +148,7 @@ export async function fetchWithRetry(
     }
 
     if (retries > 0 && error instanceof Error && !error.message.includes('aborted')) {
-      if (import.meta.env.DEV) {
+      if (isDevelopment) {
          
         console.warn(`Request failed, retrying... (${retries} retries left)`, error.message);
       }

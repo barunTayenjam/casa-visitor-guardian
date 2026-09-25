@@ -87,7 +87,7 @@ export const RelatedEvents: React.FC<RelatedEventsProps> = ({
         {findRelatedEvents.map((event, index) => (
           <div
             key={event.id}
-            className="p-[1px] rounded-[1.25rem] bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer hover:bg-white/[0.06] opacity-0"
+            className="p-[1px] rounded-[1.25rem] bg-white/[0.06] transition-all duration-500 ease-spring cursor-pointer hover:bg-white/[0.06] opacity-0"
             style={{
               animation: `slide-up-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${index * 60}ms forwards`,
             }}

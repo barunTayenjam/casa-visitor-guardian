@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useCameras } from '@/contexts/CameraContext';
+import { useCameraStore } from '@/stores/camera';
 import {
   Film,
   ChevronLeft,
@@ -31,7 +31,7 @@ interface CamState {
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 const TimelapsePage: React.FC = () => {
-  const { cameras } = useCameras();
+  const cameras = useCameraStore((state) => state.cameras);
   const [date, setDate] = useState(todayStr());
   const [list, setList] = useState<{ cameraId: string; path: string }[]>([]);
   const [active, setActive] = useState<string | null>(null);
@@ -57,9 +57,10 @@ const TimelapsePage: React.FC = () => {
       .getTimelapses(date)
       .then((res) => {
         if (res.success) {
-          setList(res.timelapses);
-          if (res.timelapses.length > 0) setActive(res.timelapses[0].cameraId);
-          const existingIds = new Set(res.timelapses.map((t) => t.cameraId));
+          const timelapses = res.timelapses ?? [];
+          setList(timelapses);
+          if (timelapses.length > 0) setActive(timelapses[0].cameraId);
+          const existingIds = new Set(timelapses.map((t) => t.cameraId));
           const next: Record<string, CamState> = {};
           const nextSelected = new Set<string>();
           for (const cam of cameras) {
@@ -69,7 +70,7 @@ const TimelapsePage: React.FC = () => {
           }
           setCamStates(next);
           setSelected(nextSelected);
-          if (past && res.timelapses.length < cameras.length) setPanelOpen(true);
+          if (past && timelapses.length < cameras.length) setPanelOpen(true);
         }
       })
       .finally(() => setLoading(false));

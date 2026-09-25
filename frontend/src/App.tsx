@@ -1,25 +1,14 @@
-import React, {
-  Suspense,
-  lazy,
-  useEffect,
-  useCallback,
-  useRef,
-  createContext,
-  useContext,
-} from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { SocketProvider } from './contexts/SocketContext';
-import { CameraProvider } from './contexts/CameraContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
-import { AppLayout } from './components/layout/AppLayout';
+import { Shell } from './components/layout/Shell';
+import { useAuthStore } from './stores/auth';
+import { useSocketStore } from './stores/socket';
 
-// After a redeploy, a tab left open references chunks that no longer exist.
-// Reload once to pick up the new build instead of surfacing a fetch error.
 const lazyWithRecovery = (
   load: () => Promise<{ default: React.ComponentType }>,
 ): React.LazyExoticComponent<React.ComponentType> =>
@@ -41,34 +30,30 @@ const lazyWithRecovery = (
 const Login = lazyWithRecovery(() => import('./pages/Login'));
 const StreamDashboard = lazyWithRecovery(() => import('./pages/StreamDashboard'));
 const EventsPage = lazyWithRecovery(() => import('./pages/EventsPage'));
-const SettingsPage = lazyWithRecovery(() => import('./pages/Settings'));
-const TimelapsePage = lazyWithRecovery(() => import('./pages/TimelapsePage'));
-const PeoplePage = lazyWithRecovery(() => import('./pages/PeoplePage'));
-const LogsPage = lazyWithRecovery(() => import('./pages/LogsPage'));
-const InsightsPage = lazyWithRecovery(() => import('./pages/InsightsPage'));
+const SecurityPage = lazyWithRecovery(() => import('./pages/SecurityPage'));
+const AnalyticsPage = lazyWithRecovery(() => import('./pages/AnalyticsPage'));
+const SettingsHub = lazyWithRecovery(() => import('./pages/SettingsHub'));
 const AskPage = lazyWithRecovery(() => import('./pages/AskPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-const AuthRedirect = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return <LoadingFallback />;
-  return isAuthenticated ? (
-    <Navigate to="/app/streams" replace />
-  ) : (
-    <Navigate to="/login" replace />
-  );
-};
-
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+    },
+  },
+});
 
 const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () => void }) => (
-  <div className="min-h-[100dvh] flex items-center justify-center p-4">
+  <div className="min-h-[100dvh] flex items-center justify-center p-4 bg-[#050505]">
     <div className="max-w-md w-full">
-      <div className="p-[1px] rounded-[4px] bg-white/[0.06]">
-        <div className="rounded-[3px] bg-card p-8 text-center">
-          <div className="w-14 h-14 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-5">
+      <div className="p-[1px] rounded-[8px] bg-white/[0.06]">
+        <div className="rounded-[7px] bg-[#0A0A0B] p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-[#F87171]/15 flex items-center justify-center mx-auto mb-5">
             <svg
-              className="w-7 h-7 text-destructive"
+              className="w-7 h-7 text-[#F87171]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -81,20 +66,20 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
               />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
-          <p className="text-sm text-muted-foreground mb-6">
+          <h1 className="text-xl font-semibold mb-2 text-[#ECECEC]">Something went wrong</h1>
+          <p className="text-sm text-[#A1A1A8] mb-6">
             {error?.message || 'Unknown error occurred'}
           </p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={resetError}
-              className="rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-medium hover:bg-primary/85 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]"
+              className="rounded-[4px] bg-[#5E6AD2] text-white px-5 py-2.5 text-sm font-medium hover:bg-[#6E7AE0] transition-colors"
             >
               Try Again
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="rounded-full bg-white/[0.08] border border-white/[0.16] text-foreground/80 px-5 py-2.5 text-sm font-medium hover:bg-white/[0.08] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]"
+              className="rounded-[4px] bg-white/[0.06] border border-white/[0.10] text-[#ECECEC] px-5 py-2.5 text-sm font-medium hover:bg-white/[0.08] transition-colors"
             >
               Reload Page
             </button>
@@ -106,205 +91,151 @@ const ErrorFallback = ({ error, resetError }: { error?: Error; resetError: () =>
 );
 
 const LoadingFallback = () => (
-  <div className="min-h-[100dvh] flex items-center justify-center">
+  <div className="min-h-[100dvh] flex items-center justify-center bg-[#050505]">
     <div className="text-center">
-      <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-      <div className="text-foreground text-sm font-medium">Loading</div>
-      <div className="text-muted-foreground text-xs mt-1">Initializing SentryVision</div>
+      <div className="w-10 h-10 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <div className="text-[#ECECEC] text-sm font-medium">Loading</div>
+      <div className="text-[#6B6B73] text-xs mt-1">Initializing SentryVision</div>
     </div>
   </div>
 );
 
-interface ScrollRevealContextType {
-  observe: (el: HTMLElement | null) => void;
-  unobserve: (el: HTMLElement) => void;
-}
+const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => <Shell>{children}</Shell>;
 
-const ScrollRevealContext = createContext<ScrollRevealContextType>({
-  observe: () => {},
-  unobserve: () => {},
-});
+const EventsRoute = () => (
+  <ProtectedRoute>
+    <AppShell>
+      <ErrorBoundary fallback={ErrorFallback}>
+        <EventsPage />
+      </ErrorBoundary>
+    </AppShell>
+  </ProtectedRoute>
+);
 
-export const useScrollReveal = () => useContext(ScrollRevealContext);
-
-const ScrollRevealProvider = ({ children }: { children: React.ReactNode }) => {
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const observedElements = useRef(new Map<HTMLElement, string>());
-
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const el = entry.target as HTMLElement;
-            const delay = observedElements.current.get(el) || '0ms';
-            el.style.animationDelay = delay;
-            el.classList.add('animate-slide-up-reveal');
-            observerRef.current?.unobserve(el);
-            observedElements.current.delete(el);
-          }
-        });
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -60px 0px' },
-    );
-    return () => observerRef.current?.disconnect();
-  }, []);
-
-  const observe = useCallback((el: HTMLElement | null) => {
-    if (!el || !observerRef.current) return;
-    el.style.opacity = '0';
-    observerRef.current.observe(el);
-  }, []);
-
-  const unobserve = useCallback((el: HTMLElement) => {
-    observerRef.current?.unobserve(el);
-    observedElements.current.delete(el);
-  }, []);
-
-  return (
-    <ScrollRevealContext.Provider value={{ observe, unobserve }}>
-      {children}
-    </ScrollRevealContext.Provider>
-  );
+const LegacyRedirect = ({ to, view }: { to: string; view?: string }) => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (view) params.set('view', view);
+  const query = params.toString();
+  return <Navigate to={query ? `${to}?${query}` : to} replace />;
 };
 
 const App = () => {
+  const initialize = useAuthStore((s) => s.initialize);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const connectSocket = useSocketStore((s) => s.connect);
+  const disconnectSocket = useSocketStore((s) => s.disconnect);
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void connectSocket();
+    } else {
+      disconnectSocket();
+    }
+  }, [connectSocket, disconnectSocket, isAuthenticated]);
+
   return (
     <ErrorBoundary fallback={ErrorFallback}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <SocketProvider>
-              <CameraProvider>
-                <AuthProvider>
-                  <ScrollRevealProvider>
-                    <a
-                      href="#main-content"
-                      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-full focus:text-sm focus:font-medium focus:outline-none"
-                    >
-                      Skip to main content
-                    </a>
-                    <div className="noise-overlay" />
-                    <div className="fixed inset-0 pointer-events-none z-0 radial-glow" />
-                    <div className="fixed inset-0 pointer-events-none z-0 radial-glow-alt" />
-                    <Toaster />
-                    <main id="main-content" className="relative z-[1]">
-                      <Suspense fallback={<LoadingFallback />}>
-                        <Routes>
-                          <Route
-                            path="/login"
-                            element={
-                              <ErrorBoundary fallback={ErrorFallback}>
-                                <Login />
-                              </ErrorBoundary>
-                            }
-                          />
-                          <Route index element={<AuthRedirect />} />
-                          <Route path="/app" element={<Navigate to="/app/streams" replace />} />
-                          <Route
-                            path="/app/streams"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <StreamDashboard />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/events"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <EventsPage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/settings"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <SettingsPage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/timelapse"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <TimelapsePage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/people"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <PeoplePage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/insights"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <InsightsPage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/ask"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <AskPage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/app/logs"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout>
-                                  <ErrorBoundary fallback={ErrorFallback}>
-                                    <LogsPage />
-                                  </ErrorBoundary>
-                                </AppLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </Suspense>
-                    </main>
-                  </ScrollRevealProvider>
-                </AuthProvider>
-              </CameraProvider>
-            </SocketProvider>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[#5E6AD2] focus:text-white focus:rounded-[4px] focus:text-sm focus:font-medium focus:outline-none"
+            >
+              Skip to main content
+            </a>
+            <Toaster />
+            <main id="main-content" className="relative z-[1]">
+              <Suspense fallback={<LoadingFallback />}>
+                <Routes>
+                  <Route
+                    path="/login"
+                    element={
+                      <ErrorBoundary fallback={ErrorFallback}>
+                        <Login />
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route path="/app" element={<LegacyRedirect to="/" />} />
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <StreamDashboard />
+                          </ErrorBoundary>
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/app/streams" element={<LegacyRedirect to="/" />} />
+                  <Route path="/events" element={<EventsRoute />} />
+                  <Route path="/events/" element={<EventsRoute />} />
+                  <Route
+                    path="/security"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <SecurityPage />
+                          </ErrorBoundary>
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <AnalyticsPage />
+                          </ErrorBoundary>
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <SettingsHub />
+                          </ErrorBoundary>
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ask"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell>
+                          <ErrorBoundary fallback={ErrorFallback}>
+                            <AskPage />
+                          </ErrorBoundary>
+                        </AppShell>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/app/events" element={<LegacyRedirect to="/events" />} />
+                  <Route path="/app/settings" element={<LegacyRedirect to="/settings" />} />
+                  <Route path="/app/timelapse" element={<LegacyRedirect to="/analytics" view="timelapse" />} />
+                  <Route path="/app/people" element={<LegacyRedirect to="/security" view="people" />} />
+                  <Route path="/app/insights" element={<LegacyRedirect to="/analytics" />} />
+                  <Route path="/app/ask" element={<LegacyRedirect to="/ask" />} />
+                  <Route path="/app/logs" element={<LegacyRedirect to="/settings" view="logs" />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </main>
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>

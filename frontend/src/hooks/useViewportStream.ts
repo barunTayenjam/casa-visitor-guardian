@@ -95,7 +95,7 @@ export function useViewportStream(
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [debounceMs, rootMargin, threshold]);
+  }, [debounceMs, elementRef, rootMargin, threshold]);
 
   return { isVisible };
 }

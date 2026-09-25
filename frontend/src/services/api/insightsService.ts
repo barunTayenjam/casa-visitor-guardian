@@ -146,26 +146,47 @@ interface InsightsEnvelope {
   recentHighThreat: NotableEvent[];
 }
 
+const emptyTotals: DailyTotals = {
+  total: 0,
+  persons: 0,
+  faces: 0,
+  known_faces: 0,
+  unknown_faces: 0,
+  first_event: null,
+  last_event: null,
+  total_persons: 0,
+  max_persons_per_event: 0,
+};
+
+const emptyWeekBaseline: WeekBaseline = {
+  avg_daily_events: 0,
+  min_day: 0,
+  max_day: 0,
+};
+
 export async function fetchDailyInsights(date: string): Promise<DailyInsights> {
   const json = await apiGet<InsightsEnvelope>(`/analytics/daily/${date}`);
   if (!json.success) throw new Error('Failed to load daily insights');
   return {
-    date: json.date,
-    totals: json.totals,
-    byType: json.byType,
-    byCamera: json.byCamera,
-    hourlyByType: json.hourlyByType,
-    hourlyByThreat: json.hourlyByThreat,
-    objectClasses: json.objectClasses,
-    trackStates: json.trackStates,
-    severityVsThreat: json.severityVsThreat,
-    bursts: json.bursts,
-    confidence: json.confidence,
-    gaps: json.gaps,
-    sceneContext: json.sceneContext,
+    date: json.date ?? date,
+    totals: json.totals ?? emptyTotals,
+    byType: json.byType ?? [],
+    byCamera: json.byCamera ?? [],
+    hourlyByType: json.hourlyByType ?? [],
+    hourlyByThreat: json.hourlyByThreat ?? [],
+    objectClasses: json.objectClasses ?? [],
+    trackStates: json.trackStates ?? [],
+    severityVsThreat: json.severityVsThreat ?? [],
+    bursts: json.bursts ?? [],
+    confidence: json.confidence ?? [],
+    gaps: json.gaps ?? [],
+    sceneContext: json.sceneContext ?? [],
     uniqueTracks: json.uniqueTracks ?? [],
     cameraHourly: json.cameraHourly ?? [],
-    weekBaseline: json.weekBaseline ?? { avg_daily_events: 0, min_day: 0, max_day: 0 },
+    weekBaseline: {
+      ...emptyWeekBaseline,
+      ...json.weekBaseline,
+    },
     recentHighThreat: json.recentHighThreat ?? [],
   };
 }

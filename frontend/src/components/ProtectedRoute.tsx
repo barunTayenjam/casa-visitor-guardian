@@ -1,15 +1,14 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/auth';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: 'admin' | 'user' | 'viewer';
-  requireAll?: boolean; // If true, user must have all specified roles
 }
 
-const roleHierarchy = {
+const roleHierarchy: Record<string, number> = {
   admin: 3,
   user: 2,
   viewer: 1,
@@ -17,23 +16,21 @@ const roleHierarchy = {
 
 function hasRequiredRole(userRole: string, requiredRole?: string): boolean {
   if (!requiredRole) return true;
-
-  const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0;
-  const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
-
+  const userLevel = roleHierarchy[userRole] ?? 0;
+  const requiredLevel = roleHierarchy[requiredRole] ?? 0;
   return userLevel >= requiredLevel;
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, initialized, user } = useAuthStore();
   const location = useLocation();
 
-  if (isLoading) {
+  if (isLoading || !initialized) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#050505]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-[#5E6AD2] mx-auto mb-4" />
+          <p className="text-[#A1A1A8] text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -45,36 +42,18 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (requiredRole && user && !hasRequiredRole(user.role, requiredRole)) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#050505]">
         <div className="text-center max-w-md mx-auto p-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full">
-              <svg
-                className="w-8 h-8 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
-          <p className="text-muted-foreground mb-6">
-            You don't have permission to access this page. This page requires {requiredRole}{' '}
-            privileges or higher.
+          <h1 className="text-xl font-semibold text-[#ECECEC] mb-2">Access Denied</h1>
+          <p className="text-[#A1A1A8] text-sm mb-4">
+            This page requires {requiredRole} privileges or higher.
           </p>
-          <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="text-sm text-[#6B6B73] space-y-1">
             <p>
-              Your current role: <span className="font-medium text-foreground">{user?.role}</span>
+              Your role: <span className="text-[#ECECEC] font-medium">{user?.role}</span>
             </p>
             <p>
-              Required role: <span className="font-medium text-foreground">{requiredRole}</span>
+              Required: <span className="text-[#ECECEC] font-medium">{requiredRole}</span>
             </p>
           </div>
         </div>

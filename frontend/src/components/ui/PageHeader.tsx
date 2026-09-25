@@ -29,7 +29,7 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
     return (
       <div
         ref={ref}
-        className={cn('flex items-center justify-between gap-4 pb-4', className)}
+        className={cn('flex items-center justify-between gap-4 border-b border-white/[0.06] pb-4', className)}
         {...props}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -47,8 +47,8 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           )}
           <div className="flex items-center gap-2 min-w-0">
             {Icon && (
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-[0.5rem] bg-white/[0.04] border border-white/[0.10]">
-                <Icon className="h-4 w-4 text-muted-foreground" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-white/[0.06] bg-[#121215]">
+                <Icon className="h-4 w-4 text-[#A1A1A8]" />
               </div>
             )}
             <div className="min-w-0">

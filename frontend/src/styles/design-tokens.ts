@@ -1,13 +1,18 @@
 export const colors = {
   background: {
-    primary: '#0a0a0b',
-    secondary: '#111113',
-    tertiary: '#18181b',
+    canvas: '#050505',
+    card: '#0A0A0B',
+    raised: '#121215',
+    input: '#1A1A1D',
+    primary: '#050505',
+    secondary: '#0A0A0B',
+    tertiary: '#121215',
   },
   text: {
-    primary: '#f5f5f5',
-    secondary: '#d4d4d8',
-    muted: '#8c8c8c',
+    primary: '#ECECEC',
+    secondary: '#A1A1A8',
+    muted: '#6B6B73',
+    subtle: '#4A4A52',
   },
   border: {
     subtle: 'rgba(255, 255, 255, 0.06)',
@@ -15,60 +20,61 @@ export const colors = {
     hover: 'rgba(255, 255, 255, 0.16)',
     focus: 'rgba(255, 255, 255, 0.20)',
   },
-  glass: {
-    light: 'rgba(255, 255, 255, 0.04)',
-    medium: 'rgba(255, 255, 255, 0.06)',
-    heavy: 'rgba(255, 255, 255, 0.10)',
+  accent: {
+    default: '#5E6AD2',
+    hover: '#6E7AE0',
+    glow: 'rgba(94, 106, 210, 0.18)',
   },
   status: {
-    success: '#22c55e',
-    warning: '#eab308',
-    error: '#ef4444',
-    info: '#3b82f6',
+    success: '#34D399',
+    warning: '#FBBF24',
+    danger: '#F87171',
+    info: '#60A5FA',
+    error: '#F87171',
   },
   detection: {
-    motion: '#71717a',
-    person: '#3b82f6',
-    vehicle: '#f59e0b',
-    face: '#8b5cf6',
-    package: '#06b6d4',
+    motion: '#71717A',
+    person: '#5E6AD2',
+    vehicle: '#FBBF24',
+    face: '#A78BFA',
+    package: '#38BDF8',
   },
 };
 
 export const darkColors = colors;
 export const darkTokens = darkColors;
-export const lightTokens = {
-  ...colors,
-  background: { primary: '#ffffff', secondary: '#fafafa', tertiary: '#f5f5f5' },
-  text: { primary: '#0a0a0a', secondary: '#525252', muted: '#a3a3a3' },
-};
+export const lightTokens = colors;
 
 export const typography = {
   fontFamily: {
     sans: '"Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    mono: '"Geist Mono", "JetBrains Mono", "Fira Code", monospace',
+    mono: '"Geist Mono Variable", "JetBrains Mono", "Fira Code", monospace',
   },
   fontSize: {
-    xs: '0.75rem',
-    sm: '0.875rem',
-    base: '1rem',
-    lg: '1.25rem',
-    xl: '1.5rem',
-    '2xl': '2rem',
-    '3xl': '3rem',
-    '4xl': '4.5rem',
+    micro: '0.6875rem', // 11px
+    xs: '0.75rem',      // 12px
+    small: '0.8125rem',  // 13px
+    sm: '0.875rem',     // 14px
+    base: '0.875rem',   // 14px (default body per spec)
+    h3: '1.125rem',     // 18px
+    h2: '1.5rem',       // 24px
+    h1: '2rem',         // 32px
+    display: '3rem',    // 48px
   },
   letterSpacing: {
     tight: '-0.02em',
-    tighter: '-0.04em',
+    tighter: '-0.03em',
+    tightest: '-0.04em',
+    wide: '0.04em',
   },
 };
 
 export const radius = {
+  controls: '4px',
+  cards: '8px',
+  popovers: '12px',
+  modals: '16px',
   pill: '9999px',
-  squircle: '1.25rem',
-  squircleLg: '1.75rem',
-  squircleSm: '0.5rem',
 };
 
 export const bezier = {
@@ -78,19 +84,8 @@ export const bezier = {
 };
 
 export const shadows = {
-  sm: '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-  md: '0 6px 20px rgba(0, 0, 0, 0.45)',
-  lg: '0 12px 40px rgba(0, 0, 0, 0.6)',
-  xl: '0 24px 80px rgba(0, 0, 0, 0.75)',
-  glow: '0 0 50px rgba(59, 130, 246, 0.25)',
-  diffuse: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)',
-};
-
-export const zIndex = {
-  base: 0,
-  dock: 40,
-  overlay: 30,
-  modal: 50,
-  toast: 60,
-  noise: 100,
+  sm: '0 1px 2px rgba(0,0,0,0.5)',
+  md: '0 4px 12px rgba(0,0,0,0.4)',
+  lg: '0 8px 24px rgba(0,0,0,0.4)',
+  accentGlow: '0 0 0 1px rgba(94,106,210,0.2), 0 0 20px rgba(94,106,210,0.1)',
 };

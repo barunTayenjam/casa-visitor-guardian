@@ -1,98 +1,86 @@
-import { useState, useCallback, useRef } from 'react';
-import { useCameras } from '@/contexts/CameraContext';
+import { useCallback, useRef, useState } from 'react';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { ThreatMatrix } from '@/components/live/ThreatMatrix';
 import { VerificationTimeline } from '@/components/live/VerificationTimeline';
 import { ActiveVisitors } from '@/components/live/ActiveVisitors';
 import { MonitorPlay, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketStore } from '@/stores/socket';
+import { useCameraStore } from '@/stores/camera';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StreamDashboard = () => {
-  const { cameras } = useCameras();
-  const { connected } = useSocketContext();
-  const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>(undefined);
+  const cameras = useCameraStore((state) => state.cameras);
+  const connected = useSocketStore((state) => state.connected);
+  const [focusedCameraId, setFocusedCameraId] = useState<string | undefined>();
   const [slideshowActive, setSlideshowActive] = useState(false);
   const [showDataPanel, setShowDataPanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleCameraFocus = useCallback((cameraId: string | undefined) => {
-    setFocusedCameraId((prev) => {
+    setFocusedCameraId((previous) => {
       if (!cameraId) return undefined;
-      else if (prev === cameraId) return undefined;
-      else return cameraId;
+      return previous === cameraId ? undefined : cameraId;
     });
   }, []);
 
   const handleStartSlideshow = useCallback(() => {
-    if (cameras.length > 0) {
-      handleCameraFocus(cameras[0].id);
-      setSlideshowActive(true);
-      document.documentElement.requestFullscreen();
-    }
+    if (cameras.length === 0) return;
+    handleCameraFocus(cameras[0].id);
+    setSlideshowActive(true);
+    const fullscreenRequest = document.documentElement.requestFullscreen?.();
+    if (fullscreenRequest) void fullscreenRequest.catch(() => undefined);
   }, [cameras, handleCameraFocus]);
 
   return (
-    <div className="flex h-full">
-      {/* Main stream area - always full width */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Glassmorphic top bar - only show when not focused */}
+    <div className="flex h-full min-h-0 bg-[#050505]">
+      <div className="flex min-w-0 flex-1 flex-col">
         {!focusedCameraId && (
-          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-[#0a0a0b]/80 backdrop-blur-2xl">
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-full',
-                connected ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400',
-              )}>
-                <div className={cn(
-                  'w-2 h-2 rounded-full',
-                  connected ? 'bg-green-400 animate-pulse' : 'bg-red-400',
-                )} />
-                <span className={cn(
-                  'text-xs uppercase tracking-wider font-medium',
-                  connected ? 'text-green-400' : 'text-red-400',
-                )}>
-                  {connected ? 'LIVE' : 'OFFLINE'}
-                </span>
+          <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0A0A0B] px-4 py-3 sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]',
+                  connected
+                    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+                    : 'border-red-400/20 bg-red-400/10 text-red-300',
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full', connected ? 'bg-emerald-300' : 'bg-red-300')} />
+                {connected ? 'Live' : 'Offline'}
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="text-xs text-[#6B6B73]">
                 {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}
               </span>
             </div>
-
             <div className="flex items-center gap-2">
               {cameras.length > 1 && (
                 <button
                   onClick={handleStartSlideshow}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/[0.10] text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.10] transition-all active:scale-[0.97]"
+                  className="inline-flex items-center gap-2 rounded-[4px] border border-white/[0.10] bg-[#121215] px-3 py-2 text-xs font-medium text-[#A1A1A8] transition-colors hover:border-white/[0.16] hover:text-[#ECECEC] active:scale-[0.98]"
                 >
                   <MonitorPlay className="h-4 w-4" />
                   <span className="hidden sm:inline">Slideshow</span>
                 </button>
               )}
               <button
-                onClick={() => setShowDataPanel(!showDataPanel)}
+                onClick={() => setShowDataPanel((value) => !value)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-[0.97]',
+                  'inline-flex items-center gap-2 rounded-[4px] border px-3 py-2 text-xs font-medium transition-colors active:scale-[0.98]',
                   showDataPanel
-                    ? 'bg-primary/15 text-primary border border-primary/25'
-                    : 'bg-white/[0.06] text-muted-foreground border border-white/[0.10] hover:text-foreground hover:bg-white/[0.10]',
+                    ? 'border-[#5E6AD2]/30 bg-[#5E6AD2]/10 text-[#AEB7F2]'
+                    : 'border-white/[0.10] bg-[#121215] text-[#A1A1A8] hover:border-white/[0.16] hover:text-[#ECECEC]',
                 )}
+                aria-pressed={showDataPanel}
               >
-                {showDataPanel ? (
-                  <PanelRightClose className="h-4 w-4" />
-                ) : (
-                  <PanelRightOpen className="h-4 w-4" />
-                )}
+                {showDataPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
                 <span className="hidden sm:inline">Data</span>
               </button>
             </div>
-          </div>
+          </header>
         )}
 
-        {/* Camera grid - takes all available space */}
-        <div ref={containerRef} className="flex-1 min-h-0">
+        <div ref={containerRef} className="min-h-0 flex-1">
           <AdaptiveCameraGrid
             cameras={cameras}
             focusedCameraId={focusedCameraId}
@@ -103,33 +91,28 @@ const StreamDashboard = () => {
         </div>
       </div>
 
-      {/* Collapsible data panel */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {showDataPanel && !focusedCameraId && (
-          <motion.div
+          <motion.aside
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 360, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-            className="h-full border-l border-white/[0.10] bg-[#0a0a0b]/95 backdrop-blur-xl overflow-hidden flex-shrink-0"
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="hidden h-full shrink-0 overflow-hidden border-l border-white/[0.06] bg-[#0A0A0B] xl:block"
+            aria-label="Live detection data"
           >
-            <div className="w-[360px] h-full flex flex-col overflow-hidden">
-              {/* Threat Matrix */}
-              <div className="p-4 border-b border-white/[0.10]">
+            <div className="flex h-full w-[360px] flex-col overflow-hidden">
+              <div className="border-b border-white/[0.06] p-4">
                 <ThreatMatrix />
               </div>
-
-              {/* Verification Timeline */}
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <VerificationTimeline />
               </div>
-
-              {/* Active Visitors */}
-              <div className="border-t border-white/[0.10]">
+              <div className="border-t border-white/[0.06]">
                 <ActiveVisitors />
               </div>
             </div>
-          </motion.div>
+          </motion.aside>
         )}
       </AnimatePresence>
     </div>

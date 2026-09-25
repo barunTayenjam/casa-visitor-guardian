@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Play, AlertTriangle, Volume2, VolumeX } from 'lucide-react';
-import { useCameras } from '@/contexts/CameraContext';
-import { useSocketContext } from '@/contexts/SocketContext';
+import { useCameraStore } from '@/stores/camera';
+import { useSocketStore } from '@/stores/socket';
 import socketService from '@/services/SocketService';
 import { Camera } from '@/types/security';
 import { ConnectionStateOverlay } from '@/components/live/ConnectionStateOverlay';
@@ -63,8 +63,9 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
   autoStart = true,
   variant = 'low',
 }) => {
-  const { startCameraStream, stopCameraStream } = useCameras();
-  const { connected: socketConnected } = useSocketContext();
+  const startCameraStream = useCameraStore((state) => state.startCameraStream);
+  const stopCameraStream = useCameraStore((state) => state.stopCameraStream);
+  const socketConnected = useSocketStore((state) => state.connected);
 
   const srcName = variant === 'main' ? camera.id : `${camera.id}_low`;
 
@@ -866,7 +867,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
     cleanupPeerConnection();
     cleanupMSE();
     stopFrameRender();
-    stopCameraStream(camera.id).catch(() => {});
+    stopCameraStream(camera.id);
   }, [
     camera.id,
     camera.name,
@@ -951,7 +952,7 @@ export const CameraStream: React.FC<CameraStreamProps> = ({
       cleanupPeerConnection();
       cleanupMSE();
       streamActionRef.current = null;
-      stopCameraStream(camera.id).catch(() => {});
+      stopCameraStream(camera.id);
     };
   }, [camera.id, stopCameraStream, cleanupPeerConnection, cleanupMSE]);
 

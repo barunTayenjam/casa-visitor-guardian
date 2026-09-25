@@ -287,9 +287,9 @@ export default function AskPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col px-6 pt-6 pb-4 bg-background">
-      <div className="mb-4 flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-[0.5rem] bg-primary/10 border border-primary/20">
+    <div className="mx-auto flex h-full max-w-7xl flex-col bg-[#050505] px-4 pt-5 pb-4 sm:px-6 sm:pt-6">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-[#5E6AD2]/20 bg-[#5E6AD2]/10">
           <MessageSquare className="h-4 w-4 text-primary" />
         </div>
         <div>
@@ -314,7 +314,7 @@ export default function AskPage() {
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="rounded-full border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/[0.16] hover:text-foreground"
+                   className="rounded-full border border-white/[0.06] bg-[#121215] px-3 py-1.5 text-xs text-[#A1A1A8] transition-colors hover:border-white/[0.16] hover:text-[#ECECEC]"
                 >
                   {s}
                 </button>
@@ -326,20 +326,20 @@ export default function AskPage() {
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
             {m.pending ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-white/[0.10] bg-card px-4 py-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0A0A0B] px-4 py-3 text-sm text-[#A1A1A8]">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Thinking…
               </div>
             ) : m.error ? (
-              <div className="max-w-[85%] rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <div className="max-w-[85%] rounded-lg border border-[#F87171]/20 bg-[#F87171]/10 px-4 py-3 text-sm text-[#F87171]">
                 {m.error}
               </div>
             ) : m.role === 'user' ? (
-              <div className="max-w-[85%] rounded-2xl bg-primary/15 border border-primary/20 px-4 py-2.5 text-sm text-foreground">
+              <div className="max-w-[85%] rounded-lg border border-[#5E6AD2]/25 bg-[#5E6AD2]/10 px-4 py-2.5 text-sm text-[#ECECEC]">
                 {m.content}
               </div>
             ) : (
-              <div className="w-full max-w-[95%] rounded-2xl border border-white/[0.10] bg-card px-4 py-3">
+              <div className="w-full max-w-[95%] rounded-lg border border-white/[0.06] bg-[#0A0A0B] px-4 py-3">
                 <Markdown content={m.content} />
                 {m.response?.images && m.response.images.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -350,7 +350,7 @@ export default function AskPage() {
                         target="_blank"
                         rel="noreferrer"
                         title={img.caption}
-                        className="group block overflow-hidden rounded-lg border border-white/[0.10] transition-colors hover:border-white/[0.16]"
+                         className="group block overflow-hidden rounded-lg border border-white/[0.06] transition-colors hover:border-white/[0.16]"
                       >
                         <img
                           src={img.url}
@@ -391,7 +391,7 @@ export default function AskPage() {
         {lastAssistant?.response && lastAssistant.response.tool === 'period_report' && (
           <button
             onClick={download}
-            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 text-xs text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
+            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 text-xs text-[#A1A1A8] transition-colors hover:bg-[#1A1A1D] hover:text-[#ECECEC]"
             aria-label="Download report"
           >
             <Download className="h-4 w-4" />
@@ -402,7 +402,7 @@ export default function AskPage() {
           <>
             <button
               onClick={downloadTranscript}
-              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 text-xs text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
+              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 text-xs text-[#A1A1A8] transition-colors hover:bg-[#1A1A1D] hover:text-[#ECECEC]"
               aria-label="Download chat transcript"
             >
               <Download className="h-4 w-4" />
@@ -411,10 +411,10 @@ export default function AskPage() {
             <button
               onClick={clearAll}
               className={cn(
-                'flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[0.5rem] border px-3 text-xs transition-colors',
+                'flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border px-3 text-xs transition-colors',
                 confirmingClear
                   ? 'border-red-500/50 bg-red-500/15 text-red-300'
-                  : 'border-white/[0.10] bg-white/[0.04] text-muted-foreground hover:text-red-300',
+                  : 'border-white/[0.06] bg-[#121215] text-[#A1A1A8] hover:text-[#F87171]',
               )}
               aria-label="Clear chat history"
               title={confirmingClear ? 'Click again to delete all history' : 'Clear chat history'}
@@ -429,7 +429,7 @@ export default function AskPage() {
             e.preventDefault();
             send(input);
           }}
-          className="flex flex-1 items-center gap-2 rounded-[0.5rem] border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 focus-within:border-white/[0.20] transition-colors"
+          className="flex flex-1 items-center gap-2 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 py-1.5 transition-colors focus-within:border-[#5E6AD2]"
         >
           <input
             value={input}
@@ -440,7 +440,7 @@ export default function AskPage() {
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.5rem] bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[4px] bg-[#5E6AD2] text-white transition-opacity hover:bg-[#6E7AE0] disabled:opacity-40"
             aria-label="Send"
           >
             <ArrowUp className="h-4 w-4" />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart,
@@ -15,8 +15,6 @@ import {
 } from 'recharts';
 import { RefreshCw, BarChart3, Eye, Users, Clock, TrendingUp } from 'lucide-react';
 import {
-  fetchDailyInsights,
-  type DailyInsights,
   type HourlyTypeRow,
   type HourlyThreatRow,
   type NotableEvent,
@@ -25,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { cn } from '@/lib/utils';
+import { useInsights } from '@/hooks/useInsights';
 
 /* ─── Validated dark-mode palette (palette.md slots 1-4) ─── */
 const SERIES = {
@@ -121,7 +120,7 @@ const fmtTime = (iso: string) =>
 
 const NotableRow = ({ e }: { e: NotableEvent }) => (
   <Link
-    to={`/app/events?eventId=${e.id}`}
+    to={`/events?eventId=${e.id}`}
     className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
   >
     <span className={cn('inline-flex w-16 shrink-0 justify-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium', THREAT_BG[e.threat_level ?? ''] ?? THREAT_BG.low)}>
@@ -141,18 +140,7 @@ const tooltipStyle = { background: '#111113', border: '1px solid rgba(255,255,25
 
 export default function InsightsPage() {
   const [date, setDate] = useState(todayLocal());
-  const [data, setData] = useState<DailyInsights | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (d: string) => {
-    setLoading(true); setError(null);
-    try { setData(await fetchDailyInsights(d)); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to load insights'); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(date); }, [date, load]);
+  const { data, isLoading: loading, error, refetch } = useInsights(date);
 
   const types = useMemo(() => (data?.byType ?? []).map((t) => t.event_type), [data]);
   const hourlyTypeData = useMemo(() => buildHourlyStacked(data?.hourlyByType ?? [], types), [data, types]);
@@ -234,7 +222,7 @@ export default function InsightsPage() {
 
   if (error || !data) return (
     <PageContainer>
-      <EmptyState icon={BarChart3} title="Insights unavailable" description={error ?? 'No data'} action={{ label: 'Retry', onClick: () => load(date) }} />
+      <EmptyState icon={BarChart3} title="Insights unavailable" description={error?.message ?? 'No data'} action={{ label: 'Retry', onClick: () => void refetch() }} />
     </PageContainer>
   );
 
@@ -268,7 +256,7 @@ export default function InsightsPage() {
           <input type="date" value={date} max={todayLocal()} onChange={(e) => e.target.value && setDate(e.target.value)}
             aria-label="Select date"
             className="bg-card border border-white/[0.10] rounded-[0.5rem] px-3 py-1.5 text-sm text-foreground" />
-          <Button variant="outline" size="sm" onClick={() => load(date)} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={loading}>
             <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
           </Button>
         </div>

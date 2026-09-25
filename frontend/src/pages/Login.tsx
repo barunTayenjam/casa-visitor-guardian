@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,83 +18,87 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import { authService } from '@/services/api/authService';
-import { Eye, EyeOff } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+const registerSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, 'Username must be at least 3 characters')
+      .regex(/^[a-zA-Z0-9_-]+$/, 'Letters, numbers, underscores, and hyphens only'),
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    role: z.enum(['admin', 'user', 'viewer']),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { register, isAuthenticated, isLoading, error, clearError, user, completeLogin } =
-    useAuth();
+  const { isAuthenticated, user, completeLogin } = useAuth();
   const { toast } = useToast();
 
-  const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-
-  const [mfaStep, setMfaStep] = useState(false);
-  const [mfaPendingToken, setMfaPendingToken] = useState('');
-  const [mfaChallengeCode, setMfaChallengeCode] = useState('');
-  const [mfaSubmitting, setMfaSubmitting] = useState(false);
-
-  const [registerData, setRegisterData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'user' as 'admin' | 'user' | 'viewer',
-  });
-  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  // MFA states
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaPendingToken, setMfaPendingToken] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaSubmitting, setMfaSubmitting] = useState(false);
+
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loginValidationErrors, setLoginValidationErrors] = useState<
+    Partial<Record<keyof LoginFormData, string>>
+  >({});
+
+  const {
+    register: registerLogin,
+    handleSubmit: handleLoginSubmit,
+    getValues,
+    formState: { errors: loginErrors, isSubmitting: isLoggingIn },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: 'onChange',
+  });
+
+  const {
+    register: registerSignup,
+    handleSubmit: handleSignupSubmit,
+    setValue: setSignupValue,
+    watch: watchSignup,
+    formState: { errors: signupErrors, isSubmitting: isSigningUp },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { role: 'user' },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
-      const redirectTo = searchParams.get('redirect') || '/app';
+      const redirectTo = searchParams.get('redirect') || '/';
       navigate(redirectTo);
     }
   }, [isAuthenticated, navigate, searchParams]);
 
-  useEffect(() => {
-    return () => {
-      if (error) clearError();
-    };
-  }, [error, clearError]);
-
-  const validateLoginForm = () => {
-    const errors: Record<string, string> = {};
-    if (!loginData.username.trim()) errors.username = 'Username is required';
-    if (!loginData.password) errors.password = 'Password is required';
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const validateRegisterForm = () => {
-    const errors: Record<string, string> = {};
-    if (!registerData.username.trim()) errors.username = 'Username is required';
-    else if (registerData.username.length < 3)
-      errors.username = 'Username must be at least 3 characters';
-    else if (!/^[a-zA-Z0-9_-]+$/.test(registerData.username))
-      errors.username = 'Username can only contain letters, numbers, underscores, and hyphens';
-    if (!registerData.email.trim()) errors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email))
-      errors.email = 'Invalid email address';
-    if (!registerData.password) errors.password = 'Password is required';
-    else if (registerData.password.length < 8)
-      errors.password = 'Password must be at least 8 characters';
-    if (!registerData.confirmPassword) errors.confirmPassword = 'Please confirm your password';
-    else if (registerData.password !== registerData.confirmPassword)
-      errors.confirmPassword = 'Passwords do not match';
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateLoginForm()) return;
+  const onLogin = async (data: LoginFormData) => {
+    setFormError(null);
     try {
-      const response = await authService.login(loginData.username, loginData.password);
+      const response = await authService.login(data.username, data.password);
       if (response.mfaRequired && response.pendingToken) {
         setMfaPendingToken(response.pendingToken);
         setMfaStep(true);
@@ -98,608 +107,388 @@ export default function Login() {
       if (response.success && response.user && response.token) {
         completeLogin(response.user, response.token);
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Login failed',
-          description: response.error || 'Invalid credentials',
-        });
+        const message = response.error || 'Invalid credentials';
+        setFormError(message);
+        toast({ variant: 'destructive', title: 'Login failed', description: message });
       }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Login failed',
-        description: 'An unexpected error occurred',
-      });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Login failed');
     }
   };
 
-  const handleMfaChallenge = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mfaChallengeCode || mfaChallengeCode.length < 6) return;
-    setMfaSubmitting(true);
+  const submitLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result = loginSchema.safeParse(getValues());
+    if (!result.success) {
+      const nextErrors: Partial<Record<keyof LoginFormData, string>> = {};
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+        if (field === 'username' || field === 'password') nextErrors[field] = issue.message;
+      }
+      setLoginValidationErrors(nextErrors);
+      return;
+    }
+    setLoginValidationErrors({});
+    await handleLoginSubmit(onLogin)(event);
+  };
+
+  const onRegister = async (data: RegisterFormData) => {
+    setFormError(null);
     try {
-      const response = await authService.mfaChallenge(mfaPendingToken, mfaChallengeCode);
+      const response = await authService.register({
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+      });
+      if (response.success && response.user && response.token) {
+        completeLogin(response.user, response.token);
+      } else {
+        setFormError(response.error || 'Registration failed');
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Registration failed');
+    }
+  };
+
+  const onMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mfaCode.length < 6) return;
+    setMfaSubmitting(true);
+    setFormError(null);
+    try {
+      const response = await authService.mfaChallenge(mfaPendingToken, mfaCode);
       if (response.success && response.user && response.token) {
         completeLogin(response.user, response.token);
       } else {
         toast({
           variant: 'destructive',
-          title: 'MFA verification failed',
-          description: response.error || 'Invalid code',
+          title: 'Verification failed',
+          description: response.error || 'Invalid authentication code',
         });
       }
     } catch {
       toast({
         variant: 'destructive',
-        title: 'MFA verification failed',
-        description: 'An unexpected error occurred',
+        title: 'Error',
+        description: 'MFA verification failed',
       });
     } finally {
       setMfaSubmitting(false);
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateRegisterForm()) return;
-    try {
-      await register({
-        username: registerData.username,
-        email: registerData.email,
-        password: registerData.password,
-        role: registerData.role,
-      });
-    } catch {
-      /* handled by auth context */
-    }
-  };
-
-  const handleLoginChange = (field: string, value: string) => {
-    setLoginData((prev) => ({ ...prev, [field]: value }));
-    if (validationErrors[field]) setValidationErrors((prev) => ({ ...prev, [field]: '' }));
-    if (error) clearError();
-  };
-
-  const handleRegisterChange = (field: string, value: string) => {
-    setRegisterData((prev) => ({ ...prev, [field]: value }));
-    if (validationErrors[field]) setValidationErrors((prev) => ({ ...prev, [field]: '' }));
-    if (error) clearError();
-  };
+  const usernameError = loginValidationErrors.username ?? loginErrors.username?.message;
+  const passwordError = loginValidationErrors.password ?? loginErrors.password?.message;
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-sm">
-        {/* Eyebrow */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs uppercase tracking-[0.15em] font-medium text-primary mb-5">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            Security Operations Center
+    <div className="min-h-[100dvh] flex items-center justify-center p-4 bg-[#050505]">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+        className="w-full max-w-sm"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#5E6AD2]/10 border border-[#5E6AD2]/20 text-[11px] uppercase tracking-[0.1em] font-medium text-[#5E6AD2] mb-3">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            SentryVision
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight mb-2">SentryVision</h1>
-          <p className="text-sm text-muted-foreground">Self-hosted AI security monitoring</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#ECECEC] mb-1">
+            Welcome back
+          </h1>
+          <p className="text-[13px] text-[#A1A1A8]">Self-hosted AI security monitoring</p>
         </div>
 
-        {/* SOC Card with proper materials */}
-        <div className="rounded-2xl bg-[#111113]/95 backdrop-blur-xl border border-white/[0.10] shadow-2xl shadow-black/30">
-          <div className="p-6">
-              {user?.role === 'admin' ? (
+        {/* Auth Card */}
+        <div className="rounded-[8px] bg-[#0A0A0B] border border-white/[0.06] p-6 shadow-lg shadow-black/40">
+          {formError && (
+            <Alert className="mb-4 bg-red-500/10 border-red-500/20 text-[#F87171] rounded-[4px] py-2">
+              <AlertDescription className="text-xs">{formError}</AlertDescription>
+            </Alert>
+          )}
+
+          <AnimatePresence mode="wait">
+            {mfaStep ? (
+              <motion.form
+                key="mfa"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                onSubmit={onMfaSubmit}
+                className="space-y-4"
+              >
+                <div className="text-center mb-2">
+                  <p className="text-[13px] text-[#A1A1A8]">
+                    Enter the verification code from your authenticator app
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="mfa" className="text-xs text-[#A1A1A8] font-medium">
+                    Verification Code
+                  </Label>
+                  <Input
+                    id="mfa"
+                    type="text"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-10 text-center tracking-[0.3em] font-mono text-lg rounded-[4px] focus:border-[#5E6AD2]"
+                    placeholder="000000"
+                    disabled={mfaSubmitting}
+                    maxLength={6}
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={mfaCode.length < 6 || mfaSubmitting}
+                  className="w-full h-9 bg-[#5E6AD2] hover:bg-[#6E7AE0] text-white rounded-[4px] text-xs font-medium"
+                >
+                  {mfaSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaStep(false);
+                    setMfaPendingToken('');
+                    setMfaCode('');
+                  }}
+                  className="w-full text-center text-xs text-[#6B6B73] hover:text-[#A1A1A8] transition-colors pt-1"
+                >
+                  Back to login
+                </button>
+              </motion.form>
+            ) : user?.role === 'admin' ? (
               <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="login" className="text-xs">
+                <TabsList className="grid w-full grid-cols-2 mb-5 bg-[#121215] p-0.5 rounded-[4px]">
+                  <TabsTrigger value="login" className="text-xs rounded-[3px] data-[state=active]:bg-[#1A1A1D] data-[state=active]:text-[#ECECEC]">
                     Sign In
                   </TabsTrigger>
-                  <TabsTrigger value="register" className="text-xs">
+                  <TabsTrigger value="register" className="text-xs rounded-[3px] data-[state=active]:bg-[#1A1A1D] data-[state=active]:text-[#ECECEC]">
                     Sign Up
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="login">
-                  {mfaStep ? (
-                    <form onSubmit={handleMfaChallenge} className="space-y-4">
-                      <div className="text-center mb-4">
-                        <p className="text-sm text-muted-foreground">
-                          Enter the verification code from your authenticator app
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="mfa-code"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Verification Code
-                        </Label>
-                        <Input
-                          id="mfa-code"
-                          type="text"
-                          value={mfaChallengeCode}
-                          onChange={(e) =>
-                            setMfaChallengeCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                          }
-                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 text-center text-lg tracking-widest"
-                          placeholder="000000"
-                          disabled={mfaSubmitting}
-                          maxLength={6}
-                          autoFocus
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full h-11"
-                        disabled={mfaChallengeCode.length < 6 || mfaSubmitting}
-                      >
-                        {mfaSubmitting ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                            Verifying...
-                          </div>
-                        ) : (
-                          'Verify & Sign In'
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full text-xs text-muted-foreground"
-                        onClick={() => {
-                          setMfaStep(false);
-                          setMfaPendingToken('');
-                          setMfaChallengeCode('');
-                        }}
-                      >
-                        Back to login
-                      </Button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="username"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Username
-                        </Label>
-                        <Input
-                          id="username"
-                          type="text"
-                          value={loginData.username}
-                          onChange={(e) => handleLoginChange('username', e.target.value)}
-                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
-                          placeholder="Enter your username"
-                          disabled={isLoading}
-                        />
-                        {validationErrors.username && (
-                          <p className="text-xs text-destructive">{validationErrors.username}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="password"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={showLoginPassword ? 'text' : 'password'}
-                            value={loginData.password}
-                            onChange={(e) => handleLoginChange('password', e.target.value)}
-                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
-                            placeholder="Enter your password"
-                            disabled={isLoading}
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            onClick={() => setShowLoginPassword(!showLoginPassword)}
-                            disabled={isLoading}
-                            aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showLoginPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        {validationErrors.password && (
-                          <p className="text-xs text-destructive">{validationErrors.password}</p>
-                        )}
-                      </div>
-
-                      {error && (
-                        <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
-                          <AlertDescription className="text-xs">{error}</AlertDescription>
-                        </Alert>
-                      )}
-
-                      <Button type="submit" className="w-full h-11 group" disabled={isLoading}>
-                        {isLoading ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                            Signing in...
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            Sign In
-                            <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                                />
-                              </svg>
-                            </span>
-                          </div>
-                        )}
-                      </Button>
-                    </form>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="register">
-                  {user?.role !== 'admin' ? (
-                    <div className="py-8 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Only administrators can create new users.
-                      </p>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="reg-username"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Username
-                        </Label>
-                        <Input
-                          id="reg-username"
-                          type="text"
-                          value={registerData.username}
-                          onChange={(e) => handleRegisterChange('username', e.target.value)}
-                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
-                          placeholder="Choose a username"
-                          disabled={isLoading}
-                        />
-                        {validationErrors.username && (
-                          <p className="text-xs text-destructive">{validationErrors.username}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="email"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Email
-                        </Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={registerData.email}
-                          onChange={(e) => handleRegisterChange('email', e.target.value)}
-                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
-                          placeholder="Enter your email"
-                          disabled={isLoading}
-                        />
-                        {validationErrors.email && (
-                          <p className="text-xs text-destructive">{validationErrors.email}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="role"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Role
-                        </Label>
-                        <Select
-                          value={registerData.role}
-                          onValueChange={(value: 'admin' | 'user' | 'viewer') =>
-                            handleRegisterChange('role', value)
-                          }
-                          disabled={isLoading}
-                        >
-                          <SelectTrigger className="bg-white/[0.06] border-white/[0.16] text-foreground rounded-[0.75rem] h-11">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-white/[0.10] rounded-[0.5rem]">
-                            <SelectItem value="viewer" className="rounded-[0.75rem]">
-                              Viewer - View only access
-                            </SelectItem>
-                            <SelectItem value="user" className="rounded-[0.75rem]">
-                              User - Standard access
-                            </SelectItem>
-                            <SelectItem value="admin" className="rounded-[0.75rem]">
-                              Admin - Full access
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="reg-password"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="reg-password"
-                            type={showRegisterPassword ? 'text' : 'password'}
-                            value={registerData.password}
-                            onChange={(e) => handleRegisterChange('password', e.target.value)}
-                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
-                            placeholder="Create a password"
-                            disabled={isLoading}
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                            disabled={isLoading}
-                            aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showRegisterPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        {validationErrors.password && (
-                          <p className="text-xs text-destructive">{validationErrors.password}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="confirm-password"
-                          className="text-sm text-foreground/70 font-medium"
-                        >
-                          Confirm Password
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="confirm-password"
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            value={registerData.confirmPassword}
-                            onChange={(e) =>
-                              handleRegisterChange('confirmPassword', e.target.value)
-                            }
-                            className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
-                            placeholder="Confirm your password"
-                            disabled={isLoading}
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            disabled={isLoading}
-                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        {validationErrors.confirmPassword && (
-                          <p className="text-xs text-destructive">
-                            {validationErrors.confirmPassword}
-                          </p>
-                        )}
-                      </div>
-
-                      {error && (
-                        <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
-                          <AlertDescription className="text-xs">{error}</AlertDescription>
-                        </Alert>
-                      )}
-
-                      <Button type="submit" variant="destructive" className="w-full h-11 group" disabled={isLoading}>
-                        {isLoading ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />
-                            Creating account...
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                              />
-                            </svg>
-                            Create Account
-                          </div>
-                        )}
-                      </Button>
-                    </form>
-                  )}
-                </TabsContent>
-              </Tabs>
-              ) : (
-                mfaStep ? (
-                  <form onSubmit={handleMfaChallenge} className="space-y-4">
-                    <div className="text-center mb-4">
-                      <p className="text-sm text-muted-foreground">
-                        Enter the verification code from your authenticator app
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="mfa-code"
-                        className="text-sm text-foreground/70 font-medium"
-                      >
-                        Verification Code
-                      </Label>
-                      <Input
-                        id="mfa-code"
-                        type="text"
-                        value={mfaChallengeCode}
-                        onChange={(e) =>
-                          setMfaChallengeCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                        }
-                        className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 text-center text-lg tracking-widest"
-                        placeholder="000000"
-                        disabled={mfaSubmitting}
-                        maxLength={6}
-                        autoFocus
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full h-11"
-                      disabled={mfaChallengeCode.length < 6 || mfaSubmitting}
-                    >
-                      {mfaSubmitting ? (
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                          Verifying...
-                        </div>
-                      ) : (
-                        'Verify & Sign In'
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full text-xs text-muted-foreground"
-                      onClick={() => {
-                        setMfaStep(false);
-                        setMfaPendingToken('');
-                        setMfaChallengeCode('');
-                      }}
-                    >
-                      Back to login
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="username"
-                        className="text-sm text-foreground/70 font-medium"
-                      >
+                  <form onSubmit={submitLogin} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="username" className="text-xs text-[#A1A1A8]">
                         Username
                       </Label>
                       <Input
                         id="username"
-                        type="text"
-                        value={loginData.username}
-                        onChange={(e) => handleLoginChange('username', e.target.value)}
-                        className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11"
-                        placeholder="Enter your username"
-                        disabled={isLoading}
+                        {...registerLogin('username')}
+                        className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-9 rounded-[4px] focus:border-[#5E6AD2]"
+                        placeholder="admin"
+                        disabled={isLoggingIn}
                       />
-                      {validationErrors.username && (
-                        <p className="text-xs text-destructive">{validationErrors.username}</p>
+                      {usernameError && (
+                        <p className="text-[11px] text-[#F87171]">{usernameError}</p>
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="password"
-                        className="text-sm text-foreground/70 font-medium"
-                      >
+                    <div className="space-y-1.5">
+                      <Label htmlFor="password" className="text-xs text-[#A1A1A8]">
                         Password
                       </Label>
                       <div className="relative">
                         <Input
                           id="password"
-                          type={showLoginPassword ? 'text' : 'password'}
-                          value={loginData.password}
-                          onChange={(e) => handleLoginChange('password', e.target.value)}
-                          className="bg-white/[0.04] border-white/[0.10] text-foreground placeholder:text-muted-foreground focus:bg-white/[0.06] focus:border-white/[0.16] rounded-[0.5rem] h-11 pr-11"
-                          placeholder="Enter your password"
-                          disabled={isLoading}
+                          type={showPassword ? 'text' : 'password'}
+                          {...registerLogin('password')}
+                          className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-9 rounded-[4px] pr-9 focus:border-[#5E6AD2]"
+                          disabled={isLoggingIn}
                         />
                         <button
                           type="button"
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                          onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          disabled={isLoading}
-                          aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B6B73] hover:text-[#A1A1A8]"
                         >
-                          {showLoginPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
-                      {validationErrors.password && (
-                        <p className="text-xs text-destructive">{validationErrors.password}</p>
+                      {passwordError && (
+                        <p className="text-[11px] text-[#F87171]">{passwordError}</p>
                       )}
                     </div>
 
-                    {error && (
-                      <Alert className="bg-red-500/10 border-red-500/20 text-red-400 rounded-[0.5rem]">
-                        <AlertDescription className="text-xs">{error}</AlertDescription>
-                      </Alert>
-                    )}
+                    <Button
+                      type="submit"
+                      disabled={isLoggingIn}
+                      className="w-full h-9 bg-[#5E6AD2] hover:bg-[#6E7AE0] text-white rounded-[4px] text-xs font-medium"
+                    >
+                      {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Sign In'}
+                    </Button>
+                  </form>
+                </TabsContent>
 
-                    <Button type="submit" className="w-full h-11 group" disabled={isLoading}>
-                      {isLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                          Signing in...
-                        </div>
+                <TabsContent value="register">
+                  <form onSubmit={handleSignupSubmit(onRegister)} className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#A1A1A8]">Username</Label>
+                      <Input
+                        {...registerSignup('username')}
+                        className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-8 rounded-[4px]"
+                      />
+                      {signupErrors.username && (
+                        <p className="text-[11px] text-[#F87171]">{signupErrors.username.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#A1A1A8]">Email</Label>
+                      <Input
+                        type="email"
+                        {...registerSignup('email')}
+                        className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-8 rounded-[4px]"
+                      />
+                      {signupErrors.email && (
+                        <p className="text-[11px] text-[#F87171]">{signupErrors.email.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#A1A1A8]">Role</Label>
+                      <Select
+                        value={watchSignup('role')}
+                        onValueChange={(val: 'admin' | 'user' | 'viewer') =>
+                          setSignupValue('role', val)
+                        }
+                      >
+                        <SelectTrigger className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-8 rounded-[4px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#121215] border-white/[0.10]">
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#A1A1A8]">Password</Label>
+                      <div className="relative">
+                        <Input
+                          type={showRegPassword ? 'text' : 'password'}
+                          {...registerSignup('password')}
+                          className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-8 rounded-[4px] pr-8"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPassword(!showRegPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B6B73] hover:text-[#A1A1A8]"
+                        >
+                          {showRegPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      {signupErrors.password && (
+                        <p className="text-[11px] text-[#F87171]">{signupErrors.password.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#A1A1A8]">Confirm Password</Label>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          {...registerSignup('confirmPassword')}
+                          className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-8 rounded-[4px] pr-8"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B6B73] hover:text-[#A1A1A8]"
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      {signupErrors.confirmPassword && (
+                        <p className="text-[11px] text-[#F87171]">
+                          {signupErrors.confirmPassword.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={isSigningUp}
+                      className="w-full h-8 bg-[#5E6AD2] hover:bg-[#6E7AE0] text-white rounded-[4px] text-xs font-medium mt-2"
+                    >
+                      {isSigningUp ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto" />
                       ) : (
-                        <div className="flex items-center gap-2">
-                          Sign In
-                          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-[1px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M17 8l4 4m0 0l-4 4m4-4H3"
-                              />
-                            </svg>
-                          </span>
-                        </div>
+                        'Create Account'
                       )}
                     </Button>
                   </form>
-                )
-              )}
-            </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <form onSubmit={submitLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="username" className="text-xs text-[#A1A1A8]">
+                    Username
+                  </Label>
+                  <Input
+                    id="username"
+                    {...registerLogin('username')}
+                    className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-9 rounded-[4px] focus:border-[#5E6AD2]"
+                    placeholder="Enter your username"
+                    disabled={isLoggingIn}
+                  />
+                  {usernameError && (
+                    <p className="text-[11px] text-[#F87171]">{usernameError}</p>
+                  )}
+                </div>
 
-            <div className="px-6 pb-5 text-center">
-              <p className="text-xs text-muted-foreground/60">
-                By continuing, you agree to our Terms of Service and Privacy Policy
-              </p>
-            </div>
-          </div>
-      </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-xs text-[#A1A1A8]">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      {...registerLogin('password')}
+                      className="bg-[#121215] border-white/[0.06] text-[#ECECEC] h-9 rounded-[4px] pr-9 focus:border-[#5E6AD2]"
+                      placeholder="Enter your password"
+                      disabled={isLoggingIn}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B6B73] hover:text-[#A1A1A8]"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {passwordError && (
+                    <p className="text-[11px] text-[#F87171]">{passwordError}</p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="w-full h-9 bg-[#5E6AD2] hover:bg-[#6E7AE0] text-white rounded-[4px] text-xs font-medium"
+                >
+                  {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Sign In'}
+                </Button>
+              </form>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <p className="text-[11px] text-[#4A4A52] text-center mt-6">
+          SentryVision v1.7.0 • Local Data Sovereignty
+        </p>
+      </motion.div>
     </div>
   );
 }

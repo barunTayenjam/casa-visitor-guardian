@@ -180,10 +180,10 @@ cd frontend && npm install && npm run dev  # :5173
 
 | Layer | Technology | Version |
 |-------|------------|---------|
-| **Frontend** | React + TypeScript + Vite + TailwindCSS + Radix UI | 18 / 5 / 3.4 / 1.1 |
-| **Backend** | Express + TypeScript + TypeORM + Socket.io | 5 / 5.5 / 0.3 / 4.7 |
-| **OpenCV Service** | Flask + OpenCV + ONNX Runtime + InsightFace | 3.0 / 4.8 / 1.16 / 0.7 |
-| **RTSP Proxy** | go2rtc | 1.9+ |
+| **Frontend** | Next.js + React + TypeScript + TailwindCSS + Radix UI | 14.2 / 18 / 5 / 3.4 / 1.1 |
+| **Backend** | Express + TypeScript + TypeORM + Socket.io | 5.2 / 5.5 / 0.3 / 4.7 |
+| **OpenCV Service** | Flask + OpenCV + ONNX Runtime + InsightFace | 3.0 / 4.8+ / 1.15+ / 0.7 |
+| **RTSP Proxy** | go2rtc | 1.9.14 |
 | **Database** | PostgreSQL | 15+ |
 | **Cache** | In-memory (Redis optional) | — |
 | **Container** | Docker + Docker Compose | 24+ / 2.24+ |

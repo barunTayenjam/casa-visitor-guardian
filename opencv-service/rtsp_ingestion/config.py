@@ -56,6 +56,10 @@ EVENT_JPEG_QUALITY = 85
 # the camera's single-RTSP-connection limit (TP-LINK). go2rtc already
 # holds the one allowed connection and re-streams it internally.
 GO2RTC_RTSP_BASE = "rtsp://go2rtc:8554"
+# HTTP API base — used for one-shot snapshot pulls (/api/frame.jpeg).
+# Serves the current frame from go2rtc's internal buffer: no ffprobe,
+# no subprocess, no RTSP reconnect per event.
+GO2RTC_HTTP_BASE = os.getenv("GO2RTC_HTTP_BASE", "http://go2rtc:1984")
 
 # Metrics latency buckets (milliseconds)
 METRICS_WS_LATENCY_BUCKETS = [10, 25, 50, 100, 200, 500]

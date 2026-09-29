@@ -15,7 +15,7 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { RefreshCw, BarChart3, Eye, Users, Clock, TrendingUp } from 'lucide-react';
+import { RefreshCw, BarChart3, Eye, Users, Clock, TrendingUp, Moon, ShieldCheck, ShieldAlert } from 'lucide-react';
 import {
   type HourlyTypeRow,
   type HourlyThreatRow,
@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { cn } from '@/lib/utils';
-import { useInsights } from '@/hooks/useInsights';
+import { useInsights, useHighlightsSummary, useWeeklyAnalytics } from '@/hooks/useInsights';
 
 /* ─── Validated dark-mode palette (palette.md slots 1-4) ─── */
 const SERIES = {
@@ -143,6 +143,15 @@ const tooltipStyle = { background: '#111113', border: '1px solid rgba(255,255,25
 export default function InsightsPage() {
   const [date, setDate] = useState(todayLocal());
   const { data, isLoading: loading, error, refetch } = useInsights(date);
+  const { data: highlightsSummary } = useHighlightsSummary(date);
+  const { data: weeklyData } = useWeeklyAnalytics();
+
+  // 7-day activity trend (real API data from /api/analytics/weekly)
+  const weeklyTrend = useMemo(() =>
+    (weeklyData?.dailyBreakdown ?? []).map((d) => ({
+      day: d.date.slice(5), // MM-DD
+      events: toNum(d.count),
+    })), [weeklyData]);
 
   const types = useMemo(() => (data?.byType ?? []).map((t) => t.event_type), [data]);
   const hourlyTypeData = useMemo(() => buildHourlyStacked(data?.hourlyByType ?? [], types), [data, types]);
@@ -274,6 +283,36 @@ export default function InsightsPage() {
         <Kpi label="Peak hour" value={peakHour ? peakHour.hour : '—'} sub={peakHour ? `${peakHour.count} events` : undefined} icon={Clock} />
         <Kpi label="Max per event" value={toNum(t.max_persons_per_event)} sub="persons detected" icon={Users} />
       </div>
+
+      {/* ── 7-day activity trend (real API: /api/analytics/weekly) ── */}
+      {weeklyTrend.length > 0 && (
+        <Card title="7-day activity">
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#898781' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#898781' }} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value) => [`${Number(value ?? 0).toLocaleString()} events`, 'Events']} />
+                <Bar dataKey="events" fill="#3987e5" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Highlights summary — person/face breakdown from /highlights/:date/summary ── */}
+      {highlightsSummary && (
+        <Card title="Highlights summary">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <Kpi label="Highlight events" value={toNum(highlightsSummary.summary.totalEvents).toLocaleString()} sub="person/face detections" icon={BarChart3} />
+            <Kpi label="Persons seen" value={toNum(highlightsSummary.summary.totalPersons).toLocaleString()} sub={`${toNum(highlightsSummary.summary.totalFaces).toLocaleString()} faces`} icon={Users} />
+            <Kpi label="Known faces" value={toNum(highlightsSummary.summary.knownFaces).toLocaleString()} sub={`${toNum(highlightsSummary.summary.knownEvents).toLocaleString()} events`} icon={ShieldCheck} />
+            <Kpi label="Unknown faces" value={toNum(highlightsSummary.summary.unknownEvents).toLocaleString()} sub="events with strangers" icon={ShieldAlert} />
+            <Kpi label="Night events" value={toNum(highlightsSummary.summary.nightEvents).toLocaleString()} sub="22:00–06:00" icon={Moon} />
+          </div>
+        </Card>
+      )}
 
       {/* ── Row 1: Event type pie + Severity + Threat ── */}
       <div className="grid gap-4 lg:grid-cols-3">

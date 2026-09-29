@@ -31,8 +31,8 @@ router.get(
       const { sort = 'recent', limit } = req.query;
       const limitNum = limit ? parseInt(limit as string) : 0;
 
-      const startDate = new Date(`${date}T00:00:00+05:30`);
-      const endDate = new Date(`${date}T23:59:59.999+05:30`);
+      const startDate = new Date(`${date}T00:00:00${process.env.TZ_OFFSET || '+05:30'}`);
+      const endDate = new Date(`${date}T23:59:59.999${process.env.TZ_OFFSET || '+05:30'}`);
 
       let orderBy = 'ORDER BY e.timestamp DESC';
       let whereConditions = '';
@@ -46,10 +46,14 @@ router.get(
         orderBy = 'ORDER BY e.timestamp DESC';
       } else if (sort === 'confidence') orderBy = 'ORDER BY e.confidence DESC, e.timestamp DESC';
 
+      const queryParams: unknown[] = [startDate, endDate];
       let query = `SELECT e.id, e.file_path as filename, e.camera_id, e.timestamp, e.event_type, e.confidence, e.persons_detected, e.faces_detected, e.known_faces_count, e.unknown_faces_count, e.object_detections, e.face_detections, e.metadata FROM events e WHERE e.timestamp BETWEEN $1 AND $2 AND e.event_type IN ('person', 'visitor', 'recognition', 'face') AND e.persons_detected > 0 ${whereConditions} ${orderBy}`;
-      if (limitNum > 0) query += ` LIMIT ${limitNum}`;
+      if (limitNum > 0) {
+        queryParams.push(limitNum);
+        query += ` LIMIT $${queryParams.length}`;
+      }
 
-      const results = await AppDataSource.query(query, [startDate, endDate]);
+      const results = await AppDataSource.query(query, queryParams);
       const highlights = results.map((row: any) => {
         const metadata = row.metadata
           ? typeof row.metadata === 'string'
@@ -111,8 +115,8 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { date } = req.params;
-      const startDate = new Date(`${date}T00:00:00+05:30`);
-      const endDate = new Date(`${date}T23:59:59.999+05:30`);
+      const startDate = new Date(`${date}T00:00:00${process.env.TZ_OFFSET || '+05:30'}`);
+      const endDate = new Date(`${date}T23:59:59.999${process.env.TZ_OFFSET || '+05:30'}`);
 
       const [hourlyData, categoryResult] = await Promise.all([
         AppDataSource.query(

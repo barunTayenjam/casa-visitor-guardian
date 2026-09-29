@@ -84,6 +84,10 @@ const TimelapsePage: React.FC = () => {
           if (past && timelapses.length < cameras.length) setPanelOpen(true);
         }
       })
+      .catch((err) => {
+        console.error('Failed to load timelapses:', err);
+        setList([]);
+      })
       .finally(() => setLoading(false));
   }, [date, cameras]);
 

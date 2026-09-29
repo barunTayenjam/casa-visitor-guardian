@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T15:00:00Z",
+  "title": "Design System: SentryVision",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Quiet Indigo",
+        "canonical": "#5E6AD2",
+        "tonalRamp": ["#1B1E38", "#2A2F55", "#3A4072", "#4A5290", "#5E6AD2", "#7A85DE", "#9BA3E8", "#C3C8F3"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "OLED Black",
+        "canonical": "#050505",
+        "tonalRamp": ["#050505", "#0A0A0B", "#121215", "#1A1A1D", "#232327", "#2E2E33", "#3A3A40", "#4A4A52"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Watch White",
+        "canonical": "#ECECEC",
+        "tonalRamp": ["#4A4A52", "#6B6B73", "#8A8A92", "#A1A1A8", "#BFBFC5", "#D6D6DA", "#ECECEC", "#F8F8F9"]
+      },
+      "destructive": {
+        "role": "danger",
+        "displayName": "Alert Red",
+        "canonical": "#F87171",
+        "tonalRamp": ["#4A1F1F", "#6B2B2B", "#8F3A3A", "#B44A4A", "#F87171", "#FA9494", "#FBB6B6", "#FDD8D8"]
+      },
+      "success": {
+        "role": "success",
+        "displayName": "Verified Green",
+        "canonical": "#34D399",
+        "tonalRamp": ["#14532D", "#166534", "#15803D", "#16A34A", "#34D399", "#6EE7B7", "#A7F3D0", "#D1FAE5"]
+      },
+      "warning": {
+        "role": "warning",
+        "displayName": "Caution Amber",
+        "canonical": "#FBBF24",
+        "tonalRamp": ["#5C3A08", "#7A4E0B", "#9A640F", "#B87A13", "#FBBF24", "#FCD34D", "#FDE68A", "#FEF3C7"]
+      },
+      "info": {
+        "role": "info",
+        "displayName": "Signal Blue",
+        "canonical": "#60A5FA",
+        "tonalRamp": ["#1E3A5F", "#254A78", "#2D5A94", "#3B6DB0", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Empty states and auth hero. Rarely used." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles. One per page maximum." },
+      "title": { "displayName": "Title", "purpose": "Section headers within pages." },
+      "body": { "displayName": "Body", "purpose": "Default reading text." },
+      "label": { "displayName": "Label", "purpose": "Micro-labels and badges. Uppercase with wide tracking." },
+      "mono": { "displayName": "Data Mono", "purpose": "Timestamps, IDs, percentages. Tabular figures always." }
+    },
+    "shadows": [
+      { "name": "focus-glow", "value": "0 0 0 1px rgba(94,106,210,0.2), 0 0 20px rgba(94,106,210,0.1)", "purpose": "Primary CTA focus state only. Once per screen maximum." },
+      { "name": "modal-backdrop", "value": "0 0 0 100vmax rgba(0,0,0,0.4)", "purpose": "Dialog and popover overlay." }
+    ],
+    "motion": [
+      { "name": "ease-out-strong", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Default easing for all state transitions. Immediate response, graceful settle." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Buttons, inputs, color transitions." },
+      { "name": "duration-page", "value": "180ms", "purpose": "Page enter; exit at 120ms (exit faster than enter)." },
+      { "name": "spring-dock", "value": "spring(stiffness: 300, damping: 30)", "purpose": "Bottom dock active indicator slide." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action. Quiet Indigo pill with machined inset highlight and press-down scale.",
+      "html": "<button class=\"ds-btn-primary\">Save Changes</button>",
+      "css": ".ds-btn-primary { background: #5E6AD2; color: #fff; border: none; border-radius: 9999px; padding: 10px 20px; font-size: 14px; font-weight: 500; font-family: Geist, system-ui, sans-serif; box-shadow: inset 0 1px 1px rgba(255,255,255,0.15); transition: transform 150ms cubic-bezier(0.23,1,0.32,1), background-color 150ms cubic-bezier(0.23,1,0.32,1), box-shadow 150ms cubic-bezier(0.23,1,0.32,1); cursor: pointer; } .ds-btn-primary:hover { background: #6E7AE0; box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 8px 24px rgba(94,106,210,0.2); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid rgba(94,106,210,0.9); outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action. Hairline border over translucent surface, same pill and press physics.",
+      "html": "<button class=\"ds-btn-outline\">Reset</button>",
+      "css": ".ds-btn-outline { background: rgba(255,255,255,0.06); color: #ECECEC; border: 1px solid rgba(255,255,255,0.16); border-radius: 9999px; padding: 10px 20px; font-size: 14px; font-weight: 500; font-family: Geist, system-ui, sans-serif; transition: transform 150ms cubic-bezier(0.23,1,0.32,1), background-color 150ms cubic-bezier(0.23,1,0.32,1); cursor: pointer; } .ds-btn-outline:hover { background: rgba(255,255,255,0.09); } .ds-btn-outline:active { transform: scale(0.97); } .ds-btn-outline:focus-visible { outline: 2px solid rgba(94,106,210,0.9); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary action. Text only at 70% opacity, gains surface on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Back</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: rgba(236,236,236,0.7); border: none; border-radius: 9999px; padding: 10px 20px; font-size: 14px; font-weight: 500; font-family: Geist, system-ui, sans-serif; transition: transform 150ms cubic-bezier(0.23,1,0.32,1), background-color 150ms cubic-bezier(0.23,1,0.32,1), color 150ms cubic-bezier(0.23,1,0.32,1); cursor: pointer; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.06); color: #ECECEC; } .ds-btn-ghost:active { transform: scale(0.97); } .ds-btn-ghost:focus-visible { outline: 2px solid rgba(94,106,210,0.9); outline-offset: 2px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text field. 12px radius, translucent surface, hairline border, ring on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search events\" />",
+      "css": ".ds-input { background: rgba(255,255,255,0.06); color: #ECECEC; border: 1px solid rgba(255,255,255,0.16); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-family: Geist, system-ui, sans-serif; width: 100%; transition: border-color 150ms cubic-bezier(0.23,1,0.32,1), background-color 150ms cubic-bezier(0.23,1,0.32,1); } .ds-input::placeholder { color: #6B6B73; } .ds-input:focus-visible { outline: none; border-color: rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); box-shadow: 0 0 0 1px rgba(94,106,210,0.9); }"
+    },
+    {
+      "name": "Bezel Card",
+      "kind": "card",
+      "description": "Settings card with concentric machined bezel — the signature container.",
+      "html": "<div class=\"ds-bezel\"><div class=\"ds-bezel-inner\"><p style=\"margin:0;font-size:14px;font-weight:500;\">Human Verification</p><p style=\"margin:4px 0 0;font-size:12px;\">Pose skeleton · 17 keypoints · 42ms</p></div></div>",
+      "css": ".ds-bezel { border-radius: 8px; background: rgba(255,255,255,0.06); padding: 1px; } .ds-bezel-inner { border-radius: 7px; background: #0A0A0B; padding: 20px; color: #ECECEC; font-family: Geist, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "description": "Pill badge for verification tiers and system status. Tiny uppercase text.",
+      "html": "<span class=\"ds-badge ds-badge-success\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21.801 10A10 10 0 1 1 17 3.335\"/><path d=\"m9 11 3 3L22 4\"/></svg>Verified</span> <span class=\"ds-badge ds-badge-offline\"><span class=\"ds-dot\"></span>Offline</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 9999px; padding: 2px 8px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; font-family: Geist, system-ui, sans-serif; } .ds-badge-success { color: #34D399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); } .ds-badge-offline { color: #A1A1A8; background: rgba(161,161,168,0.1); border: 1px solid rgba(161,161,168,0.2); } .ds-dot { width: 4px; height: 4px; border-radius: 9999px; background: #A1A1A8; }"
+    },
+    {
+      "name": "Nav Dock Item",
+      "kind": "nav",
+      "description": "Bottom dock navigation item with active indigo state.",
+      "html": "<nav class=\"ds-dock\"><a class=\"ds-dock-item ds-active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.9 19.1C1 15.2 1 8.8 4.9 4.9\"/><path d=\"M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5\"/><path d=\"M19.1 4.9C23 8.8 23 15.2 19.1 19.1\"/></svg><span>Dashboard</span></a><a class=\"ds-dock-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/></svg><span>Events</span></a></nav>",
+      "css": ".ds-dock { display: flex; gap: 4px; padding: 8px 12px; background: #0A0A0B; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; font-family: Geist, system-ui, sans-serif; } .ds-dock-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 64px; padding: 8px 10px; border-radius: 6px; text-decoration: none; font-size: 10px; font-weight: 500; color: #6B6B73; transition: color 150ms cubic-bezier(0.23,1,0.32,1); } .ds-dock-item:hover { color: #ECECEC; } .ds-dock-item.ds-active { color: #5E6AD2; } .ds-dock-item.ds-active::before { content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 32px; height: 3px; border-radius: 0 0 9999px 9999px; background: #5E6AD2; }"
+    },
+    {
+      "name": "Select Trigger",
+      "kind": "input",
+      "description": "Dropdown trigger matching input language with chevron.",
+      "html": "<button class=\"ds-select\"><span>7 days</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"0.5\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "css": ".ds-select { display: flex; align-items: center; justify-content: space-between; width: 100%; background: rgba(255,255,255,0.06); color: #ECECEC; border: 1px solid rgba(255,255,255,0.16); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-family: Geist, system-ui, sans-serif; cursor: pointer; transition: border-color 150ms cubic-bezier(0.23,1,0.32,1); } .ds-select:hover { border-color: rgba(255,255,255,0.2); } .ds-select:focus-visible { outline: none; box-shadow: 0 0 0 1px rgba(94,106,210,0.9); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Watchman",
+    "overview": "SentryVision's visual system embodies vigilant calm. The dark canvas is night; the interface is the watch post — alert, composed, never loud. Every element earns its place through function, not decoration. The palette is almost entirely neutral — deep charcoals and muted grays — with a single accent color reserved exclusively for interactive states and system status. When the accent appears, it means something. The aesthetic draws from Linear's instrument-grade precision: dense information hierarchy, hairline separation, monospace data, and controls that feel like machined hardware.",
+    "keyCharacteristics": [
+      "OLED-black canvas with tonal surface layering (no shadows for depth, only border contrast)",
+      "Single muted indigo accent used sparingly — rarity is the point",
+      "Geist typeface family: geometric sans for chrome, monospace for data",
+      "Pill-shaped controls with inset highlights and press-down scale (0.97)",
+      "Hairline borders as the primary depth language",
+      "Bottom dock navigation with animated sliding indicator",
+      "Zero glassmorphism, zero backdrop-blur on cards — solid surfaces only"
+    ],
+    "rules": [
+      { "name": "The Restraint Rule", "body": "The primary accent appears on ≤15% of any screen. When it appears, it means something: an active state, a primary action, or a status indicator. Never use it for decoration, backgrounds, or decorative gradients.", "section": "colors" },
+      { "name": "The Tonal Surface Rule", "body": "Depth is communicated through surface color steps, not shadows. Canvas (#050505) → Surface (#0A0A0B) → Raised (#121215) → Control (#1A1A1D).", "section": "colors" },
+      { "name": "The Data Font Rule", "body": "All temporal data (timestamps, durations, IDs, percentages) uses Geist Mono with tabular-nums. No exceptions. Monospace is never used for UI chrome.", "section": "typography" },
+      { "name": "The Tracking Rule", "body": "Large text gets tighter tracking (-0.02em to -0.04em). Small uppercase labels get wider tracking (0.04em). Body text has zero tracking.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Every surface is flat at rest. Cards never cast shadows. Depth comes from surface color contrast and hairline borders.", "section": "elevation" },
+      { "name": "The Pill Button Rule", "body": "All primary and secondary action buttons use the pill shape. The pill is the system's signature interactive silhouette.", "section": "shapes" },
+      { "name": "The Concentric Bezel Rule", "body": "Premium containers use a 1px inset highlight bezel — a machined edge that suggests physical depth without shadows.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do use the Border Scale (0.06 → 0.10 → 0.16) as the primary depth language.",
+      "Do use Geist Mono for all temporal and numeric data. Tabular figures always.",
+      "Do use the pill shape for all primary action buttons.",
+      "Do use active:scale-[0.97] on every pressable element.",
+      "Do use transition duration-150 for state changes. Fast and deliberate.",
+      "Do use surface color steps to communicate depth.",
+      "Do keep the primary accent under 15% of any screen."
+    ],
+    "donts": [
+      "Don't use drop shadows on cards or content containers.",
+      "Don't use backdrop-filter: blur() on scrolling content or cards.",
+      "Don't use transition-all on buttons or inputs. Specify exact properties.",
+      "Don't use ease-in for UI animations.",
+      "Don't use the primary accent for decorative backgrounds or gradients.",
+      "Don't use 100vh for full-height sections. Always 100dvh.",
+      "Don't use generic circular spinners. Skeleton loaders matching content shape."
+    ]
+  }
+}

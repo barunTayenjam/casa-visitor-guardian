@@ -65,9 +65,16 @@ class ArcFaceRecognizer:
             self.dnn_face_detector = None
 
         try:
-            self.haar_detector = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            )
+            # Prefer the bundled cascade in models/ over cv2.data (missing in container)
+            cascade_path = os.path.join(self.models_dir, 'haarcascade_frontalface_default.xml')
+            if not os.path.exists(cascade_path):
+                cascade_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
+            if os.path.exists(cascade_path):
+                self.haar_detector = cv2.CascadeClassifier(cascade_path)
+                if self.haar_detector.empty():
+                    self.haar_detector = None
+            else:
+                self.haar_detector = None
         except Exception:
             self.haar_detector = None
 
@@ -210,7 +217,30 @@ class ArcFaceRecognizer:
         ]
 
     def extract_face_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
+        """Extract 512-dim ArcFace embedding from a face ROI.
+
+        Expects a tight face crop (not a full scene image).
+        Falls back to the recognition model directly when the detector
+        fails — this happens when crops are too small or too close-up
+        for RetinaFace (det_size=640).
+        """
         if self._model_loaded and self._app is not None:
+            # Quality gate: tiny crops (<64px) produce garbage embeddings.
+            # Caller should use appearance-based ReID for these instead.
+            h, w = face_image.shape[:2]
+            if h < 48 or w < 48:
+                return None
+
+            # Upscale small faces so the recognizer sees detail —
+            # ArcFace buffalo_s was trained on 112x112 aligned faces.
+            if h < 160 or w < 160:
+                scale = max(160 / h, 160 / w)
+                face_image = cv2.resize(
+                    face_image,
+                    (min(320, int(w * scale)), min(320, int(h * scale))),
+                    interpolation=cv2.INTER_CUBIC,
+                )
+
             try:
                 rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
                 dets = self._app.get(rgb)
@@ -218,7 +248,23 @@ class ArcFaceRecognizer:
                     norm_embedding = dets[0].embedding / np.linalg.norm(dets[0].embedding)
                     return norm_embedding.astype(np.float64)
             except Exception as e:
-                print(f"[ArcFace] ArcFace embedding error: {e}")
+                print(f"[ArcFace] ArcFace detector error: {e}")
+
+            # Direct recognition: skip detector, run recognition model on
+            # the pre-cropped face. Works when RetinaFace can't detect
+            # faces in tight crops (common during training / live crops).
+            try:
+                recog_model = self._app.models.get('recognition') or self._app.models.get('recog')
+                if recog_model is not None:
+                    resized = cv2.resize(face_image, (112, 112), interpolation=cv2.INTER_LINEAR)
+                    rgb_direct = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+                    feat = recog_model.get_feat(rgb_direct)
+                    if feat is not None and len(feat) > 0 and len(feat[0]) == self._embedding_dim:
+                        emb = feat[0]
+                        norm_embedding = emb / np.linalg.norm(emb)
+                        return norm_embedding.astype(np.float64)
+            except Exception as e:
+                print(f"[ArcFace] Direct recognition error: {e}")
 
         if self.use_face_recognition_lib:
             try:
@@ -239,6 +285,117 @@ class ArcFaceRecognizer:
             return hist
         except Exception:
             return None
+
+    def extract_embedding_robust(self, image: np.ndarray) -> Optional[np.ndarray]:
+        """Extract embedding from any image, trying multiple strategies.
+
+        For close-up face crops, extract_face_embedding works directly.
+        For full-scene images (wide shots, surveillance frames) the face
+        may be too small for RetinaFace — this method resizes aggressively
+        to bring small faces to a detectable size.
+        """
+        if self._model_loaded and self._app is None:
+            return None
+
+        # Strategy 1: direct extraction (works for face crops)
+        emb = self.extract_face_embedding(image)
+        if emb is not None and len(emb) == self._embedding_dim:
+            return emb
+
+        # Strategy 2: resize image to boost small-face detection
+        h, w = image.shape[:2]
+        target_sizes = [1024, 640]
+        for target in target_sizes:
+            scale = target / max(h, w)
+            if scale <= 1.0:
+                continue
+            resized = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LINEAR)
+            rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+            try:
+                dets = self._app.get(rgb)
+            except Exception:
+                continue
+            for det in dets:
+                if det.embedding is not None:
+                    norm_emb = det.embedding / np.linalg.norm(det.embedding)
+                    return norm_emb.astype(np.float64)
+
+        # Strategy 3: sliding window for very large images
+        if h > 800 or w > 800:
+            roi_size = 640
+            best_emb = None
+            best_score = -1.0
+            for y in range(0, max(1, h - roi_size), roi_size // 2):
+                for x in range(0, max(1, w - roi_size), roi_size // 2):
+                    crop = image[y:y + roi_size, x:x + roi_size]
+                    rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                    try:
+                        dets = self._app.get(rgb)
+                    except Exception:
+                        continue
+                    for det in dets:
+                        if det.det_score > best_score and det.embedding is not None:
+                            best_score = det.det_score
+                            best_emb = det.embedding
+            if best_emb is not None:
+                norm_emb = best_emb / np.linalg.norm(best_emb)
+                return norm_emb.astype(np.float64)
+
+        return None
+
+    def get_appearance_signature(self, person_roi: np.ndarray) -> Optional[np.ndarray]:
+        """Compute appearance signature (color histogram) for person re-ID.
+
+        Works on any person crop, even tiny ones where face fails.
+        Returns normalized HSV color histogram (clothing colors, skin tones).
+        """
+        try:
+            h, w = person_roi.shape[:2]
+            upper = person_roi[0:int(h * 0.6), :]
+            upper_hsv = cv2.cvtColor(upper, cv2.COLOR_BGR2HSV)
+            hist = cv2.calcHist([upper_hsv], [0, 1], None, [18, 24], [0, 180, 0, 256])
+            hist = cv2.normalize(hist, hist).flatten()
+            return hist.astype(np.float32)
+        except Exception:
+            return None
+
+    def compare_appearance(self, sig1: np.ndarray, sig2: np.ndarray) -> float:
+        """Compare two appearance signatures. Returns similarity [0, 1]."""
+        try:
+            return float(cv2.compareHist(sig1, sig2, cv2.HISTCMP_CORREL))
+        except Exception:
+            return 0.0
+
+    def match_embedding(self, embedding: np.ndarray, tolerance: float = 0.6) -> Tuple[str, float]:
+        """Match a pre-extracted embedding against known faces (no re-detect).
+
+        recognize_face() re-runs the detector to obtain an embedding; when the
+        caller already has one (single-pass flow), this skips that second
+        RetinaFace pass.
+        """
+        if not self.is_trained or embedding is None:
+            return "unknown", 0.0
+
+        ref_encodings, ref_names = (
+            (self.known_encodings_512, self.known_names_512)
+            if len(embedding) == 512 and self.known_encodings_512
+            else (self.known_encodings_128, self.known_names_128)
+            if self.known_encodings_128
+            else ([], [])
+        )
+        distances = [
+            np.linalg.norm(embedding - ke)
+            for ke in ref_encodings
+            if len(ke) == len(embedding)
+        ]
+        if not distances:
+            return "unknown", 0.0
+        min_distance = min(distances)
+        if min_distance < tolerance:
+            name = ref_names[distances.index(min_distance)]
+            confidence = max(0, min(100, (1.0 - min_distance / tolerance) * 100))
+            return name, round(confidence, 2)
+        return "unknown", 0.0
 
     def recognize_face(self, face_image: np.ndarray, tolerance: float = 0.6) -> Tuple[str, float]:
         if not self.is_trained:
@@ -347,6 +504,15 @@ class ArcFaceRecognizer:
                     if image is None:
                         continue
                     face_detections = self.detect_faces(image)
+                    # If RetinaFace finds nothing (wide shots, small faces),
+                    # try the robust extractor directly on the full image —
+                    # it resizes + scans ROIs to locate faces.
+                    if not face_detections:
+                        embedding = self.extract_embedding_robust(image)
+                        if embedding is not None and len(embedding) == 512:
+                            arcface_faces.append(embedding)
+                            arcface_names.append(person_dir)
+                        continue
                     for face in face_detections:
                         x, y, w, h = face['x'], face['y'], face['width'], face['height']
                         if w < 50 or h < 50:

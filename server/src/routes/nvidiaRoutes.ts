@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, optionalAuth } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { validateBody } from '../middleware/zodValidation.js';
 import { nvidiaController } from '../controllers/NvidiaController.js';
 
 const router = Router();
-
-router.use(optionalAuth);
 
 const analysisSchema = z.object({
   image: z.string().optional(),
@@ -26,7 +24,6 @@ router.get('/event-analysis/:eventId', authenticate(), (req, res) =>
   nvidiaController.getEventAnalysis(req, res),
 );
 router.get('/health', (req, res) => nvidiaController.health(req, res));
-router.get('/status', (req, res) => nvidiaController.health(req, res));
 router.get('/results', authenticate(), (req, res) => nvidiaController.getResults(req, res));
 router.get('/models', authenticate(), (req, res) => nvidiaController.getModels(req, res));
 router.put('/config', authenticate({ roles: ['admin'] }), (req, res) =>

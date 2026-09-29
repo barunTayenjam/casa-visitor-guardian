@@ -74,8 +74,8 @@ def get_known_faces():
             return jsonify({'success': True, 'faces': [], 'count': 0})
         faces = []
         if state.face_recognition.is_trained:
-            unique_names = set(state.face_recognition.known_names)
-            for idx, name in enumerate(unique_names):
+            names_set = set(state.face_recognition.known_names_512 + state.face_recognition.known_names_128)
+            for idx, name in enumerate(sorted(names_set)):
                 faces.append({
                     'id': str(idx),
                     'name': name

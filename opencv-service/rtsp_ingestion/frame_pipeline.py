@@ -63,6 +63,7 @@ from .config import (
     INFERENCE_BACKEND,
     INFERENCE_TARGET,
     GO2RTC_RTSP_BASE,
+    GO2RTC_HTTP_BASE,
 )
 from .queues import DropOldestQueue, DropIfFullQueue
 from .ffmpeg_reader import FFmpegReader
@@ -742,7 +743,16 @@ class FramePipeline:
         self._last_yolo_time = now_ts
 
         print(f"[FramePipeline:{self._camera_id}] MOTION DETECTED — running YOLO")
-        detections = self._apply_camera_filters(self._run_detection(frame))
+        raw_detections = self._run_detection(frame)
+        if raw_detections:
+            for det in raw_detections:
+                b = det.get("bbox", [0, 0, 0, 0])
+                area = b[2] * b[3] if isinstance(b, (list, tuple)) and len(b) == 4 else 0
+                print(
+                    f"[FramePipeline:{self._camera_id}] raw det: {det.get('class')} "
+                    f"score={det.get('score', 0):.2f} bbox={[int(v) for v in b]} area={int(area)}"
+                )
+        detections = self._apply_camera_filters(raw_detections)
         if not detections:
             print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections after camera filters")
             return
@@ -836,9 +846,64 @@ class FramePipeline:
                 cls._human_verifier = HumanVerifier()
             return cls._human_verifier
 
-    def _save_snapshot(self, track_id, frame):
-        """Save a full-resolution event snapshot; returns container path or None."""
+    def _grab_fullres_frame(self) -> Optional[np.ndarray]:
+        """Grab one full-res frame from the go2rtc main stream via its HTTP API.
+
+        Used for person snapshots: 2304x1296 gives ~3.6x more pixels than
+        the 640x360 detect stream, making faces identifiable (60px+ vs 13-44px).
+
+        /api/frame.jpeg serves the latest keyframe from go2rtc's internal
+        buffer: no ffprobe, no subprocess, no RTSP reconnect per event, and
+        no fixed-size pipe reads that desync when resolutions shift. Latency
+        (~1-2s) is go2rtc waiting for the next keyframe — same as ffmpeg
+        startup, minus all the failure modes.
+
+        Called once per person track (a few events/hour), so no impact on
+        the continuous pipeline.
+        """
         try:
+            import urllib.request
+            url = f"{GO2RTC_HTTP_BASE}/api/frame.jpeg?src={self._camera_id}"
+            t0 = time.time()
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = resp.read()
+            dt = time.time() - t0
+            if not data:
+                print(f"[FramePipeline:{self._camera_id}] Full-res grab empty response")
+                return None
+            buf = np.frombuffer(data, dtype=np.uint8)
+            frame = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+            if frame is not None:
+                h, w = frame.shape[:2]
+                print(f"[FramePipeline:{self._camera_id}] Full-res grab {w}x{h} in {dt:.1f}s")
+                return frame
+            print(f"[FramePipeline:{self._camera_id}] Full-res grab JPEG decode failed")
+            return None
+        except Exception as e:
+            print(f"[FramePipeline:{self._camera_id}] Full-res grab error: {e}")
+            return None
+
+    def _save_snapshot(self, track_id, frame, fullres_frame=None):
+        """Save a full-resolution event snapshot; returns container path or None.
+
+        For person events, grabs a full-res frame from the go2rtc main stream
+        so faces are identifiable (3.6x more pixels than the detect stream).
+        Falls back to the low-res frame if the grab fails.
+
+        If fullres_frame is provided (pre-grabbed by the caller), it is used
+        directly — avoiding a second ffprobe+ffmpeg pull for face recognition.
+        """
+        try:
+            # Use pre-grabbed full-res if available, otherwise try a fresh grab.
+            if fullres_frame is not None:
+                save_frame = fullres_frame
+            elif os.getenv("FULLRES_SNAPSHOTS", "1") == "1":
+                _tmp = self._grab_fullres_frame()
+                save_frame = _tmp if _tmp is not None else frame
+            else:
+                save_frame = frame
+                save_frame = frame
+
             detections_dir = os.getenv("DETECTIONS_DIR", "/app/data/detections")
             now = datetime.now(timezone.utc)
             ts = now.strftime("%Y-%m-%dT%H-%M-%S-") + f"{now.microsecond // 1000:03d}Z"
@@ -846,13 +911,15 @@ class FramePipeline:
             subdir = os.path.join(detections_dir, now.strftime("%Y-%m"), "events", "motion")
             os.makedirs(subdir, exist_ok=True)
             filepath = os.path.join(subdir, filename)
-            ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, EVENT_JPEG_QUALITY])
+            ok, buf = cv2.imencode(".jpg", save_frame, [cv2.IMWRITE_JPEG_QUALITY, EVENT_JPEG_QUALITY])
             if ok:
                 with open(filepath, "wb") as f:
                     f.write(buf.tobytes())
                 return filepath
         except Exception as e:
+            import traceback
             print(f"[FramePipeline:{self._camera_id}] Snapshot save failed: {e}")
+            traceback.print_exc()
         return None
 
     def _enrich_with_identity(self, tracked: List[Dict], frame: np.ndarray) -> List[Dict]:
@@ -919,15 +986,60 @@ class FramePipeline:
                     # Snapshot gate mirrors Node's persistence gates
                     # (PERSON_MIN_TRACK_HITS / PERSON_MIN_CONFIDENCE) so files
                     # are only written for events Node will actually persist.
+                    # The full-res grab is shared: one ffmpeg pull serves both
+                    # the snapshot file and HD face recognition.
+                    gate_hits = obj.get("tracklet_len", 0) >= self._person_min_hits
+                    gate_conf = obj.get("score", 0) >= self._person_min_conf
+                    gate_once = tid not in self._snapshotted_tracks
                     if (
-                        obj.get("tracklet_len", 0) >= self._person_min_hits
-                        and obj.get("score", 0) >= self._person_min_conf
-                        and tid not in self._snapshotted_tracks
+                        gate_hits
+                        and gate_conf
+                        and gate_once
                     ):
-                        snap = self._save_snapshot(tid, frame)
+                        print(f"[FramePipeline:{self._camera_id}] Snapshot gate OPEN t{tid} (len={obj.get('tracklet_len')}, score={obj.get('score', 0):.2f}, face_fn={self._face_recognition_fn is not None})")
+                        fullres = self._grab_fullres_frame()
+                        snap = self._save_snapshot(tid, frame, fullres_frame=fullres)
                         if snap:
                             self._snapshotted_tracks.add(tid)
                             self._snapshot_paths[tid] = snap
+                        # HD face recognition: detect stream is 640x360 — faces
+                        # are 13-44px there, too small for ArcFace. The main
+                        # stream (2304x1296) gives ~3.6x more pixels, making
+                        # faces identifiable. Scale bbox detect→full-res coords
+                        # and recognize on the high-res person crop.
+                        if fullres is not None and self._face_recognition_fn:
+                            try:
+                                det_h, det_w = frame.shape[:2]
+                                full_h, full_w = fullres.shape[:2]
+                                sx, sy = full_w / det_w, full_h / det_h
+                                # Expand the bbox ~40% so the person (who moved
+                                # ~1.6s between detect frame and fullres grab)
+                                # is still inside the crop; ArcFace detects the
+                                # face within the person crop itself.
+                                pad_x, pad_y = int(w_b * sx * 0.4), int(h_b * sy * 0.4)
+                                fx = max(0, int(x * sx) - pad_x)
+                                fy = max(0, int(y * sy) - pad_y)
+                                fx2 = min(full_w, int((x + w_b) * sx) + pad_x)
+                                fy2 = min(full_h, int((y + h_b) * sy) + pad_y)
+                                crop = fullres[fy:fy2, fx:fx2]
+                                if crop.size > 0:
+                                    res = self._face_recognition_fn(crop)
+                                    if isinstance(res, (tuple, list)) and len(res) >= 2:
+                                        name, conf = res[0], res[1]
+                                        emb = res[2] if len(res) >= 3 else None
+                                        self._identity_cache.put(
+                                            tid, {"name": name, "confidence": conf}
+                                        )
+                                        obj["identity"] = name
+                                        obj["identity_confidence"] = conf
+                                        if emb is not None:
+                                            obj["face_embedding"] = [float(v) for v in emb]
+                                        print(
+                                            f"[FramePipeline:{self._camera_id}] "
+                                            f"HD face recog t{tid}: {name} ({conf:.1f}%)"
+                                        )
+                            except Exception as e:
+                                print(f"[FramePipeline:{self._camera_id}] HD face recog error: {e}")
                     # Reattach so Node's filePath gate survives dropped messages
                     if tid in self._snapshot_paths:
                         obj["file_path"] = self._snapshot_paths[tid]
@@ -966,22 +1078,6 @@ class FramePipeline:
                 if cached:
                     obj["identity"] = cached.get("name")
                     obj["identity_confidence"] = cached.get("confidence", 0)
-                else:
-                    try:
-                        face_roi = frame[y : y + h_b, x : x + w_b]
-                        res = self._face_recognition_fn(face_roi)
-                        if isinstance(res, (tuple, list)) and len(res) >= 2:
-                            name, conf = res[0], res[1]
-                            emb = res[2] if len(res) >= 3 else None
-                        else:
-                            name, conf, emb = "unknown", 0.0, None
-                        self._identity_cache.put(tid, {"name": name, "confidence": conf})
-                        obj["identity"] = name
-                        obj["identity_confidence"] = conf
-                        if emb is not None:
-                            obj["face_embedding"] = [float(x) for x in emb]
-                    except Exception:
-                        pass
 
             if obj.get("class") == "person" and w_b > 20 and h_b > 20:
                 cached_attrs = self._person_attrs_cache.get(tid)

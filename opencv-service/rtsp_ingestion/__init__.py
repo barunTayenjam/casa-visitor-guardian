@@ -74,6 +74,18 @@ class RTSPService:
         self._publisher = WebSocketPublisher(host=ws_host, port=ws_port)
         self._pipelines: dict[str, FramePipeline] = {}
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        # Face recognition fn is stored on the service BEFORE start_non_blocking()
+        # and propagated to each pipeline inside _async_start(). Callers used to
+        # iterate _pipelines right after start_non_blocking() — but that call
+        # returns immediately while pipelines are still being created on the
+        # background loop, so the fn was never attached (silent race).
+        self._face_recognition_fn = None
+
+    def set_face_recognition(self, fn) -> None:
+        """Set face recognition fn; applied to existing and future pipelines."""
+        self._face_recognition_fn = fn
+        for pipeline in self._pipelines.values():
+            pipeline.set_face_recognition(fn)
 
     def start(self) -> None:
         """Start all pipelines and the WebSocket server.
@@ -102,6 +114,9 @@ class RTSPService:
                 continue
             pipeline = FramePipeline(cam, self._publisher)
             self._pipelines[cam['id']] = pipeline
+            # Apply pre-set face recognition fn to every new pipeline
+            if self._face_recognition_fn is not None:
+                pipeline.set_face_recognition(self._face_recognition_fn)
             pipeline.start()
 
         active = [c['id'] for c in self._cameras if c.get('enabled', True)]

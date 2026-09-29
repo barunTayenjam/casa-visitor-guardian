@@ -936,19 +936,21 @@ def start_rtsp_service():
                     return ("unknown", 0.0, None)
                 try:
                     rec = state.face_recognition
-                    name, conf = rec.recognize_face(face_roi)
-                    emb = None
-                    if hasattr(rec, "extract_face_embedding"):
-                        try:
-                            emb = rec.extract_face_embedding(face_roi)
-                        except Exception:
-                            pass
+                    # Single-pass: extract embedding once, match it directly.
+                    # recognize_face() would re-run the RetinaFace detector
+                    # (~0.5s) to recompute the embedding we already have.
+                    emb = rec.extract_face_embedding(face_roi)
+                    if emb is None:
+                        return ("unknown", 0.0, None)
+                    name, conf = rec.match_embedding(emb)
                     return (name, conf, emb)
                 except Exception:
                     return ("unknown", 0.0, None)
 
-            for pipeline in state._rtsp_service._pipelines.values():
-                pipeline.set_face_recognition(_face_rec_fn)
+            # Service-level attach: stored on the service and propagated to
+            # pipelines inside _async_start(). Iterating _pipelines directly
+            # raced the background pipeline creation (dict still empty).
+            state._rtsp_service.set_face_recognition(_face_rec_fn)
 
             try:
                 from routes.detection import _set_threat_camera_config
@@ -1005,6 +1007,29 @@ def initialize():
             FaceRecognition = None
 
     state.face_recognition = FaceRecognition() if FaceRecognition is not None else None
+
+    # Auto-train face recognizer if known faces exist but embeddings are missing
+    if state.face_recognition is not None:
+        arcface_emb_path = os.path.join(MODELS_DIR, 'face_embeddings_512.pkl')
+        arcface_labels_path = os.path.join(MODELS_DIR, 'face_labels_512.pkl')
+        if not os.path.exists(arcface_emb_path) or not os.path.exists(arcface_labels_path):
+            has_known_faces = False
+            if os.path.exists(state.face_recognition.known_faces_dir):
+                for person_dir in os.listdir(state.face_recognition.known_faces_dir):
+                    person_path = os.path.join(state.face_recognition.known_faces_dir, person_dir)
+                    if os.path.isdir(person_path):
+                        for f in os.listdir(person_path):
+                            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                has_known_faces = True
+                                break
+                    if has_known_faces:
+                        break
+            if has_known_faces:
+                print("[pipeline.py] Auto-training face recognizer from known_faces...")
+                try:
+                    state.face_recognition.train_recognizer()
+                except Exception as e:
+                    print(f"[pipeline.py] Auto-train failed: {e}")
 
     detector = YOLOObjectDetector()
     detector.initialize()

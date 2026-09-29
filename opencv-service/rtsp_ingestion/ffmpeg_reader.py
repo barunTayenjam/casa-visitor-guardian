@@ -145,8 +145,13 @@ class FFmpegReader:
         while self.running:
             try:
                 self._spawn_process()
-                self._reconnect_delay = 1.0  # reset on successful spawn
-                self._read_frames()
+                if self._read_frames():
+                    self._reconnect_delay = 1.0  # reset only after real frames flowed
+                else:
+                    # FFmpeg died before producing a frame (camera unreachable).
+                    # Back off here too — without this, EOF respawn-loops with
+                    # zero delay and hammers the camera/go2rtc every ~3s.
+                    self._sleep_before_reconnect()
             except Exception as e:
                 if not self.running:
                     break
@@ -164,11 +169,15 @@ class FFmpegReader:
         )
         print(f"[FFmpegReader:{self.camera_id}] Spawned FFmpeg (pid={self._process.pid})")
 
-    def _read_frames(self) -> None:
-        """Read raw frames from the subprocess stdout pipe."""
+    def _read_frames(self) -> bool:
+        """Read raw frames from the subprocess stdout pipe.
+
+        Returns True if at least one complete frame was read, False on EOF.
+        """
         assert self._process is not None
         assert self._process.stdout is not None
 
+        got_frame = False
         while self.running:
             raw_bytes = self._process.stdout.read(self._frame_size)
             if not raw_bytes or len(raw_bytes) < self._frame_size:
@@ -182,6 +191,7 @@ class FFmpegReader:
                             pass
                 break
 
+            got_frame = True
             frame = np.frombuffer(raw_bytes, dtype=np.uint8).reshape(
                 (self.height, self.width, 3)
             )
@@ -191,6 +201,8 @@ class FFmpegReader:
                 'timestamp': time.time(),
                 'camera_id': self.camera_id,
             })
+
+        return got_frame
 
     def _kill_process(self) -> None:
         """Terminate the FFmpeg subprocess if still alive."""

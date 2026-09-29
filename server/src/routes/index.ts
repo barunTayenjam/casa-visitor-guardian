@@ -28,6 +28,7 @@ import detectionRedoRoutes from './detectionRedoRoutes.js';
 import highlightsRoutes from './highlights.js';
 import timelapseRoutes, { setTimelapseService } from './timelapse.js';
 import faceClusterRoutes from './face-clusters.js';
+import faceIdentityRoutes from './face-identities.js';
 import chatRoutes from './chat.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -115,6 +116,7 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.use('/api/highlights', highlightsRoutes);
   app.use('/api/timelapse', timelapseRoutes);
   app.use('/api/face-clusters', faceClusterRoutes);
+  app.use('/api/face-identities', faceIdentityRoutes);
   app.use('/api/chat', chatRoutes);
 
   app.use(createApiRateLimit());

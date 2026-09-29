@@ -214,19 +214,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     refreshTimer = window.setInterval(() => {
       const { token, isAuthenticated, refreshToken, user } = get();
       if (!isAuthenticated || !token || !isTokenExpiringSoon(token)) return;
-      void refreshToken().then((newToken) => {
-        if (!newToken) {
+      void refreshToken()
+        .then((newToken) => {
+          if (!newToken) {
+            get().stopTokenRefreshTimer();
+            clearToken();
+            useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
+            return;
+          }
+          if (user) {
+            void authService
+              .getProfile()
+              .then((response) => {
+                if (response.success && response.user)
+                  useAuthStore.setState({ user: response.user });
+              })
+              .catch(() => {
+                get().stopTokenRefreshTimer();
+                clearToken();
+                useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
+              });
+          }
+        })
+        .catch(() => {
           get().stopTokenRefreshTimer();
           clearToken();
           useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
-          return;
-        }
-        if (user) {
-          void authService.getProfile().then((response) => {
-            if (response.success && response.user) useAuthStore.setState({ user: response.user });
-          });
-        }
-      });
+        });
     }, TOKEN_CHECK_INTERVAL_MS);
   },
 

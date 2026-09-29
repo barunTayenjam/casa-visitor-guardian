@@ -38,34 +38,49 @@ export const useCameraStore = create<CameraState>((set, get) => ({
   },
 
   addCamera: async (data) => {
-    const cameraId = await cameraService.addCamera(data);
-    const newCamera: Camera = {
-      id: cameraId,
-      ...data,
-      status: 'offline',
-      lastSeen: new Date(),
-      thumbnail: '/placeholder-camera.svg',
-    };
-    set((state) => ({ cameras: [...state.cameras, newCamera] }));
-    return cameraId;
+    try {
+      const cameraId = await cameraService.addCamera(data);
+      const newCamera: Camera = {
+        id: cameraId,
+        ...data,
+        status: 'offline',
+        lastSeen: new Date(),
+        thumbnail: '/placeholder-camera.svg',
+      };
+      set((state) => ({ cameras: [...state.cameras, newCamera] }));
+      return cameraId;
+    } catch (err) {
+      console.error('Failed to add camera:', err);
+      throw err;
+    }
   },
 
   updateCamera: async (id, updates) => {
     const editableKeys = ['name', 'streamUrl', 'fps', 'resolution'];
-    if (Object.keys(updates).some((k) => editableKeys.includes(k))) {
-      await cameraService.updateCamera(id, updates);
+    try {
+      if (Object.keys(updates).some((k) => editableKeys.includes(k))) {
+        await cameraService.updateCamera(id, updates);
+      }
+      set((state) => ({
+        cameras: state.cameras.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      }));
+    } catch (err) {
+      console.error('Failed to update camera:', err);
+      throw err;
     }
-    set((state) => ({
-      cameras: state.cameras.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-    }));
   },
 
   deleteCamera: async (id) => {
-    await cameraService.deleteCamera(id);
-    set((state) => ({
-      cameras: state.cameras.filter((c) => c.id !== id),
-      selectedCameraId: state.selectedCameraId === id ? null : state.selectedCameraId,
-    }));
+    try {
+      await cameraService.deleteCamera(id);
+      set((state) => ({
+        cameras: state.cameras.filter((c) => c.id !== id),
+        selectedCameraId: state.selectedCameraId === id ? null : state.selectedCameraId,
+      }));
+    } catch (err) {
+      console.error('Failed to delete camera:', err);
+      throw err;
+    }
   },
 
   selectCamera: (id) => set({ selectedCameraId: id }),

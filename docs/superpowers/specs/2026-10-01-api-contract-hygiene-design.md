@@ -52,7 +52,8 @@ Superseded and/or permanently broken routes with zero frontend callers:
 | Endpoint | Evidence | Deletion chain |
 |---|---|---|
 | `GET /api/events/history` | Superseded by `GET /api/events/list-enhanced`; zero references in frontend or scripts | `routes/events.ts:8` route → `EventController.getHistory` → `eventSearch/eventSearchService.ts:330` method → `HistoryFilters` in `eventSearch/types.ts:40` → re-export in `services/eventSearchService.ts:6` |
-| `POST /api/detection/filter` | Zero frontend callers; handler calls always-throwing `consolidatedDetectionService.detectObjects` with no catch → guaranteed HTTP 500 | Route in `routes/detectionRoutes.ts` + `DetectionController` filter method (verify exact names during implementation) |
+| `POST /api/detection/filter` | Zero frontend callers; never wired to any frontend service (unwired feature, not an admin utility) | Route block in `routes/detectionRoutes.ts:86-108` (handler uses `detectionService.filterDetections` in try/catch) |
+| `server/src/controllers/DetectionController.ts` | Wholly dead — zero importers; no route file references it (verified by grep during design) | Delete file |
 
 Verification gate before each deletion: `rg` for every symbol across `server/src`,
 `frontend-next/src`, `scripts/` must return only the deletion chain itself.

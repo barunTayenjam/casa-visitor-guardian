@@ -88,14 +88,6 @@ export class ConsolidatedDetectionService {
     );
   }
 
-  async getServiceStatus(): Promise<{ available: boolean; url: string; responseTime?: number }> {
-    logger.warn(
-      'ConsolidatedDetectionService: getServiceStatus() called but HTTP health check path is removed.',
-      'Detection',
-    );
-    return { available: true, url: 'python-ws://internal' };
-  }
-
   // ==================== OBJECT DETECTION ====================
 
   async updateObjectDetectionSettings(

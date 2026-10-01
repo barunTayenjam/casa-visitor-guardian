@@ -36,7 +36,7 @@ export function matchPath(pattern: string, actual: string): boolean {
 
 export function parseMounts(source: string): MountEntry[] {
   const imports = new Map<string, string>();
-  const importRe = /import\s+(\w+)\s+from\s+['"]\.\/([^'"]+)\.js['"]/g;
+  const importRe = /import\s+(\w+)\s*(?:,\s*\{[^}]*\})?\s*from\s+['"]\.\/([^'"]+)\.js['"]/g;
   let m: RegExpExecArray | null;
   while ((m = importRe.exec(source)) !== null) {
     imports.set(m[1], m[2]);
@@ -149,12 +149,29 @@ function transformPath(literal: string, apiRooted: boolean): string {
 
 export function parseFrontendSource(source: string, fileLabel: string): CallEntry[] {
   const entries: CallEntry[] = [];
+  const seen = new Set<string>();
 
   const push = (path: string, method: string): void => {
-    if (normalizePath(path).startsWith('/api/')) {
-      entries.push({ method, path, file: fileLabel });
-    }
+    const norm = normalizePath(path);
+    if (!norm.startsWith('/api/')) return;
+    const key = `${method} ${norm}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    entries.push({ method, path, file: fileLabel });
   };
+
+  const varLits = new Map<string, string[]>();
+  const initRe = /(?:const|let|var)\s+(\w+)\s*=\s*([^;]+);/g;
+  let im: RegExpExecArray | null;
+  while ((im = initRe.exec(source)) !== null) {
+    const litRe = /(['"`])([^'"`]*)\1/g;
+    let lm: RegExpExecArray | null;
+    const lits: string[] = [];
+    while ((lm = litRe.exec(im[2])) !== null) {
+      if (lm[2]) lits.push(lm[2]);
+    }
+    if (lits.length) varLits.set(im[1], [...(varLits.get(im[1]) ?? []), ...lits]);
+  }
 
   const callRe = new RegExp(CALL_NAME_RE.source, 'g');
   let m: RegExpExecArray | null;
@@ -163,15 +180,32 @@ export function parseFrontendSource(source: string, fileLabel: string): CallEntr
     const openIdx = callRe.lastIndex - 1;
     const body = extractCallBody(source, openIdx);
     if (body === null) continue;
-    const literal = firstArgLiteral(body);
-    if (literal === null) continue;
+    const direct = firstArgLiteral(body);
+    let literals: string[];
+    let fromVar = false;
+    if (direct !== null) {
+      literals = [direct];
+    } else {
+      const idm = /^\s*(\w+)/.exec(body);
+      if (!idm || !varLits.has(idm[1])) continue;
+      literals = varLits.get(idm[1])!;
+      fromVar = true;
+    }
     const nameLower = name.toLowerCase();
     let method = NAME_VERBS[nameLower];
     if (!method) {
       const methodMatch = /method\s*:\s*['"](\w+)['"]/i.exec(body);
       method = methodMatch ? methodMatch[1].toLowerCase() : 'get';
     }
-    push(transformPath(literal, API_ROOTED_NAMES.has(nameLower)), method);
+    const apiRooted = API_ROOTED_NAMES.has(nameLower);
+    for (const lit of literals) {
+      let path = transformPath(lit, apiRooted);
+      if (fromVar) {
+        const exprCut = path.search(/\$\{/);
+        if (exprCut !== -1) path = path.slice(0, exprCut);
+      }
+      push(path, method);
+    }
   }
 
   const returnRe = /return\s+`([^`]*)`/g;

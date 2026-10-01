@@ -1,0 +1,127 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/streaming/metrics",
+    "reason": "ops/observability metrics endpoint (streamController.getMetrics, optional auth) for curl/monitoring; no service caller in repo"
+  },
+  {
+    "method": "GET",
+    "path": "/api/health",
+    "reason": "HTTP health probe used by scripts/test-opencv.sh"
+  },
+  {
+    "method": "POST",
+    "path": "/api/maintenance/cleanup-images",
+    "reason": "admin manual image cleanup (systemController.cleanupImages); scheduled cleanup runs in-process via automatedCleanupService, not over HTTP"
+  },
+  {
+    "method": "POST",
+    "path": "/api/maintenance/cleanup-full",
+    "reason": "admin manual full cleanup (systemController.runFullCleanup); scheduled cleanup runs in-process, not over HTTP"
+  },
+  {
+    "method": "GET",
+    "path": "/api/maintenance/cleanup-status",
+    "reason": "status poll for admin manual cleanup runs (systemController.cleanupStatus)"
+  },
+  {
+    "method": "POST",
+    "path": "/api/cameras/:id/stream/stop-test",
+    "reason": "stop counterpart for RTSP test streams; UI only starts test streams (cameraService start-test) and never stops them via API"
+  },
+  {
+    "method": "GET",
+    "path": "/api/streams/:cameraId/detect",
+    "reason": "server-sent detection preview stream for ops/debug; UI consumes frames via Socket.io and polls /api/streams/:cameraId/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/streams/:cameraId/live",
+    "reason": "server-sent live preview stream for ops/debug; UI consumes frames via Socket.io, not HTTP"
+  },
+  {
+    "method": "GET",
+    "path": "/api/streams/:cameraId/frame",
+    "reason": "one-shot frame fetch for ops/curl; UI captures snapshots via POST /api/cameras/:id/snapshot"
+  },
+  {
+    "method": "GET",
+    "path": "/api/detection-data",
+    "reason": "detection data listing API (DetectionDataController.list); UI reads detections via /api/events endpoints"
+  },
+  {
+    "method": "GET",
+    "path": "/api/detection-data/stats",
+    "reason": "detection data stats API (DetectionDataController.stats); no UI stats consumer"
+  },
+  {
+    "method": "POST",
+    "path": "/api/nvidia/analyze",
+    "reason": "raw image analysis, not event-based (API-SOURCE-OF-TRUTH not-called table); UI uses POST /api/nvidia/analyze-event"
+  },
+  {
+    "method": "GET",
+    "path": "/api/nvidia/health",
+    "reason": "LLM backend health probe (nvidiaController.health, public) for curl/ops"
+  },
+  {
+    "method": "GET",
+    "path": "/api/nvidia/results",
+    "reason": "cached analysis results read API (API-SOURCE-OF-TRUTH not-called table); UI loads analysis via analyze-event responses"
+  },
+  {
+    "method": "GET",
+    "path": "/api/nvidia/models",
+    "reason": "available LLM models listing for ops/curl (API-SOURCE-OF-TRUTH not-called table); no UI consumer"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/nvidia/config",
+    "reason": "admin LLM config update (API-SOURCE-OF-TRUTH not-called table); no UI settings consumer"
+  },
+  {
+    "method": "POST",
+    "path": "/api/nvidia/analyze-with-bboxes",
+    "reason": "raw image analysis with boxes, not event-based (API-SOURCE-OF-TRUTH not-called table); UI uses POST /api/nvidia/analyze-event-with-bboxes"
+  },
+  {
+    "method": "POST",
+    "path": "/api/nvidia/analyze-persons",
+    "reason": "person-specific raw image analysis (API-SOURCE-OF-TRUTH not-called table); UI uses event-based analysis endpoints"
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion/:cameraId/simulate",
+    "reason": "admin motion simulation for testing (requireAdmin, streamManager.simulateMotionDetection); invoked via curl only"
+  },
+  {
+    "method": "GET",
+    "path": "/api/events/search",
+    "reason": "full-text event search (eventSearchService.searchEvents); UI filters via GET /api/events/list-enhanced"
+  },
+  {
+    "method": "GET",
+    "path": "/api/events/:id/details",
+    "reason": "event detail API (eventSearchService.getEventDetails); UI renders details from list payloads"
+  },
+  {
+    "method": "POST",
+    "path": "/api/events/bulk/archive",
+    "reason": "bulk archive op (inline); UI archives single events via POST /api/events/:id/archive"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/resubscribe",
+    "reason": "push subscription recovery (validates endpoint+p256dh+auth keys); no service-worker or API caller in repo"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/logs",
+    "reason": "per-user notification delivery log (NotificationService.getNotificationLogs); UI has no logs view"
+  },
+  {
+    "method": "GET",
+    "path": "/api/detection/stats",
+    "reason": "detection statistics (EnhancedDetectionService.getDetectionStats); no UI caller (API-SOURCE-OF-TRUTH not-called table)"
+  }
+]

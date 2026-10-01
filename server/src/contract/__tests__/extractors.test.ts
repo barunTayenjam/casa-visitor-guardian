@@ -83,6 +83,16 @@ app.use('/health', healthRoutes);
       { prefix: '/api/auth', routerVariable: 'authRoutes', routeFile: 'auth' },
     ]);
   });
+
+  it('handles mixed default and named imports', () => {
+    const source = `
+import timelapseRoutes, { setTimelapseService } from './timelapse.js';
+app.use('/api/timelapse', timelapseRoutes);
+`;
+    expect(parseMounts(source)).toEqual([
+      { prefix: '/api/timelapse', routerVariable: 'timelapseRoutes', routeFile: 'timelapse' },
+    ]);
+  });
 });
 
 describe('parseRouteSource', () => {
@@ -210,8 +220,28 @@ const response = await fetchWithRetry(
     ]);
   });
 
+  it('captures variable-assigned ${API_URL} templates as get', () => {
+    const source =
+      'const url = `${API_URL}/analytics/hourly${qs ? `?${qs}` : ""}`;\nawait fetchWithRetry(url);';
+    expect(parseFrontendSource(source, 'systemService.ts')).toEqual([
+      { method: 'get', path: '/api/analytics/hourly', file: 'systemService.ts' },
+    ]);
+  });
+
   it('ignores calls whose first argument is not a literal', () => {
     const source = 'const r = fetchWithRetry(someVariable, { method: "POST" });';
     expect(parseFrontendSource(source, 'x.ts')).toEqual([]);
+  });
+
+  it('resolves variable endpoints consumed by api-rooted calls', () => {
+    const source = [
+      'const endpoint = camera ? `/detection?camera=${camera}` : "/detection";',
+      'await apiClient.get(endpoint);',
+      'await apiClient.put(endpoint, body);',
+    ].join('\n');
+    expect(parseFrontendSource(source, 'settingsService.ts')).toEqual([
+      { method: 'get', path: '/api/detection', file: 'settingsService.ts' },
+      { method: 'put', path: '/api/detection', file: 'settingsService.ts' },
+    ]);
   });
 });

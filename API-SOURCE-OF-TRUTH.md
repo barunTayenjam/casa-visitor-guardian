@@ -105,9 +105,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | Method | Path | Auth | Handler |
 |--------|------|------|---------|
 | GET | `/api/events/list-enhanced` | optional | `eventController.listEnhanced` |
-| GET | `/api/events/history` | optional | `eventController.getHistory` |
 | GET | `/api/events/search` | optional | `eventSearchService.searchEvents` |
-| GET | `/api/events/search/legacy` | optional | `eventSearchService.searchEventsLegacy` |
 | GET | `/api/events/stats/today` | optional | `eventSearchService.getTodayEventCount` |
 | GET | `/api/events/stats/calendar` | optional | `eventSearchService.getCalendarStats` |
 | GET | `/api/events/stats/range` | optional | `eventSearchService.getRangeStats` |
@@ -139,7 +137,6 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 |--------|------|------|---------|
 | GET | `/api/detection` | user | `detectionService.getConfig` |
 | PUT | `/api/detection` | user | `detectionService.updateConfig` |
-| POST | `/api/detection/filter` | user | `detectionService.filterDetections` |
 | GET | `/api/detection/stats` | user | `enhancedDetectionService.getDetectionStats` |
 | POST | `/api/detection/person/:cameraId/trigger` | user | (inline, consolidated detection) |
 | POST | `/api/detection/face/:cameraId/trigger` | user | (inline, consolidated detection) |
@@ -450,9 +447,27 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 
 ---
 
-## ⚠️ Broken Calls (Frontend → Backend Mismatch)
+## ⚠️ Broken Calls (Frontend → Backend Mismatch) — historical note
 
-### Fixed (2026-09-24)
+A 2026-09-24 audit found frontend→backend URL drift (motion-settings and
+detection-config query params mis-wired) and ten frontend methods with no backend
+route at all. Those were fixed or removed in 2026-09-24 (archived tables below).
+The drift class is now prevented mechanically by the API contract test.
+
+### API contract enforcement (source of truth)
+
+- **Authoritative list of backend endpoints not called by any frontend service:**
+  `server/src/contract/internalEndpoints.json` — 25 admin/ops/legacy endpoints,
+  each entry carrying its consumer or reason.
+- **Enforcement:** `server/src/contract/__tests__/apiContract.test.ts` asserts
+  (A) every frontend `/api` call resolves to a registered route, (B) every
+  registered route is frontend-called or allowlisted, (C) allowlist entries are
+  non-stale and reasoned. Extractor unit tests live beside it in
+  `server/src/contract/__tests__/extractors.test.ts`.
+- **Run:** `cd server && npm run test:server -- src/contract` (contract + extractor tests).
+
+<details>
+<summary>Archived: 2026-09-24 drift-fix tables (historical)</summary>
 
 | Frontend Call | Fix Applied |
 |---------------|-------------|
@@ -460,8 +475,6 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | `cameraService.updateMotionSettings()` | ✅ Fixed URL: `/motion/:camId/settings` PUT → `/detection/motion/settings` with body `{cameraId}` |
 | `settingsService.getDetectionConfig(cam)` | ✅ Fixed URL: `/detection/${cam}` → `/detection?camera=${cam}` |
 | `settingsService.updateDetectionConfig(data)` | ✅ Fixed URL: `/detection/${camId}` → `/detection?camera=${camId}` |
-
-### Removed dead code (2026-09-24)
 
 | Frontend Method | Reason |
 |-----------------|--------|
@@ -476,29 +489,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | `systemService.getDetectionTimeSeries()` | No backend route |
 | `systemService.getCameraPerformance()` | No backend route |
 
-### Backend endpoints NOT called by any frontend service
-
-| Backend Endpoint | Potential Use |
-|------------------|---------------|
-| GET `/api/events/history` | Replaced by `list-enhanced` |
-| GET `/api/events/search/legacy` | Legacy, superseded by `search` |
-| POST `/api/nvidia/analyze` | Raw image analysis (not event-based) |
-| POST `/api/nvidia/analyze-with-bboxes` | Raw image analysis with boxes |
-| POST `/api/nvidia/analyze-persons` | Person-specific analysis |
-| GET `/api/nvidia/results` | Analysis results cache |
-| GET `/api/nvidia/models` | Available LLM models |
-| PUT `/api/nvidia/config` | LLM config update (admin) |
-| POST `/api/detection/filter` | Detection filtering endpoint |
-| GET `/api/detection/stats` | Detection statistics |
-| GET `/api/detection-data` | Detection data listing |
-| GET `/api/detection-data/stats` | Detection data stats |
-| POST `/api/motion/:camId/simulate` | Motion simulation (admin/test) |
-| GET `/api/streams/:camId/detect` | Stream detection status |
-| GET `/api/notifications/logs` | Notification delivery logs |
-| POST `/api/notifications/resubscribe` | Resubscribe endpoint |
-| POST `/api/maintenance/cleanup-images` | Image cleanup (admin) |
-| POST `/api/maintenance/cleanup-full` | Full cleanup (admin) |
-| GET `/api/maintenance/cleanup-status` | Cleanup status (admin) |
+</details>
 
 ---
 

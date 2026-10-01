@@ -197,7 +197,7 @@ server/src/
 │   ├── validation.ts         # Zod schemas
 │   └── enhancedRateLimit.ts  # Rate limiting
 ├── detection/                # Detection types + cleanup (pipeline runs in Python)
-│   ├── consolidatedDetectionService.ts  # Type definitions only (stubs — pipeline runs in Python)
+│   ├── consolidatedDetectionService.ts  # Settings store + disabled-HTTP guards; detection runs in Python
 │   └── cleanupService.ts                # Event cleanup
 ├── streams/
 │   ├── rtspManager.ts        # RTSP stream orchestration
@@ -234,7 +234,7 @@ The detection pipeline runs entirely in Python. Node.js receives structured even
 9. Node.js `PythonWsClient` receives and re-emits as Node EventEmitter
 10. `rtspManager.wirePythonWsFrames()` relays frames to Socket.io rooms with adaptive FPS by viewer count
 11. Node.js `detectionPersistence.ts` persists tracking events as `events` in PostgreSQL with image captures. Person counting drops `lost` track states and dedupes overlapping person bboxes (IoU > 0.3), so `persons_detected` = distinct humans, not raw track IDs
-12. `consolidatedDetectionService.ts` provides type definitions and settings stubs (actual detection runs in Python)
+12. `consolidatedDetectionService.ts` provides the detection settings store (person/face/motion settings read by routes) and config push to Python; `detectObjects`/`detectFaces` are disabled guards that throw (HTTP detection off) — actual detection runs in Python
 
 For a visual overview, see `docs/c4-streaming-pipeline.md`.
 

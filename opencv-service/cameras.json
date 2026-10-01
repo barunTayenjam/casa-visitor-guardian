@@ -30,9 +30,9 @@
       "fps": 2
     },
     "live": {
-      "width": 1280,
-      "height": 720,
-      "fps": 10
+      "width": 640,
+      "height": 360,
+      "fps": 15
     },
     "record": {
       "enabled": true,
@@ -229,9 +229,9 @@
       "fps": 2
     },
     "live": {
-      "width": 1280,
-      "height": 720,
-      "fps": 10
+      "width": 640,
+      "height": 360,
+      "fps": 15
     },
     "record": {
       "enabled": true,

@@ -26,8 +26,8 @@ MOG2_HISTORY = 200
 MOG2_VAR_THRESHOLD = 16
 MOTION_PIXEL_THRESHOLD = 150
 
-# JPEG encoding
-JPEG_QUALITY = 60
+# JPEG encoding (live preview — small frames, higher quality keeps motion smooth)
+JPEG_QUALITY = 75
 JPEG_OPTIMIZE = 1
 
 # FFmpeg default arguments for RTSP ingestion

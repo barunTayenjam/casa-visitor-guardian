@@ -136,7 +136,7 @@ docker compose up -d --build
 cd server && npm install && npm run dev    # :9753
 
 # Frontend (Vite HMR, proxies to :9753)
-cd frontend && npm install && npm run dev  # :5173
+cd frontend-next && npm install && npm run dev  # :5173
 ```
 
 ### Default Credentials

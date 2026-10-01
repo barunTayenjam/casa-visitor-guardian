@@ -66,7 +66,7 @@ npm run lint:server      # ESLint (server)
 npm run lint:fix         # ESLint autofix (frontend)
 npm run format           # Prettier write (frontend + server + root)
 npm run typecheck        # tsc --noEmit (frontend)
-npm run test             # Jest (frontend; tests in frontend/src/__tests__/)
+npm run test:server      # Jest (server; tests in server/src/**/*.test.ts)
 
 # Server (cd server)
 npm run dev              # Nodemon hot reload (watches src + cameras.json)
@@ -93,60 +93,41 @@ cd server && npm run build && docker restart sentryvision-app
 ## Frontend Structure
 
 ```
-frontend/src/
-├── App.tsx                   # Router + layout (pages mount under /app/*)
-├── pages/                    # Route-level views
-│   ├── StreamDashboard.tsx   # Live camera view (/app/streams) — default
-│   ├── EventsPage.tsx        # Main events view with filters (/app/events)
-│   ├── PeoplePage.tsx        # People / face clusters (/app/people)
-│   ├── InsightsPage.tsx      # Daily analytics dashboard (/app/insights) [NEW]
-│   ├── TimelapsePage.tsx     # Timelapse view (/app/timelapse)
-│   ├── AskPage.tsx           # AI chat interface (/app/ask) [NEW]
-│   ├── LogsPage.tsx          # System logs + alerts (/app/logs)
-│   ├── Settings.tsx          # System settings (/app/settings)
-│   ├── Login.tsx             # Auth + MFA (/login)
-│   └── NotFound.tsx          # 404
+frontend-next/src/
+├── app/                     # Next.js App Router (login/, (app)/, error/loading boundaries)
+├── views/                   # Route-level views
+│   ├── StreamDashboard.tsx  # Live camera view (/app/streams) — default
+│   ├── EventsPage.tsx       # Main events view with filters (/app/events)
+│   ├── PeoplePage.tsx       # People / face clusters (/app/people)
+│   ├── InsightsPage.tsx     # Daily analytics dashboard (/app/insights)
+│   ├── TimelapsePage.tsx    # Timelapse view (/app/timelapse)
+│   ├── AskPage.tsx          # AI chat interface (/app/ask)
+│   ├── LogsPage.tsx         # System logs + alerts (/app/logs)
+│   ├── SecurityPage.tsx     # Security view
+│   ├── AnalyticsPage.tsx    # Analytics view
+│   ├── SettingsHub.tsx + Settings.tsx # System settings (/app/settings)
+│   └── LoginPage.tsx        # Auth + MFA (/login)
 ├── components/
-│   ├── live/                 # AdaptiveCameraGrid, StreamPanel, RecentDetectionsSection
-│   ├── events/               # EventDetailPanel, SmartFilters, RelatedEvents
-│   ├── layout/               # AppLayout, MacDock (bottom nav), PageContainer [NEW]
-│   ├── settings/             # MotionDetectionSettings, OptimizationSettings
-│   ├── analytics/            # Charts
-│   ├── detection/            # Detection UI
-│   ├── dashboard/            # Dashboard widgets
-│   ├── ui/                   # shadcn/ui primitives (Radix)
+│   ├── live/                # AdaptiveCameraGrid, StreamPanel, RecentDetectionsSection
+│   ├── events/              # EventDetailPanel, SmartFilters, RelatedEvents
+│   ├── layout/              # AppFrame, navigation, PageContainer
+│   ├── settings/            # Settings sub-views
+│   ├── dashboard/           # Dashboard widgets
+│   ├── brand/               # Branding components
+│   ├── ui/                  # shadcn/ui primitives (Radix)
 │   ├── ErrorBoundary.tsx
-│   └── ProtectedRoute.tsx
+│   └── providers.tsx
 ├── services/
-│   ├── api/                  # REST clients
-│   │   ├── baseClient.ts     # Shared fetch wrapper with auth, retry, refresh
-│   │   ├── cameraService.ts  # Camera CRUD + snapshots + zones + filters
-│   │   ├── eventService.ts   # Event listing, calendar stats, archive
-│   │   ├── detectionService.ts # Detection triggers, settings, AI analysis
-│   │   ├── personService.ts  # People / face clusters
-│   │   ├── chatService.ts    # AI chat with tool calling [NEW]
-│   │   ├── insightsService.ts # Daily analytics (25+ dimensions) [NEW]
-│   │   ├── authService.ts    # Login, register, MFA
-│   │   ├── systemService.ts  # Health, stats, highlights, timelapse
-│   │   ├── settingsService.ts # Settings, detection config, alerts
-│   │   └── notificationService.ts # Push notifications, preferences
-│   └── SocketService.ts      # Socket.io singleton client
-├── contexts/
-│   ├── AuthContext.tsx        # Auth state, login/logout, MFA
-│   ├── CameraContext.tsx      # Camera state, stream management
-│   └── SocketContext.tsx      # Socket.io connection
-├── hooks/
-│   ├── useCameraStream.ts     # Camera stream lifecycle
-│   ├── useViewportStream.ts
-│   └── use-toast.ts
-├── types/
-│   └── security.ts
-├── lib/
-│   ├── utils.ts              # cn() helper
-│   ├── theme.ts
-│   └── logger.ts
-└── styles/
-    └── design-tokens.ts
+│   ├── api/                 # REST clients (baseClient.ts shared fetch wrapper w/ auth, retry, refresh
+│   │                        #   + cameraService, eventService, detectionService, personService,
+│   │                        #   chatService, insightsService, authService, systemService,
+│   │                        #   settingsService, notificationService)
+│   └── SocketService.ts     # Socket.io singleton client
+├── stores/                  # Zustand stores (auth, camera, socket, ui) — see ADR-001
+├── hooks/                   # useCameraStream, useCameras, useEvents, useInsights, use-toast, ...
+├── lib/                     # utils.ts (cn()), theme.ts, chart-tokens.ts
+├── types/                   # Type definitions
+└── styles/                  # Design tokens
 ```
 
 ## Backend Structure
@@ -263,7 +244,7 @@ For a visual overview, see `docs/c4-streaming-pipeline.md`.
 | ----------------------------- | ----------------------------------------------------- |
 | `server/cameras.json`         | Camera RTSP URLs, zones, tracked objects (gitignored) |
 | `server/cameras.example.json` | Camera config template                                |
-| `frontend/vite.config.ts`     | Vite build + API proxy to :9753                       |
+| `frontend-next/next.config.ts` | Next.js build + API proxy to :9753                     |
 | `docker-compose.yml`          | All 5 services                                        |
 | `.env.example`                | Environment variable reference                        |
 
@@ -327,7 +308,7 @@ VITE_BACKEND_URL=http://localhost:9753
 | DB connection          | Verify postgres running, check credentials, run migrations            |
 | OpenCV down            | `curl http://localhost:8084/health`                                   |
 | No motion detected     | Check RTSP URLs in cameras.json, verify FFmpeg, check detection zones |
-| Frontend build errors  | `rm -rf frontend/node_modules && cd frontend && npm install`          |
+| Frontend build errors  | `cd frontend-next && rm -rf node_modules && npm install`                     |
 | Backend TS errors      | `cd server && rm -rf dist && npm run build`                           |
 | Secrets in git history | Use `git filter-repo` — contact maintainer                            |
 

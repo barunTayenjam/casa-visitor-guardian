@@ -682,7 +682,7 @@ class FramePipeline:
             if success:
                 self._live_queue.put(jpeg_buf.tobytes())
 
-        now = frame_data.get("timestamp", time.time())
+        now = frame_data.get("timestamp") or time.time()
         if now - self._last_detect_enqueue >= self._detect_interval:
             self._last_detect_enqueue = now
             try:

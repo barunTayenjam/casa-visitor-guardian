@@ -374,11 +374,10 @@ export const detectionService = {
 
   async getDetectionImage(imageId: string, includeOverlays: boolean = true): Promise<string> {
     try {
-      const response = await apiClient.get<{ success: boolean; imageUrl: string }>(
-        `/detections/image/${imageId}`,
-        { overlays: includeOverlays },
-      );
-      if (response.success) return response.imageUrl;
+      const query = new URLSearchParams({ overlays: String(includeOverlays) });
+      const response = await fetchWithRetry(`/detections/image/${imageId}?${query.toString()}`);
+      const data = (await response.json()) as { success: boolean; imageUrl: string };
+      if (data.success) return data.imageUrl;
       throw new ApiError('Failed to get detection image', 400, 'GET_DETECTION_IMAGE_ERROR');
     } catch (error) {
       if (error instanceof ApiError) throw error;

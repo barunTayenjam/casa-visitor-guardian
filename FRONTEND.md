@@ -1,16 +1,15 @@
 # Frontend
 
-React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui. Served by backend as static files.
+Next.js 15 (App Router) + TypeScript + TailwindCSS + shadcn/ui + Zustand. Served by backend as static files.
 
 ## Quick Start
 
 ```bash
-cd frontend
+cd frontend-next
 npm install
-npm run dev          # Vite dev server on :5173
+npm run dev          # Next dev server on :5173
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
-npm run test         # Jest
 ```
 
 **Always run `npm run lint && npm run typecheck` after changes.**
@@ -18,44 +17,45 @@ npm run test         # Jest
 ## Build
 
 ```bash
-npm run build        # Vite build → dist/
+npm run build        # Next static export → out/
 ```
 
-Output goes to `frontend/dist/`, which backend serves via `server/public/`.
+Output goes to `frontend-next/out/`, which backend serves via `FRONTEND_DIST_PATH` (see `server/src/config/frontendDist.ts`).
 
 ## Routing
 
+Next.js App Router under `src/app/`:
+
 ```
-/login              → Login.tsx (public)
-/app/streams        → StreamDashboard.tsx (default redirect)
+/login              → app/login/ (LoginPage — auth + MFA)
+/app/               → app/(app)/ (protected shell)
+/app/streams        → StreamDashboard.tsx (default)
 /app/events         → EventsPage.tsx
 /app/people         → PeoplePage.tsx
 /app/insights       → InsightsPage.tsx
 /app/timelapse      → TimelapsePage.tsx
 /app/ask            → AskPage.tsx
 /app/logs           → LogsPage.tsx
-/app/settings       → Settings.tsx
-/                   → Auth redirect
-*                   → NotFound.tsx
+/app/settings       → SettingsHub.tsx / Settings.tsx
+*                   → not-found.tsx
 ```
 
-All `/app/*` routes wrapped in `ProtectedRoute` → `AppLayout` → `ErrorBoundary`.
+Route-level views live in `src/views/`; `(app)` layout group wraps protected pages.
 
-## Provider Stack
+## State
 
-```
-QueryClientProvider (React Query)
-  → TooltipProvider
-    → BrowserRouter
-      → SocketProvider (Socket.io)
-        → CameraProvider (camera state)
-          → AuthProvider (JWT + MFA)
-            → ScrollRevealProvider (IntersectionObserver)
-```
+| Store | File | State |
+|-------|------|-------|
+| auth | `stores/auth.ts` | User, token, login/logout, MFA |
+| camera | `stores/camera.ts` | Camera list, stream management |
+| socket | `stores/socket.ts` | Socket.io connection |
+| ui | `stores/ui.ts` | UI state |
+
+Zustand replaced React Contexts — see ADR-001.
 
 ## Pages
 
-| Page | Route | Purpose | Key Services |
+| View | Route | Purpose | Key Services |
 |------|-------|---------|--------------|
 | `StreamDashboard` | `/app/streams` | Live camera grid | `cameraService`, `SocketService` |
 | `EventsPage` | `/app/events` | Event timeline + filters | `eventService`, `detectionService` |
@@ -64,12 +64,12 @@ QueryClientProvider (React Query)
 | `TimelapsePage` | `/app/timelapse` | Timelapse viewer + generator | `systemService` |
 | `AskPage` | `/app/ask` | AI chat interface | `chatService` |
 | `LogsPage` | `/app/logs` | System logs + alerts | `settingsService` |
-| `Settings` | `/app/settings` | System settings | `settingsService`, `detectionService`, `notificationService` |
-| `Login` | `/login` | Auth + MFA | `authService` |
+| `Settings` / `SettingsHub` | `/app/settings` | System settings | `settingsService`, `detectionService`, `notificationService` |
+| `LoginPage` | `/login` | Auth + MFA | `authService` |
 
 ## API Services
 
-All in `services/api/`. Use `baseClient.ts` helpers (`apiGet`, `apiPost`, `apiPut`, `apiDelete`) for HTTP calls.
+All in `src/services/api/`. Use `baseClient.ts` helpers (`apiGet`, `apiPost`, `apiPut`, `apiDelete`) for HTTP calls.
 
 | Service | Purpose |
 |---------|---------|
@@ -93,28 +93,13 @@ Events listened: `streamFrame`, `cameraStatus`, `eventCreated`, `personDetected`
 
 Events emitted: `requestStream`, `stopStream`
 
-## Contexts
-
-| Context | File | State |
-|---------|------|-------|
-| `AuthContext` | `contexts/AuthContext.tsx` | User, token, login/logout, MFA, register |
-| `CameraContext` | `contexts/CameraContext.tsx` | Camera list, stream management |
-| `SocketContext` | `contexts/SocketContext.tsx` | Socket.io connection, event dispatch |
-
 ## UI Stack
 
 - **Radix UI (shadcn/ui)**: Dialog, Dropdown, Select, Toast, Tooltip, etc.
 - **TailwindCSS**: All styling. No CSS modules, no inline styles.
 - **Recharts**: Charts in analytics/insights pages.
-- **React Router v6**: Client-side routing.
-- **React Query**: Server state management.
-
-## Lazy Loading
-
-All pages use `lazyWithRecovery()` — React lazy with chunk-reload recovery on redeploy:
-```typescript
-const EventsPage = lazyWithRecovery(() => import('./pages/EventsPage'));
-```
+- **Next.js App Router**: File-based routing, layouts, error/loading boundaries.
+- **Zustand**: Client state (ADR-001).
 
 ## Key Hooks
 
@@ -122,26 +107,28 @@ const EventsPage = lazyWithRecovery(() => import('./pages/EventsPage'));
 |------|------|---------|
 | `useCameraStream` | `hooks/useCameraStream.ts` | Camera stream lifecycle management |
 | `useViewportStream` | `hooks/useViewportStream.ts` | Viewport-based stream optimization |
+| `useCameras` / `useEvents` / `useInsights` | `hooks/` | Data-fetching hooks per domain |
 | `use-toast` | `hooks/use-toast.ts` | Toast notification hook |
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `App.tsx` | Router, providers, lazy page imports |
-| `services/api/baseClient.ts` | HTTP client with auth, retry, refresh |
-| `services/SocketService.ts` | Socket.io singleton client |
-| `contexts/AuthContext.tsx` | Auth state management |
-| `types/security.ts` | Shared TypeScript interfaces |
+| `src/app/layout.tsx` | Root layout + providers |
+| `src/app/(app)/` | Protected app shell |
+| `src/services/api/baseClient.ts` | HTTP client with auth, retry, refresh |
+| `src/services/SocketService.ts` | Socket.io singleton client |
+| `src/stores/auth.ts` | Auth state (Zustand) |
+| `src/types/` | Shared TypeScript interfaces |
 
 ## Deployment
 
 Frontend is compiled to static files and served by the backend:
 
 ```bash
-npm run build        # → frontend/dist/
+npm run build        # → frontend-next/out/
 cd server && npm run build && npm start
-# Backend serves frontend/dist/ as static files
+# Backend serves frontend-next/out/ as static files (FRONTEND_DIST_PATH)
 ```
 
 No separate frontend container in production.

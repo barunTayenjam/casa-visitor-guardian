@@ -994,19 +994,11 @@ def initialize():
 
     try:
         from arcface_recognizer import ArcFaceRecognizer
-        FaceRecognition = ArcFaceRecognizer
+        state.face_recognition = ArcFaceRecognizer()
         print("OpenCV Service: Using ArcFace face recognition module")
-    except ImportError as e:
-        print(f"OpenCV Service: ArcFace not available ({e}), trying improved module")
-        try:
-            from improved_face_recognition import ImprovedFaceRecognition
-            FaceRecognition = ImprovedFaceRecognition
-            print("OpenCV Service: Using improved face recognition module (fallback)")
-        except ImportError:
-            print("OpenCV Service: No face recognition module available — running without face recognition")
-            FaceRecognition = None
-
-    state.face_recognition = FaceRecognition() if FaceRecognition is not None else None
+    except Exception as e:
+        print(f"OpenCV Service: Face recognition unavailable ({e}) — running without face recognition")
+        state.face_recognition = None
 
     # Auto-train face recognizer if known faces exist but embeddings are missing
     if state.face_recognition is not None:

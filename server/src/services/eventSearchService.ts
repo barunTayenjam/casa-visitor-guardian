@@ -4,7 +4,6 @@ export type {
   EventSearchResponse,
   ListEnhancedFilters,
   HistoryFilters,
-  LegacySearchFilters,
   DetectionEventFilters,
 } from './eventSearch/types.js';
 import { EventSearchService } from './eventSearch/eventSearchService.js';

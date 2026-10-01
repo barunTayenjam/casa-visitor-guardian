@@ -49,15 +49,6 @@ export interface HistoryFilters {
   sortBy?: string;
 }
 
-export interface LegacySearchFilters {
-  page?: number;
-  pageSize?: number;
-  cameraId?: string;
-  searchQuery?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
 export interface DetectionEventFilters {
   limit?: number;
   type?: string;

@@ -10,6 +10,7 @@ import { AppDataSource } from '../database.js';
 import auditLogger from '../utils/auditLogger.js';
 import { logger } from '../utils/logger.js';
 import { invalidateSessionCache } from '../middleware/auth.js';
+import cacheService from '../services/cacheService.js';
 
 export class AuthController extends BaseController {
   private authService: AuthService;
@@ -335,6 +336,13 @@ export class AuthController extends BaseController {
         return;
       }
 
+      // Validate token hasn't been used (invalidate on first use)
+      const tokenHash = crypto.createHash('sha256').update(pendingToken).digest('hex');
+      if (await cacheService.get(`mfa_used:${tokenHash}`)) {
+        res.status(401).json({ success: false, error: 'Token already used' });
+        return;
+      }
+
       const [user] = await AppDataSource.query(
         'SELECT mfa_secret, username, email FROM users WHERE id = $1',
         [payload.userId],
@@ -365,6 +373,14 @@ export class AuthController extends BaseController {
         this.badRequest(res, 'Invalid MFA code');
         return;
       }
+
+      // TOTP code replay guard — a code is valid once
+      const codeKey = `mfa_totp:${payload.userId}:${code}`;
+      if (await cacheService.get(codeKey)) {
+        res.status(401).json({ success: false, error: 'MFA code already used' });
+        return;
+      }
+      await cacheService.set(codeKey, '1', 90);
 
       const result = await AppDataSource.query(
         `SELECT u.id, u.username, u.email, u.status, r.name as role_name, u.created_at, u.updated_at
@@ -398,6 +414,10 @@ export class AuthController extends BaseController {
         userAgent: req.get('User-Agent'),
         success: true,
       });
+
+      // Invalidate MFA token to prevent replay
+      const tokenHash2 = crypto.createHash('sha256').update(pendingToken).digest('hex');
+      await cacheService.set(`mfa_used:${tokenHash2}`, '1', 300);
 
       const sessionIp2 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
       const refreshTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');

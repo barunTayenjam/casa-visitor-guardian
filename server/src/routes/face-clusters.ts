@@ -135,12 +135,7 @@ router.get('/image/:clusterId', optionalAuth, async (req: Request, res: Response
       return res.sendFile(imagePath);
     }
 
-    // Fallback: legacy face_clusters directory
-    const legacyPath = path.join(FACE_CLUSTER_DIR, clusterId, 'representative.jpg');
-    if (fs.existsSync(legacyPath)) {
-      res.set('Content-Type', 'image/jpeg');
-      return res.sendFile(legacyPath);
-    }
+
 
     res.status(404).json({ success: false, error: 'Image not found' });
   } catch (error) {

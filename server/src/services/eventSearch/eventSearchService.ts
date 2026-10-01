@@ -8,7 +8,6 @@ import type {
   EventSearchResponse,
   ListEnhancedFilters,
   HistoryFilters,
-  LegacySearchFilters,
   DetectionEventFilters,
 } from './types.js';
 
@@ -517,87 +516,6 @@ export class EventSearchService {
         imageUrl: `/events/${row.imagepath?.split('/').pop() || ''}`,
       };
     });
-  }
-
-  async searchEventsLegacy(filters: LegacySearchFilters): Promise<{
-    events: any[];
-    pagination: { totalEvents: number; totalPages: number; currentPage: number; pageSize: number };
-  }> {
-    const {
-      page = 1,
-      pageSize: rawPageSize = 20,
-      cameraId: cameraIdFilter,
-      searchQuery,
-      startDate: startDateStr,
-      endDate: endDateStr,
-    } = filters;
-    const pageSize = Math.min(rawPageSize, 100);
-
-    const conditions: string[] = ["e.event_type IN ('event_motion', 'event_face')"];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (cameraIdFilter && cameraIdFilter !== 'all') {
-      conditions.push(`e.camera_id = $${paramIndex++}`);
-      values.push(cameraIdFilter);
-    }
-    if (startDateStr) {
-      conditions.push(`e.timestamp >= $${paramIndex++}`);
-      values.push(new Date(startDateStr));
-    }
-    if (endDateStr) {
-      conditions.push(`e.timestamp <= $${paramIndex++}`);
-      values.push(new Date(endDateStr));
-    }
-    if (searchQuery) {
-      conditions.push(
-        `(e.camera_id ILIKE $${paramIndex++} OR e.file_path ILIKE $${paramIndex++} OR e.metadata::text ILIKE $${paramIndex++})`,
-      );
-      values.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
-    }
-
-    const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const countResult = await AppDataSource.query(
-      `SELECT COUNT(*) as total FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause}`,
-      values,
-    );
-    const totalEvents = parseInt(countResult[0].total);
-    const offset = (page - 1) * pageSize;
-    values.push(pageSize, offset);
-
-    const results = await AppDataSource.query(
-      `SELECT COALESCE(df.file_uuid::text, e.id::text) as id, COALESCE(df.camera_id, e.camera_id) as cameraId, COALESCE(df.capture_timestamp, e.timestamp) as timestamp, COALESCE(df.storage_path, e.file_path) as imagePath, COALESCE(df.metadata, e.metadata) as metadata FROM events e LEFT JOIN detection_files df ON e.file_path = df.storage_path OR e.file_path LIKE '%' || df.original_filename ${whereClause} ORDER BY e.timestamp DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
-      values,
-    );
-
-    const events = results.map((row: any) => {
-      const confidence = this.extractConfidence(row.metadata);
-      let labels = ['motion'];
-      if (row.file_type === 'event_face') labels = ['face'];
-      const filename = row.imagepath?.split('/').pop() || '';
-      return {
-        id: row.id,
-        cameraId: row.cameraid || 'unknown',
-        timestamp: new Date(row.timestamp).toISOString(),
-        imagePath: filename,
-        imageUrl: `/events/${filename}`,
-        confidence,
-        labels,
-        location: `Camera ${row.cameraid || 'unknown'}`,
-        duration: 0,
-        cameraName: `Camera ${row.cameraid || 'unknown'}`,
-      };
-    });
-
-    return {
-      events,
-      pagination: {
-        totalEvents,
-        totalPages: Math.ceil(totalEvents / pageSize),
-        currentPage: page,
-        pageSize,
-      },
-    };
   }
 
   async getTodayEventCount(): Promise<number> {

@@ -74,45 +74,6 @@ router.get(
   },
 );
 
-router.get(
-  '/search/legacy',
-  optionalAuth,
-  validateQuery(
-    z.object({
-      page: z.preprocess(
-        (v) => (v ? parseInt(v as string, 10) : undefined),
-        z.number().min(1).optional(),
-      ),
-      pageSize: z.preprocess(
-        (v) => (v ? parseInt(v as string, 10) : undefined),
-        z.number().min(1).max(100).optional(),
-      ),
-      cameraId: z.string().optional(),
-      searchQuery: z.string().max(200).optional(),
-      startDate: z.string().optional(),
-      endDate: z.string().optional(),
-    }),
-  ),
-  async (req: Request, res: Response) => {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
-      const result = await eventSearchService.searchEventsLegacy({
-        page,
-        pageSize,
-        cameraId: req.query.cameraId as string,
-        searchQuery: req.query.searchQuery as string,
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
-      });
-      res.json({ success: true, ...result });
-    } catch (error) {
-      logger.error('Error searching events', 'EventSearch', error);
-      res.status(500).json({ success: false, error: 'Failed to search events' });
-    }
-  },
-);
-
 router.get('/stats/today', optionalAuth, async (req: Request, res: Response) => {
   try {
     const count = await eventSearchService.getTodayEventCount();

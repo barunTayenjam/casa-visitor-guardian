@@ -78,6 +78,18 @@ class ArcFaceRecognizer:
         except Exception:
             self.haar_detector = None
 
+        # YuNet — primary detector. InsightFace det_500m downscales frames to
+        # 640x640 and misses small faces; YuNet runs at native input size.
+        self.yunet_detector = None
+        try:
+            yunet_path = os.path.join(self.models_dir, 'face_detection_yunet_2023mar.onnx')
+            if os.path.exists(yunet_path):
+                self.yunet_detector = cv2.FaceDetectorYN.create(
+                    yunet_path, '', (320, 320), score_threshold=0.5
+                )
+        except Exception:
+            self.yunet_detector = None
+
     def _initialize_model(self):
         try:
             import insightface
@@ -127,8 +139,18 @@ class ArcFaceRecognizer:
 
     def detect_faces(self, image: np.ndarray, method: str = 'auto') -> List[Dict[str, Any]]:
         faces = []
+        if image is None or image.size == 0:
+            return faces
 
         if method == 'auto':
+            if self.yunet_detector is not None:
+                try:
+                    faces = self._detect_with_yunet(image)
+                    if faces:
+                        return faces
+                except Exception as e:
+                    print(f"[ArcFace] YuNet detection error: {e}")
+
             if self._model_loaded and self._app is not None:
                 try:
                     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -157,6 +179,12 @@ class ArcFaceRecognizer:
             if self.haar_detector is not None:
                 return self._detect_with_haar(image)
 
+        if method == 'yunet' and self.yunet_detector is not None:
+            try:
+                return self._detect_with_yunet(image)
+            except Exception:
+                return []
+
         if method == 'dnn' and self.dnn_face_detector is not None:
             return self._detect_with_dnn(image)
 
@@ -184,6 +212,36 @@ class ArcFaceRecognizer:
                 pass
 
         return faces
+
+    def _detect_with_yunet(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """YuNet at native resolution (capped for speed); bboxes scaled back."""
+        h, w = image.shape[:2]
+        max_dim = 1280
+        scale = 1.0
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            image = cv2.resize(image, (int(w * scale), int(h * scale)))
+        ih, iw = image.shape[:2]
+        self.yunet_detector.setInputSize((iw, ih))
+        _, faces = self.yunet_detector.detect(image)
+        if faces is None:
+            return []
+        results = []
+        for f in faces:
+            x, y, bw, bh = f[:4]
+            score = float(f[-1])
+            if scale != 1.0:
+                x, y, bw, bh = x / scale, y / scale, bw / scale, bh / scale
+            x, y = max(0, int(x)), max(0, int(y))
+            results.append({
+                'x': x,
+                'y': y,
+                'width': int(min(bw, w - x)),
+                'height': int(min(bh, h - y)),
+                'method': 'yunet',
+                'confidence': round(score * 100, 2)
+            })
+        return results
 
     def _detect_with_dnn(self, image: np.ndarray) -> List[Dict[str, Any]]:
         h, w = image.shape[:2]

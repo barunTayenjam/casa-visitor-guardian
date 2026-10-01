@@ -68,6 +68,15 @@ MODELS = {
         'size_mb': 0.03,
         'required': False  # Optional fallback
     },
+
+    'face_detection_yunet_2023mar.onnx': {
+        'urls': [
+            "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+        ],
+        'description': 'YuNet Face Detector (primary — runs at native res, catches small faces)',
+        'size_mb': 0.23,
+        'required': True
+    },
 }
 
 # COCO class names (80 classes)

@@ -3,6 +3,7 @@ import {
   normalizePath,
   matchPath,
   parseMounts,
+  parseAppMounts,
   parseRouteSource,
   parseConfigureSource,
   parseFrontendSource,
@@ -132,6 +133,55 @@ router.use('/f', h);
       { method: 'delete', path: '/d', file: 'x.ts' },
       { method: 'patch', path: '/e', file: 'x.ts' },
     ]);
+  });
+
+  it('extracts routes registered on a custom-named router', () => {
+    const source = `
+staticRoutes.get('/health', h);
+staticRoutes.get('/api/streams/health', h);
+`;
+    expect(parseRouteSource(source, 'routes/staticRoutes.ts', 'staticRoutes')).toEqual([
+      { method: 'get', path: '/health', file: 'routes/staticRoutes.ts' },
+      { method: 'get', path: '/api/streams/health', file: 'routes/staticRoutes.ts' },
+    ]);
+  });
+
+  it('accepts multiple router variable names and dedupes overlapping matches', () => {
+    const source = `
+router.get('/shared', h);
+router.get('/router-only', h);
+`;
+    expect(parseRouteSource(source, 'x.ts', ['router', 'otherRouter'])).toEqual([
+      { method: 'get', path: '/shared', file: 'x.ts' },
+      { method: 'get', path: '/router-only', file: 'x.ts' },
+    ]);
+  });
+});
+
+describe('parseAppMounts', () => {
+  it('discovers bare and /api-prefixed app mounts with their imported route files', () => {
+    const source = `
+import { staticRoutes } from './routes/staticRoutes.js';
+import fooRoutes from './routes/foo.js';
+import compression from 'compression';
+app.use(staticRoutes);
+app.use('/api/foo', fooRoutes);
+app.use(compression());
+app.use('/go2rtc', createProxyMiddleware({ target: 'x' }));
+`;
+    expect(parseAppMounts(source)).toEqual([
+      { prefix: '', routerVariable: 'staticRoutes', routeFile: 'routes/staticRoutes' },
+      { prefix: '/api/foo', routerVariable: 'fooRoutes', routeFile: 'routes/foo' },
+    ]);
+  });
+
+  it('ignores bare mounts that are not local route imports', () => {
+    const source = `
+import compression from 'compression';
+app.use(compression());
+app.use(express.json());
+`;
+    expect(parseAppMounts(source)).toEqual([]);
   });
 });
 

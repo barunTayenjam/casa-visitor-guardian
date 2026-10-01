@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   parseMounts,
+  parseAppMounts,
   parseRouteSource,
   parseConfigureSource,
   parseFrontendSource,
@@ -46,6 +47,17 @@ function loadRoutes(): RouteEntry[] {
         path: joinPath(mount.prefix, entry.path),
         file: entry.file,
       });
+    }
+  }
+  const appSrc = fs.readFileSync(path.join(SERVER_SRC, 'index.ts'), 'utf8');
+  for (const mount of parseAppMounts(appSrc)) {
+    const file = path.join(SERVER_SRC, `${mount.routeFile}.ts`);
+    const src = fs.readFileSync(file, 'utf8');
+    const label = `${mount.routeFile}.ts`;
+    for (const entry of parseRouteSource(src, label, ['router', mount.routerVariable])) {
+      const full = normalizePath(joinPath(mount.prefix, entry.path));
+      if (!full.startsWith('/api')) continue;
+      routes.push({ method: entry.method, path: full, file: label });
     }
   }
   return routes;
@@ -112,6 +124,16 @@ describe('API contract', () => {
   it('sanity: extraction finds routes and frontend calls', () => {
     expect(routes.length).toBeGreaterThan(100);
     expect(calls.length).toBeGreaterThan(50);
+  });
+
+  it('includes /api routes registered outside routes/index.ts (root-mounted static router)', () => {
+    expect(routes).toContainEqual({
+      method: 'get',
+      path: '/api/streams/health',
+      file: 'routes/staticRoutes.ts',
+    });
+    expect(routes.some((r) => r.path === '/health')).toBe(false);
+    expect(routes.some((r) => r.path === '/events/:filename')).toBe(false);
   });
 
   it('every frontend /api call resolves to a registered route', () => {

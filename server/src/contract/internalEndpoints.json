@@ -123,5 +123,10 @@
     "method": "GET",
     "path": "/api/detection/stats",
     "reason": "detection statistics (EnhancedDetectionService.getDetectionStats); no UI caller (API-SOURCE-OF-TRUTH not-called table)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/streams/health",
+    "reason": "public per-camera stream-health probe on the root-mounted static router; no frontend or script caller in repo (documented in API-SOURCE-OF-TRUTH)"
   }
 ]

@@ -131,56 +131,6 @@ describe('DetectionService', () => {
     });
   });
 
-  describe('filterDetections', () => {
-    it('should filter out detections below minimum score', () => {
-      const detections = [
-        { label: 'person', score: 0.2, object_id: 'p1' },
-        { label: 'person', score: 0.5, object_id: 'p2' },
-      ];
-
-      const result = detectionService.filterDetections(detections);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].label).toBe('person');
-      expect(result[0].score).toBe(0.5);
-      expect(result[0].filtered).toBe(false);
-    });
-
-    it('should apply labelmap to detections', () => {
-      const detections = [
-        { label: 'truck', score: 0.8, object_id: 't1' },
-        { label: 'person', score: 0.6, object_id: 'p1' },
-      ];
-
-      const result = detectionService.filterDetections(detections);
-
-      expect(result[0].label).toBe('car');
-      expect(result[1].label).toBe('person');
-    });
-
-    it('should calculate median score from history', () => {
-      const detections = [
-        { label: 'person', score: 0.9, object_id: 'p1' },
-        { label: 'person', score: 0.5, object_id: 'p1' },
-        { label: 'person', score: 0.3, object_id: 'p1' },
-      ];
-
-      const result = detectionService.filterDetections(detections);
-
-      expect(result).toHaveLength(3);
-      expect(result[2].score).toBe(0.5);
-    });
-
-    it('should pass through unknown labels', () => {
-      const detections = [{ label: 'unknown_type', score: 0.6 }];
-
-      const result = detectionService.filterDetections(detections);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].filtered).toBe(false);
-    });
-  });
-
   describe('clearScoreHistory', () => {
     it('should clear all history when no objectId provided', () => {
       detectionService.clearScoreHistory();

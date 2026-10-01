@@ -54,12 +54,56 @@ export function parseMounts(source: string): MountEntry[] {
   return entries;
 }
 
-export function parseRouteSource(source: string, fileLabel: string): RouteEntry[] {
+export function parseRouteSource(
+  source: string,
+  fileLabel: string,
+  routerVar: string | string[] = 'router',
+): RouteEntry[] {
+  const vars = Array.isArray(routerVar) ? routerVar : [routerVar];
   const entries: RouteEntry[] = [];
-  const re = /router\.(get|post|put|delete|patch)\s*\(\s*(['"])([^'"]*)\2/g;
+  const seen = new Set<string>();
+  for (const v of vars) {
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`${escaped}\\.(get|post|put|delete|patch)\\s*\\(\\s*(['"])([^'"]*)\\2`, 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(source)) !== null) {
+      const method = m[1].toLowerCase();
+      const key = `${method} ${m[3]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries.push({ method, path: m[3], file: fileLabel });
+    }
+  }
+  return entries;
+}
+
+export function parseAppMounts(source: string): MountEntry[] {
+  const imports = new Map<string, string>();
+  const importRe =
+    /import\s+(?:\{([^}]+)\}|([A-Za-z_$][\w$]*)(?:\s*,\s*\{[^}]*\})?)\s*from\s*['"](\.[^'"]+)\.js['"]/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(source)) !== null) {
-    entries.push({ method: m[1].toLowerCase(), path: m[3], file: fileLabel });
+  while ((m = importRe.exec(source)) !== null) {
+    const routeFile = m[3].replace(/^\.\//, '');
+    if (m[1]) {
+      for (const raw of m[1].split(',')) {
+        const name = raw.trim().split(/\s+as\s+/)[0].trim();
+        if (name) imports.set(name, routeFile);
+      }
+    } else if (m[2]) {
+      imports.set(m[2], routeFile);
+    }
+  }
+  const entries: MountEntry[] = [];
+  const bareRe = /app\.use\(\s*([A-Za-z_$][\w$]*)\s*\)/g;
+  while ((m = bareRe.exec(source)) !== null) {
+    const routeFile = imports.get(m[1]);
+    if (routeFile) entries.push({ prefix: '', routerVariable: m[1], routeFile });
+  }
+  const prefixedRe = /app\.use\(\s*(['"])(\/[^'"]*)\1\s*,\s*([A-Za-z_$][\w$]*)\s*\)/g;
+  while ((m = prefixedRe.exec(source)) !== null) {
+    if (!m[2].startsWith('/api')) continue;
+    const routeFile = imports.get(m[3]);
+    if (routeFile) entries.push({ prefix: m[2], routerVariable: m[3], routeFile });
   }
   return entries;
 }

@@ -126,7 +126,6 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | POST | `/api/nvidia/analyze-persons` | user | `nvidiaController.analyzePersons` |
 | GET | `/api/nvidia/event-analysis/:eventId` | user | `nvidiaController.getEventAnalysis` |
 | GET | `/api/nvidia/health` | public | `nvidiaController.health` |
-| GET | `/api/nvidia/status` | public | `nvidiaController.health` |
 | GET | `/api/nvidia/results` | user | `nvidiaController.getResults` |
 | GET | `/api/nvidia/models` | user | `nvidiaController.getModels` |
 | PUT | `/api/nvidia/config` | admin | `nvidiaController.updateConfig` |
@@ -452,12 +451,16 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 A 2026-09-24 audit found frontend→backend URL drift (motion-settings and
 detection-config query params mis-wired) and ten frontend methods with no backend
 route at all. Those were fixed or removed in 2026-09-24 (archived tables below).
-The drift class is now prevented mechanically by the API contract test.
+The drift class is now caught mechanically by the API contract test whenever the
+server suite runs. Run it locally with
+`cd server && node --experimental-vm-modules node_modules/.bin/jest --coverage=false src/contract`
+(the CI job currently fails the suite on pre-existing coverage thresholds unrelated
+to this test, so prefer the `--coverage=false` form; CI remediation is tracked separately).
 
 ### API contract enforcement (source of truth)
 
 - **Authoritative list of backend endpoints not called by any frontend service:**
-  `server/src/contract/internalEndpoints.json` — 25 admin/ops/legacy endpoints,
+  `server/src/contract/internalEndpoints.json` — 26 admin/ops/legacy endpoints,
   each entry carrying its consumer or reason.
 - **Enforcement:** `server/src/contract/__tests__/apiContract.test.ts` asserts
   (A) every frontend `/api` call resolves to a registered route, (B) every

@@ -585,9 +585,13 @@ class FramePipeline:
             camera_id=self._camera_id,
             width=detect_cfg.get("width", DEFAULT_WIDTH),
             height=detect_cfg.get("height", DEFAULT_HEIGHT),
-            fps=detect_cfg.get("fps", DEFAULT_FPS),
+            fps=max(live_cfg.get("fps", DEFAULT_FPS), detect_cfg.get("fps", DEFAULT_FPS)),
             scale=False,
         )
+        # Reader runs at live fps; detection consumes at detect.fps (time-based
+        # throttle) so MOG2 history/tracker cadence stay as configured.
+        self._detect_interval = 1.0 / max(detect_cfg.get("fps", DEFAULT_FPS), 0.5)
+        self._last_detect_enqueue = 0.0
 
         self._detection_thread: Optional[threading.Thread] = None
         self._running = False
@@ -678,10 +682,13 @@ class FramePipeline:
             if success:
                 self._live_queue.put(jpeg_buf.tobytes())
 
-        try:
-            self._detection_queue.put_nowait(frame)
-        except queue.Full:
-            pass
+        now = frame_data.get("timestamp", time.time())
+        if now - self._last_detect_enqueue >= self._detect_interval:
+            self._last_detect_enqueue = now
+            try:
+                self._detection_queue.put_nowait(frame)
+            except queue.Full:
+                pass
 
     def _detection_loop(self) -> None:
         print(f"[FramePipeline:{self._camera_id}] Detection thread started")

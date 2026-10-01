@@ -71,6 +71,15 @@ services:
       # Must exist at the proxy — gemini/* 404s. Fallback chain in nvidiaClient.ts
       # covers glm/glm-4.6v, sonet-4 if this one dies.
       - NVIDIA_MODEL=${NVIDIA_MODEL:-glm/glm-5.3-flash}
+      # Local on-device LLM (Ollama on host). Set OLLAMA_BASE_URL to enable;
+      # overrides NVIDIA cloud analysis. Empty = cloud mode.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:4b}
+      - SCENE_MEMORY_ENABLED=${SCENE_MEMORY_ENABLED:-false}
+      - SCENE_MEMORY_LLM_URL=${SCENE_MEMORY_LLM_URL:-http://host.docker.internal:11434}
+      - SCENE_MEMORY_MODEL=${SCENE_MEMORY_MODEL:-gemma3:4b}
+      - SCENE_MEMORY_LOAD_THRESHOLD=${SCENE_MEMORY_LOAD_THRESHOLD:-6}
+      - SCENE_MEMORY_TIMEOUT_MS=${SCENE_MEMORY_TIMEOUT_MS:-240000}
       - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
       - PERSON_MIN_TRACK_HITS=${PERSON_MIN_TRACK_HITS:-3}
       - LOW_RESOURCE_MODE=${LOW_RESOURCE_MODE:-true}
@@ -94,6 +103,8 @@ services:
       - ./data:/app/data
       - ./public/events:/app/public/events
       - ./public/timelapse:/app/public/timelapse
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     logging:
       driver: journald
     depends_on:

@@ -16,18 +16,6 @@ export class EventController extends BaseController {
     }
   }
 
-  async getHistory(req: Request, res: Response): Promise<void> {
-    try {
-      const filters = req.query as Record<string, string>;
-      const result = await eventSearchService.getHistory(filters);
-      this.ok(res, {
-        events: result.events,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      this.serverError(res, error, 'getHistory');
-    }
-  }
 }
 
 export const eventController = new EventController();

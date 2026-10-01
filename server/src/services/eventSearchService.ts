@@ -3,7 +3,6 @@ export type {
   EventSearchFilters,
   EventSearchResponse,
   ListEnhancedFilters,
-  HistoryFilters,
   DetectionEventFilters,
 } from './eventSearch/types.js';
 import { EventSearchService } from './eventSearch/eventSearchService.js';

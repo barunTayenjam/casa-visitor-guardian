@@ -37,18 +37,6 @@ export interface ListEnhancedFilters {
   face_status?: string;
 }
 
-export interface HistoryFilters {
-  limit?: string;
-  page?: string;
-  pageSize?: string;
-  cameraId?: string;
-  event_type?: string;
-  startDate?: string;
-  endDate?: string;
-  searchQuery?: string;
-  sortBy?: string;
-}
-
 export interface DetectionEventFilters {
   limit?: number;
   type?: string;

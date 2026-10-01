@@ -83,29 +83,6 @@ router.put('/', requireUser, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/filter', requireUser, async (req: Request, res: Response) => {
-  try {
-    const { detections, camera } = req.body;
-
-    if (!Array.isArray(detections)) {
-      return res.status(400).json({ success: false, error: 'Detections must be an array' });
-    }
-
-    const config = await import('../services/detection/detectionService.js').then((m) =>
-      m.detectionService?.getConfig(camera),
-    );
-
-    const filtered = await import('../services/detection/detectionService.js').then((m) =>
-      m.detectionService?.filterDetections(detections, camera),
-    );
-
-    res.json({ success: true, data: { filtered, config } });
-  } catch (err) {
-    logger.error('Filter detections error', 'Detection', err);
-    res.status(500).json({ success: false, error: 'Failed to filter detections' });
-  }
-});
-
 // Get detection statistics
 router.get('/stats', requireUser, async (req: Request, res: Response) => {
   try {

@@ -10,6 +10,7 @@ import { getDetectionsPath, getEventPath, getArchivePath } from '../config/paths
 import { TimelapseService } from '../services/timelapse/timelapseService.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import NotificationService from '../services/notificationService.js';
+import { sampleAllCalmCameras } from '../services/sceneMemoryService.js';
 import { AppDataSource } from '../database.js';
 
 // Get __dirname equivalent in ESM
@@ -184,6 +185,15 @@ export function startCronJobs(io: SocketIOServer) {
       logger.info('Expired subscription cleanup completed', 'Cron');
     } catch (error) {
       logger.error('Expired subscription cleanup failed:', 'Cron', error);
+    }
+  });
+
+  // Scene memory sampling every 15 min (service gates: night window, load, camera calm)
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      await sampleAllCalmCameras();
+    } catch (error) {
+      logger.error(`Scene memory sampling failed: ${error}`, 'Cron');
     }
   });
 

@@ -14,21 +14,31 @@ const nvidiaBreaker = new CircuitBreaker('NvidiaService', {
 const VISION_FALLBACK_MODELS = ['glm/glm-5.3-flash', 'glm/glm-4.6v', 'sonet-4'];
 
 export function getEffectiveModel(requested?: string): string {
-  const primary = requested || process.env.NVIDIA_MODEL || VISION_FALLBACK_MODELS[0];
-  return primary;
+  if (requested) return requested;
+  if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL) {
+    return process.env.OLLAMA_MODEL;
+  }
+  return process.env.NVIDIA_MODEL || VISION_FALLBACK_MODELS[0];
 }
 
 export function getModelFallbackChain(): string[] {
+  if (process.env.OLLAMA_BASE_URL) return [getEffectiveModel()];
   const primary = getEffectiveModel();
   return [primary, ...VISION_FALLBACK_MODELS.filter((m) => m !== primary)];
 }
 
 /**
- * Resolve the NVIDIA-compatible API base URL. Fails fast instead of silently
- * falling back to the hosted endpoint — requests carry NVIDIA_API_KEY and must
- * never leak to the cloud when the local endpoint is intended.
+ * Resolve the LLM API base URL. When OLLAMA_BASE_URL is set (local on-device
+ * inference), it wins and never falls back to cloud endpoints. Otherwise the
+ * NVIDIA-compatible endpoint is required and fails fast — requests carry
+ * NVIDIA_API_KEY and must never leak to the cloud when the local endpoint is
+ * intended.
  */
 export function getNvidiaBaseUrl(): string {
+  const ollama = process.env.OLLAMA_BASE_URL;
+  if (ollama) {
+    return ollama.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1';
+  }
   const baseUrl = process.env.NVIDIA_API_BASE_URL;
   if (!baseUrl) {
     throw new Error('NVIDIA_API_BASE_URL environment variable is not set');
@@ -84,7 +94,7 @@ export async function callNvidiaApi(
   systemPrompt: string,
   signal?: AbortSignal,
 ): Promise<any> {
-  const apiKey = process.env.NVIDIA_API_KEY;
+  const apiKey = process.env.NVIDIA_API_KEY || (process.env.OLLAMA_BASE_URL ? 'ollama-local' : '');
   const baseUrl = getNvidiaBaseUrl();
 
   if (!apiKey) {
@@ -264,7 +274,7 @@ export async function chatCompletion(
   userPrompt: string,
   opts: ChatCompletionOptions = {},
 ): Promise<string> {
-  const apiKey = process.env.NVIDIA_API_KEY;
+  const apiKey = process.env.NVIDIA_API_KEY || (process.env.OLLAMA_BASE_URL ? 'ollama-local' : '');
   if (!apiKey) throw new Error('NVIDIA_API_KEY environment variable is not set');
   const baseUrl = getNvidiaBaseUrl();
   const model = getEffectiveModel();

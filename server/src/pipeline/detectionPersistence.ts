@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 import { TrackingEvent } from '../services/pythonWsClient.js';
 import NotificationService from '../services/notificationService.js';
 import { VEHICLE_CLASSES } from '../shared/constants.js';
+import { isSceneMemoryEnabled, compareEventToBaseline } from '../services/sceneMemoryService.js';
 
 export interface SceneDetection {
   className: string;
@@ -147,6 +148,20 @@ export async function persistDetectionEvent(
   event.timestamp =
     typeof ev.timestamp === 'number' ? new Date(ev.timestamp * 1000) : new Date(ev.timestamp);
   event.confidence = score;
+
+  let sceneChange: Awaited<ReturnType<typeof compareEventToBaseline>> = null;
+  try {
+    if (isSceneMemoryEnabled()) {
+      sceneChange = await compareEventToBaseline(
+        cameraId,
+        event.timestamp,
+        sceneDets.map((d) => ({ class: d.className })),
+        filePath,
+      );
+    }
+  } catch {
+    /* scene memory must never block event persistence */
+  }
   event.persons_detected = personDets.length;
   event.faces_detected = identifiedDets.length;
   event.known_faces_count = identifiedDets.length;
@@ -194,6 +209,7 @@ export async function persistDetectionEvent(
           },
         }
       : {}),
+    ...(sceneChange ? { sceneChange } : {}),
   });
 
   event.scene_context = ev.sceneContext ?? null;

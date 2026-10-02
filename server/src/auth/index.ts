@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
+import cacheService from '../services/cacheService.js';
 
 // User interface
 export interface User {
@@ -40,10 +41,16 @@ export interface JWTPayload {
 export class AuthService {
   // Generate a long‑lived refresh token (default 7 days)
   generateRefreshToken(user: User): string {
-    const payload: JWTPayload = {
+    const payload: JWTPayload & { purpose: string; jti: string } = {
       userId: user.id,
       username: user.username,
       role: user.role,
+      // Distinguishes refresh tokens from access tokens at verify time.
+      purpose: 'refresh',
+      // Rotation issues a new token right after the old one — same-second
+      // signing would otherwise produce an identical JWT (iat has 1s
+      // resolution), which breaks single-use rotation.
+      jti: crypto.randomUUID(),
     };
     const expires = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
     try {
@@ -231,6 +238,12 @@ export class AuthService {
           [attempts, lockUntil, dbUser.id],
         );
 
+        // A lock means "stolen credentials are in play" — revoke tokens
+        // issued before it, or the attacker's session outlives the lockout.
+        if (lockUntil) {
+          await AppDataSource.query('DELETE FROM user_sessions WHERE user_id = $1', [dbUser.id]);
+        }
+
         return { success: false, error: 'Invalid username or password' };
       }
 
@@ -242,6 +255,11 @@ export class AuthService {
       }
 
       await AppDataSource.query('UPDATE users SET last_login = NOW() WHERE id = $1', [dbUser.id]);
+
+      // Clear any cached "no active session" verdict — the controller is
+      // about to create one, and a stale '0' would 401 the next request for
+      // up to 30s. Key must stay in sync with middleware/auth.ts.
+      await cacheService.del(`auth:session:${dbUser.id}`);
 
       if (dbUser.mfa_enabled) {
         const pendingToken = jwt.sign({ userId: dbUser.id, purpose: 'mfa' }, config.jwtSecret, {

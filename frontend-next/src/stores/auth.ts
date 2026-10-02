@@ -59,7 +59,7 @@ export interface AuthState {
     role?: 'admin' | 'user' | 'viewer';
   }) => Promise<void>;
   logout: () => Promise<void>;
-  completeLogin: (user: User, token: string) => void;
+  completeLogin: (user: User, token: string, refreshToken?: string) => void;
   clearError: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refreshToken: () => Promise<string | null>;
@@ -71,12 +71,17 @@ let refreshTimer: number | null = null;
 let initializePromise: Promise<void> | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
-function storeToken(token: string) {
+function storeToken(token: string, refreshToken?: string) {
   setAuthToken(token);
+  if (typeof window !== 'undefined') {
+    if (refreshToken) window.localStorage.setItem('refresh_token', refreshToken);
+    else window.localStorage.removeItem('refresh_token');
+  }
 }
 
 function clearToken() {
   setAuthToken(null);
+  if (typeof window !== 'undefined') window.localStorage.removeItem('refresh_token');
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -115,8 +120,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           clearToken();
           set({ user: null, token: null, isAuthenticated: false, isLoading: false, initialized: true });
         }
-      } catch {
-        clearToken();
+      } catch (error) {
+        // Only treat confirmed auth failures as logout — a transient network
+        // error must not wipe a perfectly valid token.
+        const status = (error as { status?: number } | null)?.status;
+        const isAuthError =
+          error instanceof Error &&
+          (status === 401 || /401|authentication|token/i.test(error.message));
+        if (isAuthError) clearToken();
         set({ user: null, token: null, isAuthenticated: false, isLoading: false, initialized: true });
       }
     })();
@@ -133,7 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await authService.login(username, password);
       if (response.success && response.user && response.token) {
-        storeToken(response.token);
+        storeToken(response.token, response.refreshToken);
         set({ user: response.user, token: response.token, isAuthenticated: true, isLoading: false, error: null });
         get().startTokenRefreshTimer();
       } else {
@@ -149,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await authService.register(userData);
       if (response.success && response.user && response.token) {
-        storeToken(response.token);
+        storeToken(response.token, response.refreshToken);
         set({ user: response.user, token: response.token, isAuthenticated: true, isLoading: false, error: null });
         get().startTokenRefreshTimer();
       } else {
@@ -170,8 +181,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  completeLogin: (user, token) => {
-    storeToken(token);
+  completeLogin: (user, token, refreshToken) => {
+    storeToken(token, refreshToken);
     set({ user, token, isAuthenticated: true, isLoading: false, error: null, initialized: true });
     get().startTokenRefreshTimer();
   },
@@ -193,7 +204,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const response = await authService.refreshToken();
         if (get().token !== token) return null;
         if (response.success && response.token) {
-          storeToken(response.token);
+          storeToken(response.token, response.refreshToken);
           set({ token: response.token });
           return response.token;
         }

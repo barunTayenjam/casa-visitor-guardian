@@ -31,7 +31,10 @@ class SocketService {
     const promise = new Promise<void>((resolve, reject) => {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       const socket = io(window.location.origin, {
-        auth: { token: getAuthToken() },
+        // Function form: socket.io re-invokes it on every (re)connect, so a
+        // rotated token is picked up instead of replaying the stale one from
+        // the initial connect (server rejects those since the JWT gate).
+        auth: (cb: (data: { token: string | null }) => void) => cb({ token: getAuthToken() }),
         transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionDelay: 1_000,

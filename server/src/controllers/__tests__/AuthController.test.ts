@@ -43,6 +43,7 @@ const mockRegister: any = jest.fn();
 const mockGetUserById: any = jest.fn();
 const mockVerifyToken: any = jest.fn();
 const mockGenerateToken: any = jest.fn();
+const mockGenerateRefreshToken: any = jest.fn();
 const mockChangePassword: any = jest.fn();
 
 const mockAuthService: any = {
@@ -51,6 +52,7 @@ const mockAuthService: any = {
   getUserById: mockGetUserById,
   verifyToken: mockVerifyToken,
   generateToken: mockGenerateToken,
+  generateRefreshToken: mockGenerateRefreshToken,
   changePassword: mockChangePassword,
   hashPassword: jest.fn(),
   comparePassword: jest.fn(),
@@ -188,7 +190,10 @@ describe('AuthController', () => {
   });
 
   describe('refreshToken', () => {
-    it('should return 200 with new token for valid token', async () => {
+    it('should return 200 with rotated tokens for a valid refresh token', async () => {
+      const { AppDataSource } = await import('../../database.js');
+      jest.spyOn(AppDataSource, 'query').mockResolvedValue([{ id: 'sess-1' }] as never);
+      mockVerifyToken.mockReturnValue({ userId: '1', username: 'admin', role: 'admin', purpose: 'refresh' });
       mockGetUserById.mockResolvedValue({
         id: '1',
         username: 'admin',
@@ -199,9 +204,10 @@ describe('AuthController', () => {
         updatedAt: new Date().toISOString(),
       });
       mockGenerateToken.mockReturnValue('new-jwt-token');
+      mockGenerateRefreshToken.mockReturnValue('new-refresh-token');
 
       const req: any = {
-        user: { userId: '1', username: 'admin', role: 'admin' },
+        body: { refreshToken: 'old-refresh-token' },
         headers: {},
         get: jest.fn(),
       };
@@ -214,13 +220,14 @@ describe('AuthController', () => {
         expect.objectContaining({
           success: true,
           token: 'new-jwt-token',
+          refreshToken: 'new-refresh-token',
         }),
       );
     });
 
-    it('should return 401 when no user provided', async () => {
+    it('should return 401 when no refresh token is presented', async () => {
       const req: any = {
-        user: undefined,
+        body: {},
         headers: {},
         get: jest.fn(),
       };
@@ -232,7 +239,7 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Not authenticated',
+          error: 'Refresh token required',
         }),
       );
     });

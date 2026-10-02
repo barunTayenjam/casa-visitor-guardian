@@ -75,7 +75,7 @@ export default function LoginPage() {
         return;
       }
       if (response.success && response.user && response.token) {
-        completeLogin(response.user as User, response.token);
+        completeLogin(response.user as User, response.token, response.refreshToken);
         return;
       }
       setFormError(response.error || 'Invalid credentials');
@@ -94,7 +94,7 @@ export default function LoginPage() {
         role: values.role,
       });
       if (response.success && response.user && response.token) {
-        completeLogin(response.user as User, response.token);
+        completeLogin(response.user as User, response.token, response.refreshToken);
         return;
       }
       setFormError(response.error || 'Unable to create account');
@@ -109,7 +109,7 @@ export default function LoginPage() {
     try {
       const response = await authService.mfaChallenge(mfaPendingToken, values.code);
       if (response.success && response.user && response.token) {
-        completeLogin(response.user as User, response.token);
+        completeLogin(response.user as User, response.token, response.refreshToken);
         setMfaPendingToken(null);
         return;
       }

@@ -6,7 +6,7 @@ import {
   createMfaRateLimit,
   EnhancedRateLimit,
 } from '../middleware/enhancedRateLimit.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, optionalAuth } from '../middleware/auth.js';
 import { authController } from '../controllers/AuthController.js';
 
 const router = Router();
@@ -75,7 +75,7 @@ router.post('/change-password', authenticate(), validateBody(changePasswordSchem
   authController.changePassword(req, res),
 );
 
-router.post('/refresh', createAuthRateLimit(), authenticate(), (req, res) =>
+router.post('/refresh', createAuthRateLimit(), optionalAuth, (req, res) =>
   authController.refreshToken(req, res),
 );
 

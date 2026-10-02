@@ -36,8 +36,14 @@ export const authService = {
   },
 
   async refreshToken() {
+    const currentRefreshToken =
+      typeof window !== 'undefined' ? window.localStorage.getItem('refresh_token') : null;
+    if (!currentRefreshToken) {
+      return { success: false, error: 'No refresh token' };
+    }
     const response = await fetchWithRetry(`${API_URL}/auth/refresh`, {
       method: 'POST',
+      body: JSON.stringify({ refreshToken: currentRefreshToken }),
     });
     return response.json();
   },

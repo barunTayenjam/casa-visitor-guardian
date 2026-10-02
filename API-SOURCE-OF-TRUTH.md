@@ -57,12 +57,12 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | POST | `/api/auth/login` | rate-limited | `authController.login` |
 | GET | `/api/auth/profile` | user | `authController.getProfile` |
 | POST | `/api/auth/change-password` | user | `authController.changePassword` |
-| POST | `/api/auth/refresh` | user | `authController.refreshToken` |
+| POST | `/api/auth/refresh` | rate-limited | `authController.refreshToken` — presents 7-day refresh token (body `{refreshToken}`), verifies `purpose: 'refresh'` + live session row, rotates both tokens |
 | POST | `/api/auth/logout` | user | `authController.logout` |
 | GET | `/api/auth/mfa/setup` | user | `authController.setupMfa` |
-| POST | `/api/auth/mfa/challenge` | rate-limited | `authController.mfaChallenge` |
+| POST | `/api/auth/mfa/challenge` | rate-limited | `authController.mfaChallenge` — issues JWT only for `status='active'` accounts |
 | POST | `/api/auth/mfa/verify` | rate-limited | `authController.verifyMfa` |
-| POST | `/api/auth/mfa/disable` | rate-limited | `authController.disableMfa` |
+| POST | `/api/auth/mfa/disable` | rate-limited | `authController.disableMfa` — requires `{currentPassword}` or `{code}` |
 
 ### Cameras — `/api/cameras`
 

@@ -80,7 +80,20 @@ export class AuthController extends BaseController {
         });
         if (result.user?.id && result.token) {
           const sessionIp1 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
-          const refreshTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
+          // Issue a REAL refresh token (7d) — the access token must not be
+          // stored or reused as the refresh credential.
+          const userForRefresh: User = {
+            id: result.user.id,
+            username: result.user.username,
+            email: result.user.email,
+            password: '',
+            role: result.user.role,
+            isActive: true,
+            createdAt: new Date(result.user.createdAt),
+            updatedAt: new Date(result.user.updatedAt),
+          };
+          const refreshToken = authService.generateRefreshToken(userForRefresh);
+          const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
           const accessTokenHash = crypto.createHash('sha256').update(result.token).digest('hex');
           await AppDataSource.query(
             `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
@@ -93,6 +106,8 @@ export class AuthController extends BaseController {
               req.get('User-Agent') || '',
             ],
           ).catch((err) => logger.error(`Failed to create user session: ${err}`, 'AuthRoutes'));
+          // stash for the response body below
+          (result as { refreshToken?: string }).refreshToken = refreshToken;
         }
         if (result.mfaRequired) {
           this.ok(res, {
@@ -108,6 +123,7 @@ export class AuthController extends BaseController {
           message: 'Login successful',
           user: result.user as Record<string, unknown>,
           token: result.token,
+          refreshToken: (result as { refreshToken?: string }).refreshToken,
         });
       } else {
         auditLogger.log({
@@ -174,41 +190,66 @@ export class AuthController extends BaseController {
 
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ success: false, error: 'Not authenticated' });
+      // Real refresh flow: the client presents the 7-day refresh token issued
+      // at login. A still-valid access token is NOT acceptable — the point of
+      // this endpoint is to mint a new access token after the old one died.
+      const presented = (req.body?.refreshToken as string | undefined) || undefined;
+      if (!presented) {
+        res.status(401).json({ success: false, error: 'Refresh token required' });
         return;
       }
 
-      const payload: JWTPayload = {
-        userId: req.user.userId,
-        username: req.user.username,
-        role: req.user.role,
-      };
+      const payload = this.authService.verifyToken(presented);
+      if (!payload || (payload as { purpose?: string }).purpose !== 'refresh') {
+        res.status(401).json({ success: false, error: 'Invalid refresh token' });
+        return;
+      }
+
+      // The refresh token is only usable while its session row is alive —
+      // logout/lockout deletes rows, which kills the refresh path too.
+      const refreshHash = crypto.createHash('sha256').update(presented).digest('hex');
+      const sessions = await AppDataSource.query(
+        `SELECT id FROM user_sessions
+         WHERE user_id = $1 AND refresh_token = $2 AND is_active = true AND expires_at > NOW()
+         LIMIT 1`,
+        [payload.userId, refreshHash],
+      );
+      if (!sessions || sessions.length === 0) {
+        res.status(401).json({ success: false, error: 'Invalid refresh token' });
+        return;
+      }
 
       const user = await this.authService.getUserById(payload.userId);
-
-      if (!user) {
-        this.notFound(res, 'User not found');
+      if (!user || !user.isActive) {
+        res.status(401).json({ success: false, error: 'Account is disabled' });
         return;
       }
 
-      try {
-        const userForToken: User = {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          password: '',
-          role: user.role,
-          isActive: user.isActive,
-          createdAt: new Date(user.createdAt),
-          updatedAt: new Date(user.updatedAt),
-        };
-        const newToken = this.authService.generateToken(userForToken);
-        this.ok(res, { token: newToken });
-      } catch (error) {
-        logger.error(`Token refresh error during JWT signing: ${error}`, 'AuthRoutes');
-        this.serverError(res, error, 'Token refresh failed - JWT signing error');
-      }
+      const userForToken: User = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        password: '',
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: new Date(user.createdAt),
+        updatedAt: new Date(user.updatedAt),
+      };
+
+      const newToken = this.authService.generateToken(userForToken);
+      const newRefresh = this.authService.generateRefreshToken(userForToken);
+      const newRefreshHash = crypto.createHash('sha256').update(newRefresh).digest('hex');
+      const newAccessHash = crypto.createHash('sha256').update(newToken).digest('hex');
+
+      // Rotation: each refresh token is single-use.
+      await AppDataSource.query(
+        `UPDATE user_sessions
+         SET refresh_token = $1, access_token_hash = $2, expires_at = NOW() + INTERVAL '7 days'
+         WHERE id = $3`,
+        [newRefreshHash, newAccessHash, sessions[0].id],
+      );
+
+      this.ok(res, { token: newToken, refreshToken: newRefresh });
     } catch (error) {
       this.serverError(res, error, 'refreshToken');
     }
@@ -258,6 +299,45 @@ export class AuthController extends BaseController {
       if (!userId) {
         res.status(401).json({ success: false, error: 'Not authenticated' });
         return;
+      }
+
+      // Re-authentication required: a stolen session token alone must not be
+      // able to permanently remove MFA.
+      const { currentPassword, code } = req.body ?? {};
+      if (!currentPassword && !code) {
+        this.badRequest(res, 'Current password or MFA code is required to disable MFA');
+        return;
+      }
+
+      const [user] = await AppDataSource.query(
+        'SELECT password_hash, mfa_secret FROM users WHERE id = $1',
+        [userId],
+      );
+      if (!user) {
+        res.status(401).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      if (currentPassword) {
+        const passwordValid = await this.authService.comparePassword(
+          currentPassword,
+          user.password_hash,
+        );
+        if (!passwordValid) {
+          res.status(401).json({ success: false, error: 'Invalid credentials' });
+          return;
+        }
+      } else {
+        const verified = speakeasy.totp.verify({
+          secret: user.mfa_secret,
+          encoding: 'base32',
+          token: code,
+          window: 2,
+        });
+        if (!verified) {
+          res.status(401).json({ success: false, error: 'Invalid MFA code' });
+          return;
+        }
       }
 
       await AppDataSource.query(
@@ -391,6 +471,23 @@ export class AuthController extends BaseController {
       );
 
       const dbUser = result[0];
+
+      // Disabled accounts must never receive a token — even with password +
+      // valid TOTP. Gate BEFORE signing anything.
+      if (dbUser.status !== 'active') {
+        auditLogger.log({
+          level: 'WARN',
+          category: 'AUTH',
+          action: 'MFA_CHALLENGE_BLOCKED_DISABLED',
+          userId: payload.userId,
+          ip: auditLogger.getClientIP(req),
+          userAgent: req.get('User-Agent'),
+          success: false,
+        });
+        res.status(401).json({ success: false, error: 'Account is disabled' });
+        return;
+      }
+
       const userForToken: User = {
         id: dbUser.id,
         username: dbUser.username,
@@ -420,7 +517,10 @@ export class AuthController extends BaseController {
       await cacheService.set(`mfa_used:${tokenHash2}`, '1', 300);
 
       const sessionIp2 = req.ip && req.ip !== '' ? req.ip : '0.0.0.0';
-      const refreshTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
+      // Same real-refresh rule as login: fresh 7d refresh credential, never a
+      // copy of the access hash.
+      const refreshForSession = authService.generateRefreshToken(userForToken);
+      const refreshTokenHash2 = crypto.createHash('sha256').update(refreshForSession).digest('hex');
       const accessTokenHash2 = crypto.createHash('sha256').update(token).digest('hex');
       await AppDataSource.query(
         `INSERT INTO user_sessions (id, user_id, refresh_token, access_token_hash, ip_address, user_agent, device_info, is_active, expires_at)
@@ -433,6 +533,7 @@ export class AuthController extends BaseController {
         message: 'Login successful',
         user: userWithoutPassword as unknown as Record<string, unknown>,
         token,
+        refreshToken: refreshForSession,
       });
     } catch (error) {
       this.serverError(res, error, 'mfaChallenge');

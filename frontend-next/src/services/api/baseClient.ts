@@ -48,20 +48,28 @@ export function setAuthToken(token: string | null): void {
   window.dispatchEvent(new CustomEvent<string | null>(AUTH_TOKEN_EVENT, { detail: token }));
 }
 
+export function clearAuthAndRedirectToLogin(): void {
+  setAuthToken(null);
+  if (typeof window === 'undefined') return;
+  // Avoid smashing an already-visible login page into another history entry.
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
+}
+
 async function attemptTokenRefresh(): Promise<boolean> {
-  const currentToken = getAuthToken();
-  if (!currentToken) return false;
+  const currentRefreshToken = window.localStorage.getItem('refresh_token');
+  if (!currentRefreshToken) return false;
   try {
     const response = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentToken}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: currentRefreshToken }),
     });
     const data = await response.json();
     if (data.success && data.token) {
       setAuthToken(data.token);
+      if (data.refreshToken) window.localStorage.setItem('refresh_token', data.refreshToken);
       return true;
     }
   } catch {
@@ -104,6 +112,10 @@ export async function fetchWithRetry(
     if (response.status === 401 && token && !isRetryAfterRefresh && !url.includes('/auth/')) {
       const refreshed = await attemptTokenRefresh();
       if (refreshed) return fetchWithRetry(url, options, retries, true, timeoutMs);
+      // Token is dead and refresh failed — unauthenticated for real.
+      // Clear and route to /login instead of stranding every page on
+      // "Failed to load" toasts.
+      clearAuthAndRedirectToLogin();
     }
 
     try {

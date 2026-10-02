@@ -29,6 +29,7 @@ jest.unstable_mockModule('../middleware/auth.js', () => ({
     req.user = { userId: 'admin-123', role: 'admin' };
     next();
   }),
+  optionalAuth: jest.fn(() => (req: any, res: any, next: any) => next()),
 }));
 
 jest.unstable_mockModule('../middleware/enhancedRateLimit.js', () => ({

@@ -14,29 +14,33 @@ interface ThreatCounts {
 export const ThreatMatrix = () => {
   const [counts, setCounts] = useState<ThreatCounts>({ persons: 0, vehicles: 0, animals: 0, motion: 0 });
   const [loading, setLoading] = useState(true);
+  // A failed fetch must read as UNKNOWN, never as zero — zeros here would
+  // fake an "all clear" on a security dashboard.
+  const [failed, setFailed] = useState<Record<'persons' | 'vehicles', boolean>>({
+    persons: false,
+    vehicles: false,
+  });
 
   useEffect(() => {
     const fetchCounts = async () => {
-      try {
-        const [personsRes, vehiclesRes] = await Promise.allSettled([
-          eventService.getEnhancedEventsList({ event_type: 'person', pageSize: 1 }),
-          eventService.getEnhancedEventsList({ event_type: 'vehicle', pageSize: 1 }),
-        ]);
+      // Query exactly the window the label advertises.
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [personsRes, vehiclesRes] = await Promise.allSettled([
+        eventService.getEnhancedEventsList({ event_type: 'person', pageSize: 1, start_date: since }),
+        eventService.getEnhancedEventsList({ event_type: 'vehicle', pageSize: 1, start_date: since }),
+      ]);
 
-        const persons = personsRes.status === 'fulfilled' ? personsRes.value.pagination?.totalEvents || 0 : 0;
-        const vehicles = vehiclesRes.status === 'fulfilled' ? vehiclesRes.value.pagination?.totalEvents || 0 : 0;
+      const persons =
+        personsRes.status === 'fulfilled' ? personsRes.value.pagination?.totalEvents || 0 : 0;
+      const vehicles =
+        vehiclesRes.status === 'fulfilled' ? vehiclesRes.value.pagination?.totalEvents || 0 : 0;
 
-        setCounts({
-          persons,
-          vehicles,
-          animals: 0,
-          motion: 0,
-        });
-      } catch {
-        // Silent fail
-      } finally {
-        setLoading(false);
-      }
+      setCounts({ persons, vehicles, animals: 0, motion: 0 });
+      setFailed({
+        persons: personsRes.status === 'rejected',
+        vehicles: vehiclesRes.status === 'rejected',
+      });
+      setLoading(false);
     };
 
     fetchCounts();
@@ -44,9 +48,15 @@ export const ThreatMatrix = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const threats = [
-    { label: 'PERSON', count: counts.persons, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-    { label: 'VEHICLE', count: counts.vehicles, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+  const threats: Array<{
+    label: string;
+    count: number | null;
+    color: string;
+    bg: string;
+    border: string;
+  }> = [
+    { label: 'PERSON', count: failed.persons ? null : counts.persons, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+    { label: 'VEHICLE', count: failed.vehicles ? null : counts.vehicles, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
     { label: 'ANIMAL', count: counts.animals, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
     { label: 'MOTION', count: counts.motion, color: 'text-muted-foreground', bg: 'bg-white/[0.06]', border: 'border-white/[0.10]' },
   ];
@@ -58,7 +68,7 @@ export const ThreatMatrix = () => {
           Threat Matrix
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          Last 24h
+          Last 24h{Object.values(failed).some(Boolean) ? ' · live data unavailable' : ''}
         </span>
       </div>
       <div className="grid grid-cols-4 gap-2">
@@ -72,7 +82,7 @@ export const ThreatMatrix = () => {
             )}
           >
             <div className={cn('text-2xl font-semibold tabular-nums', threat.color)}>
-              {loading ? '--' : threat.count}
+              {loading || threat.count === null ? '--' : threat.count}
             </div>
             <div className="text-xs uppercase tracking-[0.1em] text-muted-foreground mt-1">
               {threat.label}

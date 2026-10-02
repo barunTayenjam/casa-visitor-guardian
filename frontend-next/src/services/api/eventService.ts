@@ -102,7 +102,9 @@ export const eventService = {
       return data.count;
     } catch (error) {
       console.error('Error fetching daily stats:', error);
-      return 0; // Return 0 if API fails, avoiding UI crashes
+      // Never fake a zero — callers must know the difference between a quiet
+      // day and a failed request.
+      throw error;
     }
   },
 
@@ -343,7 +345,7 @@ export const eventService = {
       return { data: data.data, summary: data.summary };
     } catch (error) {
       console.error('Error fetching calendar stats:', error);
-      return { data: {}, summary: { totalEvents: 0, totalPersons: 0, avgConfidence: 0 } };
+      throw error;
     }
   },
 
@@ -380,16 +382,7 @@ export const eventService = {
       return data.stats;
     } catch (error) {
       console.error('Error fetching range stats:', error);
-      return {
-        totalEvents: 0,
-        motionEvents: 0,
-        faceEvents: 0,
-        totalPersons: 0,
-        totalFaces: 0,
-        knownFaces: 0,
-        unknownFaces: 0,
-        avgConfidence: 0,
-      };
+      throw error;
     }
   },
 };

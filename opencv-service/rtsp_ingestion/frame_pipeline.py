@@ -241,7 +241,11 @@ class InProcessYOLO:
                 weights = os.path.join(self._models_dir, filename)
                 cfg = os.path.join(self._models_dir, "yolov4-tiny.cfg")
                 if os.path.exists(weights) and os.path.exists(cfg):
-                    self._net = cv2.dnn.readNet(weights, cfg)
+                    try:
+                        self._net = cv2.dnn.readNet(weights, cfg)
+                    except cv2.error as e:
+                        print(f"[InProcessYOLO] corrupt model {filename}: {e}")
+                        continue
                     self._model_type = mtype
                     backend, target, label = self._detect_backend()
                     self._net.setPreferableBackend(backend)
@@ -253,7 +257,11 @@ class InProcessYOLO:
             else:
                 path = os.path.join(self._models_dir, filename)
                 if os.path.exists(path):
-                    self._net = cv2.dnn.readNet(path)
+                    try:
+                        self._net = cv2.dnn.readNet(path)
+                    except cv2.error as e:
+                        print(f"[InProcessYOLO] corrupt model {filename}: {e}")
+                        continue
                     backend, target, label = self._detect_backend()
                     self._net.setPreferableBackend(backend)
                     self._net.setPreferableTarget(target)

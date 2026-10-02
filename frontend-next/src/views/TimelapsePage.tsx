@@ -48,6 +48,7 @@ const TimelapsePage: React.FC = () => {
   const [list, setList] = useState<{ cameraId: string; path: string }[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [camStates, setCamStates] = useState<Record<string, CamState>>({});
   const [panelOpen, setPanelOpen] = useState(false);
@@ -57,16 +58,28 @@ const TimelapsePage: React.FC = () => {
   const isPastRef = useRef(isPast);
   isPastRef.current = isPast;
 
+  // Identity-stable camera key: motion events replace the cameras array every
+  // few seconds (lastSeen bumps) — re-running the fetch effect on each one
+  // wiped in-progress timelapse state. Refetch only when the camera SET changes.
+  const camerasRef = useRef(cameras);
+  camerasRef.current = cameras;
+  const cameraIdsKey = cameras.map((c) => c.id).join(',');
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     setActive(null);
     setList([]);
     setCamStates({});
     setSelected(new Set());
     const past = isPastRef.current;
+    const currentCameras = camerasRef.current;
     systemService
       .getTimelapses(date)
       .then((res) => {
+        if (cancelled) return;
         if (res.success) {
           const timelapses = res.timelapses ?? [];
           setList(timelapses);
@@ -74,22 +87,29 @@ const TimelapsePage: React.FC = () => {
           const existingIds = new Set(timelapses.map((t) => t.cameraId));
           const next: Record<string, CamState> = {};
           const nextSelected = new Set<string>();
-          for (const cam of cameras) {
+          for (const cam of currentCameras) {
             const exists = existingIds.has(cam.id);
             next[cam.id] = { status: 'idle', exists };
             if (!exists && past) nextSelected.add(cam.id);
           }
           setCamStates(next);
           setSelected(nextSelected);
-          if (past && timelapses.length < cameras.length) setPanelOpen(true);
+          if (past && timelapses.length < currentCameras.length) setPanelOpen(true);
         }
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error('Failed to load timelapses:', err);
-        setList([]);
+        // API failure must not look like "no footage that day".
+        setLoadError(err instanceof Error ? err.message : 'Failed to load timelapses');
       })
-      .finally(() => setLoading(false));
-  }, [date, cameras]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [date, cameraIdsKey, reloadKey]);
 
   const getCameraName = (cameraId: string) =>
     cameras.find((c) => c.id === cameraId)?.name || `Camera ${cameraId}`;
@@ -213,6 +233,35 @@ const TimelapsePage: React.FC = () => {
       <div className="h-full overflow-y-auto bg-background">
         <PageLoading message="Loading Timelapses..." />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageContainer className="space-y-4">
+        <PageHeader
+          title="Daily Timelapse"
+          subtitle={date}
+          icon={Film}
+          backTo="/"
+          size="large"
+        />
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <div className="w-14 h-14 rounded-full bg-white/[0.04] flex items-center justify-center border border-white/[0.10]">
+            <AlertCircle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base font-medium">Couldn&apos;t load timelapses</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              The server didn&apos;t respond — this is not the same as &ldquo;no footage&rdquo; for
+              this date.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
+        </div>
+      </PageContainer>
     );
   }
 

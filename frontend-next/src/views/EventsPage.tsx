@@ -324,6 +324,14 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
                 </div>
               ))}
             </div>
+          ) : isError ? (
+            <EmptyState
+              icon={AlertTriangle}
+              title="Couldn't load events"
+              description="The server didn't respond. This is not the same as no events — a security system must never show an empty screen when data is unavailable."
+              className="py-20"
+              action={{ label: 'Retry', onClick: () => refetch() }}
+            />
           ) : events.length === 0 ? (
             <EmptyState
               icon={Calendar}

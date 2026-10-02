@@ -109,18 +109,26 @@ class RTSPService:
         self._publisher.set_live_callbacks(self._on_live_start, self._on_live_stop)
         await self._publisher.start()
 
+        started, failed = [], []
         for cam in self._cameras:
             if not cam.get('enabled', True):
                 continue
-            pipeline = FramePipeline(cam, self._publisher)
-            self._pipelines[cam['id']] = pipeline
-            # Apply pre-set face recognition fn to every new pipeline
-            if self._face_recognition_fn is not None:
-                pipeline.set_face_recognition(self._face_recognition_fn)
-            pipeline.start()
+            cam_id = cam.get('id', '?')
+            try:
+                pipeline = FramePipeline(cam, self._publisher)
+                # Apply pre-set face recognition fn to every new pipeline
+                if self._face_recognition_fn is not None:
+                    pipeline.set_face_recognition(self._face_recognition_fn)
+                pipeline.start()
+                self._pipelines[cam_id] = pipeline
+                started.append(cam_id)
+            except Exception as exc:  # noqa: BLE001 — one bad camera must not kill the rest
+                failed.append(cam_id)
+                print(f"[RTSPService] Pipeline for camera {cam_id} failed to start: {exc}")
 
-        active = [c['id'] for c in self._cameras if c.get('enabled', True)]
-        print(f"[RTSPService] Started {len(active)} pipelines: {active}")
+        print(f"[RTSPService] Started {len(started)} pipelines: {started}")
+        if failed:
+            print(f"[RTSPService] WARNING: {len(failed)} pipeline(s) failed to start: {failed}")
 
     def _on_live_start(self, camera_id: str) -> None:
         pipeline = self._pipelines.get(camera_id)
@@ -143,13 +151,22 @@ class RTSPService:
         """Start pipelines in a background thread (for Flask embedding).
 
         Unlike start() which blocks, this returns immediately and runs
-        the event loop in a daemon thread.
+        the event loop in a daemon thread. Start errors are logged on the
+        background thread — never left as an unobserved Future.
         """
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         t = threading.Thread(target=self._loop.run_forever, daemon=True)
         t.start()
-        asyncio.run_coroutine_threadsafe(self._async_start(), self._loop)
+        fut = asyncio.run_coroutine_threadsafe(self._async_start(), self._loop)
+
+        def _log_start_error(f):
+            try:
+                f.result()
+            except Exception as exc:  # noqa: BLE001 — surface, don't swallow
+                print(f"[RTSPService] Background start failed: {exc}")
+
+        fut.add_done_callback(_log_start_error)
 
     def stop(self) -> None:
         """Signal the event loop to stop."""

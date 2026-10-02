@@ -131,6 +131,20 @@ router.post(
         );
       }
 
+      // Trust boundary: the resolved path must live inside data/detections.
+      const detectionsRoot = path.resolve(process.cwd(), 'data', 'detections');
+      const resolved = path.resolve(fullPath);
+      if (resolved !== detectionsRoot && !resolved.startsWith(`${detectionsRoot}${path.sep}`)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Filepath must be inside data/detections',
+        });
+      }
+
+      // The DB record is keyed by original_filename — derive it when the
+      // caller only sent a filepath, or the UPDATE silently binds undefined.
+      const recordFilename = filename || path.basename(fullPath);
+
       // Verify file exists
       try {
         await fs.access(fullPath);
@@ -198,19 +212,27 @@ router.post(
           objectCounts[cls] = validDetections.filter((d) => d.class === cls).length;
         });
 
-        await AppDataSource.query(updateQuery, [
+        const updated = await AppDataSource.query(updateQuery, [
           JSON.stringify(validDetections),
           validDetections.length,
           personCount,
           personCount > 0,
           JSON.stringify(objectCounts),
           JSON.stringify(uniqueClasses),
-          filename,
+          recordFilename,
         ]);
+
+        // A re-run that updated nothing must not report success.
+        if (!updated || updated.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: `No detection record found for ${recordFilename}`,
+          });
+        }
 
         res.json({
           success: true,
-          message: `Detection re-run completed for ${filename}`,
+          message: `Detection re-run completed for ${recordFilename}`,
           originalDetections: detections.length,
           validDetections: validDetections.length,
           results: {

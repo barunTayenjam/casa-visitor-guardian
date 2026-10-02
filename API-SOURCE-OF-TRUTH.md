@@ -24,6 +24,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 
 | Mount Path | File | Controller(s) |
 |------------|------|---------------|
+| `/go2rtc` | `server/src/index.ts` (proxy) + `middleware/go2rtcAuth.ts` | JWT-gated proxy to go2rtc — token via `Authorization: Bearer` or `?token=` |
 | `/api/auth` | `server/src/routes/auth.ts` | `AuthController` |
 | `/api/cameras` | `server/src/routes/cameras.ts` | `CameraController` |
 | `/api/streams` | `server/src/routes/streams.ts` | `StreamController` |
@@ -504,7 +505,9 @@ to this test, so prefer the `--coverage=false` form; CI remediation is tracked s
 | `optionalAuth` | `middleware/auth.ts` | JWT if present, no rejection |
 | `requireUser` | `middleware/auth.ts` | Requires authenticated user |
 | `requireAdmin` | `middleware/auth.ts` | Requires admin role |
-| `createApiRateLimit()` | `middleware/enhancedRateLimit.ts` | Global API rate limit |
+| `go2rtcAuth` | `middleware/go2rtcAuth.ts` | JWT gate on `/go2rtc` proxy (Bearer or `?token=`), also applied to WS upgrade |
+| `registerSocketAuth(io)` | `streams/socketAuth.ts` | Socket.io `io.use()` JWT gate — connections without a valid `handshake.auth.token` are rejected |
+| `createApiRateLimit()` | `middleware/enhancedRateLimit.ts` | Global API rate limit — mounted before all `/api` routes in `routes/index.ts` |
 | `createAuthRateLimit()` | `middleware/enhancedRateLimit.ts` | Auth-specific rate limit |
 | `createMfaRateLimit()` | `middleware/enhancedRateLimit.ts` | MFA-specific rate limit |
 | `createDetectionRateLimit()` | `middleware/enhancedRateLimit.ts` | Detection-specific rate limit |

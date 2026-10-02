@@ -15,6 +15,8 @@ import { collectInlineScriptHashes } from './config/cspHashes.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { initializeServices, gracefulShutdown } from './bootstrap.js';
 import { logger } from './utils/logger.js';
+import { go2rtcAuth, extractMediaToken } from './middleware/go2rtcAuth.js';
+import { authService } from './auth/index.js';
 
 dotenv.config({ path: './.env' });
 
@@ -49,6 +51,7 @@ app.use(
 const go2rtcUrl = process.env.GO2RTC_URL || 'http://go2rtc:1984';
 app.use(
   '/go2rtc',
+  go2rtcAuth,
   createProxyMiddleware({
     target: go2rtcUrl,
     changeOrigin: true,
@@ -90,7 +93,19 @@ const go2rtcParsed = new URL(go2rtcUrl);
 server.on('upgrade', (req, socket, head) => {
   if (!req.url?.startsWith('/go2rtc')) return;
 
-  const targetPath = req.url.replace('/go2rtc', '') || '/';
+  // Same JWT gate as the HTTP proxy — browser WebSocket cannot set headers,
+  // so the token arrives via ?token=.
+  const mediaToken = extractMediaToken(req);
+  if (!mediaToken || !authService.verifyToken(mediaToken)) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  // Strip the auth token before forwarding — go2rtc never needs it.
+  const targetUrl = new URL(req.url.replace('/go2rtc', '') || '/', 'http://localhost');
+  targetUrl.searchParams.delete('token');
+  const targetPath = targetUrl.pathname + targetUrl.search;
   const headers: Record<string, string> = {};
   const blockedHeaders = new Set([
     'authorization',

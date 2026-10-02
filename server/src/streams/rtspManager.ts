@@ -8,6 +8,7 @@ import { getDetectionsPath, getEventPath } from '../config/paths.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { StreamHealthMonitor } from './streamHealthMonitor.js';
+import { registerSocketAuth } from './socketAuth.js';
 import { serviceRegistry } from '../services/serviceRegistry.js';
 import { getOpenCVClient } from '../services/opencvMicroserviceClient.js';
 
@@ -60,6 +61,9 @@ export class StreamManager {
       logger.error(`Failed to persist cameras after init: ${err}`, 'StreamManager');
     });
 
+    // JWT gate: every socket.io connection must present a valid token before
+    // any requestStream/stopStream handler can run.
+    registerSocketAuth(this.io);
     this.setupConnectionTracking();
     this.wirePythonWsFrames();
   }

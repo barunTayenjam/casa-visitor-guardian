@@ -2,12 +2,21 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useCameraStore } from '@/stores/camera';
 import { useSocketStore } from '@/stores/socket';
 import socketService from '@/services/SocketService';
+import { getAuthToken } from '@/services/api/baseClient';
 import { Camera } from '@/types/security';
 
 const camLog = (msg: string, meta?: Record<string, unknown>) =>
   console.debug(`[CAMERA] ${msg}`, meta);
 const camWarn = (msg: string, meta?: Record<string, unknown>) =>
   console.warn(`[CAMERA] ${msg}`, meta);
+
+// go2rtc sits behind a JWT gate; <video>/<WebSocket> cannot set headers,
+// so HLS and MSE streams carry the token in the URL.
+const withMediaToken = (url: string): string => {
+  const token = getAuthToken();
+  if (!token) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+};
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error' | 'reconnecting';
 
@@ -273,7 +282,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
 
       video.addEventListener('playing', onPlay);
       video.addEventListener('error', onError);
-      video.src = hlsUrl;
+      video.src = withMediaToken(hlsUrl);
       video.play().catch((e) => {
         if (e.name !== 'AbortError') camWarn('HLS play failed:', e);
       });
@@ -434,9 +443,13 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
 
+          const token = getAuthToken();
           const response = await fetch(`${GO2RTC_BASE}/api/webrtc?src=${camera.id}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ type: offer.type, sdp: offer.sdp }),
           });
 
@@ -479,7 +492,7 @@ export const useCameraStream = ({ camera, autoStart = true }: UseCameraStreamOpt
       camLog(`[CameraStream:${camera.name}] Starting MSE stream via go2rtc`);
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${proto}//${window.location.host}${GO2RTC_BASE}/api/ws?src=${camera.id}`;
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(withMediaToken(wsUrl));
       ws.binaryType = 'arraybuffer';
       mseWsRef.current = ws;
 

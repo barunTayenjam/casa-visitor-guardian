@@ -198,7 +198,9 @@ class CacheService {
     try {
       if (!this.client) throw new Error('Client not initialized');
       const result = await this.client.incr(key);
-      if (ttl) {
+      // Fixed window: only the first increment sets the TTL. Re-expiring on
+      // every incr would slide the window and never let a counter reset.
+      if (result === 1 && ttl) {
         await this.client.expire(key, ttl);
       }
       return result;
@@ -242,16 +244,17 @@ class CacheService {
   }
 
   private incrMemoryCache(key: string, ttl?: number): number {
-    let value = 0;
     const item = this.memoryCache.get(key);
 
     if (item && Date.now() <= item.expiry) {
-      value = typeof item.value === 'number' ? item.value : 0;
+      const value = (typeof item.value === 'number' ? item.value : 0) + 1;
+      // Keep the ORIGINAL expiry — refreshing it would slide the window.
+      this.memoryCache.set(key, { value, expiry: item.expiry });
+      return value;
     }
 
-    value++;
-    this.setMemoryCache(key, value, ttl || this.config.ttl);
-    return value;
+    this.setMemoryCache(key, 1, ttl || this.config.ttl);
+    return 1;
   }
 
   private cleanupMemoryCache(): void {

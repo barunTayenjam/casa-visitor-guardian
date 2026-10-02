@@ -54,6 +54,11 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   // Store io on app for route files that need it
   app.set('io', io);
 
+  // Global API rate limit must be mounted BEFORE any /api route — Express
+  // runs middleware in registration order, so a limiter mounted after the
+  // routers never executes.
+  app.use(createApiRateLimit());
+
   // Controller-delegated routes (unique paths that can't be grouped under /api prefix)
   app.get('/api/streaming/metrics', optionalAuth, (req, res) =>
     streamController.getMetrics(req, res),
@@ -118,6 +123,4 @@ export function configureRoutes(app: Express, io: SocketIOServer) {
   app.use('/api/face-clusters', faceClusterRoutes);
   app.use('/api/face-identities', faceIdentityRoutes);
   app.use('/api/chat', chatRoutes);
-
-  app.use(createApiRateLimit());
 }

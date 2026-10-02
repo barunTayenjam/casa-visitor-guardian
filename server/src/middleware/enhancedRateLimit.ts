@@ -26,10 +26,10 @@ export class EnhancedRateLimit {
   }
 
   private getDefaultKey(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for'] as string;
-    const ip = forwarded
-      ? forwarded.split(',')[0].trim()
-      : req.ip || req.connection.remoteAddress || 'unknown';
+    // req.ip already honours `trust proxy` when the app is behind nginx.
+    // Never read X-Forwarded-For directly — with trust proxy off it is
+    // client-spoofable and lets each request mint a fresh rate-limit bucket.
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
     return `rate_limit:${ip}:${req.method}:${req.path}`;
   }
 

@@ -146,6 +146,7 @@ describe('RTSP Manager Simplification (CLN-03)', () => {
       // Create a mock Socket.io server
       const mockIo = {
         on: jest.fn(),
+      use: jest.fn(),
         to: jest.fn().mockReturnThis(),
         emit: jest.fn(),
       } as any;
@@ -252,6 +253,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
       to: jest.fn().mockReturnThis(),
       emit: jest.fn(),
       on: jest.fn(),
+      use: jest.fn(),
     } as any;
 
     const { StreamManager } = await import('./rtspManager.js');
@@ -333,6 +335,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
       to: jest.fn().mockReturnThis(),
       emit: jest.fn(),
       on: jest.fn(),
+      use: jest.fn(),
     } as any;
 
     const { StreamManager } = await import('./rtspManager.js');
@@ -375,6 +378,7 @@ describe('Frame Relay E2E (DOC-08)', () => {
       to: jest.fn().mockReturnThis(),
       emit: jest.fn(),
       on: jest.fn(),
+      use: jest.fn(),
     } as any;
 
     const { StreamManager } = await import('./rtspManager.js');

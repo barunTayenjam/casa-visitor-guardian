@@ -1,0 +1,12 @@
+[Unit]
+Description=Run SentryVision backup daily
+
+[Timer]
+# 03:17 local — off the :00/:30 marks so the run doesn't collide with
+# the hourly herd; daily DB+file backups.
+OnCalendar=*-*-* 03:17:00
+Persistent=true
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target

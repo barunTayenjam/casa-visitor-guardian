@@ -1,0 +1,9 @@
+[Unit]
+Description=SentryVision database + file backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/barun/Documents/sentryvision
+ExecStart=/home/barun/Documents/sentryvision/scripts/backup.sh all

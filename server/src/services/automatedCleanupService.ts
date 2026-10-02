@@ -1,4 +1,5 @@
 import { retentionPolicyService } from './retentionPolicyService.js';
+import { resolveDetectionRetentionDays } from './retentionDays.js';
 import { AppDataSource } from '../database.js';
 import { Event } from '../models/Event.js';
 import { EventEmitter } from 'events';
@@ -176,7 +177,12 @@ export class AutomatedCleanupService extends EventEmitter {
 
       const detectionDays = policy.detections_days;
       const eventDays = policy.events_days;
-      const retentionDays = Math.min(detectionDays, eventDays);
+      // Detection images follow THEIR OWN policy — flooring them to the
+      // events policy (min) purged 30d evidence at 7d by default.
+      const retentionDays = resolveDetectionRetentionDays({
+        detections_days: detectionDays,
+        events_days: eventDays,
+      });
 
       const totalDeleted = await this.deleteOldFiles(retentionDays);
       if (totalDeleted > 0) {

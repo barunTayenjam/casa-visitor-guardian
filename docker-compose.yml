@@ -66,6 +66,9 @@ services:
       - OPENCV_SERVICE_URL=http://opencv:8084
       - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
       - DETECTIONS_DIR=/app/data/detections
+      # Persist web-push keys under the ./data bind mount — default /data/vapid
+      # is not mounted, so keys regenerated on every container restart
+      - VAPID_KEYS_DIR=/app/data/vapid
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - NVIDIA_API_BASE_URL=${NVIDIA_API_BASE_URL}
       # Must exist at the proxy — gemini/* 404s. Fallback chain in nvidiaClient.ts
@@ -96,6 +99,8 @@ services:
       - SEED_USER_PASSWORD=${SEED_USER_PASSWORD}
     volumes:
       - ./server/cameras.json:/app/cameras.json
+      # Boot-time migration runner reads these (see applyMigrations.ts)
+      - ./database/migrations:/app/database/migrations:ro
       # Dev hot-mount: builds locally (npm run build), then
       # `docker restart sentryvision-app` picks up new dist — no rebuild
       - ./server/dist:/app/dist

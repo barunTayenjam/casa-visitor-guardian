@@ -1,6 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { logger } from '../utils/logger.js';
 import { AppDataSource } from '../database.js';
+import { applyPendingMigrations } from '../database/applyMigrations.js';
 import { setCameras, loadCamerasFromFile } from '../config/cameraLoader.js';
 import { config, type CameraConfig } from '../config/index.js';
 import { setupRTSPStreams } from '../streams/rtspManager.js';
@@ -31,6 +32,18 @@ import { DetectionConfig } from '../models/DetectionConfig.js';
 export async function initializeServices(io: SocketIOServer): Promise<void> {
   serviceRegistry.setAppDataSource(AppDataSource);
   serviceRegistry.setDetectionService(consolidatedDetectionService);
+
+  // initdb scripts only run on an EMPTY volume — an existing deployment
+  // never sees new migrations unless they are applied here, at boot.
+  try {
+    const { applied } = await applyPendingMigrations(AppDataSource);
+    if (applied.length > 0) {
+      logger.info(`Applied ${applied.length} pending migrations at boot: ${applied.join(', ')}`, 'INIT');
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(`Boot migrations failed — schema may be behind: ${msg}`, 'INIT');
+  }
 
   try {
     await consolidatedDetectionService.loadSettingsFromDb();

@@ -14,10 +14,18 @@ NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.prod.yml"
-ENV_FILE="$PROJECT_DIR/.env.production"
+PROJECT_DIR="${SV_PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
+COMPOSE_FILE="${SV_COMPOSE_FILE:-$PROJECT_DIR/docker-compose.yml}"
+ENV_FILE="${SV_ENV_FILE:-}"
+if [[ -z "$ENV_FILE" ]]; then
+    if [[ -f "$PROJECT_DIR/.env" ]]; then
+        ENV_FILE="$PROJECT_DIR/.env"
+    else
+        ENV_FILE="$PROJECT_DIR/.env.production"
+    fi
+fi
 LOG_FILE="$PROJECT_DIR/logs/health-check.log"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Health check thresholds
 MAX_CPU_USAGE=80
@@ -94,40 +102,59 @@ load_environment() {
 # Check Docker services
 check_docker_services() {
     log_info "Checking Docker services..."
-    
+
     cd "$PROJECT_DIR"
-    
+
+    if [[ ! -f "$COMPOSE_FILE" ]]; then
+        log_error "Compose file not found: $COMPOSE_FILE"
+        return 1
+    fi
+
+    local services
+    services=$(docker-compose -f "$COMPOSE_FILE" config --services 2>/dev/null || true)
+
+    # An empty service list means the compose file is unreadable — reporting
+    # "all healthy" here was how a broken deployment looked green.
+    if [[ -z "$services" ]]; then
+        log_error "No services listed by $COMPOSE_FILE — health check cannot pass"
+        send_alert "critical" "Compose file lists no services: $COMPOSE_FILE"
+        return 1
+    fi
+
     local unhealthy_services=()
     local stopped_services=()
-    
+
     # Check if all services are running
     while IFS= read -r service; do
+        [[ -z "$service" ]] && continue
         if ! docker-compose -f "$COMPOSE_FILE" ps -q "$service" | grep -q .; then
             stopped_services+=("$service")
         fi
-    done < <(docker-compose -f "$COMPOSE_FILE" config --services)
-    
+    done <<< "$services"
+
     # Check service health
     while IFS= read -r service; do
-        local health=$(docker inspect --format='{{.State.Health.Status}}' "sentryvision-$service" 2>/dev/null || echo "none")
+        [[ -z "$service" ]] && continue
+        local health
+        health=$(docker inspect --format='{{.State.Health.Status}}' "sentryvision-$service" 2>/dev/null || echo "none")
         if [[ "$health" == "unhealthy" ]]; then
             unhealthy_services+=("$service")
         fi
-    done < <(docker-compose -f "$COMPOSE_FILE" config --services)
-    
+    done <<< "$services"
+
     # Report issues
     if [[ ${#unhealthy_services[@]} -gt 0 ]]; then
         log_error "Unhealthy services: ${unhealthy_services[*]}"
         send_alert "critical" "Unhealthy services: ${unhealthy_services[*]}"
         return 1
     fi
-    
+
     if [[ ${#stopped_services[@]} -gt 0 ]]; then
         log_error "Stopped services: ${stopped_services[*]}"
         send_alert "critical" "Stopped services: ${stopped_services[*]}"
         return 1
     fi
-    
+
     log_success "All Docker services are healthy"
     return 0
 }
@@ -136,7 +163,8 @@ check_docker_services() {
 check_application_health() {
     log_info "Checking application health..."
     
-    local url="https://${DOMAIN:-localhost}/health"
+    # Backend health endpoint — default maps the compose-published port
+    local url="${HEALTH_URL:-http://localhost:9753/api/health}"
     local start_time=$(date +%s%N)
     
     # Check if application responds
@@ -180,19 +208,25 @@ check_database_health() {
     return 0
 }
 
-# Check Redis health
+# Check Redis health — skipped when Redis is disabled (compose sets
+# REDIS_DISABLED=true; the backend runs on the in-memory cache)
 check_redis_health() {
+    if [[ "${REDIS_DISABLED:-false}" == "true" ]] || ! docker-compose -f "$COMPOSE_FILE" config --services 2>/dev/null | grep -qx redis; then
+        log_info "Redis disabled — skipping"
+        return 0
+    fi
+
     log_info "Checking Redis health..."
-    
+
     cd "$PROJECT_DIR"
-    
+
     # Check Redis connection
     if ! docker-compose -f "$COMPOSE_FILE" exec -T redis redis-cli --raw incr ping >/dev/null 2>&1; then
         log_error "Redis health check failed"
         send_alert "critical" "Redis health check failed"
         return 1
     fi
-    
+
     # Check Redis memory usage
     local redis_memory=$(docker-compose -f "$COMPOSE_FILE" exec -T redis redis-cli info memory 2>/dev/null | grep used_memory_human | cut -d: -f2 | tr -d '\r')
     log_success "Redis is healthy (memory: $redis_memory)"

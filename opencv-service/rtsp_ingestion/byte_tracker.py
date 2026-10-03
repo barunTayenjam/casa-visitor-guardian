@@ -296,15 +296,16 @@ class ByteTracker:
         trk_boxes_r = [t.bbox.copy() for t in remaining_tracks]
 
         cost2 = _iou_cost_matrix(det_boxes_l, trk_boxes_r)
-        matches2, _, unmatched_trks_r = _linear_assignment(
+        matches2, _, _unmatched_trks_r = _linear_assignment(
             cost2, self.match_thresh
         )
 
-        rem_indices = list(unmatched_trks_t) + list(range(len(lost)))
+        # Classic ByteTrack round 2: low-detection matches UPDATE the track
+        # (keeping it alive). Marking lost here broke association — an
+        # index remap also could mark the wrong track, and the next strong
+        # detection spawned a NEW track_id (duplicate events downstream).
         for row, col in matches2:
-            actual_idx = rem_indices[col] if col < len(rem_indices) else col
-            if actual_idx < len(self.tracks):
-                self.tracks[actual_idx].mark_lost(frame_id)
+            remaining_tracks[col].update(dets_low[row], frame_id)
 
         # Unmatched low detections are discarded (no new tracks from low conf)
 

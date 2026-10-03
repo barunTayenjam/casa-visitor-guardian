@@ -97,7 +97,8 @@ class FFmpegReader:
             print(f"[FFmpegReader:{self.camera_id}] Probed resolution: {w}x{h} (scale={'yes' if self._scale else 'no'})")
             return w, h
         except Exception as e:
-            print(f"[FFmpegReader:{self.camera_id}] Probe failed ({e}), using {fallback_w}x{fallback_h}")
+            print(f"[FFmpegReader:{self.camera_id}] Probe failed ({e}), using {fallback_w}x{fallback_h} with SCALE")
+            self._scale = True
             return fallback_w, fallback_h
 
     def start(self, callback) -> None:

@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  ChevronLeft,
   Save,
   Eye,
    EyeOff,
@@ -356,15 +355,6 @@ const SettingsPage = () => {
   if (loading) {
     return (
       <PageContainer>
-        <div className="flex items-center gap-4">
-          <Button size="sm" variant="ghost" onClick={() => router.back()}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-          </div>
-        </div>
         <div className="flex min-h-[50vh] items-center justify-center">
           <p className="text-muted-foreground">Loading settings...</p>
         </div>
@@ -374,19 +364,7 @@ const SettingsPage = () => {
 
   return (
     <PageContainer>
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button size="sm" variant="ghost" onClick={() => router.back()}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Configuration</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Configure detection, notifications, storage, and system access
-            </p>
-          </div>
-        </div>
+      <div className="mb-6 flex items-center justify-end">
         <div className="flex items-center gap-2">
           {hasChanges && (
             <Button size="sm" variant="ghost" onClick={handleReset}>

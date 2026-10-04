@@ -302,12 +302,14 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
         </header>
       )}
 
-       {/* Filters */}
-      <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
-
-      {/* Content */}
+       {/* Content */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto mx-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10 max-w-7xl">
+        <div className="flex-1 overflow-y-auto mx-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10 max-w-7xl w-full">
+          {/* Filters */}
+          <div className="mb-4 border-b border-white/[0.06] pb-3">
+            <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
+          </div>
+
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (

@@ -211,7 +211,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
   };
 
   return (
-    <div className="w-full px-5 py-3">
+    <div className="w-full">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 flex-wrap">
           <Select
@@ -220,16 +220,16 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               updateFilter('quickRange', value as FilterState['quickRange'])
             }
           >
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
               <Calendar className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Time" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
+            <SelectContent className="bg-card border-white/[0.10] rounded-lg">
               {quickRangeOptions.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
-                  className="rounded-[0.75rem] text-xs"
+                  className="rounded-md text-xs"
                 >
                   {option.label}
                 </SelectItem>
@@ -241,16 +241,16 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
             value={filters.cameraId}
             onValueChange={(value) => updateFilter('cameraId', value)}
           >
-            <SelectTrigger className="w-full md:w-36 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
+            <SelectTrigger className="w-full md:w-36 h-9 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
               <Camera className="h-3.5 w-3.5 mr-2" />
               <SelectValue placeholder="All Cameras" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
-              <SelectItem value="all" className="rounded-[0.75rem] text-xs">
+            <SelectContent className="bg-card border-white/[0.10] rounded-lg">
+              <SelectItem value="all" className="rounded-md text-xs">
                 All Cameras
               </SelectItem>
               {cameras.map((camera) => (
-                <SelectItem key={camera.id} value={camera.id} className="rounded-[0.75rem] text-xs">
+                <SelectItem key={camera.id} value={camera.id} className="rounded-md text-xs">
                   {camera.name}
                 </SelectItem>
               ))}
@@ -263,23 +263,23 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               updateFilter('detectionType', value as FilterState['detectionType'])
             }
           >
-            <SelectTrigger className="w-full md:w-32 h-9 rounded-[0.75rem] bg-white/[0.06] border-white/[0.16] text-xs">
+            <SelectTrigger className="w-full md:w-32 h-9 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
               <SelectValue placeholder="Event Type" />
             </SelectTrigger>
-            <SelectContent className="bg-black/90 backdrop-blur-3xl border-white/[0.16] rounded-[1.25rem]">
-              <SelectItem value="all" className="rounded-[0.75rem] text-xs">
+            <SelectContent className="bg-card border-white/[0.10] rounded-lg">
+              <SelectItem value="all" className="rounded-md text-xs">
                 All Events
               </SelectItem>
-              <SelectItem value="motion" className="rounded-[0.75rem] text-xs">
+              <SelectItem value="motion" className="rounded-md text-xs">
                 Motion
               </SelectItem>
-              <SelectItem value="person" className="rounded-[0.75rem] text-xs">
+              <SelectItem value="person" className="rounded-md text-xs">
                 Person
               </SelectItem>
-              <SelectItem value="face" className="rounded-[0.75rem] text-xs">
+              <SelectItem value="face" className="rounded-md text-xs">
                 Face
               </SelectItem>
-              <SelectItem value="vehicle" className="rounded-[0.75rem] text-xs">
+              <SelectItem value="vehicle" className="rounded-md text-xs">
                 Vehicle
               </SelectItem>
             </SelectContent>
@@ -309,7 +309,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-auto p-0 rounded-[1.25rem] bg-black/90 backdrop-blur-3xl border-white/[0.16]"
+              className="w-auto p-0 rounded-lg bg-card border-white/[0.10]"
               align="end"
             >
               <div className="p-3 hairline-bottom flex items-center justify-between">
@@ -343,7 +343,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
                       key={i}
                       onClick={() => handleCalendarDayClick(day)}
                       className={cn(
-                        'relative h-8 w-8 rounded-full text-xs transition-all duration-300 ease-spring',
+                        'relative h-8 w-8 rounded-full text-xs transition-all ',
                         getDayClasses(day),
                         !isSameMonth(day, calendarMonth) && 'opacity-30',
                       )}

@@ -5,13 +5,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
-import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { configureRoutes } from './routes/index.js';
 import { staticRoutes } from './routes/staticRoutes.js';
 import { getFrontendDistPath } from './config/frontendDist.js';
-import { collectInlineScriptHashes } from './config/cspHashes.js';
+import { securityHeaders } from './config/securityHeaders.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { initializeServices, gracefulShutdown } from './bootstrap.js';
 import { logger } from './utils/logger.js';
@@ -60,32 +59,7 @@ app.use(
 );
 
 app.use(express.json());
-const inlineScriptHashes = collectInlineScriptHashes(getFrontendDistPath());
-app.use(
-  helmet({
-    strictTransportSecurity:
-      process.env.NODE_ENV === 'production'
-        ? {
-            maxAge: 31536000,
-            includeSubDomains: true,
-          }
-        : false,
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", ...inlineScriptHashes],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: ["'self'", 'ws:', 'wss:'],
-        mediaSrc: ["'self'", 'blob:', 'data:'],
-        workerSrc: ["'self'", 'blob:'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
-      },
-    },
-  }),
-);
+app.use(securityHeaders());
 
 const server = http.createServer(app);
 

@@ -32,7 +32,6 @@ COPY --from=backend-builder /build/dist ./dist
 COPY --from=backend-builder /build/node_modules ./node_modules
 COPY --from=frontend-builder /build/out ./public
 COPY server/package*.json ./
-COPY scripts/import-events.py ./import-events.py
 
 RUN chown -R node:node /app
 

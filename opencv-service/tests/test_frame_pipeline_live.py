@@ -19,6 +19,11 @@ from rtsp_ingestion.queues import DropOldestQueue
 
 
 class FakePublisher:
+    def __init__(self):
+        # model the real publisher's subscription state — encode path is
+        # guarded by subscriber presence, and these tests exercise encoding
+        self._subscriptions = {"cam_test": {"fake-ws"}}
+
     def add_frame_queue(self, camera_id):
         return DropOldestQueue(2)
 

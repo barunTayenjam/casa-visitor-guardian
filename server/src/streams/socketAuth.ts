@@ -1,6 +1,7 @@
 import type { Socket } from 'socket.io';
 import { authService, type JWTPayload } from '../auth/index.js';
 import { logger } from '../utils/logger.js';
+import { extractBearerToken } from '../utils/tokenExtraction.js';
 
 type AuthCapableSocket = Partial<Socket> & { data?: Record<string, unknown> };
 
@@ -12,8 +13,7 @@ type AuthCapableSocket = Partial<Socket> & { data?: Record<string, unknown> };
  */
 export function verifySocketAuth(socket: AuthCapableSocket): boolean {
   const auth = (socket.handshake?.auth ?? {}) as { token?: string };
-  const header = socket.handshake?.headers?.authorization;
-  const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  const bearer = extractBearerToken(socket.handshake ?? { headers: {} });
   const token = auth.token ?? bearer;
   const payload = token ? authService.verifyToken(token) : null;
   if (!payload) return false;

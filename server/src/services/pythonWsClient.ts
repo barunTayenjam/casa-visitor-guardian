@@ -67,7 +67,7 @@ export class PythonWsClient extends EventEmitter {
   private readonly SILENCE_TIMEOUT_MS = 60000;
   private url: string;
   private _connected = false;
-  private pendingMetadata: FrameMetadata | null = null;
+  private pendingMetadataByCamera: Map<string | null, FrameMetadata> = new Map();
   private retryCount = 0;
   private readonly maxRetries = 50;
 
@@ -112,11 +112,16 @@ export class PythonWsClient extends EventEmitter {
     this.ws.on('message', (data: WebSocket.Data, isBinary: boolean) => {
       this.lastDataAt = Date.now();
       if (isBinary) {
-        const metadata = this.pendingMetadata;
-        this.pendingMetadata = null;
-        if (!metadata) {
+        // FIFO pairing: binary frames carry no cameraId, so pair the oldest
+        // pending metadata with each arriving binary frame. With multiple
+        // cameras interleaved, metaA, metaB, binA, binB still pairs correctly.
+        const metaEntries = [...this.pendingMetadataByCamera.entries()];
+        if (metaEntries.length === 0) {
           return;
         }
+        const entry = metaEntries[0];
+        this.pendingMetadataByCamera.delete(entry[0]);
+        const metadata = entry[1];
         const message: FrameMessage = {
           cameraId: metadata.cameraId,
           data: data as Buffer,
@@ -127,10 +132,10 @@ export class PythonWsClient extends EventEmitter {
         try {
           const parsed = JSON.parse(data.toString());
           if (parsed.type === 'frame') {
-            this.pendingMetadata = {
-              cameraId: parsed.cameraId || null,
-              timestamp: parsed.timestamp || Date.now(),
-            };
+            this.pendingMetadataByCamera.set(
+              parsed.cameraId ?? null,
+              { cameraId: parsed.cameraId || null, timestamp: parsed.timestamp || Date.now() },
+            );
           } else if (parsed.type === 'event') {
             this.emit('trackingEvent', {
               trackId: parsed.trackId ?? parsed.track_id,

@@ -419,11 +419,11 @@ class YOLOObjectDetector:
                 if self.model_type == 'yolov8':
                     output = outputs[0]
 
-                    if output.shape[0] != 1 and output.shape[0] != 8400:
-                        output = output.T
-
                     if len(output.shape) == 3 and output.shape[0] == 1:
                         output = output[0]
+
+                    if output.shape[0] < output.shape[1]:
+                        output = output.T
 
                     num_detections, num_cols = output.shape
 

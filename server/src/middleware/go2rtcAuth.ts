@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../auth/index.js';
+import { extractBearerToken } from '../utils/tokenExtraction.js';
 
 /**
  * Extract the media token from a raw request — Bearer header first, then
@@ -10,9 +11,7 @@ export function extractMediaToken(req: {
   headers: Record<string, string | string[] | undefined>;
   url?: string;
 }): string | null {
-  const raw = req.headers.authorization;
-  const header = Array.isArray(raw) ? raw[0] : raw;
-  const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  const bearer = extractBearerToken(req);
   if (bearer) return bearer;
   if (req.url) {
     try {

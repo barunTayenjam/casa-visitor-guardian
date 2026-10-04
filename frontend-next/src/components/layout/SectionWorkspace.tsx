@@ -49,8 +49,8 @@ export function SectionWorkspace({
       onValueChange={handleTabChange}
       className="flex h-full min-h-0 flex-col bg-background"
     >
-      <header className="shrink-0 border-b border-white/[0.06] bg-card px-4 py-4 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4">
+      <header className="shrink-0 border-b border-white/[0.06] bg-card py-4">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">{title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{description}</p>

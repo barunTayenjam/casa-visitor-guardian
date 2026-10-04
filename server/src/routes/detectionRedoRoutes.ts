@@ -6,6 +6,13 @@ import { requireUser } from '../middleware/auth.js';
 import { AppDataSource } from '../database.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { CircuitBreaker } from '../services/circuitBreaker.js';
+
+const detectionCircuit = new CircuitBreaker('OpenCV detection', {
+  failureThreshold: 3,
+  cooldownMs: 30000,
+  successThreshold: 2,
+});
 
 function validateDetections(detections: any[]): any[] {
   return detections
@@ -164,15 +171,17 @@ router.post(
       const { getOpenCVServiceUrl } = await import('../config/index.js');
 
       try {
-        const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
-          headers: {
-            'Content-Type': 'image/jpeg',
-            ...(process.env.OPENCV_API_TOKEN
-              ? { 'X-API-Token': process.env.OPENCV_API_TOKEN }
-              : {}),
-          },
-          timeout: 30000,
-        });
+        const response = await detectionCircuit.execute(() =>
+          axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
+            headers: {
+              'Content-Type': 'image/jpeg',
+              ...(process.env.OPENCV_API_TOKEN
+                ? { 'X-API-Token': process.env.OPENCV_API_TOKEN }
+                : {}),
+            },
+            timeout: 30000,
+          }),
+        );
 
         const detections = response.data.detections || [];
 
@@ -345,13 +354,15 @@ router.post(
       const { default: axios } = await import('axios');
       const { getOpenCVServiceUrl } = await import('../config/index.js');
 
-      const response = await axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
-        headers: {
-          'Content-Type': 'image/jpeg',
-          ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {}),
-        },
-        timeout: 30000,
-      });
+      const response = await detectionCircuit.execute(() =>
+        axios.post(`${getOpenCVServiceUrl()}/detect-objects`, imageBuffer, {
+          headers: {
+            'Content-Type': 'image/jpeg',
+            ...(process.env.OPENCV_API_TOKEN ? { 'X-API-Token': process.env.OPENCV_API_TOKEN } : {}),
+          },
+          timeout: 30000,
+        })
+      );
 
       const detections = response.data.detections || [];
 

@@ -138,6 +138,60 @@ describe('PythonWsClient', () => {
     client.connect();
   });
 
+  it('should pair each camera binary frame with that camera own metadata when interleaved', (done) => {
+    // Wave 5: single pendingMetadata slot pairs camA frame with camB metadata
+    // when two cameras stream interleaved on one connection:
+    //   metaA, metaB, binA, binB  =>  binA must emit cameraId 'camA', binB 'camB'
+    const frameA = Buffer.from([0xaa, 0xaa]);
+    const frameB = Buffer.from([0xbb, 0xbb]);
+    const received: Array<{ cameraId: string | null; data: Buffer }> = [];
+
+    client.on('connected', () => {
+      setTimeout(() => {
+        const serverWs = [...mockServer.clients][0];
+        serverWs.send(JSON.stringify({ type: 'frame', cameraId: 'camA', timestamp: 1000 }));
+        serverWs.send(JSON.stringify({ type: 'frame', cameraId: 'camB', timestamp: 2000 }));
+        serverWs.send(frameA);
+        serverWs.send(frameB);
+      }, 50);
+    });
+
+    client.on('frame', (message: { cameraId: string | null; data: Buffer }) => {
+      received.push({ cameraId: message.cameraId, data: message.data });
+      if (received.length === 2) {
+        const byCamera = new Map(received.map((r) => [r.cameraId, r.data]));
+        expect(byCamera.get('camA')).toEqual(frameA);
+        expect(byCamera.get('camB')).toEqual(frameB);
+        done();
+      }
+    });
+
+    client.connect();
+  });
+
+  it('should drop binary frame when no metadata pending for that camera', (done) => {
+    // A binary frame arriving with no pending metadata for its camera must be
+    // dropped, not emitted with a null/wrong cameraId.
+    let frameEmitted = false;
+
+    client.on('connected', () => {
+      setTimeout(() => {
+        const serverWs = [...mockServer.clients][0];
+        // Only send binary — no metadata at all
+        serverWs.send(Buffer.from([0xde, 0xad]));
+        setTimeout(() => {
+          if (!frameEmitted) done();
+        }, 300);
+      }, 50);
+    });
+
+    client.on('frame', () => {
+      frameEmitted = true;
+    });
+
+    client.connect();
+  });
+
   it('should disconnect cleanly without pending timers', () => {
     jest.useFakeTimers();
 

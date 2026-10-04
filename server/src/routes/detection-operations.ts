@@ -53,7 +53,7 @@ router.post(
       try {
         const result = await consolidatedDetectionService.detectObjects(cameraId, currentFrame);
         detections = result.detections;
-      } catch (error) {
+      } catch (error: unknown) {
         res.status(501).json({
           success: false,
           error: error instanceof Error ? error.message : 'Detection endpoint disabled',
@@ -88,7 +88,7 @@ router.post(
         detections: detections || [],
         timestamp: new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         `Error triggering person detection for camera ${req.params.cameraId}`,
         'Detection',
@@ -133,7 +133,7 @@ router.post(
       try {
         const result = await consolidatedDetectionService.detectFaces(cameraId, currentFrame);
         faces = result.faces;
-      } catch (error) {
+      } catch (error: unknown) {
         res.status(501).json({
           success: false,
           error: error instanceof Error ? error.message : 'Face detection endpoint disabled',
@@ -174,7 +174,7 @@ router.post(
         detections: faces || [],
         timestamp: new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         `Error triggering face detection for camera ${req.params.cameraId}`,
         'Detection',
@@ -198,7 +198,7 @@ router.get(
       const cameraId = (req.query.camera as string) || 'default';
       const settings = consolidatedDetectionService.getObjectDetectionSettings(cameraId);
       res.json({ success: true, settings: settings || {} });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting person detection settings', 'Detection', error);
       res.status(500).json({ success: false, error: 'Failed to get person detection settings' });
     }
@@ -224,7 +224,7 @@ router.put(
         targetClasses: targetClasses || ['person', 'dog', 'cat'],
       });
       res.json({ success: true, updated });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating person detection settings', 'Detection', error);
       res.status(500).json({ success: false, error: 'Failed to update person detection settings' });
     }
@@ -235,7 +235,7 @@ router.get('/face/settings', optionalAuth, async (req: Request, res: Response) =
   try {
     const settings = consolidatedDetectionService.getFacialRecognitionSettings();
     res.json({ success: true, settings: settings || {} });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Error getting facial recognition settings', 'Detection', error);
     res.status(500).json({ success: false, error: 'Failed to get facial recognition settings' });
   }
@@ -258,7 +258,7 @@ router.put(
         minFaceSize: minFaceSize || 48,
       });
       res.json({ success: true, updated });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating facial recognition settings', 'Detection', error);
       res
         .status(500)
@@ -282,7 +282,7 @@ router.get(
       const cameraId = req.query.cameraId as string;
       const settings = consolidatedDetectionService.getMotionSettings(cameraId);
       res.json({ settings });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error getting motion settings', 'Detection', error);
       res.status(500).json({ success: false, error: 'Failed to get motion settings' });
     }
@@ -307,7 +307,7 @@ router.put(
       const { cameraId, ...settings } = req.body;
       consolidatedDetectionService.updateMotionSettings(cameraId, settings);
       res.json({ success: true, message: 'Motion settings updated' });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error updating motion settings', 'Detection', error);
       res.status(500).json({ success: false, error: 'Failed to update motion settings' });
     }

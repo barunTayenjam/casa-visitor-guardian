@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService, JWTPayload } from '../auth/index.js';
 import { logger } from '../utils/logger.js';
+import { extractBearerToken } from '../utils/tokenExtraction.js';
 import { AppDataSource } from '../database.js';
 import cacheService from '../services/cacheService.js';
 
@@ -50,8 +51,7 @@ export function authenticate(options: AuthOptions = {}) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Get token from Authorization header
-      const authHeader = req.headers.authorization;
-      const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      const token = extractBearerToken(req);
 
       // If no token and authentication is required
       if (!token) {

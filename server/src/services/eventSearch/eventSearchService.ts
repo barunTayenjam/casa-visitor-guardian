@@ -377,15 +377,15 @@ export class EventSearchService {
       if (row.file_type === 'event_face') labels = ['face'];
       return {
         id: row.id,
-        cameraId: row.cameraid || 'unknown',
+        cameraId: row.cameraId || 'unknown',
         timestamp: new Date(row.timestamp).toISOString(),
-        imagePath: `/events/${row.imagepath?.split('/').pop() || ''}`,
+        imagePath: `/events/${row.imagePath?.split('/').pop() || ''}`,
         confidence,
         duration: 0,
-        cameraName: `Camera ${row.cameraid || 'unknown'}`,
+        cameraName: `Camera ${row.cameraId || 'unknown'}`,
         labels,
-        location: `Camera ${row.cameraid || 'unknown'}`,
-        imageUrl: `/events/${row.imagepath?.split('/').pop() || ''}`,
+        location: `Camera ${row.cameraId || 'unknown'}`,
+        imageUrl: `/events/${row.imagePath?.split('/').pop() || ''}`,
       };
     });
   }

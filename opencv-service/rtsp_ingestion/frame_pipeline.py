@@ -122,12 +122,23 @@ class AdaptiveFrameProcessor:
         self.frame_count = 0
         self.is_skipping = False
         self.resume_timer = 0
+        # cache for non-blocking cpu usage sampling
+        self._cpu_usage = 0.0
+        self._cpu_sample_counter = 0
+        self._cpu_sample_rate = 5  # sample every N frames
+
 
     def should_process_frame(self) -> bool:
         if not PSUTIL_AVAILABLE:
             return True
 
-        cpu_usage = psutil.cpu_percent(interval=0.1)
+        # non-blocking sample; refresh every _cpu_sample_rate calls to keep the hot path cheap
+        self._cpu_sample_counter += 1
+        if self._cpu_sample_counter >= self._cpu_sample_rate:
+            self._cpu_usage = psutil.cpu_percent(interval=None)
+            self._cpu_sample_counter = 0
+
+        cpu_usage = self._cpu_usage
 
         if cpu_usage > self.cpu_threshold_high:
             self.is_skipping = True
@@ -283,7 +294,9 @@ class InProcessYOLO:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             orig_mean = np.mean(gray)
             if orig_mean < 120:
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                if not hasattr(self, "_clahe_low") or self._clahe_low is None:
+                    self._clahe_low = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                clahe = self._clahe_low
                 enhanced_gray = clahe.apply(gray)
                 enhanced = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
                 frame = cv2.addWeighted(frame, 0.3, enhanced, 0.7, 0)
@@ -408,7 +421,9 @@ class InProcessYOLO:
         results = []
         try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            if not hasattr(self, "_clahe_hog") or self._clahe_hog is None:
+                self._clahe_hog = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            clahe = self._clahe_hog
             enhanced = clahe.apply(gray)
 
             hog = cv2.HOGDescriptor()
@@ -666,6 +681,7 @@ class FramePipeline:
     def stop_live(self) -> None:
         pass
 
+
     def stop(self) -> None:
         self._running = False
         self._live_reader.stop()
@@ -685,10 +701,12 @@ class FramePipeline:
         frame: np.ndarray = frame_data["data"]
 
         if self._frame_counter % self._frame_skip == 0:
-            live = cv2.resize(frame, (self._live_width, self._live_height), interpolation=cv2.INTER_AREA)
-            success, jpeg_buf = cv2.imencode(".jpg", live, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
-            if success:
-                self._live_queue.put(jpeg_buf.tobytes())
+            # skip encode entirely when nobody is subscribed to this camera's live stream
+            if self._publisher._subscriptions.get(self._camera_id):
+                live = cv2.resize(frame, (self._live_width, self._live_height), interpolation=cv2.INTER_AREA)
+                success, jpeg_buf = cv2.imencode(".jpg", live, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+                if success:
+                    self._live_queue.put(jpeg_buf.tobytes())
 
         now = frame_data.get("timestamp") or time.time()
         if now - self._last_detect_enqueue >= self._detect_interval:
@@ -750,6 +768,9 @@ class FramePipeline:
             print(f"[FramePipeline:{self._camera_id}] MOG2 check #{self._detect_frame_count}: motion={motion_result['motion_detected']} pixels={motion_result['motion_pixels']} confidence={motion_result['confidence']}")
 
         if not motion_result["motion_detected"]:
+            # Still age tracks out — without this, a motion drought freezes
+            # track_ended forever and IdentityCache entries leak.
+            self._tracker.update([])
             return
 
         now_ts = time.time()
@@ -770,12 +791,16 @@ class FramePipeline:
         detections = self._apply_camera_filters(raw_detections)
         if not detections:
             print(f"[FramePipeline:{self._camera_id}] YOLO returned 0 detections after camera filters")
+            # Still age tracks out — filters can drop all detections.
+            self._tracker.update([])
             return
 
         self._scene_frame_counter += 1
         if self._scene_frame_counter % self._scene_analysis_interval == 0:
             self._last_scene_context = self._scene_analyzer.analyze(frame, detections)
             print(f"[FramePipeline:{self._camera_id}] Scene: {self._last_scene_context['scene_context']}")
+            # Periodic cleanup: remove expired identity cache entries to bound memory growth.
+            self._identity_cache.cleanup()
 
         print(f"[FramePipeline:{self._camera_id}] YOLO: {len(detections)} detections: {[d['class'] for d in detections]}")
         tracked = self._tracker.update(detections)

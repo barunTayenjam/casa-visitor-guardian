@@ -49,13 +49,13 @@ export function SectionWorkspace({
       onValueChange={handleTabChange}
       className="flex h-full min-h-0 flex-col bg-background"
     >
-      <header className="shrink-0 border-b border-white/[0.06] bg-[#0A0A0B] px-4 py-4 sm:px-6">
+      <header className="shrink-0 border-b border-white/[0.06] bg-card px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[#ECECEC]">{title}</h1>
-            <p className="mt-1 text-sm text-[#A1A1A8]">{description}</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">{title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           </div>
-          <TabsList className="h-9 w-full justify-start gap-1 rounded-[4px] border-white/[0.06] bg-[#121215] p-1 backdrop-blur-none sm:w-fit">
+          <TabsList className="h-9 w-full justify-start gap-1 rounded-[4px] border-white/[0.06] bg-muted p-1 backdrop-blur-none sm:w-fit">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -63,8 +63,8 @@ export function SectionWorkspace({
                   key={tab.value}
                   value={tab.value}
                   className={cn(
-                    'h-7 rounded-[3px] px-3 text-xs text-[#6B6B73] transition-colors data-[state=active]:bg-[#1A1A1D] data-[state=active]:text-[#ECECEC] data-[state=active]:shadow-none',
-                    'focus-visible:ring-1 focus-visible:ring-[#5E6AD2]',
+                    'h-7 rounded-[3px] px-3 text-xs text-muted-foreground transition-colors data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                    'focus-visible:ring-1 focus-visible:ring-primary',
                   )}
                 >
                   {Icon ? <Icon className="mr-1.5 h-3.5 w-3.5" /> : null}

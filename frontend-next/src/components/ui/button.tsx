@@ -11,11 +11,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'rounded-full bg-primary text-primary-foreground hover:bg-primary/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_8px_24px_rgba(59,130,246,0.2)]',
+          'rounded-full bg-primary text-primary-foreground hover:bg-primary/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_8px_24px_rgba(94,106,210,0.2)]',
         destructive:
           'rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]',
         outline:
-          'rounded-full border border-white/[0.16] bg-white/[0.06] text-foreground hover:bg-white/[0.06] hover:border-white/[0.16] backdrop-blur-sm',
+          'rounded-full border border-white/[0.16] bg-white/[0.06] text-foreground hover:bg-white/[0.06] hover:border-white/[0.16]',
         secondary:
           'rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]',
         ghost: 'rounded-full text-foreground/70 hover:text-foreground hover:bg-white/[0.06]',

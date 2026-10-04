@@ -244,7 +244,6 @@ const TimelapsePage: React.FC = () => {
           subtitle={date}
           icon={Film}
           backTo="/"
-          size="large"
         />
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <div className="w-14 h-14 rounded-full bg-white/[0.04] flex items-center justify-center border border-white/[0.10]">
@@ -272,7 +271,6 @@ const TimelapsePage: React.FC = () => {
           subtitle={date}
           icon={Film}
           backTo="/"
-          size="large"
           actions={
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <input

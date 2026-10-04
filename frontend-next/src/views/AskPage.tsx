@@ -292,7 +292,7 @@ export default function AskPage() {
   return (
     <PageContainer width="narrow">
       <div className="mb-4 flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-[#5E6AD2]/20 bg-[#5E6AD2]/10">
+        <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-primary/20 bg-primary/10">
           <MessageSquare className="h-4 w-4 text-primary" />
         </div>
         <div>
@@ -317,7 +317,7 @@ export default function AskPage() {
                 <button
                   key={s}
                   onClick={() => send(s)}
-                   className="rounded-full border border-white/[0.06] bg-[#121215] px-3 py-1.5 text-xs text-[#A1A1A8] transition-colors hover:border-white/[0.16] hover:text-[#ECECEC]"
+                   className="rounded-full border border-white/[0.06] bg-muted px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/[0.16] hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -329,20 +329,20 @@ export default function AskPage() {
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
             {m.pending ? (
-              <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-[#0A0A0B] px-4 py-3 text-sm text-[#A1A1A8]">
+              <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-card px-4 py-3 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Thinking…
               </div>
             ) : m.error ? (
-              <div className="max-w-[85%] rounded-lg border border-[#F87171]/20 bg-[#F87171]/10 px-4 py-3 text-sm text-[#F87171]">
+              <div className="max-w-[85%] rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {m.error}
               </div>
             ) : m.role === 'user' ? (
-              <div className="max-w-[85%] rounded-lg border border-[#5E6AD2]/25 bg-[#5E6AD2]/10 px-4 py-2.5 text-sm text-[#ECECEC]">
+              <div className="max-w-[85%] rounded-lg border border-primary/25 bg-primary/10 px-4 py-2.5 text-sm text-foreground">
                 {m.content}
               </div>
             ) : (
-              <div className="w-full max-w-[95%] rounded-lg border border-white/[0.06] bg-[#0A0A0B] px-4 py-3">
+              <div className="w-full max-w-[95%] rounded-lg border border-white/[0.06] bg-card px-4 py-3">
                 <Markdown content={m.content} />
                 {m.response?.images && m.response.images.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -394,7 +394,7 @@ export default function AskPage() {
         {lastAssistant?.response && lastAssistant.response.tool === 'period_report' && (
           <button
             onClick={download}
-            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 text-xs text-[#A1A1A8] transition-colors hover:bg-[#1A1A1D] hover:text-[#ECECEC]"
+            className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-muted px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             aria-label="Download report"
           >
             <Download className="h-4 w-4" />
@@ -405,7 +405,7 @@ export default function AskPage() {
           <>
             <button
               onClick={downloadTranscript}
-              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 text-xs text-[#A1A1A8] transition-colors hover:bg-[#1A1A1D] hover:text-[#ECECEC]"
+              className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-muted px-3 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               aria-label="Download chat transcript"
             >
               <Download className="h-4 w-4" />
@@ -417,7 +417,7 @@ export default function AskPage() {
                 'flex h-10 flex-shrink-0 items-center gap-1.5 rounded-[4px] border px-3 text-xs transition-colors',
                 confirmingClear
                   ? 'border-red-500/50 bg-red-500/15 text-red-300'
-                  : 'border-white/[0.06] bg-[#121215] text-[#A1A1A8] hover:text-[#F87171]',
+                  : 'border-white/[0.06] bg-muted text-muted-foreground hover:text-destructive',
               )}
               aria-label="Clear chat history"
               title={confirmingClear ? 'Click again to delete all history' : 'Clear chat history'}
@@ -432,7 +432,7 @@ export default function AskPage() {
             e.preventDefault();
             send(input);
           }}
-          className="flex flex-1 items-center gap-2 rounded-[4px] border border-white/[0.06] bg-[#121215] px-3 py-1.5 transition-colors focus-within:border-[#5E6AD2]"
+          className="flex flex-1 items-center gap-2 rounded-[4px] border border-white/[0.06] bg-muted px-3 py-1.5 transition-colors focus-within:border-primary"
         >
           <input
             value={input}
@@ -443,7 +443,7 @@ export default function AskPage() {
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[4px] bg-[#5E6AD2] text-white transition-opacity hover:bg-[#6E7AE0] disabled:opacity-40"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[4px] bg-primary text-primary-foreground transition-opacity hover:bg-primary/85 disabled:opacity-40"
             aria-label="Send"
           >
             <ArrowUp className="h-4 w-4" />

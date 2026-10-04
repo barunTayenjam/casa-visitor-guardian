@@ -35,10 +35,10 @@ const StreamDashboard = () => {
   }, [cameras, handleCameraFocus]);
 
   return (
-    <div className="flex h-full min-h-0 bg-[#050505]">
+    <div className="flex h-full min-h-0 bg-background">
       <div className="flex min-w-0 flex-1 flex-col">
         {!focusedCameraId && (
-          <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0A0A0B] px-4 py-3 sm:px-5">
+          <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-card px-4 py-3 sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <div
                 className={cn(
@@ -51,7 +51,7 @@ const StreamDashboard = () => {
                 <span className={cn('h-1.5 w-1.5 rounded-full', connected ? 'bg-emerald-300' : 'bg-red-300')} />
                 {connected ? 'Live' : 'Offline'}
               </div>
-              <span className="text-xs text-[#6B6B73]">
+              <span className="text-xs text-muted-foreground">
                 {cameras.length} {cameras.length === 1 ? 'camera' : 'cameras'}
               </span>
             </div>
@@ -59,7 +59,7 @@ const StreamDashboard = () => {
               {cameras.length > 1 && (
                 <button
                   onClick={handleStartSlideshow}
-                  className="inline-flex items-center gap-2 rounded-[4px] border border-white/[0.10] bg-[#121215] px-3 py-2 text-xs font-medium text-[#A1A1A8] transition-colors hover:border-white/[0.16] hover:text-[#ECECEC] active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-[4px] border border-white/[0.10] bg-muted px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-white/[0.16] hover:text-foreground active:scale-[0.98]"
                 >
                   <MonitorPlay className="h-4 w-4" />
                   <span className="hidden sm:inline">Slideshow</span>
@@ -70,8 +70,8 @@ const StreamDashboard = () => {
                 className={cn(
                   'inline-flex items-center gap-2 rounded-[4px] border px-3 py-2 text-xs font-medium transition-colors active:scale-[0.98]',
                   showDataPanel
-                    ? 'border-[#5E6AD2]/30 bg-[#5E6AD2]/10 text-[#AEB7F2]'
-                    : 'border-white/[0.10] bg-[#121215] text-[#A1A1A8] hover:border-white/[0.16] hover:text-[#ECECEC]',
+                    ? 'border-primary/30 bg-primary/10 text-primary-foreground'
+                    : 'border-white/[0.10] bg-muted text-muted-foreground hover:border-white/[0.16] hover:text-foreground',
                 )}
                 aria-pressed={showDataPanel}
               >
@@ -100,7 +100,7 @@ const StreamDashboard = () => {
             animate={{ width: 360, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="hidden h-full shrink-0 overflow-hidden border-l border-white/[0.06] bg-[#0A0A0B] xl:block"
+            className="hidden h-full shrink-0 overflow-hidden border-l border-white/[0.06] bg-card xl:block"
             aria-label="Live detection data"
           >
             <div className="flex h-full w-[360px] flex-col overflow-hidden">

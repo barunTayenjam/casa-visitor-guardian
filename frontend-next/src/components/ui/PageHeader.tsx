@@ -13,13 +13,12 @@ export interface PageHeaderProps {
   backTo?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
-  size?: 'default' | 'large';
   className?: string;
 }
 
 const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
   (
-    { title, subtitle, icon: Icon, backTo, onBack, actions, size = 'default', className, ...props },
+    { title, subtitle, icon: Icon, backTo, onBack, actions, className, ...props },
     ref,
   ) => {
     const router = useRouter();
@@ -49,17 +48,12 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           )}
           <div className="flex items-center gap-2 min-w-0">
             {Icon && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-white/[0.06] bg-[#121215]">
-                <Icon className="h-4 w-4 text-[#A1A1A8]" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-white/[0.06] bg-muted">
+                <Icon className="h-4 w-4 text-muted-foreground" />
               </div>
             )}
             <div className="min-w-0">
-              <h1
-                className={cn(
-                  'font-semibold leading-tight tracking-tight truncate',
-                  size === 'large' ? 'text-2xl' : 'text-lg',
-                )}
-              >
+              <h1 className="truncate text-2xl font-semibold leading-tight tracking-tight">
                 {title}
               </h1>
               {subtitle && (

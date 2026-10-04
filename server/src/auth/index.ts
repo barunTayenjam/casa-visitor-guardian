@@ -133,7 +133,15 @@ export class AuthService {
       const roleResult = await AppDataSource.query(`SELECT id FROM roles WHERE name = $1`, [
         userData.role || 'user',
       ]);
-      const roleId = roleResult && roleResult.length > 0 ? roleResult[0].id : null;
+      let roleId = roleResult && roleResult.length > 0 ? roleResult[0].id : null;
+      // If role does not exist, create it on‑the‑fly (idempotent for bootstraps)
+      if (!roleId) {
+        const insertResult = await AppDataSource.query(
+          `INSERT INTO roles (name, description) VALUES ($1, $2) RETURNING id`,
+          [userData.role || 'user', `${userData.role || 'user'} role`],
+        );
+        roleId = insertResult && insertResult.length > 0 ? insertResult[0].id : null;
+      }
 
       const newUserResult = await AppDataSource.query(
         `INSERT INTO users (username, email, password_hash, role_id, status, mfa_enabled, email_verified, failed_login_attempts, created_at, updated_at)

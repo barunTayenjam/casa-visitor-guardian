@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { PageLoading } from '@/components/ui/PageLoading';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { useToast } from '@/hooks/use-toast';
@@ -239,12 +238,6 @@ const TimelapsePage: React.FC = () => {
   if (loadError) {
     return (
       <PageContainer className="space-y-4">
-        <PageHeader
-          title="Daily Timelapse"
-          subtitle={date}
-          icon={Film}
-          backTo="/"
-        />
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <div className="w-14 h-14 rounded-full bg-white/[0.04] flex items-center justify-center border border-white/[0.10]">
             <AlertCircle className="h-6 w-6 text-muted-foreground" />
@@ -266,36 +259,31 @@ const TimelapsePage: React.FC = () => {
 
   return (
     <PageContainer className="space-y-4">
-        <PageHeader
-          title="Daily Timelapse"
-          subtitle={date}
-          icon={Film}
-          backTo="/"
-          actions={
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <input
-                type="date"
-                value={date}
-                max={todayStr()}
-                onChange={(e) => e.target.value <= todayStr() && setDate(e.target.value)}
-                className="bg-card border border-white/[0.10] rounded-lg px-3 py-1.5 text-sm text-foreground"
-              />
-              <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Prev
-              </Button>
-              <Button
-                onClick={() => changeDate(1)}
-                variant="outline"
-                size="sm"
-                disabled={date >= todayStr()}
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          }
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+          <span className="text-sm text-muted-foreground">{date}</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={date}
+              max={todayStr()}
+              onChange={(e) => e.target.value <= todayStr() && setDate(e.target.value)}
+              className="bg-card border border-white/[0.10] rounded-lg px-3 py-1.5 text-sm text-foreground"
+            />
+            <Button onClick={() => changeDate(-1)} variant="outline" size="sm">
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Prev
+            </Button>
+            <Button
+              onClick={() => changeDate(1)}
+              variant="outline"
+              size="sm"
+              disabled={date >= todayStr()}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
 
         {isPast && (
           <div className="rounded-lg border border-white/[0.10] bg-card">

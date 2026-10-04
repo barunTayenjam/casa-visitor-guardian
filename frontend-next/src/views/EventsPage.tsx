@@ -279,36 +279,35 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
   return (
     <div className="w-full h-full flex flex-col bg-background">
       {!embedded && (
-        <div className="w-full px-4 sm:px-6 pt-6 pb-3 border-b border-white/[0.10]">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold tracking-tight">Events</h1>
-          <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
-            <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-card border-white/[0.10] rounded-lg">
-              <SelectItem value="newest" className="rounded-md text-xs">
-                Newest
-              </SelectItem>
-              <SelectItem value="oldest" className="rounded-md text-xs">
-                Oldest
-              </SelectItem>
-              <SelectItem value="confidence" className="rounded-md text-xs">
-                Confidence
-              </SelectItem>
-            </SelectContent>
-          </Select>
-         </div>
-       </div>
-       )}
+        <header className="shrink-0 border-b border-white/[0.06] bg-card py-4">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">Events</h1>
+            <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
+              <SelectTrigger className="w-[130px] h-8 rounded-md bg-white/[0.04] border-white/[0.10] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-white/[0.10] rounded-lg">
+                <SelectItem value="newest" className="rounded-md text-xs">
+                  Newest
+                </SelectItem>
+                <SelectItem value="oldest" className="rounded-md text-xs">
+                  Oldest
+                </SelectItem>
+                <SelectItem value="confidence" className="rounded-md text-xs">
+                  Confidence
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </header>
+      )}
 
        {/* Filters */}
       <SmartFilters cameras={cameraList} filters={filters} onFiltersChange={handleFiltersChange} />
 
       {/* Content */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10">
-          <div className="mx-auto max-w-7xl">
+        <div className="flex-1 overflow-y-auto mx-auto px-4 pt-5 pb-8 sm:px-6 sm:pt-6 sm:pb-10 max-w-7xl">
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (
@@ -470,7 +469,6 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
               </Pagination>
             </div>
           )}
-          </div>
         </div>
 
         {/* Event Detail Panel */}

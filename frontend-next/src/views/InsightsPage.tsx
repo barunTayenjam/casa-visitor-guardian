@@ -252,17 +252,14 @@ export default function InsightsPage() {
   return (
     <PageContainer className="space-y-6">
 
-      {/* ── Header ── */}
+      {/* ── Controls ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Daily Insights</h1>
-          <p className="text-sm text-muted-foreground">
-            {data.date}
-            {t.first_event && t.last_event
-              ? ` · Active ${fmtTime(t.first_event)}–${fmtTime(t.last_event)}`
-              : ' · No activity'}
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {data.date}
+          {t.first_event && t.last_event
+            ? ` · Active ${fmtTime(t.first_event)}–${fmtTime(t.last_event)}`
+            : ' · No activity'}
+        </p>
         <div className="flex items-center gap-2">
           <input type="date" value={date} max={todayLocal()} onChange={(e) => e.target.value && setDate(e.target.value)}
             aria-label="Select date"

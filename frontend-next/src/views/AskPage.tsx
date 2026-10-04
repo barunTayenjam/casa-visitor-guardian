@@ -290,14 +290,16 @@ export default function AskPage() {
   };
 
   return (
-    <PageContainer width="narrow">
-      <div className="mb-4 flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-[4px] border border-primary/20 bg-primary/10">
-          <MessageSquare className="h-4 w-4 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-base font-semibold text-foreground">Ask</h1>
-          <p className="text-xs text-muted-foreground">Chat with your recorded detection data</p>
+    <PageContainer width="full">
+      <div className="mb-4 flex items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] border border-primary/20 bg-primary/10">
+            <MessageSquare className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">Ask</h1>
+            <p className="text-sm text-muted-foreground">Chat with your recorded detection data</p>
+          </div>
         </div>
       </div>
 

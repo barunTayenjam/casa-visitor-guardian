@@ -56,14 +56,6 @@ const PeoplePage: React.FC = () => {
 
   return (
     <PageContainer>
-      {/* Header */}
-      <div className="pb-4">
-          <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">People</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-          Faces from verified person events. Name them to identify in your timeline.
-        </p>
-      </div>
-
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (

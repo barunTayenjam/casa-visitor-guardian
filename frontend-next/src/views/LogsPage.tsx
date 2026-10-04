@@ -106,29 +106,21 @@ export default function LogsPage() {
 
   return (
     <PageContainer>
-      <div className="pb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">System Logs</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Warnings and errors from backend and OpenCV, retained 14 days
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-xs h-8"
-            onClick={() => setAutoRefresh((v) => !v)}
-            title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
-          >
-            {autoRefresh ? <Pause className="h-3.5 w-3.5 mr-1.5" /> : <Play className="h-3.5 w-3.5 mr-1.5" />}
-            {autoRefresh ? 'Live' : 'Paused'}
-          </Button>
-          <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => loadLogs()}>
-            <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} />
-            Refresh
-          </Button>
-        </div>
+      <div className="pb-3 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-8"
+          onClick={() => setAutoRefresh((v) => !v)}
+          title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
+        >
+          {autoRefresh ? <Pause className="h-3.5 w-3.5 mr-1.5" /> : <Play className="h-3.5 w-3.5 mr-1.5" />}
+          {autoRefresh ? 'Live' : 'Paused'}
+        </Button>
+        <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => loadLogs()}>
+          <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} />
+          Refresh
+        </Button>
       </div>
 
       <div className="pb-3 flex flex-wrap items-center gap-2">

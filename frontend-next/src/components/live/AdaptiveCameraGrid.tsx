@@ -91,7 +91,7 @@ function LiveCameraTile({
               event.stopPropagation();
               onClose();
             }}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 hover:bg-black/80"
+            className="pointer-events-auto z-20 flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 hover:bg-black/80"
             aria-label="Close focused camera"
           >
             <X className="h-4 w-4" />
@@ -185,7 +185,7 @@ export function AdaptiveCameraGrid({
           </AnimatePresence>
         </div>
         {focusedCameraId && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 flex items-center justify-between px-3">
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex items-center justify-between px-3">
             <div className="pointer-events-auto flex items-center gap-2">
               {slideshowActive ? (
                 <>
@@ -213,10 +213,7 @@ export function AdaptiveCameraGrid({
               ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    onSlideshowChange?.(true);
-                    onCameraFocus?.(focusedCameraId);
-                  }}
+                  onClick={() => onSlideshowChange?.(true)}
                   className="flex h-10 items-center gap-2 rounded-md border border-white/[0.12] bg-black/60 px-3 text-xs font-medium text-white"
                 >
                   <MonitorPlay className="h-4 w-4" />
@@ -237,10 +234,10 @@ export function AdaptiveCameraGrid({
       </div>
       {focusedCameraId && cameras.length > 1 && (
         <>
-          <button type="button" onClick={() => navigate(-1)} className="absolute left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 md:flex" aria-label="Previous camera">
+          <button type="button" onClick={() => navigate(-1)} className="absolute left-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 md:flex" aria-label="Previous camera">
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <button type="button" onClick={() => navigate(1)} className="absolute right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 md:flex" aria-label="Next camera">
+          <button type="button" onClick={() => navigate(1)} className="absolute right-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 md:flex" aria-label="Next camera">
             <ChevronRight className="h-5 w-5" />
           </button>
         </>

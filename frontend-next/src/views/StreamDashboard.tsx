@@ -20,6 +20,8 @@ const StreamDashboard = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleCameraFocus = useCallback((cameraId: string | undefined) => {
+    // Leaving focused view by any path (X, Escape, tile toggle) ends the slideshow.
+    if (!cameraId) setSlideshowActive(false);
     setFocusedCameraId((previous) => {
       if (!cameraId) return undefined;
       return previous === cameraId ? undefined : cameraId;

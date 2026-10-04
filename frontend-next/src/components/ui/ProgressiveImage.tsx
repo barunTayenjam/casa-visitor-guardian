@@ -62,7 +62,7 @@ export function ProgressiveImage({
           src={src}
           alt={alt}
           className={cn(
-            'w-full h-full transition-all duration-700 ease-smooth',
+            'w-full h-full transition-[opacity,filter,transform] duration-700 ease-smooth',
             objectFit === 'contain' ? 'object-contain' : 'object-cover',
             loaded ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-lg scale-105',
           )}

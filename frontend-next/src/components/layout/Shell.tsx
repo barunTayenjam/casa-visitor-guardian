@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { useCameraStore } from '@/stores/camera';
 import { useSocketStore } from '@/stores/socket';
+import { ShortcutHelp } from '@/components/layout/ShortcutHelp';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -120,6 +121,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-[100dvh] flex-col bg-background text-foreground">
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+      <ShortcutHelp />
 
       <motion.nav
         initial={false}
@@ -167,6 +169,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <UserMenu onLogout={handleLogout} />
         </div>
       </motion.nav>
+      {/* iOS home-indicator safe area: nav keeps its 56px, inset fills below */}
+      <div className="h-[env(safe-area-inset-bottom)] shrink-0 bg-card" aria-hidden="true" />
     </div>
   );
 }

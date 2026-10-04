@@ -357,7 +357,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
                       }
                     }}
                     className={cn(
-                      'rounded-lg cursor-pointer transition-all duration-200',
+                      'rounded-lg cursor-pointer transition-[border-color,background-color] duration-200',
                       selectedEventId === event.id
                         ? 'border-2 border-primary/60 bg-card'
                         : 'border border-white/[0.10] hover:border-white/[0.16]',
@@ -392,13 +392,13 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
 
                       {/* Person count */}
                       {(event.personCount ?? 0) > 0 && (
-                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-white text-xs font-medium">
+                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/85 text-white text-xs font-medium">
                           {event.personCount} {event.personCount === 1 ? 'person' : 'persons'}
                         </div>
                       )}
 
                       {/* Confidence */}
-                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur-md text-xs font-mono tabular-nums">
+                      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/85 text-xs font-mono tabular-nums">
                         <span className={cn(
                           event.confidence >= 0.8 ? 'text-green-400' :
                           event.confidence >= 0.5 ? 'text-amber-400' : 'text-muted-foreground',

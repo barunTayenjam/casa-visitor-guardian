@@ -55,7 +55,7 @@ export function SectionWorkspace({
             <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">{title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           </div>
-          <TabsList className="h-9 w-full justify-start gap-1 rounded-[4px] border-white/[0.06] bg-muted p-1 backdrop-blur-none sm:w-fit">
+          <TabsList className="h-9 w-full justify-start gap-1 rounded-[4px] border border-white/[0.06] bg-muted p-1 sm:w-fit">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (

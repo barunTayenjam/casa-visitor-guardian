@@ -2,17 +2,22 @@
 
 import { useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
 import { Shell } from '@/components/layout/Shell';
 
 function AuthLoading() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background">
-      <div className="text-center">
-        <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading your workspace…</p>
+    <div
+      className="flex min-h-[100dvh] items-center justify-center bg-background"
+      role="status"
+      aria-busy="true"
+      aria-label="Loading your workspace"
+    >
+      <div className="w-full max-w-sm space-y-3 px-6">
+        <div className="h-10 w-40 animate-pulse rounded-[4px] bg-white/[0.06]" aria-hidden="true" />
+        <div className="h-3 w-full animate-pulse rounded-full bg-white/[0.04]" aria-hidden="true" />
+        <div className="h-3 w-2/3 animate-pulse rounded-full bg-white/[0.04]" aria-hidden="true" />
       </div>
     </div>
   );

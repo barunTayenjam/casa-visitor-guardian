@@ -167,7 +167,23 @@ export default function AskPage() {
   const [sending, setSending] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+
+  // Keyboard shortcut: / focuses input
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (typing) return;
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -437,6 +453,7 @@ export default function AskPage() {
           className="flex flex-1 items-center gap-2 rounded-[4px] border border-white/[0.06] bg-muted px-3 py-1.5 transition-colors focus-within:border-primary"
         >
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="e.g. when did the scooter leave today?"

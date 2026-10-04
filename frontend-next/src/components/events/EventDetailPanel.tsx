@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { MotionEvent } from '@/types/security';
 import {
   X,
@@ -133,6 +133,28 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Keyboard navigation: j = next, k = previous, Esc = close
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (typing) return;
+
+      if (e.key === 'j' && !e.ctrlKey && !e.metaKey && !e.altKey && onNext) {
+        e.preventDefault();
+        onNext();
+      } else if (e.key === 'k' && !e.ctrlKey && !e.metaKey && !e.altKey && onPrevious) {
+        e.preventDefault();
+        onPrevious();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onNext, onPrevious, onClose]);
+
   const handleImageLoad = useCallback((e?: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e?.currentTarget;
     const container = imageContainerRef.current;
@@ -224,10 +246,15 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   // If analysis already exists, the "Analyze" button is replaced by the "Analyzed" status automatically by the existing logic (analysis prop existence)
   // ... rest of component stays same
   return (
-    <div className="fixed inset-y-0 right-0 z-30 w-full md:w-[600px] lg:w-[700px] flex flex-col text-white">
+    <div
+      className="fixed inset-y-0 right-0 z-30 w-full md:w-[600px] lg:w-[700px] flex flex-col text-white"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Event details"
+    >
       {/* Outer shell */}
       <div className="h-full p-[1px] rounded-l-[4px] bg-white/[0.06]">
-        <div className="h-full rounded-l-[3px] bg-black/90 backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.10]">
+        <div className="h-full rounded-l-[3px] bg-black/95 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] flex flex-col overflow-hidden border-l border-white/[0.10]">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 hairline-bottom">
             <div className="flex items-center gap-3">
@@ -338,7 +365,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   {analysis.detectedEntities.people?.map((person, i) => (
                     <div
                       key={`person-${i}`}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/80 text-white shadow-lg backdrop-blur-sm"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/95 text-white"
                     >
                       👤 {person}
                     </div>
@@ -346,7 +373,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   {analysis.detectedEntities.vehicles?.map((vehicle, i) => (
                     <div
                       key={`vehicle-${i}`}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/80 text-white shadow-lg backdrop-blur-sm"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/95 text-white"
                     >
                       🚗 {vehicle}
                     </div>
@@ -354,7 +381,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   {analysis.detectedEntities.animals?.map((animal, i) => (
                     <div
                       key={`animal-${i}`}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/80 text-white shadow-lg backdrop-blur-sm"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/95 text-white"
                     >
                       🐾 {animal}
                     </div>
@@ -390,12 +417,12 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                 <div className="absolute top-3 right-3 flex items-center gap-2">
                   <button
                     onClick={() => setShowBoxes((v) => !v)}
-                    className="p-[1px] rounded-full bg-white/[0.08] hover:bg-white/[0.12] transition-all duration-500"
+                    className="p-[1px] rounded-full bg-white/[0.08] hover:bg-white/[0.12] transition-[background-color] duration-200"
                     title={showBoxes ? 'Hide bounding boxes' : 'Show bounding boxes'}
                   >
                     <div
                       className={cn(
-                        'rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1',
+                        'rounded-full bg-black/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1',
                         showBoxes ? 'text-green-400' : 'text-white/40',
                       )}
                     >
@@ -415,7 +442,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                     </div>
                   </button>
                   <div className="p-[1px] rounded-full bg-green-500/30 shadow-[0_0_16px_rgba(34,197,94,0.15)]">
-                    <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
+                    <div className="rounded-full bg-black/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
                       <Brain className="h-3 w-3 text-green-400" />
                       <span className="text-xs font-medium text-green-400">Analyzed</span>
                     </div>
@@ -430,9 +457,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         onAnalyze(event.id);
                       }}
                       disabled={analyzing}
-                      className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-all duration-500 ease-spring disabled:opacity-50"
+                      className="p-[1px] rounded-full bg-blue-500/30 shadow-[0_0_16px_rgba(59,130,246,0.15)] hover:bg-blue-500/40 transition-[background-color,opacity] duration-200 disabled:opacity-50"
                     >
-                      <div className="rounded-full bg-black/70 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
+                      <div className="rounded-full bg-black/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)] flex items-center gap-1.5 px-2.5 py-1">
                         {analyzing ? (
                           <span className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
                         ) : (
@@ -557,7 +584,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             {/* AI Analysis */}
             {analysis && (
               <div className="mx-5 mb-5 p-[1px] rounded-[1.25rem] bg-gradient-to-br from-blue-500/20 via-purple-500/15 to-indigo-500/20 shadow-[0_0_30px_rgba(59,130,246,0.06)]">
-                <div className="rounded-[calc(1.25rem-1px)] bg-black/70 backdrop-blur-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] p-5 space-y-5">
+                <div className="rounded-[calc(1.25rem-1px)] bg-black/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] p-5 space-y-5">
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -665,7 +692,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                               <div className="flex-1 h-[2px] rounded-full bg-white/[0.06] overflow-hidden">
                                 <div
                                   className={cn(
-                                    'h-full rounded-full transition-all duration-1000 ease-spring',
+                                    'h-full rounded-full transition-[width,background-color] duration-1000 ease-spring',
                                     analysis.threatAssessment.level === 'high'
                                       ? 'bg-red-500'
                                       : analysis.threatAssessment.level === 'medium'

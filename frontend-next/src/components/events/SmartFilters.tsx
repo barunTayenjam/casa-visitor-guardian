@@ -343,7 +343,7 @@ export const SmartFilters: React.FC<SmartFiltersProps> = ({
                       key={i}
                       onClick={() => handleCalendarDayClick(day)}
                       className={cn(
-                        'relative h-8 w-8 rounded-full text-xs transition-all ',
+                        'relative h-8 w-8 rounded-full text-xs transition-[background-color,opacity] duration-200',
                         getDayClasses(day),
                         !isSameMonth(day, calendarMonth) && 'opacity-30',
                       )}

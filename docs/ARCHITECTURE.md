@@ -1,6 +1,6 @@
 # SentryVision Architecture
 
-**Version:** 1.7.0 · **Last updated:** 2026-09-24
+**Version:** 1.7.1 · **Last updated:** 2026-10-05
 
 Full system architecture with C4 diagrams, component boundaries, and data flow.
 
@@ -36,7 +36,7 @@ C4Container
 
     Person(user, "Home Owner", "Browser")
 
-    Container(frontend, "Frontend", "React 18 + Vite + TailwindCSS", "SPA with 9 pages, served by backend")
+    Container(frontend, "Frontend", "Next.js 14 (React 18) + TailwindCSS", "App Router SPA, static export served by backend")
     Container(backend, "Backend", "Express 5 + TypeScript + Socket.io", "REST API + real-time events")
     Container(opencv, "OpenCV Service", "Python Flask + YOLOv8n + InsightFace", "Real-time detection pipeline")
     Container(go2rtc, "go2rtc", "alexxit/go2rtc:1.9.14", "RTSP → WebRTC/MSE bridge")
@@ -60,7 +60,7 @@ C4Container
 
 | Container | Tech | Port | RAM Limit (Docker) | Key Design Decision |
 |-----------|------|------|--------------------|---------------------|
-| Frontend | React 18 / TS / Vite / TailwindCSS / Radix (shadcn/ui) | :5173 dev / :9753 prod (static) | — | Served by backend as static files, no separate container in production |
+| Frontend | Next.js 14 (React 18) / TS / TailwindCSS / Radix (shadcn/ui) | :5173 dev (next dev) / :9753 prod (static export) | — | `next build` exports static `out/` served by backend; no separate container in production |
 | Backend | Express 5 / TypeScript / TypeORM / Socket.io | :9753 (public) | 512M | One container serves both API + frontend; bound to 0.0.0.0 |
 | OpenCV | Python Flask + MOG2 + YOLOv8n ONNX + InsightFace ArcFace | :8084 (HTTP, 127.0.0.1) / :9090 (WS, 127.0.0.1) | 2GB | Owns RTSP ingestion, motion gating, AI inference; not exposed publicly |
 | go2rtc | alexxit/go2rtc:1.9.14 | :8555 (WebRTC, public) / :1984 (API, 127.0.0.1) | 128M | Holds sole RTSP connection per camera; management API bound to localhost |
@@ -75,22 +75,22 @@ C4Container
 C4Component
     title Frontend — Component Diagram
 
-    Container_Boundary(fe, "Frontend (React 18)") {
-        Component(app, "App.tsx", "React Router v6", "Route definitions + provider nesting")
-        Component(auth, "AuthContext", "React Context", "JWT, user, MFA, login/logout")
-        Component(camera, "CameraContext", "React Context", "Camera list, stream state")
+    Container_Boundary(fe, "Frontend (Next.js 14, App Router)") {
+        Component(app, "app/", "Next.js App Router", "Route definitions + provider nesting (providers.tsx)")
+        Component(auth, "auth store", "Zustand", "JWT, user, MFA, login/logout")
+        Component(camera, "camera store", "Zustand", "Camera list, stream state")
         Component(socketCtx, "SocketContext", "React Context", "Socket.io connection status")
-        Component(pages, "Pages (10)", "Lazy-loaded", "StreamDashboard, Events, People, Insights, Timelapse, Ask, Logs, Settings, Login, NotFound")
+        Component(views, "Views (11)", "Route-level views", "StreamDashboard, Events, People, Insights, Timelapse, Ask, Logs, Security, Analytics, Settings, Login")
         Component(services, "API Services (11)", "baseClient.ts", "REST clients with JWT auto-refresh")
         Component(socketSvc, "SocketService", "Singleton", "Real-time event handling")
         Component(ui, "shadcn/ui", "Radix primitives", "Dialog, Select, Toast, Tooltip, Switch, Slider...")
     }
 
-    Rel(pages, auth, "Reads auth state")
-    Rel(pages, camera, "Reads camera list")
-    Rel(pages, services, "API calls")
-    Rel(pages, ui, "Renders components")
-    Rel(pages, socketCtx, "Reads connection status")
+    Rel(views, auth, "Reads auth state")
+    Rel(views, camera, "Reads camera list")
+    Rel(views, services, "API calls")
+    Rel(views, ui, "Renders components")
+    Rel(views, socketCtx, "Reads connection status")
     Rel(services, socketSvc, "Listens for real-time events")
 ```
 
@@ -98,43 +98,44 @@ C4Component
 
 ```
 Browser
-  ├─ React Router v6 → Route → Page (lazy-loaded)
-  │    ├─ Zustand stores (future) ← client state
+  ├─ Next.js App Router → Route → View
+  │    ├─ Zustand stores ← client state (ADR-001)
   │    ├─ React Query ← server state cache
   │    └─ API Services → baseClient.ts → fetchWithRetry (JWT + refresh)
-  │         └─ /api/* → Vite proxy → Backend :9753
+  │         └─ /api/* → next.config.ts rewrite → Backend :9753
   └─ SocketService ← Socket.io → Backend :9753
        └─ streamFrame, cameraStatus, eventCreated, personDetected, faceDetected
 ```
 
 ### Frontend Routing
 
-| Path | Page | Lazy | Auth |
-|------|------|------|------|
-| `/login` | Login.tsx | ✅ | Public |
-| `/app/streams` | StreamDashboard.tsx | ✅ | Protected |
-| `/app/events` | EventsPage.tsx | ✅ | Protected |
-| `/app/people` | PeoplePage.tsx | ✅ | Protected |
-| `/app/insights` | InsightsPage.tsx | ✅ | Protected |
-| `/app/timelapse` | TimelapsePage.tsx | ✅ | Protected |
-| `/app/ask` | AskPage.tsx | ✅ | Protected |
-| `/app/logs` | LogsPage.tsx | ✅ | Protected |
-| `/app/settings` | Settings.tsx | ✅ | Protected |
-| `/` | Auth redirect | — | — |
-| `*` | NotFound.tsx | ✅ | — |
+Canonical routes (App Router route group `(app)/`, linked from the nav):
+
+| Path | View | Auth |
+|------|------|------|
+| `/` | StreamDashboard.tsx | Protected |
+| `/login` | LoginPage.tsx | Public |
+| `/events` | EventsPage.tsx | Protected |
+| `/security` | SecurityPage.tsx | Protected |
+| `/analytics` | AnalyticsPage.tsx | Protected |
+| `/ask` | AskPage.tsx | Protected |
+| `/settings` | SettingsHub.tsx + Settings.tsx | Protected |
+
+Legacy `/app/*` paths still resolve: `events`, `ask`, `settings`, `security`,
+`analytics` redirect to the canonical routes; `streams`, `people`, `insights`,
+`logs`, `timelapse` exist only under `/app/*` pending migration.
 
 ### Provider Stack (Current)
 
 ```
-ErrorBoundary
-  → QueryClientProvider (React Query)
-    → TooltipProvider
-      → BrowserRouter
-        → SocketProvider (Socket.io)
-          → CameraProvider (camera state)
-            → AuthProvider (JWT + MFA)
-              → ScrollRevealProvider
-                → Routes
+layout.tsx (root, fonts + globals)
+  → Providers (components/providers.tsx)
+      → QueryClientProvider (React Query)
+        → TooltipProvider
+          → AuthBootstrap / SocketBootstrap / SocketQuerySync (Zustand hydration)
+          → ErrorBoundary
+          → Toaster
+    → App Router routes (login/, (app)/)
 ```
 
 ---
@@ -254,7 +255,7 @@ C4Component
 | Face recognition | IdentityEnrichment | InsightFace ArcFace, 30s identity cache |
 | Human verification | HumanVerifier | Tiered: YOLO ≥ 0.90 → face → MediaPipe pose → score floor |
 | Publishing | WebSocketPublisher | JPEG frames + JSON events to Node.js :9090 |
-| Persistence | detectionPersistence | PostgreSQL INSERT + Socket.io emit |
+| Persistence | detectionPersistence | PostgreSQL INSERT + Socket.io emit; person gate drops tracks under `PERSON_MIN_TRACK_HITS`/`PERSON_MIN_CONFIDENCE` |
 | AI enrichment | NvidiaController | Optional LLM scene analysis + threat assessment |
 
 ---
@@ -358,7 +359,7 @@ Docker Compose (4 services):
 
 | Decision | Status | ADR |
 |----------|--------|-----|
-| Zustand for frontend client state | Proposed | ADR-001 |
+| Zustand for frontend client state | Accepted | ADR-001 |
 | Frontend service decomposition | Proposed | ADR-002 |
 | Backend MVC enforcement | Proposed | ADR-003 |
 
@@ -366,4 +367,4 @@ Docker Compose (4 services):
 
 *For complete API endpoint mapping, see `API-SOURCE-OF-TRUTH.md`.*  
 *For environment variable reference, see `ENVIRONMENT.md`.*  
-*For interactive architecture diagram, open `.planning/graphs/SentryVision-Architecture.html`.*
+*For the detection pipeline in detail, see `OPENCV-SERVICE.md`.*

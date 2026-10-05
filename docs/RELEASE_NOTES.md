@@ -1,5 +1,37 @@
 # SentryVision Release Notes
 
+## SentryVision v1.7.1 — Honest Detection Pipeline
+
+**Release date**: October 2026
+
+This release replaces guessed person attributes with measured ones, closes the
+ghost-detection loopholes, and surfaces real pipeline metadata in the UI.
+
+### Detection Pipeline
+
+- **Pose-grounded person attributes**: the 33 MediaPipe landmarks the verifier
+  already computed now feed `pose_features.py` (stance / facing / arms raised /
+  torso lean). Removed fabrications: `estimatedAge` (was a distance lookup),
+  `suspicious` bodyLanguage (was bbox aspect, worth +20 threat points on
+  bystanders), `side_view_or_crouching`, and the `back_or_side` facing fallback.
+- **Person persistence gate** (Node): a person event persists only with
+  ≥ `PERSON_MIN_TRACK_HITS` (3), score ≥ `PERSON_MIN_CONFIDENCE` (0.55), and no
+  explicit rejection — one-frame ghosts no longer become person events.
+- **Person dedupe tuning**: 18px spatial window over 10 minutes
+  (`PERSON_DEDUPE_SHIFT_PX` / `PERSON_DEDUPE_WINDOW_MS`).
+- **ByteTrack round-2 recovery**: leftover strong detections re-associate with
+  lost tracks, eliminating duplicate track_ids that kept tracklet_len at 2.
+- **Snapshot-space bboxes**: bounding boxes are published in the event image's
+  pixel space (`bboxSpace: 'image'`), with a backfill script for historical rows.
+
+### Frontend
+
+- Events page renders what the pipeline measured: detection summary, pose chips,
+  person attributes, and verification verdict (Verified / Rejected / Unknown)
+  via `lib/detectionMeta` + `lib/mapEnhancedEvent` (vitest-tested).
+- Slideshow hardening: stable interval timer, document-level keyboard nav,
+  fullscreen-exit ends the slideshow.
+
 ## SentryVision v1.7.0 — Analytics, Chat & Codebase Hardening
 
 **Release date**: September 2026

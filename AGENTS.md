@@ -32,7 +32,7 @@ All docs live in the project root. Key files:
 
 | Layer    | Tech                                                                                              | Port |
 | -------- | ------------------------------------------------------------------------------------------------- | ---- |
-| Frontend | React 18, TypeScript, Vite, TailwindCSS, Radix UI (shadcn/ui) — served by backend as static files | 9753 |
+| Frontend | Next.js 14 (React 18), TypeScript, TailwindCSS, Radix UI (shadcn/ui) — static export served by backend | 9753 |
 | Backend  | Express 5, TypeScript, TypeORM, Socket.io                                                         | 9753 |
 | OpenCV   | Flask, OpenCV MOG2 + YOLOv8n + InsightFace face recognition                                       | 8084 |
 | Database | PostgreSQL 15+ (26 migrations)                                                                    | 5432 |
@@ -55,7 +55,7 @@ npm run dev:server       # Backend only
 npm run dev:full         # Both (kills stale ports first)
 
 # Build
-npm run build            # Frontend (Vite)
+npm run build            # Frontend (Next.js static export)
 npm run build:server     # Backend (tsc → dist/)
 npm run build:full       # All of the above
 
@@ -102,16 +102,16 @@ blocks the page scripts (blank page, React error #423).
 frontend-next/src/
 ├── app/                     # Next.js App Router (login/, (app)/, error/loading boundaries)
 ├── views/                   # Route-level views
-│   ├── StreamDashboard.tsx  # Live camera view (/app/streams) — default
-│   ├── EventsPage.tsx       # Main events view with filters (/app/events)
-│   ├── PeoplePage.tsx       # People / face clusters (/app/people)
-│   ├── InsightsPage.tsx     # Daily analytics dashboard (/app/insights)
-│   ├── TimelapsePage.tsx    # Timelapse view (/app/timelapse)
-│   ├── AskPage.tsx          # AI chat interface (/app/ask)
-│   ├── LogsPage.tsx         # System logs + alerts (/app/logs)
-│   ├── SecurityPage.tsx     # Security view
-│   ├── AnalyticsPage.tsx    # Analytics view
-│   ├── SettingsHub.tsx + Settings.tsx # System settings (/app/settings)
+│   ├── StreamDashboard.tsx  # Live camera view — default at (/)
+│   ├── EventsPage.tsx       # Main events view with filters (/events)
+│   ├── PeoplePage.tsx       # People / face clusters (/app/people, legacy-only path)
+│   ├── InsightsPage.tsx     # Daily analytics dashboard (/app/insights, legacy-only path)
+│   ├── TimelapsePage.tsx    # Timelapse view (/app/timelapse, legacy-only path)
+│   ├── AskPage.tsx          # AI chat interface (/ask)
+│   ├── LogsPage.tsx         # System logs + alerts (/app/logs, legacy-only path)
+│   ├── SecurityPage.tsx     # Security view (/security)
+│   ├── AnalyticsPage.tsx    # Analytics view (/analytics)
+│   ├── SettingsHub.tsx + Settings.tsx # System settings (/settings)
 │   └── LoginPage.tsx        # Auth + MFA (/login)
 ├── components/
 │   ├── live/                # AdaptiveCameraGrid, StreamPanel, RecentDetectionsSection

@@ -11,8 +11,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/barunTayenjam/sentryvision.git
-cd sentryvision
+git clone https://github.com/barunTayenjam/casa-visitor-guardian.git
+cd casa-visitor-guardian
 cp .env.example .env        # Edit with your secrets
 npm install
 npm run dev:full             # Starts frontend + backend
@@ -24,24 +24,24 @@ Default login: `admin` / `admin123` (change on first login).
 
 | Directory | Purpose | Language |
 |-----------|---------|----------|
-| `frontend/` | React 18 UI (Vite + TailwindCSS + shadcn/ui) | TypeScript |
-| `server/` | Express 5 API + Socket.io + detection pipeline | TypeScript |
-| `opencv-service/` | Python Flask service (YOLOv8n + InsightFace) | Python |
+| `frontend-next/` | Next.js 14 UI (App Router + TailwindCSS + shadcn/ui) | TypeScript |
+| `server/` | Express 5 API + Socket.io + persistence pipeline | TypeScript |
+| `opencv-service/` | Python Flask service (YOLOv8n + InsightFace + ByteTrack) | Python |
 | `database/` | PostgreSQL migrations (TypeORM) | SQL |
-| `docker/` | Dockerfiles and compose overrides | YAML |
-| `scripts/` | Install, deploy, diagnostics | Bash |
+| `docs/` | Project documentation | Markdown |
+| `scripts/` | Install, deploy, diagnostics, maintenance | Bash |
 
 ## Development Workflow
 
 ### Frontend
 
 ```bash
-cd frontend
+cd frontend-next
 npm install
-npm run dev          # Vite dev server on :5173 (proxies to :9753)
+npm run dev          # Next dev server on :5173 (proxies /api to :9753)
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
-npm run test         # Jest
+npm run test         # Vitest
 ```
 
 **Always run `npm run lint && npm run typecheck` after changes.**
@@ -110,16 +110,16 @@ export const exampleService = {
 ## Testing
 
 ```bash
-# Frontend
-npm run test              # All tests
-npm run test:services     # Service tests only
-npm run test:coverage     # With coverage
+# Frontend (Vitest, tests colocated as src/**/*.test.ts)
+cd frontend-next && npm test
 
-# Backend
+# Backend (Jest, tests in server/src/**/*.test.ts)
 cd server && npm run test:server
-```
 
-Tests live in `frontend/src/__tests__/`.
+# Python detection pipeline (needs the opencv image for cv2)
+docker run --rm -v $(pwd)/opencv-service:/app:ro -w /app sentryvision-opencv:latest \
+  sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests -q"
+```
 
 ## Commit Messages
 

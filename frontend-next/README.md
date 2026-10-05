@@ -1,6 +1,6 @@
 # SentryVision Next frontend
 
-Next.js 14 App Router frontend for SentryVision. The legacy Vite frontend remains in `frontend/` as a rollback target.
+Next.js 14 App Router frontend for SentryVision.
 
 ## Development
 

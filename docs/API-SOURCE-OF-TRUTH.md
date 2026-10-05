@@ -2,7 +2,7 @@
 
 **Generated:** 2026-09-24 · **v1.7.0** · From live codebase analysis (not docs)
 
-All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in prod; Vite proxies in dev.
+All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in prod; the Next dev server proxies `/api` to :9753 in dev.
 
 ---
 
@@ -10,7 +10,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 
 | Layer | Tech | Port | Mounts |
 |-------|------|------|--------|
-| Frontend | React 18 / TS / Vite / TailwindCSS / shadcn | 9753 (served by backend) | `frontend/` |
+| Frontend | Next.js 14 (React 18) / TS / TailwindCSS / shadcn | 9753 (static export served by backend) | `frontend-next/` |
 | Backend | Express 5 / TypeScript / TypeORM / Socket.io | 9753 | `server/` |
 | OpenCV | Flask / OpenCV MOG2 + YOLOv8n + InsightFace | 8084 (HTTP) / 9090 (WS) | `opencv-service/` |
 | Database | PostgreSQL 15+ (26 migrations) | 5432 | `database/` |
@@ -277,7 +277,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 ## Frontend Service → Backend Endpoint Mapping
 
 ### `baseClient.ts`
-- `API_URL = '/api'` (relative, Vite/nginx proxy)
+- `API_URL = '/api'` (relative — same origin; the backend serves the static export)
 - `fetchWithRetry` — auto JWT refresh on 401, retry 3x, 120s timeout
 - Helpers: `apiGet`, `apiPost`, `apiPut`, `apiDelete`, `apiClient` object
 

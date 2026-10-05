@@ -97,7 +97,6 @@ Plus direct routes in `index.ts`:
 | `SystemController` | Health, stats, overview, logs, cleanup |
 | `AlertController` | Alert CRUD, acknowledge |
 | `ChatController` | AI chat with tool calling |
-| `ReviewController` | Video review workflow |
 
 ## Services
 
@@ -110,7 +109,7 @@ Plus direct routes in `index.ts`:
 | `cacheService` | Redis/in-memory cache abstraction |
 | `consolidatedDetectionService` | Detection type defs + settings stubs |
 | `notificationService` | Web Push + notification preferences |
-| `batchProcessingWorker` | Async detection batch processing |
+| `batchProcessingDatabasePostgres` | Batch DB writes (cron-driven) |
 | `retentionPolicyService` | Data retention enforcement |
 | `automatedCleanupService` | Storage cleanup cron jobs |
 | `opencvMicroserviceClient` | HTTP client to Python OpenCV service |

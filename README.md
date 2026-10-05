@@ -135,7 +135,7 @@ docker compose up -d --build
 # Backend (API + static files + Socket.io)
 cd server && npm install && npm run dev    # :9753
 
-# Frontend (Vite HMR, proxies to :9753)
+# Frontend (Next dev server, proxies to :9753)
 cd frontend-next && npm install && npm run dev  # :5173
 ```
 

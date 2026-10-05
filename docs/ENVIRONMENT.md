@@ -44,8 +44,12 @@ cp .env.example .env
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PERSON_MIN_CONFIDENCE` | `0.55` | Minimum YOLO confidence for person |
-| `PERSON_MIN_TRACK_HITS` | `3` | ByteTracker hits before confirming |
+| `PERSON_MIN_CONFIDENCE` | `0.55` | Minimum YOLO confidence for person (Node persistence gate) |
+| `PERSON_MIN_TRACK_HITS` | `3` | ByteTracker hits before a person event persists |
+| `PERSON_DEDUPE_SHIFT_PX` | `18` | Bbox shift below which a sighting is the same person |
+| `PERSON_DEDUPE_WINDOW_MS` | `600000` | Window for that spatial match (10min) |
+| `YOLO_MODEL` | — | Force a specific YOLO model (default: auto → yolov8n) |
+| `HUMAN_VERIFIER_SCORE` | `0.55` | Score-floor tier threshold for person verification |
 | `LOW_RESOURCE_MODE` | `true` | Reduces model memory footprint |
 | `FFMPEG_THREADS` | `2` | FFmpeg decode threads |
 | `DEFAULT_FPS` | `2` | Default stream FPS |

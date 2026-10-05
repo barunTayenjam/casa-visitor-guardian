@@ -253,9 +253,6 @@ cd server && npm run test:server   # Jest
 # Python detection pipeline (needs the opencv image for cv2)
 docker run --rm -v $(pwd)/opencv-service:/app:ro -w /app sentryvision-opencv:latest \
   sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests -q"
-
-# Full CI (runs on every PR)
-docker compose -f docker-compose.ci.yml up --build --abort-on-container-exit
 ```
 
 ---

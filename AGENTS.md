@@ -57,8 +57,10 @@ npm run dev:full         # Both (kills stale ports first)
 # Build
 npm run build            # Frontend (Vite)
 npm run build:server     # Backend (tsc → dist/)
-npm run build:opencv     # OpenCV service assets
 npm run build:full       # All of the above
+
+# OpenCV assets (YOLO/InsightFace models) are baked in at Docker image build
+# (opencv-service/Dockerfile runs download_all_models.py) — no host build step.
 
 # Quality
 npm run lint             # ESLint (frontend)
@@ -129,7 +131,7 @@ frontend-next/src/
 │   └── SocketService.ts     # Socket.io singleton client
 ├── stores/                  # Zustand stores (auth, camera, socket, ui) — see ADR-001
 ├── hooks/                   # useCameraStream, useCameras, useEvents, useInsights, use-toast, ...
-├── lib/                     # utils.ts (cn()), theme.ts, chart-tokens.ts
+├── lib/                     # utils.ts (cn()), theme.ts
 ├── types/                   # Type definitions
 └── styles/                  # Design tokens
 ```
@@ -153,7 +155,6 @@ server/src/
 │   ├── AuthController.ts     # Login, register, MFA
 │   ├── DetectionController.ts
 │   ├── EventController.ts
-│   ├── ReviewController.ts
 │   ├── AnalyticsController.ts
 │   ├── SettingsController.ts
 │   ├── SystemController.ts
@@ -170,15 +171,13 @@ server/src/
 ├── services/                 # Business logic
 │   ├── nvidiaAnalysisService.ts       # NVIDIA AI integration
 │   ├── eventSearchService.ts          # Full-text event search
-│   ├── batchProcessingWorker.ts       # Async batch detection
-│   ├── batchProcessingDatabasePostgres.ts
+│   ├── batchProcessingDatabasePostgres.ts   # Batch DB writes (cron-driven)
 │   ├── retentionPolicyService.ts      # Data retention
 │   ├── notificationService.ts
 │   ├── automatedCleanupService.ts
 │   ├── opencvMicroserviceClient.ts    # HTTP client to OpenCV
 │   ├── cacheService.ts                # Redis/in-memory cache
 │   ├── serviceRegistry.ts
-│   ├── visitorService.ts
 │   ├── credentialEncryption.ts
 │   ├── inMemoryStateService.ts
 │   ├── circuitBreaker.ts
@@ -219,8 +218,6 @@ server/src/
 ├── auth/
 │   └── index.ts
 ├── migrations/               # TypeORM migrations
-└── events/
-    └── eventBus.ts
 ```
 
 ## Detection Pipeline

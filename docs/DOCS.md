@@ -6,9 +6,9 @@
 
 | Doc | Purpose | Audience |
 |-----|---------|----------|
-| [`README.md`](./README.md) | Overview, quick start, architecture | Everyone |
+| [`README.md`](../README.md) | Overview, quick start, architecture | Everyone |
 | [`PRODUCT.md`](./PRODUCT.md) | Product vision, users, capabilities | Product / contributors |
-| [`AGENTS.md`](./AGENTS.md) | AI agent instructions + codebase reference | AI agents |
+| [`AGENTS.md`](../AGENTS.md) | AI agent instructions + codebase reference | AI agents |
 | [`API-SOURCE-OF-TRUTH.md`](./API-SOURCE-OF-TRUTH.md) | Complete API endpoint inventory | Developers |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Dev workflow, conventions, PR process | Contributors |
 | [`ENVIRONMENT.md`](./ENVIRONMENT.md) | All environment variables | Operators |

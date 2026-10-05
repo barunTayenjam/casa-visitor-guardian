@@ -8,7 +8,7 @@ Home security system: React/TypeScript frontend, Express 5 backend, PostgreSQL, 
 
 **Version**: 1.7.0 | **Timezone**: IST (UTC+5:30) | **Status**: Production
 
-For documentation index see `DOCS.md`. For complete endpoint mapping see `API-SOURCE-OF-TRUTH.md`.
+For documentation index see `docs/DOCS.md`. For complete endpoint mapping see `docs/API-SOURCE-OF-TRUTH.md`.
 
 ## Documentation
 
@@ -17,16 +17,16 @@ All docs live in the project root. Key files:
 | Doc | Purpose |
 |-----|---------|
 | `README.md` | Quick start, architecture, commands |
-| `PRODUCT.md` | Product vision and capabilities |
-| `API-SOURCE-OF-TRUTH.md` | Complete API endpoint inventory |
-| `BACKEND.md` | Express API, routes, services, middleware |
-| `FRONTEND.md` | React app, pages, services, routing |
-| `DATABASE.md` | Schema, migrations, queries |
-| `ENVIRONMENT.md` | All environment variables |
-| `OPENCV-SERVICE.md` | Python detection pipeline |
-| `SECURITY.md` | Auth, rate limiting, headers |
-| `CONTRIBUTING.md` | Dev workflow, conventions |
-| `DOCS.md` | Full documentation index |
+| `docs/PRODUCT.md` | Product vision and capabilities |
+| `docs/API-SOURCE-OF-TRUTH.md` | Complete API endpoint inventory |
+| `docs/BACKEND.md` | Express API, routes, services, middleware |
+| `docs/FRONTEND.md` | React app, pages, services, routing |
+| `docs/DATABASE.md` | Schema, migrations, queries |
+| `docs/ENVIRONMENT.md` | All environment variables |
+| `docs/OPENCV-SERVICE.md` | Python detection pipeline |
+| `docs/SECURITY.md` | Auth, rate limiting, headers |
+| `docs/CONTRIBUTING.md` | Dev workflow, conventions |
+| `docs/DOCS.md` | Full documentation index |
 
 ## Architecture
 

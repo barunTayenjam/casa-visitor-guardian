@@ -13,7 +13,7 @@
   <a href="#-architecture"><strong>Architecture</strong></a> •
   <a href="#-capabilities"><strong>Capabilities</strong></a> •
   <a href="#-docs"><strong>Documentation</strong></a> •
-  <a href="https://github.com/barunTayenjam/casa-visitor-guardian/blob/main/DOCS.md"><strong>Full Docs</strong></a>
+  <a href="https://github.com/barunTayenjam/casa-visitor-guardian/blob/main/docs/DOCS.md"><strong>Full Docs</strong></a>
 </p>
 
 <p align="center">
@@ -164,15 +164,15 @@ cd frontend-next && npm install && npm run dev  # :5173
 
 | Document | Description |
 |----------|-------------|
-| [`DOCS.md`](./DOCS.md) | Complete documentation index |
-| [`PRODUCT.md`](./PRODUCT.md) | Product vision, users, capabilities |
-| [`API-SOURCE-OF-TRUTH.md`](./API-SOURCE-OF-TRUTH.md) | All API endpoints |
-| [`BACKEND.md`](./BACKEND.md) | Express API, routes, services |
-| [`FRONTEND.md`](./FRONTEND.md) | React app, pages, services |
-| [`DATABASE.md`](./DATABASE.md) | Schema, migrations, queries |
-| [`OPENCV-SERVICE.md`](./OPENCV-SERVICE.md) | Python detection pipeline |
-| [`SECURITY.md`](./SECURITY.md) | Auth, rate limiting, headers |
-| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Dev workflow, conventions |
+| [`DOCS.md`](./docs/DOCS.md) | Complete documentation index |
+| [`PRODUCT.md`](./docs/PRODUCT.md) | Product vision, users, capabilities |
+| [`API-SOURCE-OF-TRUTH.md`](./docs/API-SOURCE-OF-TRUTH.md) | All API endpoints |
+| [`BACKEND.md`](./docs/BACKEND.md) | Express API, routes, services |
+| [`FRONTEND.md`](./docs/FRONTEND.md) | React app, pages, services |
+| [`DATABASE.md`](./docs/DATABASE.md) | Schema, migrations, queries |
+| [`OPENCV-SERVICE.md`](./docs/OPENCV-SERVICE.md) | Python detection pipeline |
+| [`SECURITY.md`](./docs/SECURITY.md) | Auth, rate limiting, headers |
+| [`CONTRIBUTING.md`](./docs/CONTRIBUTING.md) | Dev workflow, conventions |
 
 ---
 
@@ -259,7 +259,7 @@ docker run --rm -v $(pwd)/opencv-service:/app:ro -w /app sentryvision-opencv:lat
 
 ## 🤝 Contributing
 
-We welcome PRs from the self-hosted community. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for:
+We welcome PRs from the self-hosted community. See [`CONTRIBUTING.md`](./docs/CONTRIBUTING.md) for:
 
 - Code conventions (TypeScript, file naming, imports)
 - Branch/PR workflow

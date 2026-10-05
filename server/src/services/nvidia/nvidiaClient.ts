@@ -10,8 +10,18 @@ const nvidiaBreaker = new CircuitBreaker('NvidiaService', {
   successThreshold: 2,
 });
 
-/** Ordered fallback chain — first available model wins. */
-const VISION_FALLBACK_MODELS = ['glm/glm-5.3-flash', 'glm/glm-4.6v', 'sonet-4'];
+/**
+ * Ordered fallback chain — first model that answers wins.
+ *
+ * The chain deliberately spans independent provider prefixes (`glm/`, `ag/`,
+ * `ollama-local/`). A router outage or exhausted quota on one provider must not
+ * take analysis down when another prefix can still serve the request.
+ */
+const VISION_FALLBACK_MODELS = [
+  'ag/gemini-3.8-flash',
+  'oc/mimo-v2.6-flash-free',
+  'openrouter/openrouter/free',
+];
 
 export function getEffectiveModel(requested?: string): string {
   if (requested) return requested;
@@ -54,6 +64,31 @@ async function parseLlmResponse(response: Response): Promise<any> {
   const raw = await response.text();
   const cleaned = raw.replace(/data:\s*\[DONE\]\s*$/, '').trim();
   return JSON.parse(cleaned);
+}
+
+const MAX_ATTEMPTS_PER_MODEL = 2;
+const MAX_BACKOFF_MS = 5000;
+
+/**
+ * Statuses worth trying again or moving past: the upstream provider is
+ * overloaded, rate limiting, or timing out. A 4xx like 400/401/403 means the
+ * request itself is wrong — retrying it on another model would fail identically,
+ * so those abort the chain immediately.
+ */
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function backoffDelayMs(attempt: number, retryAfterHeader: string | null): number {
+  const headerSeconds = Number(retryAfterHeader);
+  if (retryAfterHeader && Number.isFinite(headerSeconds) && headerSeconds > 0) {
+    return Math.min(headerSeconds * 1000, MAX_BACKOFF_MS);
+  }
+  return Math.min(1000 * attempt + Math.random() * 500, MAX_BACKOFF_MS);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function normalizeEntityArray(input: unknown, type: string): string[] {
@@ -201,12 +236,14 @@ export async function callNvidiaApi(
   };
 
   const fallbackModels = getModelFallbackChain();
+  const errors: string[] = [];
 
   for (const fallbackModel of fallbackModels) {
     let lastError: Error | null = null;
+    let advanceChain = false;
     requestBody.model = fallbackModel;
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
       try {
         const response = await nvidiaBreaker.execute(() =>
           fetch(`${baseUrl}/chat/completions`, {
@@ -226,33 +263,68 @@ export async function callNvidiaApi(
             'NvidiaClient',
           );
           lastError = new Error(`Model ${fallbackModel} not found`);
-          break; // skip to next model in chain
+          advanceChain = true;
+          break;
         }
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            `NVIDIA API error: ${response.status} - ${errorData.message || response.statusText}`,
-          );
+          const errorData = (await response.json().catch(() => ({}))) as {
+            message?: string;
+            error?: { message?: string };
+          };
+          const detail =
+            errorData.error?.message || errorData.message || response.statusText || 'unknown';
+          const err = new Error(`NVIDIA API error: ${response.status} - ${detail}`);
+
+          if (!isRetryableStatus(response.status)) {
+            errors.push(`${fallbackModel}: ${err.message}`);
+            throw err;
+          }
+
+          lastError = err;
+          advanceChain = true;
+          if (attempt < MAX_ATTEMPTS_PER_MODEL) {
+            await sleep(backoffDelayMs(attempt, response.headers.get('retry-after')));
+            continue;
+          }
+          break;
         }
 
+        if (lastError) {
+          logger.info(
+            `Model ${fallbackModel} recovered on attempt ${attempt} after a retryable failure`,
+            'NvidiaClient',
+          );
+        }
         return await parseLlmResponse(response);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        lastError = err instanceof Error ? err : new Error(String(err));
-        if (attempt < 2) {
-          const delay = Math.min(1000 * attempt + Math.random() * 500, 3000);
-          await new Promise((resolve) => setTimeout(resolve, delay));
+
+        const normalized = err instanceof Error ? err : new Error(String(err));
+        if (errors.some((e) => e.endsWith(normalized.message))) throw normalized;
+
+        lastError = normalized;
+        advanceChain = true;
+        if (attempt < MAX_ATTEMPTS_PER_MODEL) {
+          await sleep(backoffDelayMs(attempt, null));
         }
       }
     }
 
-    if (lastError && !lastError.message.includes('not found')) {
-      throw lastError;
+    if (lastError) errors.push(`${fallbackModel}: ${lastError.message}`);
+
+    if (lastError && !advanceChain) throw lastError;
+    if (lastError) {
+      logger.warn(
+        `Model ${fallbackModel} failed (${lastError.message}), advancing to next fallback`,
+        'NvidiaClient',
+      );
     }
   }
 
-  throw new Error('NVIDIA API call failed: all fallback models exhausted');
+  throw new Error(
+    `NVIDIA API call failed: all ${fallbackModels.length} fallback models exhausted — ${errors.join('; ')}`,
+  );
 }
 
 export function getNvidiaBreakerState(): string {

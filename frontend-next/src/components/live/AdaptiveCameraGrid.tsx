@@ -119,7 +119,6 @@ export function AdaptiveCameraGrid({
 }: AdaptiveCameraGridProps) {
   const [interval, setIntervalSeconds] = useState(5);
   const reduceMotion = useReducedMotion();
-  const slideshowRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const focusCamera = useCallback(
     (cameraId: string) => onCameraFocus?.(focusedCameraId === cameraId ? undefined : cameraId),
@@ -136,14 +135,34 @@ export function AdaptiveCameraGrid({
     [cameras, focusedCameraId, onCameraFocus],
   );
 
+  const handlersRef = useRef({ navigate, onCameraFocus });
+
   useEffect(() => {
-    if (slideshowActive) {
-      slideshowRef.current = setInterval(() => navigate(1), interval * 1000);
-    }
-    return () => {
-      if (slideshowRef.current) clearInterval(slideshowRef.current);
+    handlersRef.current = { navigate, onCameraFocus };
+  });
+
+  useEffect(() => {
+    if (!slideshowActive) return;
+    const timer = setInterval(() => handlersRef.current.navigate(1), interval * 1000);
+    return () => clearInterval(timer);
+  }, [interval, slideshowActive]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      ) {
+        return;
+      }
+      if (event.key === 'ArrowLeft') handlersRef.current.navigate(-1);
+      else if (event.key === 'ArrowRight') handlersRef.current.navigate(1);
+      else if (event.key === 'Escape') handlersRef.current.onCameraFocus?.(undefined);
     };
-  }, [interval, navigate, slideshowActive]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const gridClass = useMemo(() => {
     if (focusedCameraId) return 'grid-cols-1 grid-rows-1';
@@ -165,11 +184,7 @@ export function AdaptiveCameraGrid({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col" onKeyDown={(event) => {
-      if (event.key === 'ArrowLeft') navigate(-1);
-      if (event.key === 'ArrowRight') navigate(1);
-      if (event.key === 'Escape') onCameraFocus?.(undefined);
-    }}>
+    <div className="relative flex h-full min-h-0 flex-col">
       <div className="relative min-h-0 flex-1">
         <div className={cn('grid h-full auto-rows-fr gap-2', gridClass)} role="group" aria-label="Camera grid">
           <AnimatePresence initial={false}>

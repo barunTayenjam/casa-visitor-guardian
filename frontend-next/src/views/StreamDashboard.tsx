@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdaptiveCameraGrid } from '@/components/live/AdaptiveCameraGrid';
 import { ThreatMatrix } from '@/components/live/ThreatMatrix';
 import { VerificationTimeline } from '@/components/live/VerificationTimeline';
@@ -18,23 +18,59 @@ const StreamDashboard = () => {
   const [slideshowActive, setSlideshowActive] = useState(false);
   const [showDataPanel, setShowDataPanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const slideshowFullscreenRef = useRef(false);
 
-  const handleCameraFocus = useCallback((cameraId: string | undefined) => {
-    // Leaving focused view by any path (X, Escape, tile toggle) ends the slideshow.
-    if (!cameraId) setSlideshowActive(false);
-    setFocusedCameraId((previous) => {
-      if (!cameraId) return undefined;
-      return previous === cameraId ? undefined : cameraId;
-    });
+  const exitSlideshowFullscreen = useCallback(() => {
+    if (!slideshowFullscreenRef.current) return;
+    slideshowFullscreenRef.current = false;
+    if (!document.fullscreenElement || !document.exitFullscreen) return;
+    void document.exitFullscreen().catch(() => undefined);
   }, []);
+
+  const stopSlideshow = useCallback(() => {
+    setSlideshowActive(false);
+    exitSlideshowFullscreen();
+  }, [exitSlideshowFullscreen]);
+
+  const handleCameraFocus = useCallback(
+    (cameraId: string | undefined) => {
+      // Leaving focused view by any path (X, Escape, tile toggle) ends the slideshow.
+      if (!cameraId) stopSlideshow();
+      setFocusedCameraId((previous) => {
+        if (!cameraId) return undefined;
+        return previous === cameraId ? undefined : cameraId;
+      });
+    },
+    [stopSlideshow],
+  );
 
   const handleStartSlideshow = useCallback(() => {
     if (cameras.length === 0) return;
     handleCameraFocus(cameras[0].id);
     setSlideshowActive(true);
+    slideshowFullscreenRef.current = true;
     const fullscreenRequest = document.documentElement.requestFullscreen?.();
     if (fullscreenRequest) void fullscreenRequest.catch(() => undefined);
   }, [cameras, handleCameraFocus]);
+
+  const handleSlideshowChange = useCallback(
+    (active: boolean) => {
+      if (active) setSlideshowActive(true);
+      else stopSlideshow();
+    },
+    [stopSlideshow],
+  );
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement) return;
+      if (!slideshowFullscreenRef.current) return;
+      slideshowFullscreenRef.current = false;
+      setSlideshowActive(false);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 bg-background">
@@ -90,7 +126,7 @@ const StreamDashboard = () => {
             focusedCameraId={focusedCameraId}
             onCameraFocus={handleCameraFocus}
             slideshowActive={slideshowActive}
-            onSlideshowChange={setSlideshowActive}
+            onSlideshowChange={handleSlideshowChange}
           />
         </div>
       </div>

@@ -17,6 +17,7 @@ interface DetectionData {
   identityConfidence?: number | null;
   humanVerified?: boolean;
   verificationTier?: string | null;
+  personAttributes?: Record<string, unknown> | null;
 }
 
 interface FaceDetectionData {
@@ -44,7 +45,7 @@ interface BackendMotionEvent {
   imageUrl?: string;
 }
 
-interface EnhancedEvent {
+export interface EnhancedEvent {
   id: string;
   event_type: string;
   filename: string;

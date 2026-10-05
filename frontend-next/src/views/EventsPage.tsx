@@ -15,6 +15,7 @@ import { eventService } from '@/services/api/eventService';
 import { detectionService } from '@/services/api/detectionService';
 import { Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { detectionInfo } from '@/lib/detectionMeta';
 import {
   Pagination,
   PaginationContent,
@@ -491,34 +492,57 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
             />
             <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.10] overflow-y-auto bg-background">
               {/* Verification Panel */}
-              {getVerification(selectedEvent) && (
-                <div className="m-4 p-4 rounded-lg bg-card border border-white/[0.10]">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Human Verification
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-green-400 bg-green-500/10 border border-green-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      Verified
-                    </span>
-                  </div>
-                  {(() => {
-                    const v = getVerification(selectedEvent)!;
-                    const rows: Array<[string, string]> = [
-                      ['Method', TIER_LABELS[v.tier]],
-                      ['Pose keypoints', String(v.keypoints)],
-                      ['Face detected', v.faceDetected ? 'Yes' : 'No'],
-                      ['Check latency', `${v.elapsedMs} ms`],
-                    ];
-                    return rows.map(([label, value]) => (
+              {(() => {
+                const v = getVerification(selectedEvent);
+                if (!v) return null;
+                const info = detectionInfo(selectedEvent);
+                const rows: Array<[string, string]> = [
+                  ['Method', TIER_LABELS[v.tier]],
+                  ...info.verification.map((row) => [row.label, row.value] as [string, string]),
+                ];
+                const verdict =
+                  info.verified === true
+                    ? {
+                        label: 'Verified',
+                        className: 'text-green-400 bg-green-500/10 border-green-500/20',
+                        Icon: CheckCircle2,
+                      }
+                    : info.verified === false
+                      ? {
+                          label: 'Rejected',
+                          className: 'text-red-400 bg-red-500/10 border-red-500/20',
+                          Icon: AlertTriangle,
+                        }
+                      : {
+                          label: 'Unknown',
+                          className: 'text-muted-foreground bg-white/[0.06] border-white/[0.10]',
+                          Icon: AlertTriangle,
+                        };
+                return (
+                  <div className="m-4 p-4 rounded-lg bg-card border border-white/[0.10]">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Human Verification
+                      </span>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border',
+                          verdict.className,
+                        )}
+                      >
+                        <verdict.Icon className="w-2.5 h-2.5" />
+                        {verdict.label}
+                      </span>
+                    </div>
+                    {rows.map(([label, value]) => (
                       <div key={label} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.06] last:border-0">
                         <span className="text-muted-foreground">{label}</span>
                         <span className="text-foreground/90 font-medium font-mono tabular-nums">{value}</span>
                       </div>
-                    ));
-                  })()}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
               <RelatedEvents
                 currentEvent={selectedEvent}
                 events={events}

@@ -77,6 +77,13 @@ export interface MotionEvent {
     confidence: number;
     name?: string;
     isKnown?: boolean;
+    class?: string;
+    identity?: string | null;
+    trackId?: number;
+    trackletLen?: number | null;
+    verificationTier?: string | null;
+    humanVerified?: boolean;
+    personAttributes?: Record<string, unknown> | null;
     boundingBox: {
       x: number;
       y: number;

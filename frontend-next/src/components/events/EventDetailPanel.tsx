@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProgressiveImage } from '@/components/ui/ProgressiveImage';
 import { cn } from '@/lib/utils';
+import { detectionInfo } from '@/lib/detectionMeta';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -192,6 +193,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   const hasNvidiaBoxes = boxes && boxes.length > 0 && showBoxes && imageScale.renderedW > 0;
 
   if (!event) return null;
+
+  const detection = detectionInfo(event);
 
   const currentIndex = events.findIndex((e) => e.id === event.id);
   const hasNext = currentIndex < events.length - 1;
@@ -532,28 +535,47 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                 </div>
               )}
 
-              {/* Additional Metadata */}
-              {event.metadata && Object.keys(event.metadata).length > 0 && (
+              {/* Detection */}
+              {(detection.summary.length > 0 ||
+                detection.pose.length > 0 ||
+                detection.attributes.length > 0) && (
                 <div>
                   <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">
-                    Additional Info
+                    Detection
                   </h4>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    {event.metadata.lightLevel !== undefined && (
-                      <>
-                        <dt className="text-white/60">Light Level</dt>
-                        <dd className="text-white">{String(event.metadata.lightLevel)}</dd>
-                      </>
-                    )}
-                    {event.metadata.motionArea !== undefined && (
-                      <>
-                        <dt className="text-white/60">Motion Area</dt>
-                        <dd className="text-white">
-                          {Number(event.metadata.motionArea).toLocaleString()} px
-                        </dd>
-                      </>
-                    )}
-                  </dl>
+                  {detection.summary.length > 0 && (
+                    <dl className="grid grid-cols-2 gap-3 text-sm mb-3">
+                      {detection.summary.map((row) => (
+                        <React.Fragment key={row.label}>
+                          <dt className="text-white/60">{row.label}</dt>
+                          <dd className="text-white truncate">{row.value}</dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                  )}
+                  {detection.pose.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {detection.pose.map((row) => (
+                        <span
+                          key={row.label}
+                          className="px-2 py-0.5 rounded text-xs bg-white/[0.06] border border-white/[0.08] text-white/60"
+                        >
+                          {row.label}:{' '}
+                          <span className="text-white/90 font-medium">{row.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {detection.attributes.length > 0 && (
+                    <dl className="grid grid-cols-2 gap-3 text-sm">
+                      {detection.attributes.map((row) => (
+                        <React.Fragment key={row.label}>
+                          <dt className="text-white/60">{row.label}</dt>
+                          <dd className="text-white truncate">{row.value}</dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                  )}
                 </div>
               )}
 

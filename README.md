@@ -224,7 +224,9 @@ GO2RTC_PUBLIC_URL=http://go2rtc:1984
 REDIS_DISABLED=true
 
 # Detection
-PERSON_MIN_CONFIDENCE=0.45
+PERSON_MIN_CONFIDENCE=0.55   # floor for a person event to persist
+PERSON_MIN_TRACK_HITS=3      # track sightings required before persisting a person
+PERSON_DEDUPE_SHIFT_PX=18    # bbox shift below which a sighting is the same person
 DEFAULT_FPS=2
 OPENCV_CPU_LIMIT=6.0
 
@@ -240,13 +242,17 @@ CAM2_RTSP_URL=rtsp://user:pass@ip:554/stream1
 ```bash
 # Frontend
 npm run lint          # ESLint
-npm run typecheck     # TypeScript strict check
-npm run test          # Jest (coverage)
+npm run typecheck     # TypeScript check
+cd frontend-next && npm run test   # Vitest unit tests
 
 # Backend
 cd server && npm run lint:server
 cd server && npm run build
-cd server && npm run test:server
+cd server && npm run test:server   # Jest
+
+# Python detection pipeline (needs the opencv image for cv2)
+docker run --rm -v $(pwd)/opencv-service:/app:ro -w /app sentryvision-opencv:latest \
+  sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests -q"
 
 # Full CI (runs on every PR)
 docker compose -f docker-compose.ci.yml up --build --abort-on-container-exit

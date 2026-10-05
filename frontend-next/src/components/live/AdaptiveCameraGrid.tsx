@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, MonitorPlay, MonitorStop, X } from 'lucide-react';
 import type { Camera } from '@/types/security';
 import { useCameraStream } from '@/hooks/useCameraStream';
+import { nextFocusId } from '@/lib/slideshow';
 import { cn } from '@/lib/utils';
 
 function LiveCameraTile({
@@ -127,10 +128,8 @@ export function AdaptiveCameraGrid({
 
   const navigate = useCallback(
     (direction: 1 | -1) => {
-      if (cameras.length < 2) return;
-      const index = focusedCameraId ? cameras.findIndex((camera) => camera.id === focusedCameraId) : -1;
-      const nextIndex = index < 0 ? (direction === 1 ? 0 : cameras.length - 1) : (index + direction + cameras.length) % cameras.length;
-      onCameraFocus?.(cameras[nextIndex].id);
+      const nextId = nextFocusId(focusedCameraId, cameras, direction);
+      if (nextId) onCameraFocus?.(nextId);
     },
     [cameras, focusedCameraId, onCameraFocus],
   );

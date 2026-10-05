@@ -41,7 +41,14 @@ function LiveCameraTile({
         focused ? 'absolute inset-0 z-10 rounded-none' : 'h-full',
       )}
     >
-      <button type="button" onClick={onClick} className="absolute inset-0 z-10 cursor-pointer" aria-label={`Focus ${camera.name}`} />
+      <button
+        type="button"
+        {...(focused
+          ? { onPointerDown: handlePointerDown, onPointerMove: handlePointerMove, onPointerUp: handlePointerUp }
+          : { onClick })}
+        className="absolute inset-0 z-10 cursor-pointer"
+        aria-label={focused ? `Fullscreen ${camera.name}` : `Focus ${camera.name}`}
+      />
       <video
         ref={videoRef}
         autoPlay

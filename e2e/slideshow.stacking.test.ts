@@ -44,6 +44,20 @@ function topmostCamera(page: import('@playwright/test').Page) {
   });
 }
 
+test('focused view shows a single close control', async ({ page }) => {
+  await login(page);
+  await page.locator('[aria-label="Focus Camera 1"]').click();
+  await page.waitForTimeout(1000);
+  const closeControls = page.locator(
+    '[aria-label="Close focused camera"], [aria-label="Exit focused camera"]',
+  );
+  expect(await closeControls.count()).toBe(1);
+
+  await page.getByRole('button', { name: 'Next camera' }).click();
+  await page.waitForTimeout(1000);
+  expect(await closeControls.count()).toBe(1);
+});
+
 test('focused camera renders above the other tiles', async ({ page }) => {
   await login(page);
   await page.locator('[aria-label="Focus Camera 1"]').click();

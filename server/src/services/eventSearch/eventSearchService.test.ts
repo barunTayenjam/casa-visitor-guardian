@@ -58,3 +58,74 @@ describe('eventSearchService.getCameraMotionEvents', () => {
     expect(events[0].cameraName).toBe('Camera unknown');
   });
 });
+
+describe('eventSearchService.listEnhanced', () => {
+  let AppDataSource;
+  let service;
+
+  const baseRow = {
+    id: 'evt-meta',
+    event_type: 'person',
+    timestamp: '2026-10-05T09:00:00.000Z',
+    camera_id: 'cam1',
+    confidence: 0.87,
+    file_path: '/app/data/detections/2026-10/events/person.jpg',
+    persons_detected: 1,
+    faces_detected: 0,
+    known_faces_count: 0,
+    unknown_faces_count: 1,
+    object_detections: [{ bbox: { x: 44, y: 60, width: 75, height: 120 }, class: 'person', trackId: 7 }],
+    face_detections: [],
+    metadata: JSON.stringify({
+      bboxSpace: 'image',
+      humanVerification: {
+        verified: true,
+        tier: 'pose',
+        keypoints: 33,
+        elapsedMs: 61,
+        pose: { stance: 'standing', facing: 'side', arms_raised: false },
+      },
+    }),
+  };
+
+  beforeAll(async () => {
+    const dbMod = await import('../../database.js');
+    AppDataSource = dbMod.AppDataSource;
+    const mod = await import('./eventSearchService.js');
+    service = mod.EventSearchService ? new mod.EventSearchService() : mod.default;
+  });
+
+  it('passes the parsed metadata through so verification and pose reach the UI', async () => {
+    AppDataSource.query
+      .mockResolvedValueOnce([{ total: '1' }])
+      .mockResolvedValueOnce([baseRow]);
+
+    const { events } = await service.listEnhanced({ page: '1', pageSize: '10' });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].metadata).toMatchObject({
+      bboxSpace: 'image',
+      humanVerification: {
+        verified: true,
+        tier: 'pose',
+        keypoints: 33,
+        pose: { stance: 'standing', facing: 'side' },
+      },
+    });
+  });
+
+  it('returns null metadata instead of a bare [] when the column is empty or malformed', async () => {
+    AppDataSource.query
+      .mockResolvedValueOnce([{ total: '2' }])
+      .mockResolvedValueOnce([
+        { ...baseRow, id: 'evt-null', metadata: null },
+        { ...baseRow, id: 'evt-bad', metadata: 'not-json' },
+      ]);
+
+    const { events } = await service.listEnhanced({ page: '1', pageSize: '10' });
+
+    expect(events[0].metadata).toBeNull();
+    expect(events[1].metadata).toBeNull();
+  });
+});
+

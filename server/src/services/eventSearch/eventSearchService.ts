@@ -223,6 +223,17 @@ export class EventSearchService {
       }
     };
 
+    const safeObject = (val: any): Record<string, unknown> | null => {
+      if (!val) return null;
+      if (typeof val === 'object' && !Array.isArray(val)) return val;
+      try {
+        const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+      } catch {
+        return null;
+      }
+    };
+
     const mapped = events.map((row: Record<string, unknown>) => ({
       id: row.id,
       event_type: row.event_type,
@@ -235,6 +246,7 @@ export class EventSearchService {
       persons_detected: row.persons_detected || 0,
       faces_detected: row.faces_detected || 0,
       known_faces_count: row.known_faces_count || 0,
+      metadata: safeObject(row.metadata),
       label: row.label,
       is_read: row.is_read,
       object_detections:

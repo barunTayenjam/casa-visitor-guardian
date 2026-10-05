@@ -14,6 +14,16 @@ interface FrameMessage {
   timestamp: number;
 }
 
+export interface PoseDescription {
+  stance?: string;
+  facing?: string;
+  arms_raised?: boolean;
+  torso_lean_deg?: number;
+  keypoints?: number;
+  visible_landmarks?: number;
+  mean_visibility?: number;
+}
+
 export interface HumanVerification {
   verified: boolean;
   tier: 'yolo_high' | 'face' | 'pose' | 'score_floor' | 'disabled';
@@ -24,6 +34,7 @@ export interface HumanVerification {
   roi_h: number;
   elapsed_ms: number;
   track_id?: number;
+  pose?: PoseDescription | null;
 }
 
 export interface TrackingEvent {

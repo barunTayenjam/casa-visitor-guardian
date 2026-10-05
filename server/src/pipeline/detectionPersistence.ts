@@ -12,6 +12,11 @@ import NotificationService from '../services/notificationService.js';
 import { VEHICLE_CLASSES } from '../shared/constants.js';
 import { isSceneMemoryEnabled, compareEventToBaseline } from '../services/sceneMemoryService.js';
 
+function envNumber(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export interface SceneDetection {
   className: string;
   classId?: number;
@@ -45,6 +50,37 @@ export async function persistDetectionEvent(
   const isPerson = className === 'person';
   const isFace = !!identity && identity !== 'unknown';
   const isVehicle = VEHICLE_CLASSES.includes(className);
+
+  // --- Person persistence gate ---
+  // HumanVerifier's `score_floor` tier approves a track on YOLO confidence
+  // alone whenever neither uniface nor MediaPipe found anything, and neither
+  // YOLO score nor bbox aspect ratio separates real people from ghosts in this
+  // footage — their score distributions are near-identical. Persistence is what
+  // separates them: an intermittent false positive is seen once and then gone
+  // for minutes, so its tracklet never accumulates hits, while a person walking
+  // through does.
+  //
+  // This gate did not exist. Python's PERSON_MIN_TRACK_HITS only decided which
+  // process wrote the JPEG; when Python withheld it, the fallback below
+  // synthesised an image from the live frame and the event was persisted
+  // anyway — which is how an empty courtyard ended up in the events list as a
+  // person.
+  if (isPerson) {
+    const minHits = envNumber(process.env.PERSON_MIN_TRACK_HITS, 3);
+    const minConfidence = envNumber(process.env.PERSON_MIN_CONFIDENCE, 0.55);
+    const hits = ev.trackletLen ?? 0;
+
+    if (hits < minHits || score < minConfidence || ev.humanVerification?.verified === false) {
+      logger.debug(
+        `[DetectionPersistence] Dropped unconfirmed person track ${trackId} on ${cameraId} ` +
+          `(hits=${hits}/${minHits}, score=${score.toFixed(2)}/${minConfidence}, ` +
+          `tier=${ev.humanVerification?.tier ?? 'n/a'})`,
+        'PIPELINE',
+      );
+      return;
+    }
+  }
+
   const eventTypeStr = isPerson ? 'person' : isVehicle ? 'vehicle' : isFace ? 'face' : 'motion';
 
   let filePath = ev.filePath ?? '';
@@ -178,6 +214,7 @@ export async function persistDetectionEvent(
     identityConfidence: d.identityConfidence ?? null,
     humanVerified: d.humanVerification?.verified === true,
     verificationTier: d.humanVerification?.tier ?? null,
+    personAttributes: d.trackId === trackId ? (ev.personAttributes ?? null) : null,
   }));
   event.face_detections = identifiedDets.map((d) => ({
     id: `track_${d.trackId}`,
@@ -199,13 +236,19 @@ export async function persistDetectionEvent(
       byClass,
       distinctTracks: new Set(sceneDets.map((d) => d.trackId)).size,
     },
+    // Python publishes each bbox in the pixels of the JPEG it names (640x360
+    // when Node synthesised the preview itself). Stamping that fact lets the
+    // backfill know which historical rows still carry detect-frame coords.
+    bboxSpace: 'image',
     ...(ev.humanVerification
       ? {
           humanVerification: {
+            verified: ev.humanVerification.verified,
             tier: ev.humanVerification.tier,
             keypoints: ev.humanVerification.keypoints,
             faceDetected: ev.humanVerification.face_detected,
             elapsedMs: ev.humanVerification.elapsed_ms,
+            pose: ev.humanVerification.pose ?? null,
           },
         }
       : {}),

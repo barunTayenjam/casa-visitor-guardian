@@ -71,9 +71,10 @@ services:
       - VAPID_KEYS_DIR=/app/data/vapid
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - NVIDIA_API_BASE_URL=${NVIDIA_API_BASE_URL}
-      # Must exist at the proxy — gemini/* 404s. Fallback chain in nvidiaClient.ts
-      # covers glm/glm-4.6v, sonet-4 if this one dies.
-      - NVIDIA_MODEL=${NVIDIA_MODEL:-glm/glm-5.3-flash}
+      # Analysis model. VISION_FALLBACK_MODELS in server/src/services/nvidia/
+      # nvidiaClient.ts spans ag/ and ollama-local/ so a single dead provider
+      # prefix cannot take AI analysis down.
+      - NVIDIA_MODEL=${NVIDIA_MODEL:-ag/gemini-3.8-flash}
       # Local on-device LLM (Ollama on host). Set OLLAMA_BASE_URL to enable;
       # overrides NVIDIA cloud analysis. Empty = cloud mode.
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}

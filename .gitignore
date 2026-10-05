@@ -119,3 +119,6 @@ frontend-next/tsconfig.tsbuildinfo
 
 # InsightFace model cache (bind-mounted into opencv container)
 opencv-service/.insightface/
+
+# Playwright output
+test-results/

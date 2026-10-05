@@ -90,6 +90,10 @@ cd server && npm run build && docker restart sentryvision-app
 
 **Always run `npm run lint && npm run typecheck` after frontend changes.**
 
+After a frontend `npm run build` also restart `sentryvision-app`: the CSP inline-script
+hashes are collected from `frontend-next/out` once at startup, so a stale allowlist
+blocks the page scripts (blank page, React error #423).
+
 ## Frontend Structure
 
 ```

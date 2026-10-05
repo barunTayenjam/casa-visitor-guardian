@@ -4,16 +4,21 @@
 
 ## Available Models
 
-| Model                       | Best For                            |
-| --------------------------- | ----------------------------------- |
-| `gc/gemini-3-flash-preview` | **Default**. Fast, reasoning tokens |
-| `gc/gemini-3-pro-preview`   | Complex reasoning                   |
-| `gc/gemini-3.1-flash-lite`  | Lightweight tasks                   |
-| `oc/sonet-4`                | Alternative model                   |
-| `ollama/gpt-oss:120b`       | Thorough all-rounder                |
-| `ollama/minimax-m3`         | Quick fallback                      |
-| `ollama/nemotron-3-ultra`   | Heavy lifting                       |
-| `ollama/qwen3-coder-next`   | Coding tasks                        |
+Vision-capable models that AI analysis (`NVIDIA_MODEL`) can use. Model IDs are
+volatile — a model that resolves today can 404 or time out tomorrow, so
+`VISION_FALLBACK_MODELS` in `server/src/services/nvidia/nvidiaClient.ts` spans
+multiple provider prefixes (`ag/`, `ollama-local/`) and advances the chain on any
+retryable failure (5xx / 429 / timeout).
+
+| Model                        | Best For                                   |
+| ---------------------------- | ------------------------------------------ |
+| `ag/gemini-3.8-flash`        | **Vision default**. Fast, full scene + bbox |
+| `ag/gemini-3.8-flash-medium` | Vision, deeper reasoning                   |
+| `ollama-local/qwen3-vl:2b`   | Fully local, no egress; returns prose, not JSON — last resort only |
+| `ag/gemini-3.8-flash-low`    | Cheapest vision                            |
+
+Chat/completion and other non-vision work can use any model the router serves;
+check `GET /v1/models` for the live list.
 
 ## Commands
 

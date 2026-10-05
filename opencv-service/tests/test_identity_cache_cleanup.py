@@ -52,6 +52,7 @@ def make_pipeline():
     p._scene_analyzer.analyze.return_value = {"scene_context": "outdoor"}
     p._snapshotted_tracks = set()
     p._snapshot_paths = {}
+    p._snapshot_dims = {}
     p._verify_cache = {}
     p._person_attrs_cache = {}
     p._yolo_min_interval = 1.0

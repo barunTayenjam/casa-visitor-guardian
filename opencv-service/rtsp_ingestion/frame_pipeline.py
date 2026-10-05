@@ -73,6 +73,8 @@ from scene_analyzer import SceneAnalyzer
 from person_analyzer import PersonAnalyzer
 from threat_detector import ThreatDetector
 from person_verifier import HumanVerifier
+from model_selection import resolve_model_priority
+from bbox_coords import align_event_bbox
 
 
 class MotionGate:
@@ -240,12 +242,11 @@ class InProcessYOLO:
         except (AttributeError, cv2.error):
             pass
 
-        if gpu_available:
-            model_priority = [("yolov8n.onnx", "yolov8"), ("yolov8s.onnx", "yolov8"), ("yolov8m.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]
-        elif free_memory_gb > 2.0:
-            model_priority = [("yolov8n.onnx", "yolov8"), ("yolov5n.onnx", "yolov5")]
-        else:
-            model_priority = [("yolov5n.onnx", "yolov5"), ("yolov4-tiny.weights", "yolov4")]
+        model_priority = resolve_model_priority(
+            os.getenv("YOLO_MODEL"),
+            gpu_available=gpu_available,
+            free_memory_gb=free_memory_gb,
+        )
 
         for filename, mtype in model_priority:
             if mtype == "yolov4":
@@ -559,6 +560,9 @@ class FramePipeline:
         # Snapshot path per track: reattached to every subsequent WS event so
         # Node's filePath-based persistence gate survives a dropped message.
         self._snapshot_paths: dict = {}
+        # Pixel size of that snapshot per track, needed to publish bboxes in
+        # the image's coordinate space rather than the detect frame's.
+        self._snapshot_dims: dict = {}
         # Verification verdict cache: (frame_seen, verdict) per track.
         # MediaPipe pose + face CNN are the expensive tiers of HumanVerifier;
         # re-running them on the same track every frame is wasted work, so a
@@ -837,7 +841,12 @@ class FramePipeline:
             if threat["level"] != "low":
                 print(f"[FramePipeline:{self._camera_id}] THREAT: {threat['level']} ({threat['confidence']}%) — {threat['reasoning'][:100]}")
             print(f"[FramePipeline:{self._camera_id}] {len(detections)} detections → {len(tracked)} tracked → {len(events)} events")
+        # YOLO ran on the 640x360 detect stream, the snapshot is written from
+        # the full-res grab. Publish the bbox in the image's coordinate space
+        # so the events page can scale it straight onto the rendered picture.
+        detect_size = (frame.shape[1], frame.shape[0])
         for ev in events:
+            align_event_bbox(ev, detect_size, self._snapshot_dims)
             self._event_queue.put(ev)
 
     def _run_detection(self, frame: np.ndarray) -> List[Dict[str, Any]]:
@@ -942,7 +951,6 @@ class FramePipeline:
                 save_frame = _tmp if _tmp is not None else frame
             else:
                 save_frame = frame
-                save_frame = frame
 
             detections_dir = os.getenv("DETECTIONS_DIR", "/app/data/detections")
             now = datetime.now(timezone.utc)
@@ -955,6 +963,7 @@ class FramePipeline:
             if ok:
                 with open(filepath, "wb") as f:
                     f.write(buf.tobytes())
+                self._snapshot_dims[track_id] = (save_frame.shape[1], save_frame.shape[0])
                 return filepath
         except Exception as e:
             import traceback
@@ -969,6 +978,7 @@ class FramePipeline:
                 self._identity_cache.invalidate(obj["track_id"])
                 self._snapshotted_tracks.discard(obj["track_id"])
                 self._snapshot_paths.pop(obj["track_id"], None)
+                self._snapshot_dims.pop(obj["track_id"], None)
                 self._verify_cache.pop(obj["track_id"], None)
                 self._person_attrs_cache.pop(obj["track_id"], None)
                 results.append(obj)

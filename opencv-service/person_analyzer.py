@@ -61,13 +61,24 @@ class PersonAnalyzer:
 
             person_roi = frame[max(0, y):min(h, y + bh), max(0, x):min(w, x + bw)]
 
+            # MediaPipe already measured this person; prefer its numbers over
+            # anything inferable from the bounding box.
+            pose = (det.get("human_verification") or {}).get("pose") or {}
+            measured_stance = pose.get("stance", "unknown")
+            measured_facing = pose.get("facing", "unknown")
+
             clothing = self._analyze_clothing(person_roi) if person_roi.size > 0 else {}
             position_pct = self._position_in_frame(x, y, bw, bh, w, h)
-            facing = self._estimate_facing(person_roi) if person_roi.size > 0 else "unknown"
+            if measured_facing != "unknown":
+                facing = measured_facing
+            else:
+                facing = self._estimate_facing(person_roi) if person_roi.size > 0 else "unknown"
             distance = self._estimate_distance(bh, h)
             carrying = self._detect_carrying(bbox, detections, w, h)
-            action = self._estimate_action(bw, bh, bh / max(h, 1))
-            body_language = self._estimate_body_language(action)
+            if measured_stance in ("standing", "crouching", "sitting"):
+                action = measured_stance
+            else:
+                action = self._estimate_action(bw, bh, bh / max(h, 1))
 
             people.append({
                 "position": {
@@ -82,9 +93,13 @@ class PersonAnalyzer:
                 "actions": [action],
                 "facing": facing,
                 "distance": distance,
-                "estimatedAge": distance_to_age.get(distance, "unknown"),
                 "carryingItem": carrying,
-                "bodyLanguage": body_language,
+                # Posture is not a threat signal. This field used to be derived
+                # from bbox aspect and flagged ordinary bystanders "suspicious",
+                # which threat_detector turned into +20 threat points.
+                "bodyLanguage": "neutral",
+                "armsRaised": bool(pose.get("arms_raised", False)),
+                "torsoLeanDeg": pose.get("torso_lean_deg", 0.0),
                 "confidence": conf_pct,
                 "bbox_original": {"x": x, "y": y, "width": bw, "height": bh},
             })
@@ -209,7 +224,10 @@ class PersonAnalyzer:
                 profiles = self._profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
                 if len(profiles) > 0:
                     return "side"
-            return "back_or_side"
+            # A missed cascade is not evidence of a back view. This fallback
+            # used to return "back_or_side", so every real detection read as
+            # back_or_side whenever no face or profile matched.
+            return "unknown"
         except Exception:
             return "unknown"
 
@@ -249,23 +267,19 @@ class PersonAnalyzer:
         return "none"
 
     def _estimate_action(self, bw: int, bh: int, height_ratio: float) -> str:
-        if bh == 0:
-            return "standing"
-        aspect = bw / bh
-        if aspect > 0.8:
-            return "side_view_or_crouching"
-        elif aspect < 0.25:
-            return "standing"
-        elif bw * bh > 100 * 300:
-            return "close_proximity"
-        return "standing"
+        """Bbox geometry cannot establish posture.
 
-    def _estimate_body_language(self, action: str) -> str:
-        if "crouching" in action:
-            return "suspicious"
-        elif "proximity" in action:
-            return "alert"
-        return "neutral"
+        This used to return "side_view_or_crouching" for any box wider than 0.8
+        of its height, which tagged people simply walking past at a distance as
+        crouching — and that flowed into threat_detector as "suspicious".
+        Stance now comes from the MediaPipe measurement; only a large footprint
+        is reportable from geometry alone.
+        """
+        if bh == 0:
+            return "unknown"
+        if bw * bh > 100 * 300:
+            return "close_proximity"
+        return "unknown"
 
     def _build_scene_description(self, people: List[Dict], person_dets: List[Dict], all_dets: List[Dict]) -> str:
         parts = []
@@ -292,11 +306,3 @@ class PersonAnalyzer:
             return "Scene with person detected"
 
         return ". ".join(parts) + "."
-
-
-distance_to_age = {
-    "close": "adult (close range)",
-    "medium": "adult",
-    "far": "adult (far range)",
-    "very_far": "person (distant)",
-}

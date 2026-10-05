@@ -291,21 +291,44 @@ class ByteTracker:
         remaining_tracks = [tracked[i] for i in unmatched_trks_t]
         remaining_tracks.extend(lost)
 
-        # --- Round 2: low-confidence detections vs remaining tracks ---
-        det_boxes_l = [np.array(d["bbox"], dtype=np.float64) for d in dets_low]
-        trk_boxes_r = [t.bbox.copy() for t in remaining_tracks]
+        # --- Round 2: leftover detections vs remaining tracks ---
+        # Classic ByteTrack re-associates *every* box left over from round 1,
+        # not only the weak ones. Restricting this round to low-confidence
+        # detections orphaned any track demoted to 'lost': the next solid
+        # detection minted a duplicate track_id while the lost track lingered,
+        # so one object yielded two live tracks per sighting and tracklet_len
+        # never grew past 2 — which silently disabled the frame_pipeline
+        # PERSON_MIN_TRACK_HITS gate. High-confidence leftovers are offered
+        # first so a strong detection is never stolen by a weak one.
+        recovered_high: set = set()
+        free_tracks = set(range(len(remaining_tracks)))
+        for det_indices, is_high in (
+            ([int(i) for i in unmatched_dets_h], True),
+            (list(range(len(dets_low))), False),
+        ):
+            if not free_tracks:
+                break
+            if not det_indices:
+                continue
+            source = dets_high if is_high else dets_low
+            det_boxes = [
+                np.array(source[i]["bbox"], dtype=np.float64) for i in det_indices
+            ]
+            free_list = sorted(free_tracks)
+            trk_boxes = [remaining_tracks[i].bbox.copy() for i in free_list]
 
-        cost2 = _iou_cost_matrix(det_boxes_l, trk_boxes_r)
-        matches2, _, _unmatched_trks_r = _linear_assignment(
-            cost2, self.match_thresh
-        )
+            matches, _, _ = _linear_assignment(
+                _iou_cost_matrix(det_boxes, trk_boxes), self.match_thresh
+            )
 
-        # Classic ByteTrack round 2: low-detection matches UPDATE the track
-        # (keeping it alive). Marking lost here broke association — an
-        # index remap also could mark the wrong track, and the next strong
-        # detection spawned a NEW track_id (duplicate events downstream).
-        for row, col in matches2:
-            remaining_tracks[col].update(dets_low[row], frame_id)
+            for row, col in matches:
+                remaining_tracks[free_list[col]].update(source[det_indices[row]], frame_id)
+                free_tracks.discard(free_list[col])
+                if is_high:
+                    recovered_high.add(det_indices[row])
+
+        # Only a detection that matched no track at all may spawn one.
+        spawn_high = [i for i in unmatched_dets_h if int(i) not in recovered_high]
 
         # Unmatched low detections are discarded (no new tracks from low conf)
 
@@ -316,7 +339,7 @@ class ByteTracker:
 
         # --- Create new tracks from unmatched high-confidence detections ---
         current_track_ids = {t.track_id for t in self.tracks if t.is_active()}
-        for idx in unmatched_dets_h:
+        for idx in spawn_high:
             new_track = Track(dets_high[idx], frame_id)
             self.tracks.append(new_track)
             current_track_ids.add(new_track.track_id)

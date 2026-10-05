@@ -85,7 +85,10 @@ class ThreatDetector:
                 bl = pattr.get("bodyLanguage", "neutral")
                 facing = pattr.get("facing", "unknown")
                 carrying = pattr.get("carryingItem", "none")
-                distance = pattr.get("estimatedAge", "")
+                # Read the distance field itself. This used to read
+                # `estimatedAge`, a string derived from distance, so the check
+                # only worked by accident via the substring "close".
+                distance = pattr.get("distance", "")
                 identity = pattr.get("identity", "unknown")
 
                 if bl == "suspicious":

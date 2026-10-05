@@ -21,6 +21,8 @@ import threading
 import cv2
 import numpy as np
 
+from pose_features import describe_pose
+
 
 class HumanVerifier:
     def __init__(self):
@@ -92,6 +94,9 @@ class HumanVerifier:
             "roi_w": int(roi.shape[1]) if roi is not None else 0,
             "roi_h": int(roi.shape[0]) if roi is not None else 0,
             "elapsed_ms": 0,
+            # Measured, never guessed: absent landmarks report "unknown" so
+            # consumers can tell "did not measure" from "measured as nothing".
+            "pose": describe_pose([]),
         }
 
         def done(tier, verified, keypoints=0, face=False):
@@ -136,7 +141,11 @@ class HumanVerifier:
             rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
             results = mp.process(rgb)
             if results and results.pose_landmarks:
-                n = sum(1 for lm in results.pose_landmarks.landmark if lm.visibility > 0.2)
+                # MediaPipe already ran and paid for these 33 landmarks. Derive
+                # stance/facing/arms from them instead of discarding them and
+                # letting the enrichment layer guess from bbox geometry.
+                result["pose"] = describe_pose(results.pose_landmarks.landmark)
+                n = result["pose"]["keypoints"]
                 if n >= self.min_keypoints or (not self.keep_back_facing and n >= 1):
                     return done("pose", True, keypoints=n)
 

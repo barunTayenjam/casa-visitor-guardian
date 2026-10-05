@@ -122,3 +122,13 @@ opencv-service/.insightface/
 
 # Playwright output
 test-results/
+
+# AI-tool session artifacts (plans, critiques, graph dumps) — never track
+.claude/PLAN-*.md
+.claude/plans/
+.impeccable/
+.zcode/
+.planning/
+.superpowers/
+graphify-out/
+docs/superpowers/

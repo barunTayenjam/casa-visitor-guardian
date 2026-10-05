@@ -32,8 +32,7 @@
 
 | Doc | Purpose |
 |-----|---------|
-| [`design_review.md`](./design_review.md) | Frontend design review (heuristic analysis) |
-| [`.planning/graphs/SentryVision-Architecture.html`](./.planning/graphs/SentryVision-Architecture.html) | Interactive architecture diagram (open in browser) |
+| [`DESIGN.md`](./DESIGN.md) | Visual system spec — design tokens, motion rules |
 
 ## Quick Links
 
@@ -50,4 +49,4 @@
 **Redesigning frontend?** Read:
 1. `FRONTEND.md` (pages + services map)
 2. `API-SOURCE-OF-TRUTH.md` (endpoint inventory + stale call audit)
-3. `design_review.md` (previous design decisions)
+3. `DESIGN.md` (visual system spec — tokens, motion rules)

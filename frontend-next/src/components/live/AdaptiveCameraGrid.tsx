@@ -39,8 +39,8 @@ function LiveCameraTile({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={cn(
-        'group relative min-h-[180px] overflow-hidden rounded-lg border border-white/[0.08] bg-black',
-        focused ? 'absolute inset-0 rounded-none' : 'h-full',
+        'group relative isolate min-h-[180px] overflow-hidden rounded-lg border border-white/[0.08] bg-black',
+        focused ? 'absolute inset-0 z-10 rounded-none' : 'h-full',
       )}
     >
       <button type="button" onClick={onClick} className="absolute inset-0 z-10 cursor-pointer" aria-label={`Focus ${camera.name}`} />

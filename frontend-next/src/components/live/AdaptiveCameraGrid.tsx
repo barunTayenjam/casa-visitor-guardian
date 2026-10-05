@@ -12,12 +12,10 @@ function LiveCameraTile({
   camera,
   focused,
   onClick,
-  onClose,
 }: {
   camera: Camera;
   focused: boolean;
   onClick: () => void;
-  onClose?: () => void;
 }) {
   const {
     videoRef,
@@ -85,19 +83,6 @@ function LiveCameraTile({
           <p className="truncate text-xs font-medium text-white">{camera.name}</p>
           <p className="font-mono text-[10px] text-white/60">{camera.status} · {camera.resolution || 'live'}</p>
         </div>
-        {focused && onClose && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClose();
-            }}
-            className="pointer-events-auto z-20 flex h-9 w-9 items-center justify-center rounded-md border border-white/[0.12] bg-black/50 text-white/80 hover:bg-black/80"
-            aria-label="Close focused camera"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
       </div>
     </motion.div>
   );
@@ -193,7 +178,6 @@ export function AdaptiveCameraGrid({
                 camera={camera}
                 focused={focusedCameraId === camera.id}
                 onClick={() => focusCamera(camera.id)}
-                onClose={() => onCameraFocus?.(undefined)}
               />
             ))}
           </AnimatePresence>

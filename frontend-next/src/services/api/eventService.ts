@@ -1,5 +1,5 @@
 // Event-related API methods extracted from ApiService.ts
-import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox, RelationThreat } from '@/types/security';
 import { fetchWithRetry, ApiError, API_URL } from './baseClient';
 
 // ==================== TYPES ====================
@@ -414,6 +414,35 @@ export const eventService = {
       };
     } catch (error) {
       console.error('Error fetching event relations:', error);
+      throw error;
+    }
+  },
+
+  async getEventRelationThreat(eventId: string): Promise<{
+    eventId: string;
+    source: 'cache' | 'computed' | 'skipped';
+    reason?: string;
+    threat: RelationThreat | null;
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/events/${eventId}/relation-threat`);
+      const data = await response.json();
+      if (!data.success && !data.eventId) {
+        throw new ApiError(
+          data.error || 'Failed to fetch relation threat',
+          response.status,
+          'GET_RELATION_THREAT_ERROR',
+          data,
+        );
+      }
+      return {
+        eventId: data.eventId ?? eventId,
+        source: data.source ?? 'skipped',
+        reason: data.reason,
+        threat: data.threat ?? null,
+      };
+    } catch (error) {
+      console.error('Error fetching relation threat:', error);
       throw error;
     }
   },

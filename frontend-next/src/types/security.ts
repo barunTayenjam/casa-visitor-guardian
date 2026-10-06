@@ -117,6 +117,16 @@ export interface RelationBox {
   class: string;
 }
 
+export interface RelationThreat {
+  level: 'low' | 'medium' | 'high';
+  confidence: number;
+  reasoning: string;
+  factors: string[];
+  recommendedActions: string[];
+  model?: string;
+  assessedAt?: string;
+}
+
 export interface DetectionResult {
   class: string;
   confidence: number;

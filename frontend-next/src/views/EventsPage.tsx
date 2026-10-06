@@ -6,7 +6,7 @@ import { useUrlSearchParams } from '@/hooks/useUrlSearchParams';
 import { useToast } from '@/hooks/use-toast';
 import { useCameraStore } from '@/stores/camera';
 import { useEventsList } from '@/hooks/useEvents';
-import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox, RelationThreat } from '@/types/security';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
@@ -90,6 +90,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
   const [relationsByEvent, setRelationsByEvent] = useState<
     Record<string, { relations: EventRelation[]; boxes?: RelationBox[] } | null>
   >({});
+  const [threatByEvent, setThreatByEvent] = useState<Record<string, RelationThreat | null>>({});
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
   const sortBy = (searchParams.get('sortBy') || 'newest') as SortOption;
@@ -167,6 +168,26 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
 
     return () => { cancelled = true; };
   }, [selectedEventId, relationsByEvent]);
+
+  // AI threat assessment grounded in the stored relations (computed on first open)
+  useEffect(() => {
+    if (!selectedEventId || threatByEvent[selectedEventId] !== undefined) return;
+    if (!relationsByEvent[selectedEventId]?.relations?.length) return;
+
+    let cancelled = false;
+    eventService
+      .getEventRelationThreat(selectedEventId)
+      .then((res) => {
+        if (cancelled) return;
+        setThreatByEvent((prev) => ({ ...prev, [selectedEventId]: res.threat }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setThreatByEvent((prev) => ({ ...prev, [selectedEventId]: null }));
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedEventId, relationsByEvent, threatByEvent]);
 
 
   const updateParams = useCallback(
@@ -516,6 +537,7 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
               boxes={analysisByEvent[selectedEvent.id]?.boxes}
               relations={selectedEvent.id in relationsByEvent ? relationsByEvent[selectedEvent.id]?.relations : undefined}
               relationBoxes={selectedEvent.id in relationsByEvent ? relationsByEvent[selectedEvent.id]?.boxes : undefined}
+              relationThreat={selectedEvent.id in threatByEvent ? threatByEvent[selectedEvent.id] : undefined}
             />
             <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.10] overflow-y-auto bg-background">
               {/* Verification Panel */}

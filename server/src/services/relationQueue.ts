@@ -110,6 +110,22 @@ export async function runRelationWorkerTick(): Promise<number> {
           `[RelationQueue] job ${job.id} done: event ${job.event_id} (${result?.relations?.length ?? 0} relations)`,
           'RelationQueue',
         );
+        if (result && result.relations.length > 0) {
+          try {
+            const { relationThreatService } = await import('./relationThreatService.js');
+            const threat = await relationThreatService.assessEventThreat(job.event_id);
+            logger.info(
+              `[RelationQueue] threat for ${job.event_id}: ${threat?.threat?.level ?? 'n/a'}`,
+              'RelationQueue',
+            );
+          } catch (threatErr) {
+            logger.warn(
+              `[RelationQueue] threat assessment failed for ${job.event_id} (relations kept)`,
+              'RelationQueue',
+              threatErr,
+            );
+          }
+        }
       } catch (error) {
         await retryJob(job.id, job.attempts, error).catch((retryErr: unknown) => {
           logger.error(`[RelationQueue] failed to update job ${job.id}`, 'RelationQueue', retryErr);

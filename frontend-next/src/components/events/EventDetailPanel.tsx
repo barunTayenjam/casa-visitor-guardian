@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox, RelationThreat } from '@/types/security';
 import {
   X,
   Download,
@@ -60,6 +60,7 @@ interface EventDetailPanelProps {
   boxes?: NvidiaBox[];
   relations?: EventRelation[] | null;
   relationBoxes?: RelationBox[];
+  relationThreat?: RelationThreat | null;
 }
 
 interface DetectionBoxV1 {
@@ -124,6 +125,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   boxes,
   relations,
   relationBoxes,
+  relationThreat,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
@@ -673,6 +675,63 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         {Math.round(rel.score * 100)}%
                       </Badge>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Threat (grounded in relations) */}
+              {relationThreat && (
+                <div className="p-[1px] rounded-[0.875rem] bg-white/[0.08]">
+                  <div className="rounded-[calc(0.875rem-1px)] bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] px-3.5 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs uppercase tracking-[0.12em] font-medium text-white/60">
+                        AI Threat · Relations
+                      </p>
+                      <div
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.06em]',
+                          relationThreat.level === 'high'
+                            ? 'bg-red-500/15 text-red-400'
+                            : relationThreat.level === 'medium'
+                              ? 'bg-amber-500/15 text-amber-400'
+                              : 'bg-green-500/15 text-green-400',
+                        )}
+                      >
+                        {relationThreat.level} · {relationThreat.confidence}%
+                      </div>
+                    </div>
+                    {relationThreat.reasoning && (
+                      <p className="text-sm text-white/80 leading-relaxed mb-2">
+                        {relationThreat.reasoning}
+                      </p>
+                    )}
+                    {relationThreat.factors.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {relationThreat.factors.map((f, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded text-xs bg-white/[0.06] border border-white/[0.08] text-white/60"
+                          >
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {relationThreat.recommendedActions.length > 0 && (
+                      <div className="space-y-1">
+                        {relationThreat.recommendedActions.map((a, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm text-white/70">
+                            <span className="text-blue-400 text-[10px] mt-1">→</span>
+                            {a}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {relationThreat.model && (
+                      <p className="mt-2 pt-2 hairline-top text-[10px] font-mono text-white/40">
+                        {relationThreat.model.split('/').pop()}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

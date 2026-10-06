@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import eventSearchService from '../services/eventSearchService.js';
 import { relationAnalysisService } from '../services/relationAnalysisService.js';
+import { relationThreatService } from '../services/relationThreatService.js';
 
 export class EventController extends BaseController {
   async listEnhanced(req: Request, res: Response): Promise<void> {
@@ -31,6 +32,23 @@ export class EventController extends BaseController {
         return;
       }
       this.serverError(res, error, 'getEventRelations');
+    }
+  }
+
+  async getEventRelationThreat(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await relationThreatService.assessEventThreat(req.params.id);
+      if (!result) {
+        this.notFound(res, 'Event not found');
+        return;
+      }
+      this.ok(res, result as unknown as Record<string, unknown>);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Invalid event id') {
+        this.badRequest(res, error.message);
+        return;
+      }
+      this.serverError(res, error, 'getEventRelationThreat');
     }
   }
 }

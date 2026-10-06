@@ -65,6 +65,8 @@ services:
       - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
       - OPENCV_SERVICE_URL=http://opencv:8084
       - OPENCV_API_TOKEN=${OPENCV_API_TOKEN:-}
+      - RELATIONS_SERVICE_URL=http://relations:8085
+      - RELATIONS_API_TOKEN=${OPENCV_API_TOKEN:-}
       - DETECTIONS_DIR=/app/data/detections
       # Persist web-push keys under the ./data bind mount — default /data/vapid
       # is not mounted, so keys regenerated on every container restart
@@ -172,6 +174,7 @@ services:
       # code changes. Image rebuild only needed for requirements.txt changes.
       - ./opencv-service:/app
       - ./opencv-service/.insightface:/root/.insightface
+      - ./opencv-service/.hf-cache:/root/.cache/huggingface
       - ./data/detections:/app/data/detections
       - ./data/events:/app/data/events
       - ./data/snapshots:/app/data/snapshots
@@ -194,6 +197,42 @@ services:
         reservations:
           cpus: ${OPENCV_CPU_RESERVE:-0.5}
           memory: ${OPENCV_MEM_RESERVE:-256M}
+
+  # relations — RelateAnything scene-relation sidecar (numpy 2 stack, isolated
+  # from opencv because relsgg cannot share numpy 1.x with insightface)
+  relations:
+    build:
+      context: ./relations-service
+      dockerfile: Dockerfile
+    container_name: sentryvision-relations
+    ports:
+      - "127.0.0.1:8085:8085"
+    environment:
+      - PORT=8085
+      - FLASK_ENV=production
+      - TZ=Asia/Kolkata
+      - DETECTIONS_DIR=/app/data/detections
+      - RELATIONS_API_TOKEN=${OPENCV_API_TOKEN:-}
+    volumes:
+      - ./relations-service:/app
+      - ./relations-service/.hf-cache:/root/.cache/huggingface
+      - ./data/detections:/app/data/detections
+    restart: always
+    networks:
+      - sentryvision_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: ${RELATIONS_CPU_LIMIT:-2.0}
+          memory: ${RELATIONS_MEM_LIMIT:-2g}
+        reservations:
+          cpus: ${RELATIONS_CPU_RESERVE:-0.25}
+          memory: ${RELATIONS_MEM_RESERVE:-256M}
 
   # go2rtc — RTSP to WebRTC bridge
   go2rtc:

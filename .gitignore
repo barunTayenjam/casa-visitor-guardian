@@ -132,3 +132,6 @@ test-results/
 .superpowers/
 graphify-out/
 docs/superpowers/
+relations-service/.hf-cache/
+relations-service/models/
+relations-service/weights/

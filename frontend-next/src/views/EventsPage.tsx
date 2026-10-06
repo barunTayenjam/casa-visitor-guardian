@@ -6,7 +6,7 @@ import { useUrlSearchParams } from '@/hooks/useUrlSearchParams';
 import { useToast } from '@/hooks/use-toast';
 import { useCameraStore } from '@/stores/camera';
 import { useEventsList } from '@/hooks/useEvents';
-import { MotionEvent } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
 import { SmartFilters, FilterState } from '@/components/events/SmartFilters';
 import { EventDetailPanel } from '@/components/events/EventDetailPanel';
 import { RelatedEvents } from '@/components/events/RelatedEvents';
@@ -87,6 +87,9 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
 
   const [analyzingEventId, setAnalyzingEventId] = useState<string | null>(null);
   const [analysisByEvent, setAnalysisByEvent] = useState<Record<string, AnalysisEntry>>({});
+  const [relationsByEvent, setRelationsByEvent] = useState<
+    Record<string, { relations: EventRelation[]; boxes?: RelationBox[] } | null>
+  >({});
 
   const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
   const sortBy = (searchParams.get('sortBy') || 'newest') as SortOption;
@@ -142,6 +145,28 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
 
     return () => { cancelled = true; };
   }, [selectedEventId, analysisByEvent]);
+
+  // Lazily compute/serve scene relations for the selected event
+  useEffect(() => {
+    if (!selectedEventId || relationsByEvent[selectedEventId] !== undefined) return;
+
+    let cancelled = false;
+    eventService
+      .getEventRelations(selectedEventId)
+      .then((res) => {
+        if (cancelled) return;
+        setRelationsByEvent((prev) => ({
+          ...prev,
+          [selectedEventId]: { relations: res.relations, boxes: res.boxes },
+        }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRelationsByEvent((prev) => ({ ...prev, [selectedEventId]: null }));
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedEventId, relationsByEvent]);
 
 
   const updateParams = useCallback(
@@ -489,6 +514,8 @@ const EventsPage = ({ embedded = false }: EventsPageProps) => {
               analyzing={analyzingEventId === selectedEvent.id}
               analysis={analysisByEvent[selectedEvent.id] ?? null}
               boxes={analysisByEvent[selectedEvent.id]?.boxes}
+              relations={selectedEvent.id in relationsByEvent ? relationsByEvent[selectedEvent.id]?.relations : undefined}
+              relationBoxes={selectedEvent.id in relationsByEvent ? relationsByEvent[selectedEvent.id]?.boxes : undefined}
             />
             <div className="w-full xl:w-[320px] xl:border-l border-t xl:border-t-0 border-white/[0.10] overflow-y-auto bg-background">
               {/* Verification Panel */}

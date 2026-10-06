@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { MotionEvent } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
 import {
   X,
   Download,
@@ -58,6 +58,8 @@ interface EventDetailPanelProps {
   analysis?: AIAnalysis | null;
   analyzing?: boolean;
   boxes?: NvidiaBox[];
+  relations?: EventRelation[] | null;
+  relationBoxes?: RelationBox[];
 }
 
 interface DetectionBoxV1 {
@@ -120,6 +122,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   analysis,
   analyzing,
   boxes,
+  relations,
+  relationBoxes,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
@@ -191,6 +195,47 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   }, []);
 
   const hasNvidiaBoxes = boxes && boxes.length > 0 && showBoxes && imageScale.renderedW > 0;
+  const hasRelationLines =
+    !!relations && relations.length > 0 && showBoxes && imageScale.renderedW > 0;
+  const relatedBoxIndices = (() => {
+    if (!hasRelationLines) return [] as number[];
+    const idx = new Set<number>();
+    relations!.forEach((r) => {
+      idx.add(r.subjectIndex);
+      idx.add(r.objectIndex);
+    });
+    return [...idx];
+  })();
+
+  const relationBoxRect = (index: number) => {
+    const rb = relationBoxes?.[index];
+    if (rb) {
+      return {
+        x: rb.x * imageScale.scaleX + imageScale.offsetX,
+        y: rb.y * imageScale.scaleY + imageScale.offsetY,
+        w: rb.width * imageScale.scaleX,
+        h: rb.height * imageScale.scaleY,
+        label: rb.class,
+      };
+    }
+    const det = event?.detections?.[index];
+    if (!det) return null;
+    const box = normalizeBoundingBox(det as DetectionEntry);
+    if (!box) return null;
+    return {
+      x: box.x * imageScale.scaleX + imageScale.offsetX,
+      y: box.y * imageScale.scaleY + imageScale.offsetY,
+      w: box.width * imageScale.scaleX,
+      h: box.height * imageScale.scaleY,
+      label: String(det.class ?? 'object'),
+    };
+  };
+
+  const relationBoxCenter = (index: number) => {
+    const rect = relationBoxRect(index);
+    if (!rect) return null;
+    return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+  };
 
   if (!event) return null;
 
@@ -363,6 +408,77 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                   })}
                 </div>
               )}
+              {hasRelationLines && (
+                <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
+                  {relatedBoxIndices.map((idx) => {
+                    const rect = relationBoxRect(idx);
+                    if (!rect) return null;
+                    return (
+                      <g key={`relation-box-${idx}`}>
+                        <rect
+                          x={rect.x}
+                          y={rect.y}
+                          width={rect.w}
+                          height={rect.h}
+                          fill="none"
+                          stroke="#22d3ee"
+                          strokeWidth={1.5}
+                          strokeDasharray="5 4"
+                          opacity={0.6}
+                        />
+                        <text
+                          x={rect.x + 3}
+                          y={rect.y - 5}
+                          fontSize={10}
+                          fontWeight={600}
+                          fill="#22d3ee"
+                          stroke="#000"
+                          strokeWidth={3}
+                          paintOrder="stroke"
+                        >
+                          {rect.label}
+                        </text>
+                      </g>
+                    );
+                  })}
+                  {relations!.map((rel, index) => {
+                    const from = relationBoxCenter(rel.subjectIndex);
+                    const to = relationBoxCenter(rel.objectIndex);
+                    if (!from || !to) return null;
+                    const midX = (from.x + to.x) / 2;
+                    const midY = (from.y + to.y) / 2;
+                    return (
+                      <g key={`relation-${index}`}>
+                        <line
+                          x1={from.x}
+                          y1={from.y}
+                          x2={to.x}
+                          y2={to.y}
+                          stroke="#22d3ee"
+                          strokeWidth={2}
+                          strokeDasharray="7 5"
+                          opacity={0.35 + rel.score * 0.55}
+                        />
+                        <circle cx={from.x} cy={from.y} r={4} fill="#22d3ee" opacity={0.9} />
+                        <circle cx={to.x} cy={to.y} r={4} fill="#22d3ee" opacity={0.9} />
+                        <text
+                          x={midX}
+                          y={midY - 6}
+                          textAnchor="middle"
+                          fontSize={11}
+                          fontWeight={600}
+                          fill="#22d3ee"
+                          stroke="#000"
+                          strokeWidth={3}
+                          paintOrder="stroke"
+                        >
+                          {rel.predicate} · {Math.round(rel.score * 100)}%
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
               {analysis && analysis.detectedEntities && (
                 <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2 pointer-events-none">
                   {analysis.detectedEntities.people?.map((person, i) => (
@@ -529,6 +645,32 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
                         }}
                       >
                         {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Scene Relations */}
+              {relations && relations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-white/70 uppercase tracking-[0.08em] mb-3">
+                    Scene Relations
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {relations.map((rel, index) => (
+                      <Badge
+                        key={index}
+                        variant="glass"
+                        className="text-xs"
+                        style={{
+                          backgroundColor: '#22d3ee15',
+                          borderColor: '#22d3ee30',
+                          color: '#22d3ee',
+                        }}
+                      >
+                        {rel.subject} → {rel.predicate} → {rel.object} ·{' '}
+                        {Math.round(rel.score * 100)}%
                       </Badge>
                     ))}
                   </div>

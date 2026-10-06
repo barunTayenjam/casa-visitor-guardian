@@ -100,6 +100,23 @@ export interface MotionEvent {
   rawMetadata?: Record<string, unknown>;
 }
 
+export interface EventRelation {
+  subject: string;
+  predicate: string;
+  object: string;
+  score: number;
+  subjectIndex: number;
+  objectIndex: number;
+}
+
+export interface RelationBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  class: string;
+}
+
 export interface DetectionResult {
   class: string;
   confidence: number;

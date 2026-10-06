@@ -1,5 +1,5 @@
 // Event-related API methods extracted from ApiService.ts
-import { MotionEvent } from '@/types/security';
+import { MotionEvent, EventRelation, RelationBox } from '@/types/security';
 import { fetchWithRetry, ApiError, API_URL } from './baseClient';
 
 // ==================== TYPES ====================
@@ -383,6 +383,37 @@ export const eventService = {
       return data.stats;
     } catch (error) {
       console.error('Error fetching range stats:', error);
+      throw error;
+    }
+  },
+
+  async getEventRelations(eventId: string): Promise<{
+    eventId: string;
+    source: 'cache' | 'computed' | 'unavailable';
+    reason?: string;
+    relations: EventRelation[];
+    boxes?: RelationBox[];
+  }> {
+    try {
+      const response = await fetchWithRetry(`${API_URL}/events/${eventId}/relations`);
+      const data = await response.json();
+      if (!data.success && !data.relations) {
+        throw new ApiError(
+          data.error || 'Failed to fetch event relations',
+          response.status,
+          'GET_EVENT_RELATIONS_ERROR',
+          data,
+        );
+      }
+      return {
+        eventId: data.eventId ?? eventId,
+        source: data.source ?? 'unavailable',
+        reason: data.reason,
+        relations: Array.isArray(data.relations) ? data.relations : [],
+        boxes: Array.isArray(data.boxes) ? data.boxes : undefined,
+      };
+    } catch (error) {
+      console.error('Error fetching event relations:', error);
       throw error;
     }
   },

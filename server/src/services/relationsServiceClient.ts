@@ -69,6 +69,12 @@ export class RelationsServiceClient {
       throw error;
     }
   }
+  /**
+   * Get circuit breaker state
+   */
+  getBreakerState(): string {
+    return this.breaker.getState();
+  }
 }
 
 export const relationsServiceClient = new RelationsServiceClient();

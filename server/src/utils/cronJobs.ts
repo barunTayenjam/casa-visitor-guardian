@@ -197,6 +197,23 @@ export function startCronJobs(io: SocketIOServer) {
     }
   });
 
+  // System monitor every 5 min: disk space, pipeline connectivity, relation
+  // queue failures, external heartbeat ping — alerts via web push
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const { runMonitorChecks } = await import('../services/monitorService.js');
+      const result = await runMonitorChecks(
+        process.env.DETECTIONS_DIR || './data/detections',
+      );
+      logger.debug(
+        `Monitor: disk=${result.disk ? result.disk.freePercent + '%' : 'n/a'} pipeline=${result.pipelineConnected ? 'up' : 'DOWN'} failedJobs=${result.failedJobs}`,
+        'Cron',
+      );
+    } catch (error) {
+      logger.error(`System monitor check failed: ${error}`, 'Cron');
+    }
+  });
+
   // Scheduled tasks log disabled - console.log('Scheduled tasks started');
 }
 

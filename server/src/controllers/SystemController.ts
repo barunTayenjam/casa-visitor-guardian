@@ -286,6 +286,67 @@ export class SystemController extends BaseController {
         /* NVIDIA client not initialized yet */
       }
 
+      let relationsBreakerState = 'unknown';
+      try {
+        const { relationsServiceClient } = await import('../services/relationsServiceClient.js');
+        relationsBreakerState = relationsServiceClient.getBreakerState();
+      } catch {
+        /* Relations client not initialized yet */
+      }
+
+      let pipelineConnected = true;
+      try {
+        pipelineConnected = serviceRegistry.getPythonWsClient()?.connected ?? true;
+      } catch {
+        /* registry not populated yet */
+      }
+
+      let disk: { freeBytes: number; totalBytes: number; freePercent: number } | null = null;
+      try {
+        const { getDiskUsage } = await import('../services/monitorService.js');
+        disk = await getDiskUsage(process.env.DETECTIONS_DIR || './data/detections');
+      } catch {
+        /* disk stats unavailable */
+      }
+
+      let relationsQueue: Record<string, number> | null = null;
+      try {
+        const { AppDataSource } = await import('../database.js');
+        const rows = (await AppDataSource.query(
+          `SELECT status, count(*)::int AS n,
+                  COALESCE(EXTRACT(EPOCH FROM (now() - MIN(created_at))), 0)::int AS oldest_age_s
+           FROM relation_jobs WHERE status IN ('pending', 'processing', 'failed') GROUP BY status`,
+        )) as Array<{ status: string; n: number; oldest_age_s: number }>;
+        const byStatus = Object.fromEntries(rows.map((r) => [r.status, r.n]));
+        const oldest = rows
+          .filter((r) => r.status === 'pending')
+          .reduce((max, r) => Math.max(max, r.oldest_age_s), 0);
+        relationsQueue = {
+          pending: byStatus.pending ?? 0,
+          processing: byStatus.processing ?? 0,
+          failed: byStatus.failed ?? 0,
+          oldestPendingSeconds: oldest,
+        };
+      } catch {
+        /* queue stats unavailable */
+      }
+
+      if (!pipelineConnected) {
+        status = 'critical';
+        issues.push('Detection pipeline disconnected');
+      }
+      if (disk && disk.freePercent < 5) {
+        status = 'critical';
+        issues.push(`Disk space critical (${disk.freePercent}% free)`);
+      } else if (disk && disk.freePercent < 15) {
+        if (status !== 'critical') status = 'warning';
+        issues.push(`Disk space low (${disk.freePercent}% free)`);
+      }
+      if (relationsQueue && relationsQueue.failed > 0) {
+        if (status === 'healthy') status = 'warning';
+        issues.push(`${relationsQueue.failed} relation job(s) failed`);
+      }
+
       res.json({
         success: true,
         health: {
@@ -312,7 +373,13 @@ export class SystemController extends BaseController {
           circuitBreakers: {
             opencv: opencvBreakerState,
             nvidia: nvidiaBreakerState,
+            relations: relationsBreakerState,
           },
+          pipeline: {
+            pythonWsConnected: pipelineConnected,
+          },
+          ...(disk ? { disk } : {}),
+          ...(relationsQueue ? { relationsQueue } : {}),
           events: {
             recent: recentEvents.length,
             today: recentEvents.filter((e) => {

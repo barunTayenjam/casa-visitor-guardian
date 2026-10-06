@@ -194,6 +194,10 @@ export class NotificationService {
         return true;
       }
 
+      // Infrastructure alerts (disk, pipeline offline) must reach the user even
+      // during quiet hours — quiet hours are for detection events.
+      if (eventType === 'system') return true;
+
       if (eventType === 'motion' && !prefs.motionEnabled) return false;
       if (eventType === 'face' && !prefs.faceEnabled) return false;
       if (eventType === 'object' && !prefs.objectEnabled) return false;

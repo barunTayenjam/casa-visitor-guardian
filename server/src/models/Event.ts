@@ -138,6 +138,14 @@ export class Event {
   })
   motion_stats!: Record<string, unknown> | null;
 
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment:
+      'RelateAnything relation triplets (subject, predicate, object, score, subjectIndex, objectIndex). NULL = not analyzed yet',
+  })
+  relations!: import('../types/event.js').EventRelation[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   created_at!: Date;
 }

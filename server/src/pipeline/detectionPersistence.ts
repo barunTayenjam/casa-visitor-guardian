@@ -11,6 +11,7 @@ import { TrackingEvent } from '../services/pythonWsClient.js';
 import NotificationService from '../services/notificationService.js';
 import { VEHICLE_CLASSES } from '../shared/constants.js';
 import { isSceneMemoryEnabled, compareEventToBaseline } from '../services/sceneMemoryService.js';
+import { enqueueRelationJob } from '../services/relationQueue.js';
 
 function envNumber(raw: string | undefined, fallback: number): number {
   const parsed = Number(raw);
@@ -298,6 +299,14 @@ export async function persistDetectionEvent(
     `[DetectionPersistence] Persisted ${eventTypeStr} event for ${cameraId} (track=${trackId}, class=${className})`,
     'PIPELINE',
   );
+
+  enqueueRelationJob(event.id).catch((err: unknown) => {
+    logger.warn(
+      `[DetectionPersistence] Failed to enqueue relation job for ${event.id}`,
+      'PIPELINE',
+      err,
+    );
+  });
 
   if (ev.humanVerification || personDets.length > 0) {
     try {

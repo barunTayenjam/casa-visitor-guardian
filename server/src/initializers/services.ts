@@ -28,6 +28,7 @@ import { UserReviewStatus } from '../models/UserReviewStatus.js';
 import { Timeline } from '../models/Timeline.js';
 import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
 import { DetectionConfig } from '../models/DetectionConfig.js';
+import { startRelationQueueWorker } from '../services/relationQueue.js';
 
 export async function initializeServices(io: SocketIOServer): Promise<void> {
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -288,5 +289,12 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
     logger.info('Cleanup services initialized successfully', 'INIT');
   } catch (error) {
     logger.error('Cleanup services failed (non-critical)', 'INIT', error);
+  }
+
+  try {
+    startRelationQueueWorker();
+    logger.info('Relation queue worker started', 'INIT');
+  } catch (error) {
+    logger.error('Relation queue worker failed to start (non-critical)', 'INIT', error);
   }
 }

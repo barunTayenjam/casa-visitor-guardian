@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { BaseController } from './BaseController.js';
 import eventSearchService from '../services/eventSearchService.js';
+import { relationAnalysisService } from '../services/relationAnalysisService.js';
 
 export class EventController extends BaseController {
   async listEnhanced(req: Request, res: Response): Promise<void> {
@@ -16,6 +17,22 @@ export class EventController extends BaseController {
     }
   }
 
+  async getEventRelations(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await relationAnalysisService.getEventRelations(req.params.id);
+      if (!result) {
+        this.notFound(res, 'Event not found');
+        return;
+      }
+      this.ok(res, result as unknown as Record<string, unknown>);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Invalid event id') {
+        this.badRequest(res, error.message);
+        return;
+      }
+      this.serverError(res, error, 'getEventRelations');
+    }
+  }
 }
 
 export const eventController = new EventController();

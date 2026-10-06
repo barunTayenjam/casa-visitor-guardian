@@ -5,5 +5,6 @@ import { optionalAuth } from '../middleware/auth.js';
 const router = Router();
 
 router.get('/list-enhanced', optionalAuth, (req, res) => eventController.listEnhanced(req, res));
+router.get('/:id/relations', optionalAuth, (req, res) => eventController.getEventRelations(req, res));
 
 export default router;

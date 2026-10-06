@@ -58,3 +58,35 @@ export interface EventListFilters {
   max_confidence?: string;
   face_status?: string;
 }
+
+export interface EventRelation {
+  subject: string;
+  predicate: string;
+  object: string;
+  score: number;
+  subjectIndex: number;
+  objectIndex: number;
+}
+
+export interface RelationInputDetection {
+  bbox: { x: number; y: number; width: number; height: number };
+  class: string;
+}
+
+export interface RelationAnalysisResult {
+  relations: EventRelation[];
+  boxes?: RelationBox[];
+  imageWidth?: number;
+  imageHeight?: number;
+  boxesTotal?: number;
+  boxesValid?: number;
+  processingTimeMs: number;
+}
+
+export interface RelationBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  class: string;
+}

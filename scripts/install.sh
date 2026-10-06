@@ -37,12 +37,14 @@ POSTGRES_PASSWORD=$(openssl rand -base64 32)
 JWT_ACCESS_SECRET=$(openssl rand -base64 32)
 JWT_REFRESH_SECRET=$(openssl rand -base64 32)
 CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)
+OPENCV_API_TOKEN=$(openssl rand -hex 16)
 
 cat > .env <<ENVEOF
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
 JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
 CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY}
+OPENCV_API_TOKEN=${OPENCV_API_TOKEN}
 LOW_RESOURCE_MODE=true
 REDIS_DISABLED=true
 CORS_ORIGIN=http://localhost:9753
@@ -99,7 +101,7 @@ $DC up -d --build
 
 # ── Wait for health ────────────────────────────
 step "Waiting for services to start"
-for svc in postgres backend opencv; do
+for svc in postgres backend opencv relations; do
   NAME="sentryvision-${svc}"
   printf "  ${NAME} "
   for i in $(seq 1 45); do

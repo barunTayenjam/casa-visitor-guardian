@@ -3,7 +3,9 @@ import threading
 import time
 from typing import Any, Dict, List
 
-WORLD_MODEL_PATH = os.environ.get("RELATIONS_WORLD_MODEL", "/app/models/yolov8s-worldv2.pt")
+WORLD_MODEL_PATH = os.environ.get(
+    "RELATIONS_WORLD_MODEL", "/opt/models/yolov8s-worldv2.pt"
+)
 SCENE_PROMPTS = [
     p.strip()
     for p in os.environ.get(

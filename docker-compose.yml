@@ -215,7 +215,6 @@ services:
       - RELATIONS_API_TOKEN=${OPENCV_API_TOKEN:-}
     volumes:
       - ./relations-service:/app
-      - ./relations-service/.hf-cache:/root/.cache/huggingface
       - ./data/detections:/app/data/detections
     restart: always
     networks:

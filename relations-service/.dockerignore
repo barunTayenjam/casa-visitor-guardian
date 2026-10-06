@@ -1,0 +1,5 @@
+.hf-cache/
+models/
+weights/
+__pycache__/
+.pytest_cache/

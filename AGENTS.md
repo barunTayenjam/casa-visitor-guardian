@@ -62,6 +62,9 @@ npm run build:full       # All of the above
 
 # OpenCV assets (YOLO/InsightFace models) are baked in at Docker image build
 # (opencv-service/Dockerfile runs download_all_models.py) — no host build step.
+# Relations sidecar bakes its models the same way (relsgg HF weights at
+# /opt/hf-cache via HF_HOME, YOLO-World + CLIP at /opt) — fresh installs need
+# no runtime downloads; only cameras are added post-install via the Web UI.
 
 # Quality
 npm run lint             # ESLint (frontend)

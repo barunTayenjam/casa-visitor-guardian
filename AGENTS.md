@@ -35,6 +35,7 @@ All docs live in the project root. Key files:
 | Frontend | Next.js 14 (React 18), TypeScript, TailwindCSS, Radix UI (shadcn/ui) — static export served by backend | 9753 |
 | Backend  | Express 5, TypeScript, TypeORM, Socket.io                                                         | 9753 |
 | OpenCV   | Flask, OpenCV MOG2 + YOLOv8n + InsightFace face recognition                                       | 8084 |
+| Relations | Flask, RelateAnything (DINOv3 scene graphs) — numpy 2 sidecar, isolated from opencv's numpy 1.x  | 8085 |
 | Database | PostgreSQL 15+ (26 migrations)                                                                    | 5432 |
 | Cache    | In-memory (Redis optional, use `REDIS_DISABLED=true`)                                             | —    |
 
@@ -85,6 +86,9 @@ docker-compose up -d / down / ps / logs -f
 # Apply code changes WITHOUT image rebuilds
 # Python (opencv):   hot-mounted — edit .py files on host, then:
 docker restart sentryvision-opencv
+
+# Python (relations sidecar): hot-mounted the same way:
+docker restart sentryvision-relations
 
 # Node (backend):    server/dist is hot-mounted — compile TS, then:
 cd server && npm run build && docker restart sentryvision-app

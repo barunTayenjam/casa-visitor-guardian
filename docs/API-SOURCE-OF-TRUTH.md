@@ -106,6 +106,7 @@ All endpoints prefixed with `/api`. Base URL: `http://192.168.31.99:9753` in pro
 | Method | Path | Auth | Handler |
 |--------|------|------|---------|
 | GET | `/api/events/list-enhanced` | optional | `eventController.listEnhanced` |
+| GET | `/api/events/:id/relations` | optional | `eventController.getEventRelations` → `relationAnalysisService` |
 | GET | `/api/events/search` | optional | `eventSearchService.searchEvents` |
 | GET | `/api/events/stats/today` | optional | `eventSearchService.getTodayEventCount` |
 | GET | `/api/events/stats/calendar` | optional | `eventSearchService.getCalendarStats` |

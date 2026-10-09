@@ -38,6 +38,17 @@ MODELS = {
         'required': False
     },
     
+    # CrowdHuman QAT INT8 person detector (1-class, 640x384) — select with
+    # YOLO_MODEL=crowdhuman_qat_640x384
+    'crowdhuman_qat_640x384.onnx': {
+        'urls': [
+            "https://huggingface.co/ru551n/inblick-yolov8n/resolve/main/crowdhuman_qat_640x384/qdq.onnx",
+        ],
+        'description': 'CrowdHuman QAT INT8 person detector - person-specialised, 16:9 input',
+        'size_mb': 3.3,
+        'required': False
+    },
+
     # YOLOv5n ONNX - Good alternative
     'yolov5n.onnx': {
         'urls': [

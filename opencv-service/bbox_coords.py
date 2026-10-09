@@ -2,7 +2,7 @@
 """Coordinate-space helpers for persisted bounding boxes.
 
 The detection pipeline and the evidence image live in different coordinate
-spaces: YOLO runs on the go2rtc ``_low`` transcode (pinned to 640x360 by
+spaces: YOLO runs on the go2rtc ``_low`` transcode (pinned to 1280x720 by
 ``go2rtc.yaml``), while the event snapshot is written from the full-res grab
 (2560x1440 / 2304x1296). A bbox that is stored next to that file must be
 expressed in the file's pixels, otherwise every consumer has to guess which

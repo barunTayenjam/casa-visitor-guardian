@@ -46,6 +46,12 @@ AVAILABLE_MODELS = {
     "yolov8n.onnx": "yolov8",
     "yolov5n.onnx": "yolov5",
     "yolov4-tiny.weights": "yolov4",
+    # CrowdHuman-trained 1-class person detector, INT8 QAT (640x384, 16:9
+    # friendly — no square-letterbox waste). Opt-in via YOLO_MODEL:
+    # bigger-COCO models were benchmarked useless here (see docstring), but
+    # person-specialised weights are a different axis: better recall on
+    # people, zero classes lost that this pipeline actually alerts on.
+    "crowdhuman_qat_640x384.onnx": "yolov8-qat",
 }
 
 _GPU_CHAIN = ["yolov8n.onnx", "yolov8s.onnx", "yolov8m.onnx", "yolov5n.onnx"]

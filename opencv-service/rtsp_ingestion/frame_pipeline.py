@@ -536,6 +536,8 @@ class FramePipeline:
 
     _yolo_detector: Optional[InProcessYOLO] = None
     _yolo_init_lock = __import__("threading").Lock()
+    # 0 disables the recheck on bare-instance test objects (no __init__ call).
+    _recheck_max_area: int = 0
 
     def __init__(
         self,
@@ -578,6 +580,8 @@ class FramePipeline:
         self._person_min_conf = float(os.getenv("PERSON_MIN_CONFIDENCE", "0.55"))
         self._vehicle_min_hits = int(os.getenv("VEHICLE_MIN_TRACK_HITS", "3"))
         self._vehicle_min_conf = float(os.getenv("VEHICLE_MIN_CONFIDENCE", "0.45"))
+        self._recheck_max_area = int(os.getenv("YOLO_RECHECK_MAX_AREA", "5000"))
+        self._recheck_cache: dict[int, tuple[int, bool]] = {}
         self._face_recognition_fn = None
         self._scene_analyzer = SceneAnalyzer()
         self._scene_analysis_interval = 60
@@ -638,6 +642,17 @@ class FramePipeline:
                 print("[FramePipeline] In-process YOLO detector initialized")
             else:
                 print("[FramePipeline] WARNING: No YOLO model could be loaded")
+
+    def _confirm_small_person(self, roi: "np.ndarray") -> bool:
+        """Re-run YOLO on an upscaled ROI crop.
+        Returns True if a person is still detected at any confidence.
+        Small, low-res boxes on the 640x360 feed can hallucinate (e.g. dog
+        at 0.77); at 6x upscale the box vanishes while real humans survive.
+        """
+        scale = max(300 / max(roi.shape[0], roi.shape[1]), 1.0)
+        up = cv2.resize(roi, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        dets = self._yolo_detector.detect(up)
+        return any(d.get("class") == "person" for d in dets)
 
     def set_face_recognition(self, fn):
         self._face_recognition_fn = fn
@@ -1018,6 +1033,28 @@ class FramePipeline:
                         track_id=tid,
                     )
                     continue
+                # Upscaled recheck for small boxes. YOLO on the 640x360 feed
+                # called a 68x50 black dog a person at 0.77 and that became a
+                # false "person" event. Re-running on a blown-up crop of the
+                # same pixels: the dog yields nothing, while all confirmed
+                # humans (0.73-0.85) survive and score higher.
+                if rw * rh < self._recheck_max_area:
+                    cached_r = self._recheck_cache.get(tid)
+                    if cached_r is not None and self._frame_counter < cached_r[0]:
+                        confirmed = cached_r[1]
+                    else:
+                        confirmed = self._confirm_small_person(person_roi)
+                        self._recheck_cache[tid] = (self._frame_counter + 10, confirmed)
+                    if not confirmed:
+                        self._queue_pipeline_log(
+                            "warn",
+                            "HumanVerifier",
+                            f"Small box {rw}x{rh} failed upscaled person recheck — "
+                            f"discarding track {tid} (score={obj.get('score', 0):.2f})",
+                            track_id=tid,
+                        )
+                        self._verify_cache.pop(tid, None)
+                        continue
                 cached_v = self._verify_cache.get(tid)
                 if cached_v is not None and self._frame_counter < cached_v[0]:
                     verdict = cached_v[1]

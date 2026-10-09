@@ -1,5 +1,9 @@
 ffmpeg:
-  h264_low: "-codec:v libx264 -filter:v scale=640:360,fps=15 -preset:v ultrafast -tune:v zerolatency -g:v 15 -b:v 512k -pix_fmt:v yuv420p"
+  # Detect + relay stream. 1280x720 (was 640x360): detection accuracy is
+  # pixel-bound — 640x360 starved YOLO of small/distant persons. 720p is
+  # the Frigate-documented sweet spot; bitrate raised to keep compression
+  # artifacts below the resolution win.
+  h264_low: "-codec:v libx264 -filter:v scale=1280:720,fps=15 -preset:v ultrafast -tune:v zerolatency -g:v 15 -b:v 2048k -pix_fmt:v yuv420p"
 
 streams:
   cam1:

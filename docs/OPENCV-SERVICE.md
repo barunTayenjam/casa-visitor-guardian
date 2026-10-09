@@ -44,7 +44,7 @@ RTSP → FFmpegReader (BGR24 640×360 @5fps)
 |-------|-----------|---------|
 | Frame capture | `FFmpegReader` | Reads camera streams, outputs BGR24 frames |
 | Motion gating | `MotionGate` | MOG2, pixel threshold 500, 10-frame warmup |
-| Object detection | `InProcessYOLO` | YOLOv8n ONNX default; `model_selection.py` resolves priority, `YOLO_MODEL` env forces a specific model |
+| Object detection | `InProcessYOLO` | YOLOv8n ONNX default; `model_selection.py` resolves priority, `YOLO_MODEL` env forces a specific model. Person-specialised alternative: `YOLO_MODEL=crowdhuman_qat_640x384` (INT8 QAT, CrowdHuman-trained, 640x384 letterbox input, person class only, threshold via `YOLO_QAT_PERSON_THRESH`, default 0.40). Detect feed = go2rtc `h264_low` at 1280x720; YOLO auto-caps input at `YOLO_MAX_INPUT_WIDTH` (default 1280). MotionGate returns a `roi` (union of motion contours) that `detect()` crop-zooms before inference — Frigate-style, boxes shifted back to frame coords. |
 | Tracking | `ByteTracker` | Kalman filter, classic two-round association (strong leftovers re-associated first so lost tracks recover instead of spawning duplicates) |
 | Face recognition | `IdentityEnrichment` | InsightFace ArcFace, 30s identity cache |
 | Human verification | `HumanVerifier` | Tiered: YOLO ≥ 0.90 → face → MediaPipe pose → score floor (`HUMAN_VERIFIER_SCORE`, default 0.55) |

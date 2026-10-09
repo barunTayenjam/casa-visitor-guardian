@@ -108,10 +108,30 @@ class MotionGate:
         total_pixels = fg_mask.shape[0] * fg_mask.shape[1]
         motion_percentage = (motion_pixels / total_pixels) * 100
         if self._frame_count < self._warmup_frames:
-            return {"motion_detected": False, "motion_pixels": motion_pixels, "confidence": 0.0}
+            return {"motion_detected": False, "motion_pixels": motion_pixels, "confidence": 0.0, "roi": None}
         motion_detected = motion_pixels > self._pixel_threshold
         confidence = min(100.0, motion_percentage * 10)
-        return {"motion_detected": motion_detected, "motion_pixels": motion_pixels, "confidence": round(confidence, 2)}
+        roi = None
+        if motion_detected:
+            # Union of motion contours = the zoom region for YOLO (Frigate-
+            # style crop-zoom). All contours unioned so a second mover just
+            # outside the biggest blob is never cropped away. Coords are in
+            # THIS frame's space (caller scales to its own frame size).
+            contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            rects = [cv2.boundingRect(c) for c in contours if cv2.contourArea(c) >= 9]
+            if rects:
+                x0 = min(r[0] for r in rects)
+                y0 = min(r[1] for r in rects)
+                x1 = max(r[0] + r[2] for r in rects)
+                y1 = max(r[1] + r[3] for r in rects)
+                pad = int(0.2 * max(x1 - x0, y1 - y0)) + 8
+                mh, mw = fg_mask.shape[:2]
+                roi = [
+                    max(0, x0 - pad), max(0, y0 - pad),
+                    min(mw, x1 + pad) - max(0, x0 - pad),
+                    min(mh, y1 + pad) - max(0, y0 - pad),
+                ]
+        return {"motion_detected": motion_detected, "motion_pixels": motion_pixels, "confidence": round(confidence, 2), "roi": roi}
 
 
 class AdaptiveFrameProcessor:
@@ -279,6 +299,13 @@ class InProcessYOLO:
                     self._net.setPreferableTarget(target)
                     self._backend_label = label
                     self._model_type = mtype
+                    if mtype == "yolov8-qat":
+                        # ponytail: 0.40 sits mid observed QAT confs (0.32
+                        # hard/distant, 0.90 clear) — ceiling = untuned default;
+                        # upgrade = calibrate on house footage (raise on ghosts,
+                        # lower on misses). Persistence/aspect gates still own
+                        # FP filtering downstream.
+                        self._class_thresholds["person"] = float(os.getenv("YOLO_QAT_PERSON_THRESH", "0.40"))
                     self._initialized = True
                     print(f"[InProcessYOLO] {mtype} initialized with {label} backend (free RAM: {free_memory_gb:.1f}GB)")
                     return True
@@ -287,10 +314,23 @@ class InProcessYOLO:
 
     _inference_lock = __import__("threading").Lock()
 
-    def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+    def detect(self, frame: np.ndarray, roi: Optional[List[int]] = None) -> List[Dict[str, Any]]:
         if not self._initialized or self._net is None:
             return []
-        
+
+        # ROI zoom (Frigate-style): run on the motion region only, boxes are
+        # shifted back to full-frame coords before return. A person at 8m
+        # gets ~2x more input pixels than whole-frame detection gives.
+        off_x = off_y = 0
+        if roi is not None:
+            fh, fw = frame.shape[:2]
+            rx, ry, rw, rh = (int(v) for v in roi)
+            rx, ry = max(0, rx), max(0, ry)
+            rw, rh = min(rw, fw - rx), min(rh, fh - ry)
+            if rw >= 16 and rh >= 16:
+                frame = frame[ry:ry + rh, rx:rx + rw]
+                off_x, off_y = rx, ry
+
         with self._inference_lock:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             orig_mean = np.mean(gray)
@@ -303,15 +343,23 @@ class InProcessYOLO:
                 frame = cv2.addWeighted(frame, 0.3, enhanced, 0.7, 0)
 
             h, w = frame.shape[:2]
-            blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
+            qat_lb = None
+            if self._model_type == "yolov8-qat":
+                # Letterbox (pad 114) to the model's 640x384 input. QAT
+                # weights were trained on letterboxed frames — the whole-frame
+                # stretch used for COCO models shifts every box.
+                qat_lb = self._letterbox_qat(frame)
+                blob = cv2.dnn.blobFromImage(qat_lb["canvas"], 1 / 255.0, (self.QAT_W, self.QAT_H), swapRB=True, crop=False)
+            else:
+                blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
             self._net.setInput(blob)
             t_start = time.perf_counter()
             try:
-                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
             except cv2.error:
                 self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
                 self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type == "yolov4" else [self._net.forward()]
+                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
         
         elapsed_ms = (time.perf_counter() - t_start) * 1000
         self._last_inference_ms = elapsed_ms
@@ -322,7 +370,9 @@ class InProcessYOLO:
             print(f"[InProcessYOLO] inference={elapsed_ms:.1f}ms backend={self._backend_label} model={self._model_type} avg={avg:.1f}ms")
 
         boxes, confidences, class_ids = [], [], []
-        if self._model_type in ("yolov8", "yolov5"):
+        if self._model_type == "yolov8-qat":
+            boxes, confidences, class_ids = self._decode_qat(outputs, w, h, qat_lb)
+        elif self._model_type in ("yolov8", "yolov5"):
             output = outputs[0]
             if len(output.shape) == 3 and output.shape[0] == 1:
                 output = output[0]
@@ -416,7 +466,71 @@ class InProcessYOLO:
                 if not overlap:
                     results.append(hp)
                     print(f"  [InProcessYOLO] HOG supplement: person at {hp['bbox']}")
+
+        # Shift ROI-zoom boxes back to full-frame coordinates (crop bounds
+        # already clamped them inside the frame, so they stay valid).
+        if off_x or off_y:
+            for res in results:
+                res["bbox"][0] += off_x
+                res["bbox"][1] += off_y
         return results
+
+    # CrowdHuman QAT int8 person model: 6-head DFL output, 1 class.
+    QAT_W, QAT_H, QAT_PAD = 640, 384, 114
+
+    def _letterbox_qat(self, frame):
+        h, w = frame.shape[:2]
+        r = min(self.QAT_W / w, self.QAT_H / h)
+        nw, nh = int(round(w * r)), int(round(h * r))
+        resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        canvas = np.full((self.QAT_H, self.QAT_W, 3), self.QAT_PAD, dtype=np.uint8)
+        dw, dh = (self.QAT_W - nw) // 2, (self.QAT_H - nh) // 2
+        canvas[dh:dh + nh, dw:dw + nw] = resized
+        return {"canvas": canvas, "r": r, "dw": dw, "dh": dh}
+
+    def _decode_qat(self, outputs, w: int, h: int, lb) -> tuple:
+        """Decode 6 raw heads (box/cls pairs at strides 8/16/32) to frame boxes.
+
+        box head = 4x16 DFL distribution, cls head = 1 person logit (sigmoid).
+        Letterbox inverse applied here so callers get original-frame coords.
+        """
+        person_thresh = self._class_thresholds.get("person", self._default_threshold)
+        dfl_idx = np.arange(16, dtype=np.float32)
+        boxes, confidences, class_ids = [], [], []
+        for head, stride in enumerate((8, 16, 32)):
+            box_out = np.asarray(outputs[2 * head], dtype=np.float32)
+            cls_out = np.asarray(outputs[2 * head + 1], dtype=np.float32)
+            if box_out.ndim == 4:
+                box_out = box_out[0]
+            if cls_out.ndim == 4:
+                cls_out = cls_out[0]
+            if box_out.shape[0] != 64 and box_out.shape[-1] == 64:
+                box_out = box_out.transpose(2, 0, 1)
+            if cls_out.shape[0] != 1 and cls_out.shape[-1] == 1:
+                cls_out = cls_out.transpose(2, 0, 1)
+            _, gh, gw = box_out.shape
+            dist = box_out.reshape(4, 16, gh * gw).transpose(2, 0, 1)
+            e = np.exp(dist - dist.max(-1, keepdims=True))
+            ltrb = (e / e.sum(-1, keepdims=True)) @ dfl_idx  # (HW, 4) grid units
+            ys, xs = np.mgrid[0:gh, 0:gw].astype(np.float32)
+            ax = (xs + 0.5).reshape(-1)
+            ay = (ys + 0.5).reshape(-1)
+            conf = 1.0 / (1.0 + np.exp(-cls_out.reshape(-1)))
+            keep = np.nonzero(conf > person_thresh)[0]
+            if keep.size == 0:
+                continue
+            x1 = np.clip(((ax[keep] - ltrb[keep, 0]) * stride - lb["dw"]) / lb["r"], 0, w)
+            y1 = np.clip(((ay[keep] - ltrb[keep, 1]) * stride - lb["dh"]) / lb["r"], 0, h)
+            x2 = np.clip(((ax[keep] + ltrb[keep, 2]) * stride - lb["dw"]) / lb["r"], 0, w)
+            y2 = np.clip(((ay[keep] + ltrb[keep, 3]) * stride - lb["dh"]) / lb["r"], 0, h)
+            for k in range(keep.size):
+                bx, by = int(x1[k]), int(y1[k])
+                bw, bh = int(x2[k] - x1[k]), int(y2[k] - y1[k])
+                if bw >= self._min_box_side and bh >= self._min_box_side and bw * bh >= self._min_box_area:
+                    boxes.append([bx, by, bw, bh])
+                    confidences.append(float(conf[keep[k]]))
+                    class_ids.append(0)
+        return boxes, confidences, class_ids
 
     def _hog_person_supplement(self, frame: np.ndarray) -> List[Dict]:
         results = []
@@ -600,10 +714,11 @@ class FramePipeline:
         # Single reader on the go2rtc-internal low stream (720p H.264).
         # The TP-Link cameras allow only ONE RTSP connection, which go2rtc
         # holds and re-streams internally — so we must stay inside go2rtc.
-        # Detection runs on 640x360 and the live preview is downscaled to
-        # LIVE_WIDTHxLIVE_HEIGHT inside _on_live_frame, so reading the
-        # low stream (instead of native 2K) is lossless for both paths
-        # while cutting decode/pipe cost ~10x. A fixed output size is
+        # Detection runs at the low stream's native size (1280x720 via
+        # go2rtc.yaml h264_low — YOLO accuracy is pixel-bound) and the live
+        # preview is downscaled to LIVE_WIDTHxLIVE_HEIGHT inside
+        # _on_live_frame, so reading the low stream (instead of native 2K)
+        # still saves ~10x decode/pipe cost. A fixed output size is
         # required because the reader reads raw fixed-size frames off a
         # pipe; if the source resolution changed mid-stream the byte
         # stream would desync.
@@ -783,7 +898,14 @@ class FramePipeline:
         self._last_yolo_time = now_ts
 
         print(f"[FramePipeline:{self._camera_id}] MOTION DETECTED — running YOLO")
-        raw_detections = self._run_detection(frame)
+        roi_frame = motion_result.get("roi")
+        if roi_frame:
+            # MotionGate works on `small`; rescale its roi to full-frame px.
+            sx = frame.shape[1] / max(small.shape[1], 1)
+            sy = frame.shape[0] / max(small.shape[0], 1)
+            roi_frame = [roi_frame[0] * sx, roi_frame[1] * sy,
+                         roi_frame[2] * sx, roi_frame[3] * sy]
+        raw_detections = self._run_detection(frame, roi=roi_frame)
         if raw_detections:
             for det in raw_detections:
                 b = det.get("bbox", [0, 0, 0, 0])
@@ -841,31 +963,45 @@ class FramePipeline:
             if threat["level"] != "low":
                 print(f"[FramePipeline:{self._camera_id}] THREAT: {threat['level']} ({threat['confidence']}%) — {threat['reasoning'][:100]}")
             print(f"[FramePipeline:{self._camera_id}] {len(detections)} detections → {len(tracked)} tracked → {len(events)} events")
-        # YOLO ran on the 640x360 detect stream, the snapshot is written from
-        # the full-res grab. Publish the bbox in the image's coordinate space
+        # YOLO ran on the low detect stream (go2rtc h264_low), the snapshot
+        # is written from the full-res grab. Publish the bbox in the image's coordinate space
         # so the events page can scale it straight onto the rendered picture.
         detect_size = (frame.shape[1], frame.shape[0])
         for ev in events:
             align_event_bbox(ev, detect_size, self._snapshot_dims)
             self._event_queue.put(ev)
 
-    def _run_detection(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+    def _run_detection(self, frame: np.ndarray, roi: Optional[List[int]] = None) -> List[Dict[str, Any]]:
         if self._yolo_detector is None:
             return []
-        h, w = frame.shape[:2]
+        off_x = off_y = 0
+        src = frame
+        if roi is not None:
+            fh, fw = frame.shape[:2]
+            rx, ry, rw, rh = (int(v) for v in roi)
+            rx, ry = max(0, rx), max(0, ry)
+            rw, rh = min(rw, fw - rx), min(rh, fh - ry)
+            if rw >= 16 and rh >= 16:
+                src = frame[ry:ry + rh, rx:rx + rw]
+                off_x, off_y = rx, ry
+        h, w = src.shape[:2]
         max_w = self._yolo_max_input_width
         if max_w and w > max_w:
             scale = max_w / w
-            inference_frame = cv2.resize(frame, (max_w, max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+            inference_frame = cv2.resize(src, (max_w, max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
         else:
             scale = 1.0
-            inference_frame = frame
+            inference_frame = src
         detections = self._yolo_detector.detect(inference_frame)
         if scale != 1.0:
             inv = 1.0 / scale
             for det in detections:
                 det["bbox"] = [int(det["bbox"][0] * inv), int(det["bbox"][1] * inv),
                                int(det["bbox"][2] * inv), int(det["bbox"][3] * inv)]
+        if off_x or off_y:
+            for det in detections:
+                det["bbox"][0] += off_x
+                det["bbox"][1] += off_y
         return detections
 
     def get_yolo_metrics(self) -> dict:
@@ -899,7 +1035,7 @@ class FramePipeline:
         """Grab one full-res frame from the go2rtc main stream via its HTTP API.
 
         Used for person snapshots: 2304x1296 gives ~3.6x more pixels than
-        the 640x360 detect stream, making faces identifiable (60px+ vs 13-44px).
+        detect stream, making faces identifiable (60px+ vs 13-44px).
 
         /api/frame.jpeg serves the latest keyframe from go2rtc's internal
         buffer: no ffprobe, no subprocess, no RTSP reconnect per event, and
@@ -1052,8 +1188,8 @@ class FramePipeline:
                         if snap:
                             self._snapshotted_tracks.add(tid)
                             self._snapshot_paths[tid] = snap
-                        # HD face recognition: detect stream is 640x360 — faces
-                        # are 13-44px there, too small for ArcFace. The main
+                        # HD face recognition: faces on the detect stream are
+                        # still too small for ArcFace. The main
                         # stream (2304x1296) gives ~3.6x more pixels, making
                         # faces identifiable. Scale bbox detect→full-res coords
                         # and recognize on the high-res person crop.

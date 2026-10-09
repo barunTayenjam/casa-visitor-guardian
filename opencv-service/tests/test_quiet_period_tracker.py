@@ -120,7 +120,7 @@ def test_no_motion_still_updates_tracker():
 def test_motion_but_all_filtered_still_updates_tracker():
     """YOLO ran but filters dropped everything: tracker must still age tracks."""
     p = _make_pipeline(motion_detected=True)
-    p._run_detection = lambda frame: [{"bbox": [0, 0, 1, 1], "score": 0.01, "class": "noise", "class_id": 9}]
+    p._run_detection = lambda frame, roi=None: [{"bbox": [0, 0, 1, 1], "score": 0.01, "class": "noise", "class_id": 9}]
     p._apply_camera_filters = lambda dets: []  # filters drop all
 
     p._process_detection(_frame())
@@ -143,7 +143,7 @@ def test_published_bbox_is_scaled_to_the_snapshot_image():
     """
     p = _make_pipeline(motion_detected=True)
     p._scene_frame_counter = 1
-    p._run_detection = lambda frame: [{"bbox": [0, 0, 10, 10], "score": 0.9, "class": "person", "class_id": 0}]
+    p._run_detection = lambda frame, roi=None: [{"bbox": [0, 0, 10, 10], "score": 0.9, "class": "person", "class_id": 0}]
     p._apply_camera_filters = lambda dets: dets
     p._snapshot_dims = {7: (2560, 1440)}
     p._enrich_with_identity = lambda tracked, frame: [
@@ -161,7 +161,7 @@ def test_published_bbox_without_a_snapshot_stays_in_detect_frame():
     """No file, no alignment: there is no image to express the box in."""
     p = _make_pipeline(motion_detected=True)
     p._scene_frame_counter = 1
-    p._run_detection = lambda frame: [{"bbox": [0, 0, 10, 10], "score": 0.9, "class": "person", "class_id": 0}]
+    p._run_detection = lambda frame, roi=None: [{"bbox": [0, 0, 10, 10], "score": 0.9, "class": "person", "class_id": 0}]
     p._apply_camera_filters = lambda dets: dets
     p._snapshot_dims = {7: (2560, 1440)}
     p._enrich_with_identity = lambda tracked, frame: [{"track_id": 8, "bbox": [10, 20, 30, 40]}]

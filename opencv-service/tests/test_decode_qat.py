@@ -70,8 +70,9 @@ def test_decodes_exact_box_at_known_cell():
     boxes, confs, cids = det._decode_qat(heads, 640, 360, lb)
     assert len(boxes) == 1
     x, y, w, h = boxes[0]
-    # x1 = (20.5 - 8) * 8 = 100, y1 = (10.5 - 4) * 8 - 12 = 40
-    assert (x, y, w, h) == (100, 40, 64, 64)
+    # x1 = (20.5-8)*8 = 100, x2 = (20.5+8)*8 = 228 -> w = 128
+    # y1 = (10.5-4)*8 - 12 = 40, y2 = (10.5+4)*8 - 12 = 104 -> h = 64
+    assert (x, y, w, h) == (100, 40, 128, 64)
     assert confs[0] == pytest.approx(0.9, abs=1e-3)
     assert cids == [0]
 
@@ -86,8 +87,8 @@ def test_letterbox_inverse_shifts_box_back():
     x, y, w, h = boxes[0]
     # x1 = ((20.5-8)*8 - 64)/0.5 = 72, y1 = ((10.5-4)*8)/0.5 = 104
     assert (x, y) == (72, 104)
-    # Box size inverts the scale too: 64/0.5 = 128
-    assert (w, h) == (128, 128)
+    # Box size inverts the scale too: 128/0.5 = 256, 64/0.5 = 128
+    assert (w, h) == (256, 128)
 
 
 def test_below_threshold_head_ignored():
@@ -107,11 +108,12 @@ def test_min_box_side_filters_tiny_boxes():
 
 def test_clamps_to_frame_bounds():
     det = _make_det()
-    # ltrb (16, 0, 2, 2): x1 = (1.5-16)*8 = -116 -> clipped to 0
-    heads = _heads(2 * 80 + 1, (16, 0, 2, 2), 0.9)
+    # ltrb (16, 4, 8, 8): x1 = (1.5-16)*8 = -116 -> clipped to 0,
+    # y1 = (2.5-4)*8 - 12 = -24 -> clipped to 0
+    heads = _heads(2 * 80 + 1, (16, 4, 8, 8), 0.9)
     boxes, _, _ = det._decode_qat(heads, 640, 360, {"r": 1.0, "dw": 0, "dh": 12})
-    assert len(boxes) >= 1
-    assert all(b[0] >= 0 and b[1] >= 0 for b in boxes)
+    assert len(boxes) == 1
+    assert boxes[0][0] == 0 and boxes[0][1] == 0
 
 
 def test_channels_last_grid_layout_decodes():
@@ -120,4 +122,4 @@ def test_channels_last_grid_layout_decodes():
     heads = _heads(10 * 80 + 20, (8, 4, 8, 4), 0.9, batched=False)
     boxes, _, _ = det._decode_qat(heads, 640, 360, {"r": 1.0, "dw": 0, "dh": 12})
     assert len(boxes) == 1
-    assert boxes[0] == [100, 40, 64, 64]
+    assert boxes[0] == [100, 40, 128, 64]

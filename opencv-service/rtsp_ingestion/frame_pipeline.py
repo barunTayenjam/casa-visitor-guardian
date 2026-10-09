@@ -306,6 +306,12 @@ class InProcessYOLO:
                         # lower on misses). Persistence/aspect gates still own
                         # FP filtering downstream.
                         self._class_thresholds["person"] = float(os.getenv("YOLO_QAT_PERSON_THRESH", "0.40"))
+                        # 20/600 benchmarked vs AI truth on 3115 events:
+                        # recall 0.864 / F1 0.813 (compare_models_ai_truth.py).
+                        # 35/1500 COCO defaults were tuned for that model's
+                        # score distribution and cost QAT ~110 recalls.
+                        self._min_box_side = int(os.getenv("YOLO_QAT_MIN_BOX_SIDE", "20"))
+                        self._min_box_area = int(os.getenv("YOLO_QAT_MIN_BOX_AREA", "600"))
                     self._initialized = True
                     print(f"[InProcessYOLO] {mtype} initialized with {label} backend (free RAM: {free_memory_gb:.1f}GB)")
                     return True

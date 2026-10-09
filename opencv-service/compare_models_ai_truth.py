@@ -6,7 +6,7 @@ analysis (user-designated truth). Same post-filters for both models so the
 comparison isolates the weights: person thresh 0.40, min side 20, min area 600,
 detect at 640x360 (pipeline detect resolution).
 
-Usage: python /app/compare_models_ai_truth.py [limit]
+Usage: python /app/compare_models_ai_truth.py [limit] [person_thresh min_side min_area]
 """
 import csv
 import os
@@ -20,9 +20,9 @@ from rtsp_ingestion.frame_pipeline import InProcessYOLO  # noqa: E402
 
 LABELS = "/app/data/detections/model_eval/labels.csv"
 LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-PERSON_THRESH = 0.40
-MIN_SIDE = 20
-MIN_AREA = 600
+PERSON_THRESH = float(sys.argv[2]) if len(sys.argv) > 2 else 0.40
+MIN_SIDE = int(sys.argv[3]) if len(sys.argv) > 3 else 20
+MIN_AREA = int(sys.argv[4]) if len(sys.argv) > 4 else 600
 
 
 def load_detector():

@@ -163,6 +163,14 @@ services:
       - PERSON_MIN_CONFIDENCE=${PERSON_MIN_CONFIDENCE:-0.55}
       - HUMAN_VERIFIER_SCORE=${HUMAN_VERIFIER_SCORE:-0.35}
       - HUMAN_VERIFIER_NIGHT_SCORE=${HUMAN_VERIFIER_NIGHT_SCORE:-0.35}
+      # QAT single-class person detector (crowdhuman_qat_640x384.onnx).
+      # Benchmarked vs AI truth on 3115 events: recall 0.864 vs 0.780 COCO,
+      # F1 0.813 vs 0.787 (compare_models_ai_truth.py). Single-class by
+      # design: vehicles/animals are NOT detected while this is active.
+      - YOLO_MODEL=${YOLO_MODEL:-crowdhuman_qat_640x384}
+      - YOLO_QAT_PERSON_THRESH=${YOLO_QAT_PERSON_THRESH:-0.40}
+      - YOLO_QAT_MIN_BOX_SIDE=${YOLO_QAT_MIN_BOX_SIDE:-20}
+      - YOLO_QAT_MIN_BOX_AREA=${YOLO_QAT_MIN_BOX_AREA:-600}
       - OMP_NUM_THREADS=2
       - OPENCV_NUM_THREADS=2
     devices:

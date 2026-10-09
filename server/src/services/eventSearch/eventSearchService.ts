@@ -125,8 +125,14 @@ export class EventSearchService {
 
     const conditions: string[] = [
       "e.event_type IN ('motion', 'face', 'person', 'visitor', 'recognition', 'event_motion', 'event_face')",
-      "e.file_path IS NOT NULL AND e.file_path != ''",
-      "COALESCE(e.persons_detected, 0) > 0",
+      // persons_detected>0 is NOT a global condition: it hid 223 vehicle and
+      // motion events per 2 days (persons=0) that the UI had already shown
+      // live — the "event tracked then disappears on reload" symptom. The
+      // person filter applies only when the user asks for persons.
+      // Image is mandatory for person/face (the crop IS the evidence) but
+      // motion rows legitimately carry no snapshot — hiding them also hid
+      // every event the live feed had announced.
+      "(e.event_type NOT IN ('person', 'visitor', 'recognition', 'face', 'event_face') OR (e.file_path IS NOT NULL AND e.file_path != ''))",
     ];
     const queryParams: unknown[] = [];
     let paramIndex = 1;

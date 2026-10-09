@@ -16,7 +16,9 @@ const DEFAULT_WINDOW_MS = 10 * 60 * 1000;
  * fixture p50=2.4px, real people p50=127.5px.
  */
 const PERSON_SHIFT_PX = 18;
-const PERSON_WINDOW_MS = 10 * 60 * 1000;
+// 3min, not 10: a person returning to the same spot within 10min (courier,
+// resident) was silently swallowed. 3min still collapses a single visit.
+const PERSON_WINDOW_MS = 3 * 60 * 1000;
 
 function envNumber(raw: string | undefined, fallback: number): number {
   const parsed = Number(raw);

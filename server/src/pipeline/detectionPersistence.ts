@@ -155,9 +155,16 @@ export async function persistDetectionEvent(
     return interArea / (aArea + bArea - interArea);
   };
 
-  // Filter out lost tracks and dedupe overlapping person bboxes (same person → 1)
+  // Filter out lost tracks and dedupe overlapping person bboxes (same person → 1).
+  // Never filter out the event's own track: the scene snapshot can be empty
+  // (5s window expired) or the primary track can arrive already `lost`, and
+  // dropping it persisted a person event with persons_detected=0 and
+  // object_detections=[] — two such rows (15:27, 16:57 on Oct 5) were verified
+  // humans carrying 33 pose keypoints while claiming zero people.
   const activePersonDets = allSceneDets.filter(
-    (d) => d.className === 'person' && (d.trackState ?? '') !== 'lost'
+    (d) =>
+      d.className === 'person' &&
+      ((d.trackState ?? '') !== 'lost' || d.trackId === trackId),
   );
   const seen: typeof activePersonDets = [];
   const personDets = activePersonDets.filter((d) => {

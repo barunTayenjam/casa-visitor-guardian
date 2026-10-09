@@ -29,6 +29,24 @@ import { Timeline } from '../models/Timeline.js';
 import { AdaptiveRegion } from '../models/AdaptiveRegion.js';
 import { DetectionConfig } from '../models/DetectionConfig.js';
 import { startRelationQueueWorker } from '../services/relationQueue.js';
+import { HumanVerification } from '../models/HumanVerification.js';
+
+async function recordFailedVerification(ev: TrackingEvent): Promise<void> {
+  const hv = ev.humanVerification!;
+  const repo = AppDataSource.getRepository(HumanVerification);
+  await repo.insert({
+    cameraId: ev.cameraId!,
+    trackId: String(ev.trackId),
+    verified: false,
+    tier: hv.tier,
+    keypoints: hv.keypoints ?? 0,
+    faceDetected: hv.face_detected ?? false,
+    yoloScore: hv.yolo_score ?? ev.score ?? 0,
+    roiWidth: hv.roi_w ?? 0,
+    roiHeight: hv.roi_h ?? 0,
+    elapsedMs: hv.elapsed_ms ?? 0,
+  });
+}
 
 export async function initializeServices(io: SocketIOServer): Promise<void> {
   serviceRegistry.setAppDataSource(AppDataSource);
@@ -144,6 +162,21 @@ export async function initializeServices(io: SocketIOServer): Promise<void> {
           cameraId,
           detections: [detection],
           timestamp: new Date(ev.timestamp).toISOString(),
+        });
+      }
+
+      // HumanVerifier fails never reach persistence (no event row, and the
+      // deduplicator drops filePath-less persons before persistence), so they
+      // left no audit trail at all — all-time human_verifications rows were
+      // 100% verified=true. Record the fail here instead: the row is what makes
+      // the verifier tunable.
+      if (className === 'person' && ev.humanVerification?.verified === false) {
+        recordFailedVerification(ev).catch((err: unknown) => {
+          logger.warn(
+            `Failed to record verification failure for ${cameraId}`,
+            'INIT',
+            err,
+          );
         });
       }
 

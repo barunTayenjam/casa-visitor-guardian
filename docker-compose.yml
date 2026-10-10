@@ -168,7 +168,7 @@ services:
       # F1 0.813 vs 0.787 (compare_models_ai_truth.py). Single-class by
       # design: vehicles/animals are NOT detected while this is active.
       - YOLO_MODEL=${YOLO_MODEL:-crowdhuman_qat_640x384}
-      - YOLO_QAT_PERSON_THRESH=${YOLO_QAT_PERSON_THRESH:-0.40}
+      - YOLO_QAT_PERSON_THRESH=${YOLO_QAT_PERSON_THRESH:-0.48}
       - YOLO_QAT_MIN_BOX_SIDE=${YOLO_QAT_MIN_BOX_SIDE:-20}
       - YOLO_QAT_MIN_BOX_AREA=${YOLO_QAT_MIN_BOX_AREA:-600}
       - OMP_NUM_THREADS=2

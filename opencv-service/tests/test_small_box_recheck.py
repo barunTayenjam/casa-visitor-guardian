@@ -6,11 +6,20 @@ This is the guard that stopped the 13:06 false "person" event (black dog,
 score 0.77) from being published as a human.
 """
 
+import os
+
 import pytest
 import numpy as np
 import cv2
 
 from rtsp_ingestion.frame_pipeline import FramePipeline, InProcessYOLO
+
+# Container-only: needs the real YOLO weights baked into the image. The host
+# Python (3.14) has no cv2/models either, so these tests cannot run there.
+pytestmark = pytest.mark.skipif(
+    not os.path.exists("/app/models/crowdhuman_qat_640x384.onnx"),
+    reason="container-only: needs /app/models",
+)
 
 
 def _detector():

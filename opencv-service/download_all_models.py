@@ -49,6 +49,28 @@ MODELS = {
         'required': False
     },
 
+    # CrowdHuman QAT v8s backbone — primary person detector (recall 0.884
+    # vs 0.864 v8n on 3115 AI-labeled events). YOLO_MODEL=crowdhuman_v8s_qat_640x384
+    'crowdhuman_v8s_qat_640x384.onnx': {
+        'urls': [
+            "https://huggingface.co/ru551n/inblick-yolov8n/resolve/main/crowdhuman_v8s_qat_640x384/qdq.onnx",
+        ],
+        'description': 'CrowdHuman QAT v8s person detector - highest person recall',
+        'size_mb': 11.5,
+        'required': False
+    },
+
+    # COCO QAT INT8 (80-class, 640x384) — dual-chain aux for
+    # vehicles/animals. QAT_AUX=coco_qat
+    'coco_qat_640x384.onnx': {
+        'urls': [
+            "https://huggingface.co/ru551n/inblick-yolov8n/resolve/main/coco_qat_640x384/qdq.onnx",
+        ],
+        'description': 'COCO QAT INT8 detector - vehicles/animals aux, 16:9 input',
+        'size_mb': 3.5,
+        'required': False
+    },
+
     # YOLOv5n ONNX - Good alternative
     'yolov5n.onnx': {
         'urls': [

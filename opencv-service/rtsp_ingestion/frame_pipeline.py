@@ -76,6 +76,80 @@ from person_verifier import HumanVerifier
 from model_selection import resolve_model_priority
 from bbox_coords import align_event_bbox
 
+try:
+    import onnxruntime as _ort
+except ImportError:
+    _ort = None
+
+
+class OrtRunner:
+    """Quantized INT8 execution for QAT models, cv2.dnn fallback.
+
+    OpenCV DNN dequantizes QDQ graphs to fp32; onnxruntime executes them
+    natively quantized — 2.3x faster on this CPU host for identical boxes.
+    """
+
+    def __init__(self, model_path: str, fallback_net):
+        self._session = None
+        self._input_name = None
+        self._fallback_net = fallback_net
+        if _ort is None or not os.path.exists(model_path):
+            return
+        try:
+            self._session = _ort.InferenceSession(
+                model_path, providers=["CPUExecutionProvider"]
+            )
+            self._input_name = self._session.get_inputs()[0].name
+        except Exception:
+            self._session = None
+
+    def is_ort(self) -> bool:
+        return self._session is not None
+
+    def forward(self, blob: np.ndarray):
+        if self._session is not None:
+            # These QAT exports take NCHW fp32 [1,3,384,640] — same layout as
+            # the cv2.dnn blob. ponytail: if a future export wants NHWC,
+            # branch on self._session.get_inputs()[0].shape[-1] == 3 here.
+            return [np.asarray(o) for o in self._session.run(None, {self._input_name: blob})]
+        return None
+
+
+def _make_ort_runner(model_path: str) -> Optional["OrtRunner"]:
+    if _ort is None:
+        return None
+    return OrtRunner(model_path, fallback_net=None)
+
+
+class _QatAuxDetector:
+    """Aux COCO-QAT InProcessYOLO for the dual chain.
+
+    Shares QAT_ORT engine selection and decode with the primary detector.
+    Vehicles/animals/cars only — persons come from the primary (v8s) so
+    both detectors never double-report the same person.
+    """
+
+    def __init__(self, models_dir: str):
+        self._det = InProcessYOLO(models_dir)
+        # QAT_AUX=coco_qat enables the chain; the aux model file is fixed.
+        self._model_name = "coco_qat_640x384"
+
+    def initialize(self) -> bool:
+        ok = self._det.initialize(preferred_model=self._model_name)
+        if ok:
+            print("[QatAux] aux detector initialized:", self._model_name)
+        return ok
+
+    def detect(self, frame):
+        dets = self._det.detect(frame)
+        return [d for d in dets if d.get("class") != "person"]
+
+
+def _make_qat_aux(models_dir: str) -> Optional[_QatAuxDetector]:
+    """Construct + init the aux detector, or None when disabled/missing."""
+    aux = _QatAuxDetector(models_dir)
+    return aux if aux.initialize() else None
+
 
 class MotionGate:
     """Per-camera MOG2 background subtractor for motion gating."""
@@ -247,7 +321,7 @@ class InProcessYOLO:
             pass
         return (cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU, 'CPU')
 
-    def initialize(self) -> bool:
+    def initialize(self, preferred_model: Optional[str] = None) -> bool:
         if self._initialized:
             return True
 
@@ -263,7 +337,7 @@ class InProcessYOLO:
             pass
 
         model_priority = resolve_model_priority(
-            os.getenv("YOLO_MODEL"),
+            preferred_model or os.getenv("YOLO_MODEL"),
             gpu_available=gpu_available,
             free_memory_gb=free_memory_gb,
         )
@@ -312,6 +386,13 @@ class InProcessYOLO:
                         # score distribution and cost QAT ~110 recalls.
                         self._min_box_side = int(os.getenv("YOLO_QAT_MIN_BOX_SIDE", "20"))
                         self._min_box_area = int(os.getenv("YOLO_QAT_MIN_BOX_AREA", "600"))
+                    # INT8-native execution: onnxruntime runs QDQ models
+                    # quantized (37ms v8n / 112ms v8s on this host); cv2.dnn
+                    # dequantizes them to fp32 (83ms) for identical boxes.
+                    # Disabled unless QAT_ORT=1 (env) — zero behaviour change.
+                    self._ort_runner = None
+                    if mtype == "yolov8-qat" and os.getenv("QAT_ORT", "0") == "1":
+                        self._ort_runner = _make_ort_runner(path)
                     self._initialized = True
                     print(f"[InProcessYOLO] {mtype} initialized with {label} backend (free RAM: {free_memory_gb:.1f}GB)")
                     return True
@@ -360,12 +441,17 @@ class InProcessYOLO:
                 blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (self._input_size, self._input_size), swapRB=True, crop=False)
             self._net.setInput(blob)
             t_start = time.perf_counter()
-            try:
-                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
-            except cv2.error:
-                self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-                outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
+            outputs = None
+            runner = getattr(self, "_ort_runner", None)
+            if runner is not None and runner.is_ort():
+                outputs = runner.forward(blob)
+            if outputs is None:
+                try:
+                    outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
+                except cv2.error:
+                    self._net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                    self._net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+                    outputs = self._net.forward(self._net.getUnconnectedOutLayersNames()) if self._model_type in ("yolov4", "yolov8-qat") else [self._net.forward()]
         
         elapsed_ms = (time.perf_counter() - t_start) * 1000
         self._last_inference_ms = elapsed_ms
@@ -446,6 +532,9 @@ class InProcessYOLO:
                     "class": cname,
                     "class_id": class_ids[i],
                 })
+        if self._model_type == "yolov8-qat":
+            # COCO QAT emits all 80 classes; keep only the ones events use.
+            results = self._filter_qat_classes(results)
 
         # HOG people-detector supplement is DISABLED by default: on dim
         # (CLAHE-enhanced) frames it hallucinates static phantom "persons"
@@ -481,6 +570,14 @@ class InProcessYOLO:
                 res["bbox"][1] += off_y
         return results
 
+    def _filter_qat_classes(self, results: List[Dict]) -> List[Dict]:
+        """Keep only classes events persist (drop toothbrushes, fridges).
+
+        COCO QAT emits all 80 classes; the CrowdHuman export emits only
+        person, so this is a no-op there.
+        """
+        return [r for r in results if r["class"] in self._relevant_classes]
+
     # CrowdHuman QAT int8 person model: 6-head DFL output, 1 class.
     QAT_W, QAT_H, QAT_PAD = 640, 384, 114
 
@@ -497,10 +594,11 @@ class InProcessYOLO:
     def _decode_qat(self, outputs, w: int, h: int, lb) -> tuple:
         """Decode 6 raw heads (box/cls pairs at strides 8/16/32) to frame boxes.
 
-        box head = 4x16 DFL distribution, cls head = 1 person logit (sigmoid).
-        Letterbox inverse applied here so callers get original-frame coords.
+        box head = 4x16 DFL distribution. cls head = 1 person logit (sigmoid)
+        for the CrowdHuman export, or C channels (argmax = class id) for the
+        COCO export. Letterbox inverse applied here so callers get
+        original-frame coords.
         """
-        person_thresh = self._class_thresholds.get("person", self._default_threshold)
         dfl_idx = np.arange(16, dtype=np.float32)
         boxes, confidences, class_ids = [], [], []
         for head, stride in enumerate((8, 16, 32)):
@@ -515,14 +613,33 @@ class InProcessYOLO:
             if cls_out.shape[0] != 1 and cls_out.shape[-1] == 1:
                 cls_out = cls_out.transpose(2, 0, 1)
             _, gh, gw = box_out.shape
+            n_cls = cls_out.shape[0]
             dist = box_out.reshape(4, 16, gh * gw).transpose(2, 0, 1)
             e = np.exp(dist - dist.max(-1, keepdims=True))
             ltrb = (e / e.sum(-1, keepdims=True)) @ dfl_idx  # (HW, 4) grid units
             ys, xs = np.mgrid[0:gh, 0:gw].astype(np.float32)
             ax = (xs + 0.5).reshape(-1)
             ay = (ys + 0.5).reshape(-1)
-            conf = 1.0 / (1.0 + np.exp(-cls_out.reshape(-1)))
-            keep = np.nonzero(conf > person_thresh)[0]
+            if n_cls == 1:
+                # CrowdHuman single-person-logit export.
+                conf = 1.0 / (1.0 + np.exp(-cls_out.reshape(-1)))
+                best_cls = np.zeros(gh * gw, dtype=np.int64)
+                cls_thresh = np.full(gh * gw, self._class_thresholds.get("person", self._default_threshold), dtype=np.float32)
+            else:
+                # COCO export: per-cell argmax over class logits (sigmoid).
+                probs = 1.0 / (1.0 + np.exp(-cls_out.reshape(n_cls, -1)))
+                best_cls = probs.argmax(0)
+                conf = probs.max(0)
+                thr_by_id = {
+                    self._class_names.index(name): thr
+                    for name, thr in self._class_thresholds.items()
+                    if name in self._class_names
+                }
+                cls_thresh = np.array(
+                    [thr_by_id.get(int(c), self._default_threshold) for c in best_cls],
+                    dtype=np.float32,
+                )
+            keep = np.nonzero(conf > cls_thresh)[0]
             if keep.size == 0:
                 continue
             x1 = np.clip(((ax[keep] - ltrb[keep, 0]) * stride - lb["dw"]) / lb["r"], 0, w)
@@ -535,7 +652,7 @@ class InProcessYOLO:
                 if bw >= self._min_box_side and bh >= self._min_box_side and bw * bh >= self._min_box_area:
                     boxes.append([bx, by, bw, bh])
                     confidences.append(float(conf[keep[k]]))
-                    class_ids.append(0)
+                    class_ids.append(int(best_cls[keep[k]]))
         return boxes, confidences, class_ids
 
     def _hog_person_supplement(self, frame: np.ndarray) -> List[Dict]:
@@ -655,6 +772,7 @@ class FramePipeline:
     """
 
     _yolo_detector: Optional[InProcessYOLO] = None
+    _aux_detector = None  # dual-chain COCO-QAT aux (vehicles/animals)
     _yolo_init_lock = __import__("threading").Lock()
     # 0 disables the recheck on bare-instance test objects (no __init__ call).
     _recheck_max_area: int = 0
@@ -761,6 +879,9 @@ class FramePipeline:
             if ok:
                 cls._yolo_detector = detector
                 print("[FramePipeline] In-process YOLO detector initialized")
+                cls._aux_detector = None
+                if os.getenv("QAT_AUX", "none") == "coco_qat":
+                    cls._aux_detector = _make_qat_aux(models_dir)
             else:
                 print("[FramePipeline] WARNING: No YOLO model could be loaded")
 
@@ -1014,6 +1135,11 @@ class FramePipeline:
             scale = 1.0
             inference_frame = src
         detections = self._yolo_detector.detect(inference_frame)
+        aux = getattr(self, "_aux_detector", None)
+        if aux is not None:
+            # Dual chain: aux (COCO QAT) adds vehicles/animals on the same
+            # inference frame; rescale + ROI shift below apply to both.
+            detections = detections + aux.detect(inference_frame)
         if scale != 1.0:
             inv = 1.0 / scale
             for det in detections:

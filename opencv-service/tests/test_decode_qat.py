@@ -27,6 +27,7 @@ def _make_det() -> InProcessYOLO:
     det._default_threshold = 0.50
     det._min_box_side = 35
     det._min_box_area = 1500
+    det._class_names = ["person", "bicycle", "car"]  # COCO prefix used by yolo_classes.txt
     return det
 
 
@@ -123,3 +124,51 @@ def test_channels_last_grid_layout_decodes():
     boxes, _, _ = det._decode_qat(heads, 640, 360, {"r": 1.0, "dw": 0, "dh": 12})
     assert len(boxes) == 1
     assert boxes[0] == [100, 40, 128, 64]
+
+
+def _heads_80cls(cell: int, ltrb: tuple, conf: float, cls_idx: int) -> list:
+    """6 heads with an 80-channel cls head (COCO QAT export layout)."""
+    heads = []
+    for stride, gh, gw in STRIDES:
+        box = np.zeros((1, 64, gh, gw), dtype=np.float32)
+        cls = np.full((1, 80, gh, gw), -10.0, dtype=np.float32)
+        c, conf_v = (cell, conf) if stride == 8 else (0, 0.01)
+        for side, val in enumerate(ltrb):
+            box[0, side * 16 + int(round(val)), c // gw, c % gw] = 20.0
+        cls[0, cls_idx if stride == 8 else 0, c // gw, c % gw] = np.log(conf_v / (1 - conf_v))
+        heads.extend([box, cls])
+    return heads
+
+
+def test_decodes_80class_head_returns_class_id():
+    """COCO QAT export: cls head is (1,80,gh,gw); cell argmax = class id."""
+    det = _make_det()
+    det._class_thresholds = {"person": 0.40, "car": 0.35}
+    # car = COCO id 2 in models/yolo_classes.txt
+    heads = _heads_80cls(10 * 80 + 20, (8, 4, 8, 4), 0.9, cls_idx=2)
+    boxes, confs, cids = det._decode_qat(heads, 640, 360, {"r": 1.0, "dw": 0, "dh": 12})
+    assert len(boxes) == 1
+    assert boxes[0] == [100, 40, 128, 64]
+    assert confs[0] == pytest.approx(0.9, abs=1e-3)
+    assert cids == [2]
+
+
+def test_decodes_80class_head_respects_per_class_threshold():
+    det = _make_det()
+    det._class_thresholds = {"person": 0.40, "car": 0.85}
+    # car conf 0.6 < car threshold 0.85 -> dropped
+    heads = _heads_80cls(10 * 80 + 20, (8, 4, 8, 4), 0.6, cls_idx=2)
+    boxes, _, _ = det._decode_qat(heads, 640, 360, {"r": 1.0, "dw": 0, "dh": 12})
+    assert boxes == []
+
+
+def test_qat_results_filtered_by_relevant_classes():
+    """COCO QAT emits all 80 classes; only relevant ones reach events."""
+    det = _make_det()
+    det._relevant_classes = {"person", "car", "truck", "bus", "motorcycle",
+                             "bicycle", "dog", "cat", "bird", "horse"}
+    r = det._filter_qat_classes([
+        {"class": "car", "score": 0.9, "bbox": [1, 2, 3, 4], "class_id": 2},
+        {"class": "cell phone", "score": 0.9, "bbox": [1, 2, 3, 4], "class_id": 67},
+    ])
+    assert [d["class"] for d in r] == ["car"]

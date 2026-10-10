@@ -29,6 +29,7 @@ class _MockYOLO:
 def _pipeline_with(mock):
     p = FramePipeline.__new__(FramePipeline)
     p._yolo_detector = mock
+    p._aux_detector = None
     p._yolo_max_input_width = 1280
     return p
 
@@ -96,3 +97,35 @@ def test_max_width_rescale_with_roi():
     # (10,10,20,20)*2 = (20,20,40,40) + (100,50) = (120,70,40,40)
     assert mock.seen.shape == (75, 100, 3)
     assert res[0]["bbox"] == [120, 70, 40, 40]
+class _MockAux:
+    """Vehicle/animal aux detector: returns a car in its frame space."""
+
+    def __init__(self):
+        self.seen = None
+
+    def detect(self, frame):
+        self.seen = frame
+        return [{"bbox": [50, 50, 30, 30], "score": 0.8, "class": "car", "class_id": 2}]
+
+
+def test_aux_detector_merges_vehicle_detections():
+    """Dual chain: primary persons + aux vehicles on the same crop."""
+    mock, aux = _MockYOLO(), _MockAux()
+    p = _pipeline_with(mock)
+    p._aux_detector = aux
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    res = p._run_detection(frame, roi=[100, 50, 200, 150])
+    assert aux.seen is mock.seen  # same inference frame
+    classes = {d["class"] for d in res}
+    assert classes == {"person", "car"}
+    car = next(d for d in res if d["class"] == "car")
+    # (50,50,30,30) + offset (100,50) = (150,100,30,30)
+    assert car["bbox"] == [150, 100, 30, 30]
+
+
+def test_aux_none_keeps_single_model_path():
+    mock = _MockYOLO()
+    p = _pipeline_with(mock)
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    res = p._run_detection(frame)
+    assert all(d["class"] == "person" for d in res)

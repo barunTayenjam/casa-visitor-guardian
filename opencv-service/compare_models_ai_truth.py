@@ -99,7 +99,7 @@ def main():
     print(f"person-count MAE (when AI says persons): {r_coco['count_mae']:.2f}")
     print(f"avg inference: {r_coco['avg_ms']:.1f} ms")
 
-    os.environ["YOLO_MODEL"] = "crowdhuman_qat_640x384"
+    os.environ["YOLO_MODEL"] = os.getenv("EVAL_QAT_MODEL", "crowdhuman_qat_640x384")
     qat = load_detector()
     r_qat = score_model(qat, rows)
     print("\n=== CrowdHuman QAT (int8-trained, 640x384 letterbox) ===")
